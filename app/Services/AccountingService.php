@@ -1,0 +1,487 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\JournalEntry;
+use App\Models\JournalEntryItem;
+use App\Models\SalesOrder;
+use App\Models\ChartOfAccount;
+use Illuminate\Support\Facades\DB;
+
+class AccountingService
+{
+    /**
+     * Post a journal entry for a Sales Order (POS or SI)
+     * 
+     * Target Flow:
+     * DR Accounts Receivable (or Bank/Cash)
+     * DR Cost of Sales
+     * CR Sales Revenue
+     * CR Inventory
+     */
+    public function postSalesOrderEntry(SalesOrder $order)
+    {
+        return DB::transaction(function () use ($order) {
+            // 1. Create Journal Entry Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('JV'),
+                'entry_type' => 'SALE',
+                'date' => now(),
+                'reference' => $order->so_number,
+                'memo' => "Sales recognize for Order #" . $order->so_number,
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Determine Accounts (Based on Claretian Standard COA)
+            $arAccount = ChartOfAccount::where('code', '1200')->first(); // Accounts Receivable
+            $cashAccount = ChartOfAccount::where('code', '1010')->first(); // Cash on Hand
+            $salesAccount = ChartOfAccount::where('code', '4000')->first(); // Sales Revenue
+            $inventoryAccount = ChartOfAccount::where('code', '1300')->first(); // Inventory
+            $cogsAccount = ChartOfAccount::where('code', '5000')->first(); // Cost of Goods Sold
+
+            // If required accounts don't exist, skip accounting entry
+            if (!$cashAccount || !$salesAccount) {
+                // Return early - orders can still process without accounting
+                return $entry;
+            }
+
+            // Fallbacks if COA names differ - seeking by code is safer if seeder followed standard
+            $debitAccount = ($order->type === 'calculator_pos' || $order->type === 'ecom_direct') ? $cashAccount : $arAccount;
+            
+            // 3. Create Items (Compound Entry)
+            
+            // Line 1: DR Receivables/Cash (Total Amount)
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $debitAccount->id,
+                'debit' => $order->total_amount,
+                'credit' => 0,
+                'memo' => "Payment/Receivable for " . $order->so_number,
+            ]);
+
+            // Line 2: CR Sales Revenue (Total Amount)
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $salesAccount->id,
+                'debit' => 0,
+                'credit' => $order->total_amount,
+                'memo' => "Revenue recognition",
+            ]);
+
+            // Note: In this simplified phase, we might not have exact COGS/Inventory values 
+            // per item since the 'Book' cost field is optional. 
+            // For now, we only post the Revenue lines unless cost is available.
+            
+            $totalCost = 0;
+            // Reload items if not already loaded
+            $items = $order->items()->with('book')->get();
+            foreach ($items as $item) {
+                $book = $item->book;
+                if ($book && $book->cost > 0) {
+                    $totalCost += ($book->cost * $item->quantity);
+                }
+            }
+
+            if ($totalCost > 0) {
+                // Line 3: DR Cost of Sales
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $cogsAccount->id,
+                    'debit' => $totalCost,
+                    'credit' => 0,
+                    'memo' => "Cost of Sales for " . $order->so_number,
+                ]);
+
+                // Line 4: CR Inventory
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $inventoryAccount->id,
+                    'debit' => 0,
+                    'credit' => $totalCost,
+                    'memo' => "Inventory reduction",
+                ]);
+            }
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Post a journal entry for a Receiving Report
+     * 
+     * Target Flow:
+     * DR Inventory
+     * CR Accounts Payable
+     */
+    public function postReceivingReportEntry(\App\Models\ReceivingReport $rr)
+    {
+        return DB::transaction(function () use ($rr) {
+            $totalAmount = $rr->items->sum('total_cost');
+
+            if ($totalAmount <= 0) return null;
+
+            // 1. Create Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('RR'),
+                'entry_type' => 'RR',
+                'date' => $rr->received_date,
+                'reference' => $rr->rr_number,
+                'memo' => "Inventory receipt via RR #" . $rr->rr_number,
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Accounts
+            $inventoryAccount = ChartOfAccount::where('code', '1300')->first();
+            $apAccount = ChartOfAccount::where('code', '2000')->first();
+
+            // 3. Items
+            // DR Inventory
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $inventoryAccount->id,
+                'debit' => $totalAmount,
+                'credit' => 0,
+                'memo' => "Increase inventory stock",
+            ]);
+
+            // CR Accounts Payable
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $apAccount->id,
+                'debit' => 0,
+                'credit' => $totalAmount,
+                'memo' => "Liability to supplier",
+            ]);
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Post a journal entry for a Check Voucher (Supplier Payment)
+     * 
+     * Target Flow:
+     * DR Accounts Payable
+     * CR Cash in Bank
+     */
+    public function postCheckVoucherEntry(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+            // $data should contain: amount, payee, check_no, date, memo, items (array)
+            
+            // 1. Create Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('CV'),
+                'entry_type' => 'CV',
+                'date' => $data['date'] ?? now(),
+                'reference' => $data['check_no'] ?? 'N/A',
+                'memo' => $data['memo'] ?: ("Payment to " . ($data['payee'] ?? 'Supplier') . " via CV #" . ($data['check_no'] ?? '')),
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Process Items
+            if (isset($data['items']) && is_array($data['items']) && count($data['items']) > 0) {
+                foreach ($data['items'] as $itemData) {
+                    $name = $itemData['account_name'] ?? '';
+                    $debit = $itemData['debit'] ?? 0;
+                    $credit = $itemData['credit'] ?? 0;
+
+                    if ($debit == 0 && $credit == 0) continue;
+
+                    // Try to find a matching account
+                    $account = ChartOfAccount::where('name', 'like', "%{$name}%")
+                                ->orWhere('code', $name)
+                                ->first();
+                    
+                    if (!$account) {
+                        // Default to Cash in Bank if it's a credit, otherwise Accounts Payable
+                        if ($credit > 0) {
+                            $account = ChartOfAccount::where('code', '1000')->first();
+                        } else {
+                            $account = ChartOfAccount::where('code', '2000')->first();
+                        }
+                    }
+
+                    JournalEntryItem::create([
+                        'journal_entry_id' => $entry->id,
+                        'chart_of_account_id' => $account->id,
+                        'debit' => $debit,
+                        'credit' => $credit,
+                        'memo' => $name, // PRESERVE user input
+                    ]);
+                }
+            } else {
+                // FALLBACK: Legacy hardcoded logic for simple amount if no items provided
+                $apAccount = ChartOfAccount::where('code', '2000')->first();
+                $bankAccount = ChartOfAccount::where('code', '1000')->first();
+
+                // DR Accounts Payable
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $apAccount->id,
+                    'debit' => $data['amount'],
+                    'credit' => 0,
+                    'memo' => "Settlement of liability",
+                ]);
+
+                // CR Cash in Bank
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $bankAccount->id,
+                    'debit' => 0,
+                    'credit' => $data['amount'],
+                    'memo' => "Check payment",
+                ]);
+            }
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Post a journal entry for a Cash Advance Disbursement
+     * 
+     * Target Flow:
+     * DR Receivables - Employees (1150)
+     * CR Petty Cash Fund (1020)
+     */
+    public function postCashAdvanceDisbursement(\App\Models\EmployeeCashAdvance $advance)
+    {
+        return DB::transaction(function () use ($advance) {
+            // 1. Create Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('JV'),
+                'entry_type' => 'CA',
+                'date' => now(),
+                'reference' => 'CA-' . $advance->id,
+                'memo' => "Cash advance to " . $advance->employee_name,
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Accounts
+            $receivableAccount = ChartOfAccount::firstOrCreate(
+                ['code' => '1150'],
+                ['name' => 'Receivables - Employees', 'type' => 'Asset', 'category' => 'Current Asset']
+            );
+            $pcfAccount = ChartOfAccount::where('code', '1020')->first();
+
+            // 3. Items
+            // DR Receivables - Employees
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $receivableAccount->id,
+                'debit' => $advance->amount,
+                'credit' => 0,
+                'memo' => "Employee cash advance",
+            ]);
+
+            // CR Petty Cash Fund
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $pcfAccount->id,
+                'debit' => 0,
+                'credit' => $advance->amount,
+                'memo' => "Disbursement from PCF",
+            ]);
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Post a journal entry for Petty Cash Liquidation/Replenishment
+     * 
+     * Target Flow:
+     * DR Various Expenses
+     * CR Petty Cash Fund (1020)
+     */
+    public function postPettyCashLiquidation(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+            // $data should contain: month, expenses (array of code => amount), total_amount, memo
+            
+            // 1. Create Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('JV'),
+                'entry_type' => 'LIQ',
+                'date' => now(), // Liquidation happens today
+                'reference' => "PCV-" . str_replace('-', '', $data['month']),
+                'memo' => $data['memo'] ?: "Petty Cash Liquidation for " . $data['month'],
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Account for Petty Cash Fund
+            $pcfAccount = ChartOfAccount::where('code', '1020')->first();
+
+            // 3. Expense Items (DR)
+            foreach ($data['expenses'] as $code => $amount) {
+                if ($amount <= 0) continue;
+
+                $expenseAccount = ChartOfAccount::where('code', $code)->first();
+                if (!$expenseAccount) {
+                    $expenseAccount = ChartOfAccount::where('type', 'Expense')->first(); // Fallback
+                }
+
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $expenseAccount->id,
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'memo' => "PCV Expenses: " . $expenseAccount->name,
+                ]);
+            }
+
+            // 4. Credit Petty Cash Fund (Total)
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $pcfAccount->id,
+                'debit' => 0,
+                'credit' => $data['total_amount'],
+                'memo' => "Petty Cash Replenishment/Liquidation",
+            ]);
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Post a journal entry for a Cash Advance Liquidation
+     * 
+     * Target Flow:
+     * DR Various Expenses
+     * CR Receivables - Employees (1150)
+     */
+    public function postLiquidationEntry(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+            // $data should contain: amount_liquidated, employee_name, reference, memo, expenses (array of category => amount)
+            
+            // 1. Create Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('JV'),
+                'entry_type' => 'LIQ',
+                'date' => $data['date'] ?? now(),
+                'reference' => $data['reference'] ?? 'N/A',
+                'memo' => "Liquidation of CA for " . ($data['employee_name'] ?? 'Employee'),
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Accounts
+            $receivableAccount = ChartOfAccount::where('code', '1150')->first();
+
+            // 3. Expense Items
+            foreach ($data['expenses'] as $category => $amount) {
+                if ($amount <= 0) continue;
+
+                // Simple mapping (can be expanded)
+                $code = '6000'; // Default Supplies
+                if (str_contains(strtoupper($category), 'TRAVEL')) $code = '6010';
+                if (str_contains(strtoupper($category), 'COMMUNICATION')) $code = '6020';
+                if (str_contains(strtoupper($category), 'REPRESENTATION')) $code = '6030';
+
+                $expenseAccount = ChartOfAccount::where('code', $code)->first();
+
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $expenseAccount->id,
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'memo' => "Liquidation: " . $category,
+                ]);
+            }
+
+            // 4. Credit Receivable
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $receivableAccount->id,
+                'debit' => 0,
+                'credit' => $data['amount_liquidated'],
+                'memo' => "Clearing of cash advance",
+            ]);
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Convert a Journal Voucher Request into a Journal Entry and post it.
+     * Creates a single DR to Accounts Receivable and per-item CR lines to Sales.
+     */
+    public function postJournalVoucherRequest(\App\Models\JournalVoucherRequest $jv)
+    {
+        return DB::transaction(function () use ($jv) {
+            $total = $jv->total_amount ?: $jv->items->sum('amount');
+            if ($total <= 0) return null;
+
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('JV'),
+                'entry_type' => 'JV',
+                'date' => $jv->date ?? now(),
+                'reference' => $jv->jv_number,
+                'memo' => "Journal Voucher from Request #" . $jv->jv_number,
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // Debit: Accounts Receivable (total)
+            $arAccount = ChartOfAccount::where('code', '1200')->first();
+            $salesAccount = ChartOfAccount::where('code', '4000')->first();
+
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $arAccount->id,
+                'debit' => $total,
+                'credit' => 0,
+                'memo' => "JV Request #" . $jv->jv_number,
+            ]);
+
+            // Credit: create per-item credit lines (defaulting to Sales account)
+            foreach ($jv->items as $item) {
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $salesAccount->id,
+                    'debit' => 0,
+                    'credit' => $item->amount,
+                    'memo' => $item->remarks ?? ($item->reference_no ?? 'JV Item'),
+                ]);
+            }
+
+            return $entry;
+        });
+    }
+
+    private function generateEntryNumber($prefix)
+    {
+        $year = now()->year;
+        $fullPrefix = "{$prefix}-{$year}";
+        $lastEntry = JournalEntry::where('entry_no', 'like', "{$fullPrefix}-%")->orderBy('entry_no', 'desc')->first();
+        
+        if ($lastEntry) {
+            $lastSeq = (int) substr($lastEntry->entry_no, -4);
+            $newSeq = str_pad($lastSeq + 1, 4, '0', STR_PAD_LEFT);
+        } else {
+            $newSeq = '0001';
+        }
+        return "{$fullPrefix}-{$newSeq}";
+    }
+}
