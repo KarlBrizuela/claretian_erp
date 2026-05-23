@@ -266,6 +266,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/sales-invoice/{id}/prepare', [App\Http\Controllers\AdminFinanceController::class, 'prepareSalesInvoice'])->name('admin-finance.accounting.sales-invoice.prepare');
       Route::post('/sales-invoice/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeSalesInvoice'])->name('admin-finance.accounting.sales-invoice.store');
       Route::post('/sales-invoice/{id}/sign', [App\Http\Controllers\AdminFinanceController::class, 'signSalesInvoice'])->name('admin-finance.accounting.sales-invoice.sign');
+      Route::get('/sales-invoice/{id}/print', [App\Http\Controllers\AdminFinanceController::class, 'printSalesInvoice'])->name('admin-finance.accounting.sales-invoice.print');
       Route::get('/acknowledgement-receipt/{id}/prepare', [App\Http\Controllers\AdminFinanceController::class, 'prepareAR'])->name('admin-finance.accounting.ar.prepare');
       Route::post('/acknowledgement-receipt/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeAR'])->name('admin-finance.accounting.ar.store');
       Route::get('/check-voucher', [App\Http\Controllers\AdminFinanceController::class, 'checkVoucherIndex'])->name('admin-finance.check-voucher');

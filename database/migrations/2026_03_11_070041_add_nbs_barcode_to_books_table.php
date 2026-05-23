@@ -14,7 +14,9 @@ class AddNbsBarcodeToBooksTable extends Migration
     public function up()
     {
         Schema::table('books', function (Blueprint $table) {
-            $table->string('nbs_barcode')->nullable()->after('barcode');
+            if (!Schema::hasColumn('books', 'nbs_barcode')) {
+                $table->string('nbs_barcode')->nullable()->after('barcode');
+            }
         });
     }
 

@@ -1,37 +1,42 @@
 @php
     $user = auth()->user();
     
+    // Check division access (for users in other divisions who might have cross-division permissions)
+    $hasMarketingDivision = $user->divisions()->where('division', 'Marketing Division')->exists() || $user->division === 'Marketing Division' || $user->isSuperAdmin();
+    $hasProductionDivision = $user->divisions()->where('division', 'Production Division')->exists() || $user->division === 'Production Division' || $user->isSuperAdmin();
+    $hasAdminFinanceDivision = $user->divisions()->where('division', 'Admin & Finance Division')->exists() || $user->division === 'Admin & Finance Division' || $user->isSuperAdmin();
+    
     // Marketing Permissions
-    $hasDashM = $user->hasPermission('marketing.dashboard');
-    $hasCust = $user->hasPermission('marketing.customers');
-    $hasAreaS = $user->hasPermission('marketing.area_sales');
-    $hasDirectS = $user->hasPermission('marketing.direct_sales');
-    $hasAds = $user->hasPermission('marketing.ads_promo');
-    $hasEcomM = $user->hasPermission('marketing.ecom');
-    $hasBook = $user->hasPermission('marketing.book_mgmt');
-    $hasSupp = $user->hasPermission('marketing.supplier_mgmt');
-    $hasAppM = $user->hasPermission('marketing.approval_queue');
-    $hasReqM = $user->hasPermission('marketing.my_requests');
+    $hasDashM = $user->hasPermission('marketing.dashboard') && $hasMarketingDivision;
+    $hasCust = $user->hasPermission('marketing.customers') && $hasMarketingDivision;
+    $hasAreaS = $user->hasPermission('marketing.area_sales') && $hasMarketingDivision;
+    $hasDirectS = $user->hasPermission('marketing.direct_sales') && $hasMarketingDivision;
+    $hasAds = $user->hasPermission('marketing.ads_promo') && $hasMarketingDivision;
+    $hasEcomM = $user->hasPermission('marketing.ecom') && $hasMarketingDivision;
+    $hasBook = $user->hasPermission('marketing.book_mgmt') && $hasMarketingDivision;
+    $hasSupp = $user->hasPermission('marketing.supplier_mgmt') && $hasMarketingDivision;
+    $hasAppM = $user->hasPermission('marketing.approval_queue') && $hasMarketingDivision;
+    $hasReqM = $user->hasPermission('marketing.my_requests') && $hasMarketingDivision;
 
     // Production Permissions
-    $hasDashP = $user->hasPermission('production.dashboard');
-    $hasInv = $user->hasPermission('production.inventory');
-    $hasLog = $user->hasPermission('production.logistic');
-    $hasDTO = $user->hasPermission('production.dto');
-    $hasFORD = $user->hasPermission('production.ford');
-    $hasPrint = $user->hasPermission('production.printing');
-    $hasAppP = $user->hasPermission('production.approval_queue');
-    $hasReqP = $user->hasPermission('production.my_requests');
+    $hasDashP = $user->hasPermission('production.dashboard') && $hasProductionDivision;
+    $hasInv = $user->hasPermission('production.inventory') && $hasProductionDivision;
+    $hasLog = $user->hasPermission('production.logistic') && $hasProductionDivision;
+    $hasDTO = $user->hasPermission('production.dto') && $hasProductionDivision;
+    $hasFORD = $user->hasPermission('production.ford') && $hasProductionDivision;
+    $hasPrint = $user->hasPermission('production.printing') && $hasProductionDivision;
+    $hasAppP = $user->hasPermission('production.approval_queue') && $hasProductionDivision;
+    $hasReqP = $user->hasPermission('production.my_requests') && $hasProductionDivision;
 
     // Admin & Finance Permissions
-    $hasDashAF = $user->hasPermission('admin_finance.dashboard');
-    $hasMIS = $user->hasPermission('admin_finance.mis');
-    $hasGSD = $user->hasPermission('admin_finance.gsd');
-    $hasCC = $user->hasPermission('admin_finance.credit_collection');
-    $hasAcc = $user->hasPermission('admin_finance.accounting');
-    $hasHR = $user->hasPermission('admin_finance.hr');
-    $hasAppAF = $user->hasPermission('admin_finance.approval_queue');
-    $hasReqAF = $user->hasPermission('admin_finance.my_requests');
+    $hasDashAF = $user->hasPermission('admin_finance.dashboard') && $hasAdminFinanceDivision;
+    $hasMIS = $user->hasPermission('admin_finance.mis') && $hasAdminFinanceDivision;
+    $hasGSD = $user->hasPermission('admin_finance.gsd') && $hasAdminFinanceDivision;
+    $hasCC = $user->hasPermission('admin_finance.credit_collection') && $hasAdminFinanceDivision;
+    $hasAcc = $user->hasPermission('admin_finance.accounting') && $hasAdminFinanceDivision;
+    $hasHR = $user->hasPermission('admin_finance.hr') && $hasAdminFinanceDivision;
+    $hasAppAF = $user->hasPermission('admin_finance.approval_queue') && $hasAdminFinanceDivision;
+    $hasReqAF = $user->hasPermission('admin_finance.my_requests') && $hasAdminFinanceDivision;
 @endphp
 
 <nav class="modern-nav-menu">

@@ -554,7 +554,7 @@ class MarketingController extends Controller
             'mkt_approved_at' => now()
         ]);
 
-        return redirect()->back()->with('success', 'Sales Order #' . $order->so_number . ' has been approved by Marketing.');
+        return redirect()->route('marketing.approval-queue')->with('success', 'Sales Order #' . $order->so_number . ' has been approved by Marketing.');
     }
 
     public function editSalesOrder($id)

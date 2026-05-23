@@ -375,7 +375,9 @@
             const search = document.getElementById('productSearch').value.toLowerCase();
             const filtered = products.filter(p => 
                 p.category === currentCategory && 
-                p.name.toLowerCase().includes(search)
+                (p.name.toLowerCase().includes(search) ||
+                 (p.barcode && p.barcode.toLowerCase().includes(search)) ||
+                 (p.sku && p.sku.toLowerCase().includes(search)))
             );
             
             grid.innerHTML = filtered.map(p => `

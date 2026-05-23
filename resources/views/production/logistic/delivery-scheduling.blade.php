@@ -14,6 +14,7 @@
         .status-ready { background-color: #e0f2ff; color: #004085; }
         .status-cod { background-color: #fff3cd; color: #856404; }
         .status-charge { background-color: #d4edda; color: #155724; }
+        .status-paid { background-color: #d1e7dd; color: #0f5132; }
         
         .scheduling-table thead th {
             background-color: #f8f9fa;
@@ -167,10 +168,12 @@
                                             </div>
                                         </td>
                                         <td class="align-middle">
-                                            @if($order->terms == 'cod')
+                                            @if($order->type == 'paid')
+                                                <span class="status-badge status-paid">PAID</span>
+                                            @elseif($order->terms == 'cod')
                                                 <span class="status-badge status-cod">COD: ₱{{ number_format($order->total_amount, 2) }}</span>
                                             @else
-                                                <span class="status-badge status-charge">{{ strtoupper($order->terms ?? 'CHARGE') }}</span>
+                                                <span class="status-badge status-charge">{{ strtoupper($order->type ?? $order->terms ?? 'CHARGE') }}</span>
                                             @endif
                                         </td>
                                         <td class="align-middle">

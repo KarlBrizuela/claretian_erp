@@ -49,7 +49,7 @@
                                         <td>{{ $order->siPreparedBy->name ?? 'N/A' }}</td>
                                         <td>
                                             <div class="d-flex align-items-center gap-2">
-                                                <a href="{{ route('marketing.sales-orders.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View Detail"><i class="fas fa-eye"></i> View</a>
+                                                <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View Detail"><i class="fas fa-eye"></i> View</a>
                                                 
                                                 @if($order->status === 'pending_si_prep')
                                                 <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
@@ -63,7 +63,7 @@
                                                 @endif
                                                 
                                                 @if($order->status === 'ready_for_delivery')
-                                                <button class="btn btn-info btn-sm" onclick="window.print()">Print SI</button>
+                                                <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-info btn-sm" target="_blank">Print SI</a>
                                                 @endif
                                             </div>
                                         </td>

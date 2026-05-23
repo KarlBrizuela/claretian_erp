@@ -249,6 +249,12 @@ class SuperAdminController extends Controller
         $currentUser = auth()->user();
         $sidebar = $currentUser->division === 'All Divisions' ? 'director' : 'super-admin';
 
+        // Build role permissions map for JavaScript
+        $rolePermissionsMap = [];
+        foreach ($roles as $roleItem) {
+            $rolePermissionsMap[$roleItem->name] = $roleItem->permissions ?? [];
+        }
+
         return view('super-admin.roles', [
             'title' => 'Roles & Permissions',
             'role' => 'Super Admin',
@@ -256,7 +262,8 @@ class SuperAdminController extends Controller
             'users' => $users,
             'roles' => $roles,
             'positions' => $this->allPositions,
-            'availablePermissions' => $allAvailablePermissions
+            'availablePermissions' => $allAvailablePermissions,
+            'rolePermissionsMap' => $rolePermissionsMap
         ]);
     }
 
@@ -288,7 +295,9 @@ class SuperAdminController extends Controller
         }
 
         // Update User-Level Permissions (Manual Override)
-        $user->permissions = $request->input('permissions', []);
+        // If no permissions are explicitly set, use NULL to fall back to role permissions
+        $permissions = $request->input('permissions', []);
+        $user->permissions = empty($permissions) ? null : $permissions;
         
         $user->save();
 

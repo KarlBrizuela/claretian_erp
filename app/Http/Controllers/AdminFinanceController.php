@@ -1141,6 +1141,16 @@ public function checkVoucher()
     return redirect()->back()->with('success', 'Sales Invoice for #' . $order->so_number . ' has been signed by Admin & Finance Manager.');
   }
 
+  public function printSalesInvoice($id)
+  {
+    $order = \App\Models\SalesOrder::with('customer', 'items.product', 'siPreparedBy', 'signedBy')->findOrFail($id);
+
+    return view('admin-finance.accounting.print-si', [
+      'title' => 'Print Sales Invoice',
+      'order' => $order
+    ]);
+  }
+
   public function materialsRequisition()
   {
     $requisitions = \App\Models\AdminFinance\MaterialRequisition::with('user')->orderBy('created_at', 'desc')->get();

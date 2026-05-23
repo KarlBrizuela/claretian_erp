@@ -174,7 +174,7 @@
                         <!-- User Specific Permissions -->
                         <div class="form-group mt-4">
                             <label class="form-label font-w600 mb-3 text-primary">Specific Sidebar Access (Manual Selection)</label>
-                            <p class="small text-muted mb-3">Select the specific sidebar items this user should see. Leave empty to follow role defaults.</p>
+                            <p class="small text-muted mb-3"><strong>Tip:</strong> Permissions from the selected role will be automatically checked. You can add more permissions by checking additional boxes. Leave all unchecked to use role defaults only.</p>
                             
                             <div class="row">
                                 @foreach($availablePermissions as $groupName => $perms)
@@ -184,8 +184,14 @@
                                         @foreach($perms as $key => $label)
                                         <div class="col-md-6 mb-2">
                                             <div class="form-check custom-checkbox">
+                                                @php
+                                                    // Use user's manual permissions if set, otherwise fall back to role permissions
+                                                    $permissionsToCheck = !is_null($user->permissions) 
+                                                        ? $user->permissions 
+                                                        : ($rolePermissionsMap[$user->position] ?? []);
+                                                @endphp
                                                 <input type="checkbox" class="form-check-input" id="user_perm_{{ $user->id }}_{{ str_replace('.', '_', $key) }}" name="permissions[]" value="{{ $key }}"
-                                                    {{ in_array($key, $user->permissions ?? []) ? 'checked' : '' }}>
+                                                    {{ in_array($key, $permissionsToCheck) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="user_perm_{{ $user->id }}_{{ str_replace('.', '_', $key) }}" style="font-size: 0.8rem;">{{ $label }}</label>
                                             </div>
                                         </div>
@@ -269,8 +275,44 @@
     @push('scripts')
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
+        // Role Permissions Map
+        const rolePermissionsMap = {!! json_encode($rolePermissionsMap) !!};
+
         $(document).ready(function() {
             $('.user-access-table, .roles-table').DataTable();
+
+            // Function to sync permissions based on selected position
+            function syncPermissionsWithRole(positionSelect) {
+                const selectedPosition = positionSelect.val();
+                const form = positionSelect.closest('form');
+                const modalContent = form.closest('.modal-content');
+                
+                if (selectedPosition && rolePermissionsMap[selectedPosition]) {
+                    const rolePermissions = rolePermissionsMap[selectedPosition];
+                    
+                    // First, uncheck all permission checkboxes
+                    modalContent.find('input[name="permissions[]"]').prop('checked', false);
+                    
+                    // Then, check the ones that match the role's permissions
+                    rolePermissions.forEach(permission => {
+                        // Find checkbox by value
+                        modalContent.find('input[name="permissions[]"][value="' + permission + '"]').prop('checked', true);
+                    });
+                }
+            }
+
+            // Handle position change in user modal
+            $(document).on('change', 'select[name="position"]', function() {
+                syncPermissionsWithRole($(this));
+            });
+
+            // Also sync when modal is shown (for existing users)
+            $('.modal').on('show.bs.modal', function() {
+                const positionSelect = $(this).find('select[name="position"]');
+                if (positionSelect.length) {
+                    syncPermissionsWithRole(positionSelect);
+                }
+            });
         });
     </script>
     @endpush
