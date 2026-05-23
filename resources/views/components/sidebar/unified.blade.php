@@ -34,6 +34,7 @@
     $hasGSD = $user->hasPermission('admin_finance.gsd') && $hasAdminFinanceDivision;
     $hasCC = $user->hasPermission('admin_finance.credit_collection') && $hasAdminFinanceDivision;
     $hasAcc = $user->hasPermission('admin_finance.accounting') && $hasAdminFinanceDivision;
+    $hasPettyCash = $user->hasPermission('admin_finance.petty_cash_voucher');
     $hasHR = $user->hasPermission('admin_finance.hr') && $hasAdminFinanceDivision;
     $hasAppAF = $user->hasPermission('admin_finance.approval_queue') && $hasAdminFinanceDivision;
     $hasReqAF = $user->hasPermission('admin_finance.my_requests') && $hasAdminFinanceDivision;
@@ -205,6 +206,13 @@
     <div class="modern-nav-group">
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-user-tie"></i></div><span class="modern-nav-label">HR</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu"><a href="{{ route('admin-finance.hr.job-orders') }}" class="modern-nav-subitem">Job Orders</a></div>
+    </div>
+    @endif
+
+    @if($hasPettyCash)
+    <div class="modern-nav-group">
+        <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-calculator"></i></div><span class="modern-nav-label">Finance</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
+        <div class="modern-nav-submenu"><a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem">Petty Cash Voucher</a></div>
     </div>
     @endif
 

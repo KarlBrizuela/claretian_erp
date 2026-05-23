@@ -274,14 +274,6 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/check-voucher', [App\Http\Controllers\AdminFinanceController::class, 'storeCheckVoucher'])->name('admin-finance.check-voucher.store');
       Route::get('/check-voucher/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showCheckVoucher'])->name('admin-finance.check-voucher.show');
 
-      // Petty Cash Vouchers
-      Route::get('/petty-cash', [App\Http\Controllers\Accounting\PettyCashController::class, 'index'])->name('admin-finance.petty-cash.index');
-      Route::get('/petty-cash/create', [App\Http\Controllers\Accounting\PettyCashController::class, 'create'])->name('admin-finance.petty-cash.create');
-      Route::post('/petty-cash', [App\Http\Controllers\Accounting\PettyCashController::class, 'store'])->name('admin-finance.petty-cash.store');
-      Route::get('/petty-cash/summary', [App\Http\Controllers\Accounting\PettyCashController::class, 'summary'])->name('admin-finance.petty-cash.summary');
-      Route::post('/petty-cash/liquidate', [App\Http\Controllers\Accounting\PettyCashController::class, 'liquidate'])->name('admin-finance.petty-cash.liquidate');
-      Route::get('/petty-cash/{id}', [App\Http\Controllers\Accounting\PettyCashController::class, 'show'])->name('admin-finance.petty-cash.show');
-      Route::delete('/petty-cash/{id}', [App\Http\Controllers\Accounting\PettyCashController::class, 'destroy'])->name('admin-finance.petty-cash.destroy');
       Route::get('/materials-requisition', [App\Http\Controllers\AdminFinanceController::class, 'materialsRequisition'])->name('admin-finance.accounting.materials-requisition');
       Route::post('/materials-requisition', [App\Http\Controllers\AdminFinanceController::class, 'storeMaterialRequisition'])->name('admin-finance.accounting.materials-requisition.store');
       Route::get('/materials-requisition/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showMaterialRequisition'])->name('admin-finance.accounting.materials-requisition.show');
@@ -363,4 +355,15 @@ Route::middleware(['auth'])->group(function () {
       Route::resource('/service-requests', App\Http\Controllers\Admin\MIS\ServiceReqController::class)->names('admin-finance.mis.service-requests');
     });
   });
+});
+
+// Petty Cash Vouchers - Accessible by permission only, not division-restricted
+Route::prefix('admin-finance')->group(function () {
+  Route::get('/petty-cash', [App\Http\Controllers\Accounting\PettyCashController::class, 'index'])->name('admin-finance.petty-cash.index');
+  Route::get('/petty-cash/create', [App\Http\Controllers\Accounting\PettyCashController::class, 'create'])->name('admin-finance.petty-cash.create');
+  Route::post('/petty-cash', [App\Http\Controllers\Accounting\PettyCashController::class, 'store'])->name('admin-finance.petty-cash.store');
+  Route::get('/petty-cash/summary', [App\Http\Controllers\Accounting\PettyCashController::class, 'summary'])->name('admin-finance.petty-cash.summary');
+  Route::post('/petty-cash/liquidate', [App\Http\Controllers\Accounting\PettyCashController::class, 'liquidate'])->name('admin-finance.petty-cash.liquidate');
+  Route::get('/petty-cash/{id}', [App\Http\Controllers\Accounting\PettyCashController::class, 'show'])->name('admin-finance.petty-cash.show');
+  Route::delete('/petty-cash/{id}', [App\Http\Controllers\Accounting\PettyCashController::class, 'destroy'])->name('admin-finance.petty-cash.destroy');
 });

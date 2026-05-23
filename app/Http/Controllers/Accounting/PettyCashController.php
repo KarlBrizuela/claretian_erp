@@ -18,6 +18,25 @@ class PettyCashController extends Controller
         $this->accounting = $accounting;
     }
 
+    /**
+     * Get the sidebar for the current user based on their division
+     */
+    protected function getUserSidebar()
+    {
+        $user = auth()->user();
+        if (!$user) return 'admin-finance';
+
+        $division = $user->division ?? 'Admin & Finance Division';
+        
+        if (strpos($division, 'Marketing') !== false) {
+            return 'marketing';
+        } elseif (strpos($division, 'Production') !== false) {
+            return 'production';
+        }
+        
+        return 'admin-finance';
+    }
+
     public function index()
     {
         $vouchers = PettyCashVoucher::with('creator')
@@ -29,7 +48,7 @@ class PettyCashController extends Controller
         return view('admin-finance.petty-cash.index', [
             'title' => 'Petty Cash Vouchers',
             'role' => 'Finance Manager',
-            'sidebar' => 'admin-finance',
+            'sidebar' => $this->getUserSidebar(),
             'vouchers' => $vouchers
         ]);
     }
@@ -44,7 +63,7 @@ class PettyCashController extends Controller
         return view('admin-finance.petty-cash.create', [
             'title' => 'New Petty Cash Voucher',
             'role' => 'Finance Manager',
-            'sidebar' => 'admin-finance',
+            'sidebar' => $this->getUserSidebar(),
             'expenseAccounts' => $expenseAccounts
         ]);
     }
@@ -92,7 +111,7 @@ class PettyCashController extends Controller
         return view('admin-finance.petty-cash.show', [
             'title' => 'Petty Cash Voucher Details',
             'role' => 'Finance Manager',
-            'sidebar' => 'admin-finance',
+            'sidebar' => $this->getUserSidebar(),
             'voucher' => $voucher
         ]);
     }
@@ -109,7 +128,7 @@ class PettyCashController extends Controller
         return view('admin-finance.petty-cash.summary', [
             'title' => 'Petty Cash Summary (' . $month . ')',
             'role' => 'Finance Manager',
-            'sidebar' => 'admin-finance',
+            'sidebar' => $this->getUserSidebar(),
             'vouchers' => $vouchers,
             'selectedMonth' => $month
         ]);

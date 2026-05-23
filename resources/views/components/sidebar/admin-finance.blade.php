@@ -8,6 +8,7 @@
     $hasGSD = $user->hasPermission('admin_finance.gsd');
     $hasCreditCollection = $user->hasPermission('admin_finance.credit_collection');
     $hasAccounting = $user->hasPermission('admin_finance.accounting');
+    $hasPettyCashVoucher = $user->hasPermission('admin_finance.petty_cash_voucher');
     $hasHR = $user->hasPermission('admin_finance.hr');
     $hasApprovalQueue = $user->hasPermission('admin_finance.approval_queue');
     $hasMyRequests = $user->hasPermission('admin_finance.my_requests');
@@ -55,13 +56,28 @@
 			<a href="{{ route('accounting.journal.index') }}" class="modern-nav-subitem {{ request()->routeIs('accounting.journal.*') ? 'active' : '' }}">General Journal</a>
 			<a href="{{ route('admin-finance.accounting.sales-invoice') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.sales-invoice') ? 'active' : '' }}">Sales Invoice</a>
 			<a href="{{ route('admin-finance.check-voucher') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.check-voucher') ? 'active' : '' }}">Check Voucher</a>
-			<a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
 			<a href="{{ route('admin-finance.accounting.materials-requisition') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.materials-requisition') ? 'active' : '' }}">Materials/Supplies Requisition</a>
 			<a href="{{ route('admin-finance.accounting.material-requests.incoming') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.material-requests.incoming') ? 'active' : '' }}">Material Requests</a>
 			<a href="{{ route('admin-finance.accounting.expense-management') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expense-management') ? 'active' : '' }}">Cash Advance Liquidation</a>
 		</div>
 	</div>
     @endif
+
+	<!-- Petty Cash Voucher (Finance) -->
+	@if($hasPettyCashVoucher)
+	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*') ? 'active' : '' }}">
+		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="finance">
+			<div class="modern-nav-icon">
+				<i class="las la-calculator"></i>
+			</div>
+			<span class="modern-nav-label">Finance</span>
+			<i class="modern-nav-arrow las la-chevron-right"></i>
+		</a>
+		<div class="modern-nav-submenu" data-submenu="finance">
+			<a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
+		</div>
+	</div>
+	@endif
 
 	<!-- Credit and Collection -->
     @if($hasCreditCollection)

@@ -9,6 +9,7 @@
     $hasDTO = $user->hasPermission('production.dto');
     $hasFORD = $user->hasPermission('production.ford');
     $hasPrinting = $user->hasPermission('production.printing');
+    $hasPettyCashVoucher = $user->hasPermission('admin_finance.petty_cash_voucher');
     $hasApprovalQueue = $user->hasPermission('production.approval_queue');
     $hasMyRequests = $user->hasPermission('production.my_requests');
 @endphp
@@ -131,6 +132,22 @@
 		</a>
 		<div class="modern-nav-submenu" data-submenu="printing">
 			<a href="{{ route('production.printing.request-payment-to-printer') }}" class="modern-nav-subitem {{ request()->routeIs('production.printing.request-payment-to-printer') ? 'active' : '' }}">Request Payment to Printer</a>
+		</div>
+	</div>
+	@endif
+
+	<!-- Finance -->
+	@if($hasPettyCashVoucher)
+	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*') ? 'active' : '' }}">
+		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="finance">
+			<div class="modern-nav-icon">
+				<i class="las la-calculator"></i>
+			</div>
+			<span class="modern-nav-label">Finance</span>
+			<i class="modern-nav-arrow las la-chevron-right"></i>
+		</a>
+		<div class="modern-nav-submenu" data-submenu="finance">
+			<a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
 		</div>
 	</div>
 	@endif
