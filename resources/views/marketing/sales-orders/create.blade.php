@@ -54,6 +54,8 @@
                                     <option value="direct_consignment" {{ ($isEdit && $order->type == 'direct_consignment') ? 'selected' : '' }}>Direct Consignment</option>
                                     <option value="foreign" {{ ($isEdit && $order->type == 'foreign') ? 'selected' : '' }}>Foreign Order</option>
                                     <option value="complimentary" {{ ($isEdit && $order->type == 'complimentary') ? 'selected' : '' }}>Complimentary</option>
+                                    <option value="cod" {{ ($isEdit && $order->type == 'cod') ? 'selected' : '' }}>Due on Receipt(COD)</option>
+                                    <option value="evaluation" {{ ($isEdit && $order->type == 'evaluation') ? 'selected' : '' }}>Evaluation</option>
                                 </select>
                             </div>
                             <div class="form-group">

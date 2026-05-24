@@ -121,6 +121,26 @@ class NBSImportController extends Controller
             return redirect()->back()->with('error', 'No valid NBS PO data (HD/DT rows) found in the file.');
         }
 
+        // STOCK VALIDATION: Check if all items have sufficient stock before processing
+        $stockIssues = [];
+        foreach ($orders as $poNum => $poData) {
+            if (empty($poData['items'])) continue;
+            
+            foreach ($poData['items'] as $item) {
+                $book = Book::find($item['book_id']);
+                if (!$book || $book->stock < $item['qty']) {
+                    $bookName = $book ? $book->name : "Book ID #{$item['book_id']}";
+                    $availableStock = $book ? $book->stock : 0;
+                    $stockIssues[] = "PO #$poNum: $bookName (Available: $availableStock pcs, Requested: {$item['qty']} pcs)";
+                }
+            }
+        }
+
+        if (!empty($stockIssues)) {
+            Log::warning("NBS Import: Insufficient stock - " . implode(' | ', $stockIssues));
+            return redirect()->back()->with('error', 'Insufficient stock for the following items in NBS import:<br>• ' . implode('<br>• ', $stockIssues));
+        }
+
         // Process orders into the database
         DB::beginTransaction();
         try {

@@ -464,6 +464,21 @@ class MarketingController extends Controller
             'attachment' => 'nullable|file|max:5120', // 5MB Limit
         ]);
 
+        // STOCK VALIDATION: Check if all items have sufficient stock
+        $insufficientItems = [];
+        foreach ($request->items as $item) {
+            $book = \App\Models\Book::find($item['product_id']);
+            if (!$book || $book->stock < $item['quantity']) {
+                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+                $availableStock = $book ? $book->stock : 0;
+                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+            }
+        }
+
+        if (!empty($insufficientItems)) {
+            return redirect()->back()->with('error', 'Insufficient stock for the following items: ' . implode('<br>• ', $insufficientItems));
+        }
+
         // 1. Calculate Status based on Type (Intelligent Routing)
         // By default, everything starts as pending_mkt_approval unless it's FORD or explicitly draft
         $initialStatus = 'pending_mkt_approval';
@@ -524,6 +539,28 @@ class MarketingController extends Controller
                 'area' => $item['area'] ?? null,
                 'source_price_at_sale' => $book ? $book->source_price : 0,
             ]);
+
+            // STOCK MANAGEMENT: Decrement inventory for sales order
+            if ($book) {
+                $deductedQty = $item['quantity'];
+                $book->decrement('stock', $deductedQty);
+
+                // Record Inventory Transaction for audit trail
+                \App\Models\InventoryTransaction::create([
+                    'book_id' => $book->id,
+                    'type' => 'out',
+                    'quantity' => $deductedQty,
+                    'location' => 'Main Warehouse',
+                    'source' => 'Sales Order',
+                    'reference_number' => $so->so_number,
+                    'unit_cost' => $book->cost ?? 0,
+                    'total_cost' => $deductedQty * ($book->cost ?? 0),
+                    'notes' => 'Sales Order #' . $so->so_number . ' - ' . $so->type,
+                    'status' => 'completed',
+                    'transaction_date' => now(),
+                    'user_id' => auth()->id()
+                ]);
+            }
         }
 
         // 5. Update Total
@@ -575,7 +612,7 @@ class MarketingController extends Controller
 
     public function updateSalesOrder(Request $request, $id)
     {
-        $so = \App\Models\SalesOrder::findOrFail($id);
+        $so = \App\Models\SalesOrder::with('items')->findOrFail($id);
         
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
@@ -604,7 +641,31 @@ class MarketingController extends Controller
             'shipping_address' => $request->billing_address,
         ]);
 
-        // Re-create items (simplest approach for now)
+        // STOCK MANAGEMENT: Handle inventory adjustments
+        // First, restore stock for old items
+        foreach ($so->items as $oldItem) {
+            if ($oldItem->book) {
+                $oldItem->book->increment('stock', $oldItem->quantity);
+
+                // Record reversal transaction
+                \App\Models\InventoryTransaction::create([
+                    'book_id' => $oldItem->book->id,
+                    'type' => 'in',
+                    'quantity' => $oldItem->quantity,
+                    'location' => 'Main Warehouse',
+                    'source' => 'Sales Order Update (Reversal)',
+                    'reference_number' => $so->so_number,
+                    'unit_cost' => $oldItem->book->cost ?? 0,
+                    'total_cost' => $oldItem->quantity * ($oldItem->book->cost ?? 0),
+                    'notes' => 'Reversal - Sales Order #' . $so->so_number . ' updated',
+                    'status' => 'completed',
+                    'transaction_date' => now(),
+                    'user_id' => auth()->id()
+                ]);
+            }
+        }
+
+        // Re-create items
         $so->items()->delete();
         
         $totalAmount = 0;
@@ -612,6 +673,7 @@ class MarketingController extends Controller
             $subtotal = $item['quantity'] * $item['price'];
             $totalAmount += $subtotal;
 
+            $book = \App\Models\Book::find($item['product_id']);
             \App\Models\SalesOrderItem::create([
                 'sales_order_id' => $so->id,
                 'book_id' => $item['product_id'],
@@ -621,6 +683,27 @@ class MarketingController extends Controller
                 'unit' => $item['unit'] ?? 'pcs',
                 'area' => $item['area'] ?? null,
             ]);
+
+            // Decrement stock for new items
+            if ($book) {
+                $book->decrement('stock', $item['quantity']);
+
+                // Record inventory transaction
+                \App\Models\InventoryTransaction::create([
+                    'book_id' => $book->id,
+                    'type' => 'out',
+                    'quantity' => $item['quantity'],
+                    'location' => 'Main Warehouse',
+                    'source' => 'Sales Order Update',
+                    'reference_number' => $so->so_number,
+                    'unit_cost' => $book->cost ?? 0,
+                    'total_cost' => $item['quantity'] * ($book->cost ?? 0),
+                    'notes' => 'Updated - Sales Order #' . $so->so_number . ' - ' . $so->type,
+                    'status' => 'completed',
+                    'transaction_date' => now(),
+                    'user_id' => auth()->id()
+                ]);
+            }
         }
 
         $so->update(['total_amount' => $totalAmount]);
@@ -663,6 +746,21 @@ class MarketingController extends Controller
             'proof_of_payment' => 'required|file|max:10240',
             'order_list' => 'required|file|max:10240',
         ]);
+
+        // STOCK VALIDATION: Check if all items have sufficient stock
+        $insufficientItems = [];
+        foreach ($request->items as $item) {
+            $book = Book::find($item['product_id']);
+            if (!$book || $book->stock < $item['quantity']) {
+                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+                $availableStock = $book ? $book->stock : 0;
+                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+            }
+        }
+
+        if (!empty($insufficientItems)) {
+            return redirect()->back()->with('error', 'Insufficient stock for the following items: ' . implode('<br>• ', $insufficientItems));
+        }
 
         // Generate unique invoice number
         $lastInvoice = \App\Models\SalesOrder::where('type', 'website_direct')
@@ -723,6 +821,28 @@ class MarketingController extends Controller
                 'unit' => $item['unit'] ?? 'pcs',
                 'source_price_at_sale' => $book ? $book->source_price : 0,
             ]);
+
+            // STOCK MANAGEMENT: Decrement inventory for direct invoice
+            if ($book) {
+                $deductedQty = $item['quantity'];
+                $book->decrement('stock', $deductedQty);
+
+                // Record Inventory Transaction for audit trail
+                \App\Models\InventoryTransaction::create([
+                    'book_id' => $book->id,
+                    'type' => 'out',
+                    'quantity' => $deductedQty,
+                    'location' => 'Main Warehouse',
+                    'source' => 'Direct Invoice (Website)',
+                    'reference_number' => $invoiceNumber,
+                    'unit_cost' => $book->cost ?? 0,
+                    'total_cost' => $deductedQty * ($book->cost ?? 0),
+                    'notes' => 'Direct Invoice #' . $invoiceNumber . ' - ' . $request->transaction_subtype,
+                    'status' => 'completed',
+                    'transaction_date' => now(),
+                    'user_id' => auth()->id()
+                ]);
+            }
         }
 
         $so->update(['total_amount' => $totalAmount]);
@@ -820,6 +940,21 @@ class MarketingController extends Controller
             'shipping_label' => 'required|file|max:10240',
         ]);
 
+        // STOCK VALIDATION: Check if all items have sufficient stock
+        $insufficientItems = [];
+        foreach ($request->items as $item) {
+            $book = Book::find($item['product_id']);
+            if (!$book || $book->stock < $item['quantity']) {
+                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+                $availableStock = $book ? $book->stock : 0;
+                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+            }
+        }
+
+        if (!empty($insufficientItems)) {
+            return redirect()->back()->with('error', 'Insufficient stock for the following items:' . implode('<br>• ', $insufficientItems));
+        }
+
         // Generate unique invoice number
         $lastInvoice = \App\Models\SalesOrder::where('type', 'ecom_direct')
             ->orderBy('id', 'desc')
@@ -870,6 +1005,28 @@ class MarketingController extends Controller
                 'unit' => $item['unit'] ?? 'pcs',
                 'source_price_at_sale' => $book ? $book->source_price : 0,
             ]);
+
+            // STOCK MANAGEMENT: Decrement inventory for E-com direct invoice
+            if ($book) {
+                $deductedQty = $item['quantity'];
+                $book->decrement('stock', $deductedQty);
+
+                // Record Inventory Transaction for audit trail
+                \App\Models\InventoryTransaction::create([
+                    'book_id' => $book->id,
+                    'type' => 'out',
+                    'quantity' => $deductedQty,
+                    'location' => 'Main Warehouse',
+                    'source' => 'Direct Invoice (E-com)',
+                    'reference_number' => $invoiceNumber,
+                    'unit_cost' => $book->cost ?? 0,
+                    'total_cost' => $deductedQty * ($book->cost ?? 0),
+                    'notes' => 'E-com Direct Invoice #' . $invoiceNumber . ' - Platform: ' . $request->ecom_platform,
+                    'status' => 'completed',
+                    'transaction_date' => now(),
+                    'user_id' => auth()->id()
+                ]);
+            }
         }
 
         $so->update(['total_amount' => $totalAmount]);

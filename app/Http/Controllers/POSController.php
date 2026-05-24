@@ -47,6 +47,24 @@ class POSController extends Controller
             }
         }
 
+        // STOCK VALIDATION: Check if all items have sufficient stock
+        $insufficientItems = [];
+        foreach ($validated['items'] as $item) {
+            $book = Book::find($item['product_id']);
+            if (!$book || $book->stock < $item['quantity']) {
+                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+                $availableStock = $book ? $book->stock : 0;
+                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+            }
+        }
+
+        if (!empty($insufficientItems)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient stock for items: ' . implode(', ', $insufficientItems)
+            ], 422);
+        }
+
         try {
             DB::beginTransaction();
 
@@ -109,6 +127,24 @@ class POSController extends Controller
 
                 // Decrement book stock
                 Book::where('id', $item['product_id'])->decrement('stock', $item['quantity']);
+
+                // Record inventory transaction
+                if ($book) {
+                    \App\Models\InventoryTransaction::create([
+                        'book_id' => $book->id,
+                        'type' => 'out',
+                        'quantity' => $item['quantity'],
+                        'location' => 'Main Warehouse',
+                        'source' => 'POS Calculator',
+                        'reference_number' => $orderNumber,
+                        'unit_cost' => $book->cost ?? 0,
+                        'total_cost' => $item['quantity'] * ($book->cost ?? 0),
+                        'notes' => 'POS Order #' . $orderNumber,
+                        'status' => 'completed',
+                        'transaction_date' => now(),
+                        'user_id' => auth()->id()
+                    ]);
+                }
             }
 
             // --- ACCOUNTING INTEGRATION ---
@@ -238,6 +274,24 @@ class POSController extends Controller
             'payment_reference' => 'nullable|string',
         ]);
 
+        // STOCK VALIDATION: Check if all items have sufficient stock
+        $insufficientItems = [];
+        foreach ($validated['items'] as $item) {
+            $book = Book::find($item['product_id']);
+            if (!$book || $book->stock < $item['quantity']) {
+                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+                $availableStock = $book ? $book->stock : 0;
+                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+            }
+        }
+
+        if (!empty($insufficientItems)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient stock for items: ' . implode(', ', $insufficientItems)
+            ], 422);
+        }
+
         try {
             DB::beginTransaction();
 
@@ -295,6 +349,27 @@ class POSController extends Controller
                     'unit' => 'pcs',
                     'source_price_at_sale' => $book ? $book->source_price : 0,
                 ]);
+
+                // Decrement book stock for E-com order
+                Book::where('id', $item['product_id'])->decrement('stock', $item['quantity']);
+
+                // Record inventory transaction
+                if ($book) {
+                    \App\Models\InventoryTransaction::create([
+                        'book_id' => $book->id,
+                        'type' => 'out',
+                        'quantity' => $item['quantity'],
+                        'location' => 'Main Warehouse',
+                        'source' => 'E-com Direct',
+                        'reference_number' => $orderNumber,
+                        'unit_cost' => $book->cost ?? 0,
+                        'total_cost' => $item['quantity'] * ($book->cost ?? 0),
+                        'notes' => 'E-com Order #' . $orderNumber . ' - Platform: ' . $validated['platform'],
+                        'status' => 'completed',
+                        'transaction_date' => now(),
+                        'user_id' => auth()->id()
+                    ]);
+                }
             }
 
             // --- ACCOUNTING INTEGRATION ---

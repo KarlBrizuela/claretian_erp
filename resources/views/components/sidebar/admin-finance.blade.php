@@ -8,10 +8,11 @@
     $hasGSD = $user->hasPermission('admin_finance.gsd');
     $hasCreditCollection = $user->hasPermission('admin_finance.credit_collection');
     $hasAccounting = $user->hasPermission('admin_finance.accounting');
-    $hasPettyCashVoucher = $user->hasPermission('admin_finance.petty_cash_voucher');
+    $hasPettyCashVoucher = true; // All users have access to petty cash
     $hasHR = $user->hasPermission('admin_finance.hr');
     $hasApprovalQueue = $user->hasPermission('admin_finance.approval_queue');
     $hasMyRequests = $user->hasPermission('admin_finance.my_requests');
+    $hasFreightVoucher = true; // All users have access to freight voucher
 @endphp
 
 <nav class="modern-nav-menu">
@@ -64,8 +65,8 @@
     @endif
 
 	<!-- Petty Cash Voucher (Finance) -->
-	@if($hasPettyCashVoucher)
-	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*') ? 'active' : '' }}">
+	@if($hasPettyCashVoucher || $hasFreightVoucher)
+	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*', 'admin-finance/freight-voucher*') ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="finance">
 			<div class="modern-nav-icon">
 				<i class="las la-calculator"></i>
@@ -74,7 +75,12 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="finance">
+			@if($hasPettyCashVoucher)
 			<a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
+			@endif
+			@if($hasFreightVoucher)
+			<a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
+			@endif
 		</div>
 	</div>
 	@endif

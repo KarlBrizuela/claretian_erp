@@ -367,3 +367,12 @@ Route::prefix('admin-finance')->group(function () {
   Route::get('/petty-cash/{id}', [App\Http\Controllers\Accounting\PettyCashController::class, 'show'])->name('admin-finance.petty-cash.show');
   Route::delete('/petty-cash/{id}', [App\Http\Controllers\Accounting\PettyCashController::class, 'destroy'])->name('admin-finance.petty-cash.destroy');
 });
+
+// Freight Vouchers - Accessible by permission only, not division-restricted
+Route::prefix('admin-finance')->group(function () {
+  Route::get('/freight-voucher', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'index'])->name('admin-finance.freight-voucher.index');
+  Route::get('/freight-voucher/create', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'create'])->name('admin-finance.freight-voucher.create');
+  Route::post('/freight-voucher', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'store'])->name('admin-finance.freight-voucher.store');
+  Route::get('/freight-voucher/{id}', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'show'])->name('admin-finance.freight-voucher.show');
+  Route::delete('/freight-voucher/{id}', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'destroy'])->name('admin-finance.freight-voucher.destroy');
+});

@@ -56,20 +56,31 @@
                                                 </a>
                                                 
                                                 @if($order->status === 'pending_dr_prep')
+                                                    <form action="{{ route('production.logistic.mark-as-dr-prepared', $order->id) }}" method="POST" style="display:inline;">
+                                                        @csrf
                                                         <button type="submit" class="btn btn-warning shadow btn-xs sharp" title="Mark as DR Prepared">
                                                             <i class="fas fa-file-invoice"></i>
                                                         </button>
                                                     </form>
-                                                    @endif
+                                                @endif
 
-                                                    @if($order->status === 'pending_dr_approval')
+                                                @if($order->status === 'pending_dr_approval')
                                                     <form action="{{ route('production.logistic.approve-dr', $order->id) }}" method="POST" style="display:inline;">
                                                         @csrf
                                                         <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Approve & Sign DR">
                                                             <i class="fas fa-signature"></i>
                                                         </button>
                                                     </form>
-                                                    @endif
+                                                @endif
+
+                                                @if($order->status === 'ready_for_delivery' && !$order->dr_prepared_at)
+                                                    <form action="{{ route('production.logistic.approve-dr', $order->id) }}" method="POST" style="display:inline;">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-info shadow btn-xs sharp" title="Finalize DR (Record Approval Time)">
+                                                            <i class="fas fa-check-double"></i>
+                                                        </button>
+                                                    </form>
+                                                @endif
 
                                                     <a href="javascript:void(0);" class="btn btn-info shadow btn-xs sharp" title="Print DR" onclick="window.print()">
                                                         <i class="las la-print"></i>

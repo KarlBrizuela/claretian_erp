@@ -397,14 +397,21 @@ class LogisticController extends Controller
 
     public function approveDR($id)
     {
-        // Role Enforcement: Production Manager or Logistics Supervisor/Head
-        $userPos = auth()->user()->position;
-        if (!str_contains($userPos, 'Manager') && !str_contains($userPos, 'Supervisor') && !str_contains($userPos, 'Head')) {
-             return redirect()->back()->with('error', 'Only Production/Logistics Managers, Supervisors, or Heads can approve Delivery Receipts.');
+        // Role Enforcement: Super Admin OR Production Manager or Logistics Supervisor/Head
+        $user = auth()->user();
+        $userPos = $user->position;
+        $isSuperAdmin = $user->isSuperAdmin();
+        
+        if (!$isSuperAdmin && !str_contains($userPos, 'Manager') && !str_contains($userPos, 'Supervisor') && !str_contains($userPos, 'Head')) {
+             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, or Heads can approve Delivery Receipts.');
         }
 
         $order = \App\Models\SalesOrder::findOrFail($id);
-        $order->update(['status' => 'ready_for_delivery']);
+        $order->update([
+            'status' => 'ready_for_delivery',
+            'dr_prepared_at' => now(),
+            'dr_prepared_by' => auth()->id()
+        ]);
 
         return redirect()->back()->with('success', 'DR approved for Order #' . $order->so_number . '. Ready for delivery.');
     }

@@ -470,6 +470,73 @@ class AccountingService
         });
     }
 
+    /**
+     * Post a journal entry for Freight Voucher (Advance Payment)
+     * 
+     * Freight Voucher is recorded as an advance payment to a supplier
+     * Target Flow:
+     * DR Prepaid Freight Expense (or Freight Prepayment Asset) - 1500
+     * CR Accounts Payable (or Cash)
+     */
+    public function postFreightVoucherAdvance(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+            // $data should contain: voucher_id, fv_number, amount, supplier_id
+            
+            // 1. Create Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('FV'),
+                'entry_type' => 'ADV', // Advance payment
+                'date' => now(),
+                'reference' => $data['fv_number'] ?? 'FV-' . $data['voucher_id'],
+                'memo' => "Freight Voucher - Advance Payment #" . ($data['fv_number'] ?? $data['voucher_id']),
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Accounts
+            // Prepaid Freight Expense (Asset Account) - typically 1500 or similar
+            $prepaidFreightAccount = ChartOfAccount::where('code', '1500')->first();
+            if (!$prepaidFreightAccount) {
+                // Fallback to first Asset account
+                $prepaidFreightAccount = ChartOfAccount::where('type', 'Asset')->first();
+            }
+
+            // Accounts Payable - typically 2000
+            $payableAccount = ChartOfAccount::where('code', '2000')->first();
+            if (!$payableAccount) {
+                // Fallback to first Liability account
+                $payableAccount = ChartOfAccount::where('type', 'Liability')->first();
+            }
+
+            // 3. Debit Prepaid Freight Expense
+            if ($prepaidFreightAccount) {
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $prepaidFreightAccount->id,
+                    'debit' => $data['amount'],
+                    'credit' => 0,
+                    'memo' => "Freight Advance Payment - " . ($data['fv_number'] ?? 'FV'),
+                ]);
+            }
+
+            // 4. Credit Accounts Payable
+            if ($payableAccount) {
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $payableAccount->id,
+                    'debit' => 0,
+                    'credit' => $data['amount'],
+                    'memo' => "Freight Advance Payable to Supplier",
+                ]);
+            }
+
+            return $entry;
+        });
+    }
+
     private function generateEntryNumber($prefix)
     {
         $year = now()->year;

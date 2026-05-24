@@ -243,6 +243,10 @@ class SuperAdminController extends Controller
                 'admin_finance.hr' => 'Human Resources',
                 'admin_finance.approval_queue' => 'Approval Queue',
                 'admin_finance.my_requests' => 'My Requests',
+            ],
+            'Finance' => [
+                'admin_finance.petty_cash_voucher' => 'Petty Cash Voucher',
+                'admin_finance.freight_voucher' => 'Freight Voucher',
             ]
         ];
 

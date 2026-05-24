@@ -34,7 +34,8 @@
     $hasGSD = $user->hasPermission('admin_finance.gsd') && $hasAdminFinanceDivision;
     $hasCC = $user->hasPermission('admin_finance.credit_collection') && $hasAdminFinanceDivision;
     $hasAcc = $user->hasPermission('admin_finance.accounting') && $hasAdminFinanceDivision;
-    $hasPettyCash = $user->hasPermission('admin_finance.petty_cash_voucher');
+    $hasPettyCash = true; // All users have access to petty cash
+    $hasFreightVoucher = true; // All users have access to freight voucher
     $hasHR = $user->hasPermission('admin_finance.hr') && $hasAdminFinanceDivision;
     $hasAppAF = $user->hasPermission('admin_finance.approval_queue') && $hasAdminFinanceDivision;
     $hasReqAF = $user->hasPermission('admin_finance.my_requests') && $hasAdminFinanceDivision;
@@ -170,6 +171,7 @@
             <a href="{{ route('admin-finance.accounting.sales-invoice') }}" class="modern-nav-subitem">Sales Invoice</a>
             <a href="{{ route('admin-finance.check-voucher') }}" class="modern-nav-subitem">Check Voucher</a>
             <a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem">Petty Cash Voucher</a>
+            <a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem">Freight Voucher</a>
         </div>
     </div>
     @endif
@@ -209,10 +211,17 @@
     </div>
     @endif
 
-    @if($hasPettyCash)
+    @if($hasPettyCash || $hasFreightVoucher)
     <div class="modern-nav-group">
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-calculator"></i></div><span class="modern-nav-label">Finance</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
-        <div class="modern-nav-submenu"><a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem">Petty Cash Voucher</a></div>
+        <div class="modern-nav-submenu">
+            @if($hasPettyCash)
+            <a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem">Petty Cash Voucher</a>
+            @endif
+            @if($hasFreightVoucher)
+            <a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem">Freight Voucher</a>
+            @endif
+        </div>
     </div>
     @endif
 

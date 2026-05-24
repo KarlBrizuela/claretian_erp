@@ -11,7 +11,8 @@
     $hasEcom = $user->hasPermission('marketing.ecom');
     $hasBookMgmt = $user->hasPermission('marketing.book_mgmt');
     $hasSupplierMgmt = $user->hasPermission('marketing.supplier_mgmt');
-    $hasPettyCashVoucher = $user->hasPermission('admin_finance.petty_cash_voucher');
+    $hasPettyCashVoucher = true; // All users have access to petty cash
+    $hasFreightVoucher = true; // All users have access to freight voucher
     $hasApprovalQueue = $user->hasPermission('marketing.approval_queue');
     $hasMyRequests = $user->hasPermission('marketing.my_requests');
 @endphp
@@ -157,8 +158,8 @@
 	@endif
 
 	<!-- Finance -->
-	@if($hasPettyCashVoucher)
-	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*') ? 'active' : '' }}">
+	@if($hasPettyCashVoucher || $hasFreightVoucher)
+	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*', 'admin-finance/freight-voucher*') ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="finance">
 			<div class="modern-nav-icon">
 				<i class="las la-calculator"></i>
@@ -167,7 +168,12 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="finance">
+			@if($hasPettyCashVoucher)
 			<a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
+			@endif
+			@if($hasFreightVoucher)
+			<a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
+			@endif
 		</div>
 	</div>
 	@endif

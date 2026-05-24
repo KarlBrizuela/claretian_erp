@@ -109,8 +109,16 @@
                                             @if($order->type == 'direct_consignment' || $order->type == 'consignment')
                                                 <span class="text-info small font-w500">DR Only (Consignment)</span>
                                             @else
-                                                <div class="small">SI: <span class="text-muted">Pending</span></div>
-                                                <div class="small">DR: <span class="text-muted">Pending</span></div>
+                                                <div class="small">
+                                                    SI: <span class="badge bg-{{ $order->si_prepared_at ? 'success' : 'warning' }}">
+                                                        {{ $order->si_prepared_at ? 'POSTED' : 'Pending' }}
+                                                    </span>
+                                                </div>
+                                                <div class="small">
+                                                    DR: <span class="badge bg-{{ $order->dr_prepared_at ? 'success' : 'warning' }}">
+                                                        {{ $order->dr_prepared_at ? 'APPROVED' : 'Pending' }}
+                                                    </span>
+                                                </div>
                                             @endif
                                         </td>
                                         <td class="align-middle">
