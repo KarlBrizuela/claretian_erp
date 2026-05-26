@@ -43,6 +43,7 @@ class SuperAdminController extends Controller
         'Ford Staff',
         'Senior Logistics Staff',
         'Logistics Staff',
+        'Driver',
         'Printing Services Staff'
     ];
 

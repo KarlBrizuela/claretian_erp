@@ -14,7 +14,9 @@ class AddSourcePriceToSalesOrderItemsV2 extends Migration
     public function up()
     {
         Schema::table('sales_order_items', function (Blueprint $table) {
-            $table->decimal('source_price_at_sale', 10, 2)->default(0)->after('price');
+            if (!Schema::hasColumn('sales_order_items', 'source_price_at_sale')) {
+                $table->decimal('source_price_at_sale', 10, 2)->default(0)->after('price');
+            }
         });
     }
 

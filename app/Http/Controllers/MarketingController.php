@@ -85,6 +85,14 @@ class MarketingController extends Controller
                 ->latest()
                 ->get()
             : collect();
+
+        // 3. Pending Stock Transfers (Marketing Manager approves transfers)
+        $pendingTransfers = $isAuthorized
+            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book')
+                ->where('status', 'pending')
+                ->latest()
+                ->get()
+            : collect();
         
 
 
@@ -150,6 +158,7 @@ class MarketingController extends Controller
             'sidebar' => 'marketing',
             'salesOrders' => $salesOrders,
             'pendingCashAdvances' => $pendingCashAdvances,
+            'pendingTransfers' => $pendingTransfers,
             'mySubmissions' => $mySubmissions,
             'myApprovedRequests' => $myApprovedRequests->sortByDesc('submitted_date')
         ]);

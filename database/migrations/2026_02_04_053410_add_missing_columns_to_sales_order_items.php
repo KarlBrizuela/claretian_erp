@@ -14,8 +14,12 @@ class AddMissingColumnsToSalesOrderItems extends Migration
     public function up()
     {
         Schema::table('sales_order_items', function (Blueprint $table) {
-            $table->string('isbn')->nullable()->after('product_id');
-            $table->string('unit')->default('pcs')->after('isbn');
+            if (!Schema::hasColumn('sales_order_items', 'isbn')) {
+                $table->string('isbn')->nullable()->after('product_id');
+            }
+            if (!Schema::hasColumn('sales_order_items', 'unit')) {
+                $table->string('unit')->default('pcs')->after('isbn');
+            }
         });
     }
 

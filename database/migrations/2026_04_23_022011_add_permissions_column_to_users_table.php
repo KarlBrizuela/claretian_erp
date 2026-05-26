@@ -14,7 +14,9 @@ class AddPermissionsColumnToUsersTable extends Migration
     public function up()
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->json('permissions')->nullable()->after('position');
+            if (!Schema::hasColumn('users', 'permissions')) {
+                $table->json('permissions')->nullable()->after('position');
+            }
         });
     }
 

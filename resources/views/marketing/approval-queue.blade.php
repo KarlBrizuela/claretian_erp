@@ -256,7 +256,7 @@
 
     <div class="approval-stats">
         <div class="stat-card pending">
-            <h3 id="pendingCount">{{ $salesOrders->count() + $pendingCashAdvances->count() }}</h3>
+            <h3 id="pendingCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingTransfers->count() }}</h3>
             <p>Pending Approvals</p>
         </div>
         <div class="stat-card urgent">
@@ -267,13 +267,14 @@
             @php
                 $recentSales = $salesOrders->where('created_at', '>=', now()->startOfDay())->count();
                 $recentCash = $pendingCashAdvances->where('created_at', '>=', now()->startOfDay())->count();
-                $recentTotal = $recentSales + $recentCash;
+                $recentTransfers = $pendingTransfers->where('created_at', '>=', now()->startOfDay())->count();
+                $recentTotal = $recentSales + $recentCash + $recentTransfers;
             @endphp
             <h3 id="recentCount">{{ $recentTotal }}</h3>
             <p>Received Today</p>
         </div>
         <div class="stat-card total">
-            <h3 id="totalCount">{{ $salesOrders->count() + $pendingCashAdvances->count() }}</h3>
+            <h3 id="totalCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingTransfers->count() }}</h3>
             <p>Total Pending</p>
         </div>
     </div>
@@ -349,6 +350,31 @@
                                                     data-amount="₱{{ number_format($advance->amount, 2) }}"
                                                     data-purpose="{{ $advance->purpose }}"
                                                     data-date-needed="{{ $advance->date_needed->format('M d, Y') }}">
+                                                <i class="las la-eye"></i> Review
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+
+                                    @foreach($pendingTransfers as $transfer)
+                                    <tr>
+                                        <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
+                                        <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                        <td>{{ $transfer->fromSite->name ?? 'N/A' }}</td>
+                                        <td>{{ $transfer->created_at->format('Y-m-d h:i A') }}</td>
+                                        <td>{{ $transfer->quantity }} units</td>
+                                        <td><span class="text-muted">None</span></td>
+                                        <td><span class="status-badge status-pending">Pending Approval</span></td>
+                                        <td>
+                                            <button type="button" 
+                                                    class="btn btn-primary btn-sm"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#stockTransferApprovalModal"
+                                                    data-id="{{ $transfer->id }}"
+                                                    data-from-site="{{ $transfer->fromSite->name }}"
+                                                    data-to-site="{{ $transfer->toSite->name }}"
+                                                    data-book-name="{{ $transfer->book->name }}"
+                                                    data-quantity="{{ $transfer->quantity }}">
                                                 <i class="las la-eye"></i> Review
                                             </button>
                                         </td>
@@ -495,6 +521,7 @@
                         <button class="queue-btn filter-trigger active" onclick="filterQueue(this, '')">All Records</button>
                         <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Sales Order')">Sales Orders</button>
                         <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Cash Advance')">Cash Advances</button>
+                        <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Stock Transfer')">Stock Transfers</button>
                     </div>
 
                     <div class="table-responsive">
@@ -544,6 +571,30 @@
                                                 data-purpose="{{ $advance->purpose }}"
                                                 data-date-needed="{{ $advance->date_needed->format('M d, Y') }}"
                                                 data-original="{{ json_encode($advance) }}">
+                                            <i class="las la-eye"></i> Review
+                                        </button>
+                                    </td>
+                                </tr>
+                                @endforeach
+
+                                @foreach($pendingTransfers as $transfer)
+                                <tr data-type="Stock Transfer">
+                                    <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
+                                    <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                    <td>{{ $transfer->fromSite->name ?? 'N/A' }}</td>
+                                    <td>{{ $transfer->created_at->format('Y-m-d h:i A') }}</td>
+                                    <td>{{ $transfer->quantity }} units</td>
+                                    <td><span class="status-badge status-pending">Pending Approval</span></td>
+                                    <td>
+                                        <button type="button" 
+                                                class="btn btn-primary btn-sm"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#stockTransferApprovalModal"
+                                                data-id="{{ $transfer->id }}"
+                                                data-from-site="{{ $transfer->fromSite->name }}"
+                                                data-to-site="{{ $transfer->toSite->name }}"
+                                                data-book-name="{{ $transfer->book->name }}"
+                                                data-quantity="{{ $transfer->quantity }}">
                                             <i class="las la-eye"></i> Review
                                         </button>
                                     </td>
@@ -686,6 +737,96 @@
                                     <i class="las la-check-circle me-1"></i>Approve Request
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Transfer Approval Modal -->
+    <div class="modal fade" id="stockTransferApprovalModal" tabindex="-1" aria-labelledby="stockTransferApprovalModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg">
+                <!-- Header -->
+                <div class="modal-header border-0 text-white position-relative" style="background: #28a745; padding: 1.5rem 2rem;">
+                    <div>
+                        <h5 class="modal-title text-white fw-bold mb-1" id="stockTransferApprovalModalLabel">
+                            <i class="las la-exchange-alt me-2"></i>Stock Transfer Approval
+                        </h5>
+                        <p class="mb-0 opacity-75 small" id="st-modal-reference-header"></p>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <!-- Body -->
+                <div class="modal-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-uppercase">From Site:</label>
+                                <div class="p-2 bg-light rounded">
+                                    <span id="st-from-site" class="fw-bold text-dark"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-uppercase">To Site:</label>
+                                <div class="p-2 bg-light rounded">
+                                    <span id="st-to-site" class="fw-bold text-dark"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-uppercase">Book:</label>
+                                <div class="p-2 bg-light rounded">
+                                    <span id="st-book-name" class="fw-bold text-dark"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-uppercase">Quantity:</label>
+                                <div class="p-2 bg-light rounded">
+                                    <span id="st-quantity" class="fw-bold text-success" style="font-size: 1.2rem;"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info small">
+                        <i class="las la-info-circle me-2"></i>
+                        <strong>Note:</strong> This transfer will be automatically processed when approved. The stock will be deducted from the "From Site" and added to the "To Site".
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer border-top bg-white" style="padding: 1.25rem 2rem;">
+                    <div class="d-flex justify-content-between w-100 align-items-center">
+                        <button type="button" class="btn btn-light px-4 py-2 fw-semibold border" data-bs-dismiss="modal">
+                            <i class="las la-times me-1"></i>Close
+                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-danger px-4 py-2 fw-semibold" onclick="toggleStRejection()" id="st-reject-btn">
+                                <i class="las la-times-circle me-1"></i>Reject
+                            </button>
+                            <div id="st-rejection-reason-container" class="mt-2" style="display:none; position: absolute; background: white; border: 1px solid #ccc; padding: 15px; z-index: 1000; width: 300px; bottom: 80px; right: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                <label class="fw-bold mb-2 small">Reason for Rejection:</label>
+                                <textarea name="rejection_reason" class="form-control mb-3" rows="3" placeholder="Enter reason..."></textarea>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-danger btn-sm flex-grow-1" id="st-confirm-reject-btn">Confirm Reject</button>
+                                    <button type="button" class="btn btn-light btn-sm flex-grow-1 border" onclick="toggleStRejection()">Cancel</button>
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="btn btn-success px-4 py-2 fw-semibold" id="st-approve-btn">
+                                <i class="las la-check-circle me-1"></i>Approve Transfer
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -841,11 +982,113 @@
                 // Reset rejection container
                 $('#rejection-reason-container').hide();
             });
+
+            // Stock Transfer Modal Population
+            $('#stockTransferApprovalModal').on('show.bs.modal', function (event) {
+                var button = $(event.relatedTarget);
+                var id = button.data('id');
+                var fromSite = button.data('from-site');
+                var toSite = button.data('to-site');
+                var bookName = button.data('book-name');
+                var quantity = button.data('quantity');
+                var reference = 'ST-' + String(id).padStart(5, '0');
+
+                var modal = $(this);
+                modal.find('#st-from-site').text(fromSite);
+                modal.find('#st-to-site').text(toSite);
+                modal.find('#st-book-name').text(bookName);
+                modal.find('#st-quantity').text(quantity + ' units');
+                modal.find('#st-modal-reference-header').text(reference);
+
+                // Store transfer ID for button handlers
+                modal.data('transfer-id', id);
+
+                // Reset rejection container
+                $('#st-rejection-reason-container').hide();
+
+                // Clear rejection reason textarea
+                $('textarea[name="rejection_reason"]').val('');
+            });
+
+            // Stock Transfer Approve Button Handler
+            $(document).on('click', '#st-approve-btn', function() {
+                var transferId = $('#stockTransferApprovalModal').data('transfer-id');
+                if (transferId) {
+                    approveStockTransfer(transferId);
+                }
+            });
+
+            // Stock Transfer Confirm Reject Button Handler
+            $(document).on('click', '#st-confirm-reject-btn', function() {
+                var transferId = $('#stockTransferApprovalModal').data('transfer-id');
+                if (transferId) {
+                    rejectStockTransfer(transferId);
+                }
+            });
         });
 
         function toggleRejection() {
             var container = $('#rejection-reason-container');
             container.toggle();
+        }
+
+        function toggleStRejection() {
+            var container = $('#st-rejection-reason-container');
+            container.toggle();
+        }
+
+        // Stock Transfer Approval AJAX Handler
+        function approveStockTransfer(transferId) {
+            $.ajax({
+                url: '/production/sites/approve-transfer/' + transferId,
+                type: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        $('#stockTransferApprovalModal').modal('hide');
+                        location.reload(); // Refresh page to update queue
+                    }
+                },
+                error: function(xhr) {
+                    let message = 'Error approving transfer';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    alert(message);
+                }
+            });
+        }
+
+        // Stock Transfer Rejection AJAX Handler
+        function rejectStockTransfer(transferId) {
+            var reason = $('textarea[name="rejection_reason"]').val();
+            $.ajax({
+                url: '/production/sites/reject-transfer/' + transferId,
+                type: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                data: {
+                    'rejection_reason': reason
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        $('#stockTransferApprovalModal').modal('hide');
+                        location.reload(); // Refresh page to update queue
+                    }
+                },
+                error: function(xhr) {
+                    let message = 'Error rejecting transfer';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    alert(message);
+                }
+            });
         }
     </script>
     @endpush

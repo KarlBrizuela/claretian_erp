@@ -14,7 +14,9 @@ class AddStatusToMisMaterialReqsTable extends Migration
     public function up()
     {
         Schema::table('mis_material_reqs', function (Blueprint $table) {
-            $table->enum('status', ['pending', 'received'])->default('pending')->after('request_details');
+            if (!Schema::hasColumn('mis_material_reqs', 'status')) {
+                $table->enum('status', ['pending', 'received'])->default('pending')->after('request_details');
+            }
         });
     }
 

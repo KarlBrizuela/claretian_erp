@@ -14,7 +14,9 @@ class AddIsbnToProductsTable extends Migration
     public function up()
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->string('isbn')->nullable();
+            if (!Schema::hasColumn('products', 'isbn')) {
+                $table->string('isbn')->nullable();
+            }
         });
     }
 

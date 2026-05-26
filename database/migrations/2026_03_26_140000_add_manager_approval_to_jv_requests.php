@@ -9,9 +9,15 @@ return new class extends Migration
     public function up()
     {
         Schema::table('journal_voucher_requests', function (Blueprint $table) {
-            $table->timestamp('approved_at')->nullable()->after('approved_by');
-            $table->foreignId('manager_approved_by')->nullable()->after('approved_at')->constrained('users');
-            $table->timestamp('manager_approved_at')->nullable()->after('manager_approved_by');
+            if (!Schema::hasColumn('journal_voucher_requests', 'approved_at')) {
+                $table->timestamp('approved_at')->nullable()->after('approved_by');
+            }
+            if (!Schema::hasColumn('journal_voucher_requests', 'manager_approved_by')) {
+                $table->foreignId('manager_approved_by')->nullable()->after('approved_at')->constrained('users');
+            }
+            if (!Schema::hasColumn('journal_voucher_requests', 'manager_approved_at')) {
+                $table->timestamp('manager_approved_at')->nullable()->after('manager_approved_by');
+            }
         });
     }
 

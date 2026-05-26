@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use App\Models\Book;
 use App\Models\InventoryTransaction;
 use App\Models\ProductStock;
+use App\Models\Site;
+use App\Models\StockTransfer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
@@ -21,6 +23,7 @@ class InventoryController extends Controller
         $inventoryValue = Book::sum(DB::raw('stock * cost')); // Use cost for inventory value
 
         $books = Book::latest()->paginate(10);
+        $allBooks = Book::all(); // Get all books for dropdown
         
         $recentMovements = InventoryTransaction::with('book')
             ->latest()
@@ -29,14 +32,29 @@ class InventoryController extends Controller
 
         $totalMovements = InventoryTransaction::count();
 
+        // Fetch sites and stock transfers
+        $sites = Site::where('is_active', true)
+            ->with(['inventory' => function ($q) {
+                $q->where('quantity', '>', 0)->with('book');
+            }])
+            ->get();
+
+        $pendingTransfers = StockTransfer::where('status', 'pending')
+            ->with(['fromSite', 'toSite', 'book', 'createdBy'])
+            ->latest()
+            ->get();
+
         return view('production.inventory.overview', compact(
             'totalBooks', 
             'lowStock', 
             'outOfStock', 
             'inventoryValue',
             'books',
+            'allBooks',
             'recentMovements',
-            'totalMovements'
+            'totalMovements',
+            'sites',
+            'pendingTransfers'
         ));
     }
 

@@ -9,7 +9,9 @@ return new class extends Migration
     public function up()
     {
         Schema::table('journal_voucher_requests', function (Blueprint $table) {
-            $table->string('supporting_documents')->nullable()->after('documents');
+            if (!Schema::hasColumn('journal_voucher_requests', 'supporting_documents')) {
+                $table->string('supporting_documents')->nullable()->after('documents');
+            }
         });
     }
 

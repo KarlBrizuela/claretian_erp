@@ -100,6 +100,9 @@ class RolePermissionSeeder extends Seeder
         $this->createRole('Senior Logistics Staff', 'Production Division', $logisticsPerms);
         $this->createRole('Logistics Staff', 'Production Division', $logisticsPerms);
         
+        $driverPerms = ['production.dashboard', 'production.logistic', 'production.my_requests'];
+        $this->createRole('Driver', 'Production Division', $driverPerms);
+        
         $this->createRole('Printing Services Staff', 'Production Division', ['production.dashboard', 'production.printing', 'admin_finance.petty_cash_voucher', 'production.my_requests']);
 
     }

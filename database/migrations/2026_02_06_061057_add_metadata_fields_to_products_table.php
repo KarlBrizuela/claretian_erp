@@ -14,15 +14,33 @@ class AddMetadataFieldsToProductsTable extends Migration
     public function up()
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->string('copyright')->nullable();
-            $table->string('book_type')->nullable();
-            $table->string('weight')->nullable();
-            $table->string('cover_type')->nullable();
-            $table->string('royalty')->nullable();
-            $table->string('article')->nullable();
-            $table->string('sub_category')->nullable();
-            $table->string('email')->nullable();
-            $table->string('contact_number')->nullable();
+            if (!Schema::hasColumn('products', 'copyright')) {
+                $table->string('copyright')->nullable();
+            }
+            if (!Schema::hasColumn('products', 'book_type')) {
+                $table->string('book_type')->nullable();
+            }
+            if (!Schema::hasColumn('products', 'weight')) {
+                $table->string('weight')->nullable();
+            }
+            if (!Schema::hasColumn('products', 'cover_type')) {
+                $table->string('cover_type')->nullable();
+            }
+            if (!Schema::hasColumn('products', 'royalty')) {
+                $table->string('royalty')->nullable();
+            }
+            if (!Schema::hasColumn('products', 'article')) {
+                $table->string('article')->nullable();
+            }
+            if (!Schema::hasColumn('products', 'sub_category')) {
+                $table->string('sub_category')->nullable();
+            }
+            if (!Schema::hasColumn('products', 'email')) {
+                $table->string('email')->nullable();
+            }
+            if (!Schema::hasColumn('products', 'contact_number')) {
+                $table->string('contact_number')->nullable();
+            }
         });
     }
 

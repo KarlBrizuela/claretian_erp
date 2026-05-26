@@ -510,7 +510,7 @@
                     "Production Division": {
                         "Editorial Product and Development": ["DTO Supervisor"],
                         "Foreign Order and Rights": ["Senior Ford Staff", "Ford Staff"],
-                        "Logistics": ["Senior Logistics Staff", "Logistics Staff"],
+                        "Logistics": ["Senior Logistics Staff", "Logistics Staff", "Driver"],
                         "Printing Services": ["Printing Services Staff"]
                     }
                 };

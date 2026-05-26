@@ -152,11 +152,11 @@
                                                             <div class="modal-body p-4">
                                                                 <div class="mb-3">
                                                                     <label class="form-label font-w500 text-black">Select Driver</label>
-                                                                    <select name="driver" class="form-control default-select shadow-sm" required>
+                                                                    <select name="driver_id" class="form-control default-select shadow-sm" required>
                                                                         <option value="">-- Choose Driver --</option>
                                                                         @foreach($drivers as $driver)
-                                                                            <option value="{{ $driver->name }}" {{ (isset($order->driver) && $order->driver == $driver->name) ? 'selected' : '' }}>
-                                                                                {{ $driver->name }}
+                                                                            <option value="{{ $driver->id }}" {{ (isset($order->driver_id) && $order->driver_id == $driver->id) ? 'selected' : '' }}>
+                                                                                {{ $driver->first_name }} {{ $driver->last_name }}
                                                                             </option>
                                                                         @endforeach
                                                                     </select>

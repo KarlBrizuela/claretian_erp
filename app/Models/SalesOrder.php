@@ -55,6 +55,7 @@ class SalesOrder extends Model
         'shipping_label_attachment',
         'driver',
         'plate_number',
+        'driver_id',
     ];
 
     public function customer()
@@ -100,6 +101,11 @@ class SalesOrder extends Model
     public function signedBy()
     {
         return $this->belongsTo(User::class, 'signed_by_af_manager');
+    }
+
+    public function driverUser()
+    {
+        return $this->belongsTo(User::class, 'driver_id');
     }
 
     public function getDueDateAttribute()

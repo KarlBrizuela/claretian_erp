@@ -7,6 +7,7 @@ use App\Http\Controllers\MarketingController;
 use App\Http\Controllers\Marketing\SupplierController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\Production\InventoryController;
+use App\Http\Controllers\Production\SiteController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\AdminFinanceController;
 use Illuminate\Support\Facades\Route;
@@ -51,6 +52,16 @@ Route::middleware(['auth'])->group(function () {
       Route::delete('/destroy-product/{id}', [InventoryController::class, 'destroyProduct'])->name('destroy-product');
       Route::post('/process-add-stock', [InventoryController::class, 'processAddStock'])->name('process-add-stock');
       Route::post('/update-stock/{bookId}', [InventoryController::class, 'updateStockDirectly'])->name('update-stock');
+    });
+
+    // Site Management Routes
+    Route::prefix('production/sites')->name('production.sites.')->group(function () {
+      Route::post('/store', [App\Http\Controllers\Production\SiteController::class, 'store'])->name('store');
+      Route::post('/add-stock', [App\Http\Controllers\Production\SiteController::class, 'addStock'])->name('add-stock');
+      Route::post('/update/{id}', [App\Http\Controllers\Production\SiteController::class, 'updateSite'])->name('update');
+      Route::post('/transfer', [App\Http\Controllers\Production\SiteController::class, 'transfer'])->name('transfer');
+      Route::post('/approve-transfer/{id}', [App\Http\Controllers\Production\SiteController::class, 'approveTransfer'])->name('approve-transfer');
+      Route::post('/reject-transfer/{id}', [App\Http\Controllers\Production\SiteController::class, 'rejectTransfer'])->name('reject-transfer');
     });
 
     // Production Logistic Management

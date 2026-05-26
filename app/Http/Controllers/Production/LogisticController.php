@@ -72,7 +72,7 @@ class LogisticController extends Controller
             ->latest()
             ->get();
 
-        $drivers = \App\Models\User::where('division', 'Production Division')
+        $drivers = \App\Models\User::where('position', 'Driver')
             ->where('status', true)
             ->get();
 
@@ -99,18 +99,25 @@ class LogisticController extends Controller
     public function assignDriver(Request $request, $id)
     {
         $request->validate([
-            'driver' => 'required|string|max:255',
+            'driver_id' => 'required|exists:users,id',
             'plate_number' => 'required|string|max:255',
         ]);
 
         $order = \App\Models\SalesOrder::findOrFail($id);
+        $driver = \App\Models\User::findOrFail($request->driver_id);
+        
+        // Verify that the selected user is a Driver
+        if ($driver->position !== 'Driver') {
+            return redirect()->back()->with('error', 'Selected user is not a Driver. Only users with Driver position can be assigned.');
+        }
         
         $order->update([
-            'driver' => $request->driver,
+            'driver_id' => $request->driver_id,
+            'driver' => $driver->first_name . ' ' . $driver->last_name,
             'plate_number' => $request->plate_number,
         ]);
 
-        return redirect()->back()->with('success', 'Driver assigned to Order #' . $order->so_number);
+        return redirect()->back()->with('success', 'Driver ' . $driver->first_name . ' ' . $driver->last_name . ' assigned to Order #' . $order->so_number);
     }
 
     public function printTransmittal($id)
@@ -325,10 +332,8 @@ class LogisticController extends Controller
 
     public function driverDashboard()
     {
-        $driverName = auth()->user()->name;
-
         $assignedDeliveries = \App\Models\SalesOrder::with(['customer', 'items.book'])
-            ->where('driver', $driverName)
+            ->where('driver_id', auth()->id())
             ->whereIn('status', ['ready_for_delivery', 'in_transit'])
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
             ->latest()

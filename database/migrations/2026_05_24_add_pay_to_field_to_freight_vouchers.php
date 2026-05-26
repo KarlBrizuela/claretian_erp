@@ -14,7 +14,9 @@ class AddPayToFieldToFreightVouchers extends Migration
     public function up()
     {
         Schema::table('freight_vouchers', function (Blueprint $table) {
-            $table->string('pay_to')->nullable()->after('supplier_id');
+            if (!Schema::hasColumn('freight_vouchers', 'pay_to')) {
+                $table->string('pay_to')->nullable()->after('supplier_id');
+            }
         });
     }
 
@@ -26,7 +28,9 @@ class AddPayToFieldToFreightVouchers extends Migration
     public function down()
     {
         Schema::table('freight_vouchers', function (Blueprint $table) {
-            $table->dropColumn('pay_to');
+            if (Schema::hasColumn('freight_vouchers', 'pay_to')) {
+                $table->dropColumn('pay_to');
+            }
         });
     }
 }

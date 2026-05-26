@@ -14,10 +14,18 @@ class AddMissingColumnsToSalesOrders extends Migration
     public function up()
     {
         Schema::table('sales_orders', function (Blueprint $table) {
-            $table->string('terms')->nullable()->after('status');
-            $table->string('ref_number')->nullable()->after('terms');
-            $table->text('shipping_address')->nullable()->after('ref_number');
-            $table->text('billing_address')->nullable()->after('shipping_address');
+            if (!Schema::hasColumn('sales_orders', 'terms')) {
+                $table->string('terms')->nullable()->after('status');
+            }
+            if (!Schema::hasColumn('sales_orders', 'ref_number')) {
+                $table->string('ref_number')->nullable()->after('terms');
+            }
+            if (!Schema::hasColumn('sales_orders', 'shipping_address')) {
+                $table->text('shipping_address')->nullable()->after('ref_number');
+            }
+            if (!Schema::hasColumn('sales_orders', 'billing_address')) {
+                $table->text('billing_address')->nullable()->after('shipping_address');
+            }
         });
     }
 
