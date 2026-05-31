@@ -147,9 +147,10 @@ class CustomerController extends Controller
      */
     public function update(Request $request, Customer $customer)
     {
-        // Only Super Admin can edit customers
-        if (auth()->user()->position !== 'Super Admin') {
-            return response()->json(['message' => 'Unauthorized action. Only Super Admin can edit customers.'], 403);
+        // Super Admin or Marketing with permission can edit customers
+        $user = auth()->user();
+        if (!($user->isSuperAdmin() || ($user->hasPermission('marketing.customers')))) {
+            return response()->json(['message' => 'Unauthorized action. Only Super Admin or Marketing can edit customers.'], 403);
         }
 
         // Smart defaulting before validation
@@ -223,9 +224,10 @@ class CustomerController extends Controller
      */
     public function destroy(Customer $customer)
     {
-        // Only Super Admin can delete customers
-        if (auth()->user()->position !== 'Super Admin') {
-            return response()->json(['message' => 'Unauthorized action. Only Super Admin can delete customers.'], 403);
+        // Super Admin or Marketing with permission can delete customers
+        $user = auth()->user();
+        if (!($user->isSuperAdmin() || ($user->hasPermission('marketing.customers')))) {
+            return response()->json(['message' => 'Unauthorized action. Only Super Admin or Marketing can delete customers.'], 403);
         }
         $customer->delete();
 
@@ -265,8 +267,10 @@ class CustomerController extends Controller
      */
     public function updateManualStatus(Request $request, Customer $customer)
     {
-        if (auth()->user()->position !== 'Super Admin') {
-            return response()->json(['message' => 'Unauthorized action. Only Super Admin can change customer status.'], 403);
+        // Super Admin or Marketing with permission can change customer status
+        $user = auth()->user();
+        if (!($user->isSuperAdmin() || ($user->hasPermission('marketing.customers')))) {
+            return response()->json(['message' => 'Unauthorized action. Only Super Admin or Marketing can change customer status.'], 403);
         }
 
         $validated = $request->validate([

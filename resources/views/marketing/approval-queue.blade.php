@@ -1060,7 +1060,7 @@
                     alert(message);
                 }
             });
-        }
+        }2
 
         // Stock Transfer Rejection AJAX Handler
         function rejectStockTransfer(transferId) {

@@ -183,7 +183,7 @@
                                   </td>
                                   <td>
                                       <div class="d-flex">
-                                          @if(auth()->user()->position === 'Super Admin')
+                                          @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
                                           <a href="javascript:void(0);" class="btn btn-primary shadow btn-xs sharp me-1 edit-customer-btn"
                                               data-customer-id="{{$customer->customer_id}}">
                                               <i class="fas fa-pencil-alt"></i></a>
@@ -191,7 +191,7 @@
                                           <a href="javascript:void(0);" class="btn btn-info shadow btn-xs sharp me-1 view-history-btn"
                                               data-customer-id="{{$customer->customer_id}}"
                                               title="Transaction History"><i class="las la-history"></i></a>
-                                          @if(auth()->user()->position === 'Super Admin')
+                                          @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
                                           <a href="javascript:void(0);" class="btn btn-danger shadow btn-xs sharp delete-customer-btn"
                                               data-customer-id="{{$customer->customer_id}}">
                                               <i class="fa fa-trash"></i></a>
@@ -553,7 +553,7 @@
                             <h4 class="mb-0">Current Balance: <span class="text-primary" id="historyBalance">₱0.00</span></h4>
                             <div id="historyStatusBadge" class="mt-1"></div>
                         </div>
-                        @if(auth()->user()->position === 'Super Admin')
+                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
                         <div class="d-flex align-items-center gap-2">
                             <label class="small fw-bold mb-0">Override Status:</label>
                             <select class="form-select form-select-sm" id="manualStatusOverride" style="width: 150px;">
@@ -906,7 +906,7 @@
                             <input type="checkbox" id="editCustomerInactive"> <label for="editCustomerInactive"
                                 class="small mb-0">Customer is inactive</label>
                         </div>
-                        @if(auth()->user()->position === 'Super Admin')
+                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
                         <div class="d-flex align-items-center gap-2 border-start ps-3">
                             <label class="small fw-bold mb-0">Manual Status:</label>
                             <select class="form-select form-select-sm" id="editManualStatus" style="width: 120px;">
@@ -1021,7 +1021,8 @@
     <script>
         // Authorization check
         const userPosition = '{{ auth()->user()->position ?? "" }}';
-        const isAdmin = userPosition === 'Super Admin';
+        const canEditCustomers = {{ auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers') ? 'true' : 'false' }};
+        const isAdmin = userPosition === 'Super Admin' || canEditCustomers;
 
         // Search Functionality
         document.getElementById('customerSearch')?.addEventListener('keyup', function() {
@@ -1154,8 +1155,8 @@
         // Open Edit Modal and fetch customer data
         document.querySelectorAll('.edit-customer-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
-                if (!isAdmin) {
-                    alert('You do not have permission to edit customers. Only Super Admin can edit.');
+                if (!canEditCustomers) {
+                    alert('You do not have permission to edit customers. Only Marketing users can edit.');
                     return;
                 }
                 const customerId = this.dataset.customerId;
@@ -1446,8 +1447,8 @@
         // Open Confirm Delete Modal
         document.querySelectorAll('.delete-customer-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                if (!isAdmin) {
-                    alert('You do not have permission to delete customers. Only Super Admin can delete.');
+                if (!canEditCustomers) {
+                    alert('You do not have permission to delete customers. Only Marketing users can delete.');
                     return;
                 }
                 customerIdToDelete = this.dataset.customerId;
