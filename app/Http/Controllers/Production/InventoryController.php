@@ -17,27 +17,54 @@ class InventoryController extends Controller
 {
     public function overview()
     {
-        $totalBooks = Book::count();
-        $lowStock = Book::whereColumn('stock', '<=', 'reorder_point')->count();
-        $outOfStock = Book::where('stock', 0)->count();
-        $inventoryValue = Book::sum(DB::raw('stock * cost')); // Use cost for inventory value
+        // Fetch sites and stock transfers first
+        $sites = Site::where('is_active', true)
+            ->with(['inventory' => function ($q) {
+                $q->where('quantity', '>', 0)->with('book');
+            }])
+            ->get();
 
+        // Get Main Warehouse specifically
+        $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+
+        // Get all books
+        $allBooks = Book::all();
         $books = Book::latest()->paginate(10);
-        $allBooks = Book::all(); // Get all books for dropdown
-        
+
+        // Calculate statistics based on MAIN WAREHOUSE ONLY
+        $totalBooks = 0;
+        $lowStock = 0;
+        $outOfStock = 0;
+        $inventoryValue = 0;
+
+        foreach ($allBooks as $book) {
+            $mainWarehouseQuantity = 0;
+            
+            // Get quantity from Main Warehouse only
+            if ($mainWarehouse) {
+                $mainWarehouseQuantity = $mainWarehouse->inventory()
+                    ->where('book_id', $book->id)
+                    ->sum('quantity');
+            }
+
+            if ($mainWarehouseQuantity > 0) {
+                $totalBooks++;
+                $inventoryValue += $mainWarehouseQuantity * ($book->cost ?? 0);
+                
+                if ($mainWarehouseQuantity <= ($book->reorder_point ?? 0)) {
+                    $lowStock++;
+                }
+            } else {
+                $outOfStock++;
+            }
+        }
+
         $recentMovements = InventoryTransaction::with('book')
             ->latest()
             ->limit(5)
             ->get();
 
         $totalMovements = InventoryTransaction::count();
-
-        // Fetch sites and stock transfers
-        $sites = Site::where('is_active', true)
-            ->with(['inventory' => function ($q) {
-                $q->where('quantity', '>', 0)->with('book');
-            }])
-            ->get();
 
         $pendingTransfers = StockTransfer::where('status', 'pending')
             ->with(['fromSite', 'toSite', 'book', 'createdBy'])
@@ -54,7 +81,8 @@ class InventoryController extends Controller
             'recentMovements',
             'totalMovements',
             'sites',
-            'pendingTransfers'
+            'pendingTransfers',
+            'mainWarehouse'
         ));
     }
 

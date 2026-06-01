@@ -59,6 +59,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/store', [App\Http\Controllers\Production\SiteController::class, 'store'])->name('store');
       Route::post('/add-stock', [App\Http\Controllers\Production\SiteController::class, 'addStock'])->name('add-stock');
       Route::post('/update/{id}', [App\Http\Controllers\Production\SiteController::class, 'updateSite'])->name('update');
+      Route::get('/{siteId}/inventory', [App\Http\Controllers\Production\SiteController::class, 'getInventory'])->name('inventory');
       Route::post('/transfer', [App\Http\Controllers\Production\SiteController::class, 'transfer'])->name('transfer');
       Route::post('/approve-transfer/{id}', [App\Http\Controllers\Production\SiteController::class, 'approveTransfer'])->name('approve-transfer');
       Route::post('/reject-transfer/{id}', [App\Http\Controllers\Production\SiteController::class, 'rejectTransfer'])->name('reject-transfer');

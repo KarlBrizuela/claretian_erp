@@ -133,6 +133,11 @@
                                 <div>
                                     <h4 class="fs-20 mb-0 text-black">Master Book Registry</h4>
                                 </div>
+                                <div>
+                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#transferStockModal" onclick="initTransferModalFromMaster()">
+                                        <i class="las la-exchange-alt me-1"></i>Transfer Stock
+                                    </button>
+                                </div>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -151,19 +156,28 @@
                                         </thead>
                                         <tbody>
                                             @forelse($books as $book)
+                                            @php
+                                                // Get Main Warehouse inventory for this book
+                                                $mainWarehouseQuantity = 0;
+                                                if($mainWarehouse) {
+                                                    $mainWarehouseQuantity = $mainWarehouse->inventory()
+                                                        ->where('book_id', $book->id)
+                                                        ->sum('quantity');
+                                                }
+                                            @endphp
                                             <tr>
                                                 <td><strong>#{{ $book->sku }}</strong></td>
                                                 <td>{{ $book->name }}</td>
                                                 <td>{{ $book->category }}</td>
                                                 <td>₱{{ number_format($book->cost, 2) }}</td>
-                                                <td><strong>{{ $book->stock }}</strong></td>
+                                                <td><strong>{{ $mainWarehouseQuantity }}</strong></td>
                                                 <td><strong>{{ $book->max_stock ?? 'N/A' }}</strong></td>
                                                 <td>
-                                                    @if($book->stock == 0)
+                                                    @if($mainWarehouseQuantity == 0)
                                                         <div class="d-flex align-items-center">
                                                             <i class="fa fa-circle text-danger me-1"></i> Out of Stock
                                                         </div>
-                                                    @elseif($book->stock <= $book->reorder_point)
+                                                    @elseif($mainWarehouseQuantity <= ($book->reorder_point ?? 0))
                                                         <div class="d-flex align-items-center">
                                                             <i class="fa fa-circle text-warning me-1"></i> Low Stock
                                                         </div>
@@ -174,14 +188,14 @@
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-primary" onclick="openStockManagementModal({{ $book->id }}, '{{ $book->name }}', {{ $book->stock }}, {{ $book->max_stock ?? 0 }})">
+                                                    <button class="btn btn-sm btn-danger" onclick="openStockManagementModal({{ $book->id }}, '{{ addslashes($book->name) }}', {{ $book->stock }}, {{ $book->max_stock ?? 0 }})">
                                                         <i class="las la-pen"></i>
                                                     </button>
                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="8" class="text-center">No master books found.</td>
+                                                <td colspan="8" class="text-center">No master books found.您
                                             </tr>
                                             @endforelse
                                         </tbody>
@@ -252,7 +266,7 @@
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="6" class="text-center">No recent movements.</td>
+                                                <td colspan="6" class="text-center">No recent movements.您
                                             </tr>
                                             @endforelse
                                         </tbody>
@@ -276,8 +290,6 @@
 
             <!-- Sites Tab Content -->
             <div class="tab-pane fade" id="sites-content" role="tabpanel" aria-labelledby="sites-tab">
-    
-
                 <!-- Sites List -->
                 <div class="row">
                     <div class="col-xl-12">
@@ -318,7 +330,7 @@
                                                     <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#viewSiteInventory{{ $site->id }}" title="View Inventory">
                                                         <i class="las la-boxes"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editSiteModal{{ $site->id }}" title="Edit Site">
+                                                    <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#editSiteModal{{ $site->id }}" title="Edit Site">
                                                         <i class="las la-pen"></i>
                                                     </button>
                                                 </td>
@@ -419,7 +431,6 @@
                                             <th>Quantity</th>
                                             <th>Reorder Point</th>
                                             <th>Status</th>
-                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -437,11 +448,6 @@
                                                     <span class="badge light badge-success">In Stock</span>
                                                 @endif
                                             </td>
-                                            <td>
-                                                <button class="btn btn-xs btn-primary" data-bs-toggle="modal" data-bs-target="#transferStockModal" onclick="initTransferModal({{ $site->id }}, {{ $inv->book_id }}, '{{ $site->name }}', '{{ $inv->book->name }}', {{ $inv->quantity }})">
-                                                    <i class="las la-exchange-alt"></i> Transfer
-                                                </button>
-                                            </td>
                                         </tr>
                                         @endforeach
                                     </tbody>
@@ -454,7 +460,6 @@
                 </div>
             </div>
         </div>
-
 
         <!-- Edit Site Modal -->
         <div class="modal fade" id="editSiteModal{{ $site->id }}" tabindex="-1" aria-hidden="true">
@@ -522,7 +527,6 @@
                         </div>
                     </div>
 
-                    <!-- Tab Navigation -->
                     <ul class="nav nav-tabs mb-3" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="addTab" data-bs-toggle="tab" data-bs-target="#addTabContent" type="button" role="tab" aria-controls="addTabContent" aria-selected="true">
@@ -536,9 +540,7 @@
                         </li>
                     </ul>
 
-                    <!-- Tab Content -->
                     <div class="tab-content">
-                        <!-- Add Stock Tab -->
                         <div class="tab-pane fade show active" id="addTabContent" role="tabpanel" aria-labelledby="addTab">
                             <div class="mb-3">
                                 <label class="form-label font-w600">Quantity to Add *</label>
@@ -550,7 +552,6 @@
                             </div>
                         </div>
                         
-                        <!-- Edit Stock Tab -->
                         <div class="tab-pane fade" id="editTabContent" role="tabpanel" aria-labelledby="editTab">
                             <div class="mb-3">
                                 <label class="form-label font-w600">Set Stock to *</label>
@@ -610,40 +611,96 @@
 
     <!-- Transfer Stock Modal -->
     <div class="modal fade" id="transferStockModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header bg-warning text-white">
-                    <h6 class="modal-title text-white"><i class="las la-exchange-alt me-2"></i>Transfer Stock</h6>
+                <div class="modal-header text-white d-flex justify-content-between align-items-center" style="background-color: #dc3545;">
+                    <h6 class="modal-title text-white m-0"><i class="las la-exchange-alt me-2"></i>Transfer Stock (Multiple Books)</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="transferStockForm">
                     @csrf
                     <div class="modal-body">
+                        <!-- From Site Selection -->
                         <div class="mb-3">
-                            <label class="form-label font-w600">From Site</label>
-                            <input type="text" id="fromSiteName" class="form-control" disabled>
-                            <input type="hidden" id="fromSiteId" name="from_site_id">
+                            <label class="form-label font-w600">From Site *</label>
+                            <select name="from_site_id" class="form-control" required id="fromSiteSelect">
+                                <option value="">-- Select Source Site --</option>
+                                @foreach($sites ?? [] as $site)
+                                    <option value="{{ $site->id }}">{{ $site->name }}</option>
+                                @endforeach
+                            </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label font-w600">Book</label>
-                            <input type="text" id="bookName" class="form-control" disabled>
-                            <input type="hidden" id="bookId" name="book_id">
-                            <small class="text-muted" id="availableQty"></small>
+
+                        <!-- Multiple Books to Transfer Section -->
+                        <div class="mb-4">
+                            <label class="form-label font-w600">Books to Transfer</label>
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="transferBooksTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 40%;">Book</th>
+                                            <th style="width: 25%;">Quantity</th>
+                                            <th style="width: 25%;">Available</th>
+                                            <th style="width: 10%;" class="text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="transferBooksBody">
+                                        <tr id="emptyBooksRow">
+                                            <td colspan="4" class="text-center text-muted py-3">Select a source site above, then click "Add Book" to start.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+
+                        <!-- Add Book Button -->
+                        <div class="mb-4">
+                            <button type="button" class="btn btn-primary" id="showAddBookBtn" disabled>
+                                <i class="las la-plus me-1"></i>Add Book
+                            </button>
+                        </div>
+
+                        <!-- Dynamic Add Book Form (Hidden by default) -->
+                        <div id="addBookForm" style="display: none;" class="mb-4 p-3 bg-light rounded">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0"><i class="las la-book me-2"></i>Add New Book</h6>
+                                <button type="button" class="btn-close" id="closeAddBookForm"></button>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label font-w600">Select Book *</label>
+                                    <select id="bookSelect" class="form-control">
+                                        <option value="">-- Select a Book --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label font-w600">Quantity *</label>
+                                    <input type="number" id="bookQuantity" class="form-control" placeholder="Enter quantity" min="1" disabled>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label font-w600">&nbsp;</label>
+                                    <button type="button" class="btn btn-success form-control" id="confirmAddBookBtn">
+                                        <i class="las la-check me-1"></i>Add
+                                    </button>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted">Available stock: <span id="selectedBookAvailable">0</span></small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- To Site -->
                         <div class="mb-3">
                             <label class="form-label font-w600">To Site *</label>
-                            <select name="to_site_id" class="form-control default-select" required id="toSiteSelect">
+                            <select name="to_site_id" class="form-control" required id="toSiteSelect">
                                 <option value="">-- Select Destination Site --</option>
                                 @foreach($sites ?? [] as $site)
                                     <option value="{{ $site->id }}">{{ $site->name }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label font-w600">Quantity to Transfer *</label>
-                            <input type="number" name="quantity" class="form-control" placeholder="0" min="1" required id="transferQty">
-                            <small class="text-muted">Available: <span id="maxTransferQty">0</span></small>
-                        </div>
+
+                        <!-- Notes -->
                         <div class="mb-0">
                             <label class="form-label font-w600">Notes</label>
                             <textarea name="notes" class="form-control" rows="2" placeholder="Transfer notes..."></textarea>
@@ -651,7 +708,9 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-sm btn-warning">Request Transfer</button>
+                        <button type="submit" class="btn btn-sm btn-danger" id="submitTransferBtn" disabled>
+                            <i class="las la-check me-1"></i>Request Transfer (0 books)
+                        </button>
                     </div>
                 </form>
             </div>
@@ -673,7 +732,7 @@
                         <div class="timeline-marker bg-primary"><strong>1</strong></div>
                         <div class="timeline-content">
                             <h6 class="font-w600">Create Warehouse/Site</h6>
-                            <p class="text-muted mb-0">Click "Add New Site" to create a new warehouse location (e.g., Main Warehouse, Lazada Warehouse, Bookstore). Set the name, code, location, and description.</p>
+                            <p class="text-muted mb-0">Click "Add New Site" to create a new warehouse location. Set the name, code, location, and description.</p>
                         </div>
                     </div>
 
@@ -681,7 +740,7 @@
                         <div class="timeline-marker bg-success"><strong>2</strong></div>
                         <div class="timeline-content">
                             <h6 class="font-w600">Add Stock to Site</h6>
-                            <p class="text-muted mb-0">Click the <i class="las la-plus"></i> button on any site to add inventory. Select the book/product, quantity, and optional reorder point. This is your initial stock setup.</p>
+                            <p class="text-muted mb-0">Click the <i class="las la-plus"></i> button on any site to add inventory. Select the book, quantity, and optional reorder point.</p>
                         </div>
                     </div>
 
@@ -689,7 +748,7 @@
                         <div class="timeline-marker bg-warning"><strong>3</strong></div>
                         <div class="timeline-content">
                             <h6 class="font-w600">View Site Inventory</h6>
-                            <p class="text-muted mb-0">Click the <i class="las la-boxes"></i> button to see all items in that warehouse and their stock levels (In Stock / Low Stock / Out of Stock).</p>
+                            <p class="text-muted mb-0">Click the <i class="las la-boxes"></i> button to see all items in that warehouse and their stock levels.</p>
                         </div>
                     </div>
 
@@ -697,7 +756,7 @@
                         <div class="timeline-marker bg-danger"><strong>4</strong></div>
                         <div class="timeline-content">
                             <h6 class="font-w600">Request Stock Transfer</h6>
-                            <p class="text-muted mb-0">From the inventory view, click <i class="las la-exchange-alt"></i> on a low-stock item. Fill in the destination site and quantity. Submit to create a transfer request. Status: <span class="badge badge-warning">Pending</span></p>
+                            <p class="text-muted mb-0">Click the "Transfer Stock" button, select source site, add books to transfer, select destination site, and submit.</p>
                         </div>
                     </div>
 
@@ -705,7 +764,7 @@
                         <div class="timeline-marker bg-success"><strong>5</strong></div>
                         <div class="timeline-content">
                             <h6 class="font-w600">Manager Approval</h6>
-                            <p class="text-muted mb-0">Marketing Manager reviews pending transfers in the "Pending Stock Transfers" table. Click <strong>Approve</strong> to process the transfer or <strong>Reject</strong> to decline.</p>
+                            <p class="text-muted mb-0">Manager reviews pending transfers and clicks Approve or Reject.</p>
                         </div>
                     </div>
 
@@ -713,18 +772,9 @@
                         <div class="timeline-marker bg-info"><strong>6</strong></div>
                         <div class="timeline-content">
                             <h6 class="font-w600">Automatic Stock Update</h6>
-                            <p class="text-muted mb-0">Once approved, stock is automatically deducted from the source site and added to the destination site. Status changes to <span class="badge badge-success">Completed</span></p>
+                            <p class="text-muted mb-0">Once approved, stock is automatically deducted from source and added to destination.</p>
                         </div>
                     </div>
-
-                    <hr class="my-3">
-                    <h6 class="mb-2">📌 Quick Reference</h6>
-                    <ul class="text-muted small">
-                        <li><strong>Lazada Manager:</strong> Can request stock transfers when inventory is low</li>
-                        <li><strong>Marketing Manager:</strong> Approves or rejects transfer requests</li>
-                        <li><strong>System:</strong> Automatically updates stock after approval (no manual entry needed)</li>
-                        <li><strong>Audit Trail:</strong> All transfers are tracked with created_by, approved_by, and timestamps</li>
-                    </ul>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -763,7 +813,6 @@
             const bsToast = new bootstrap.Toast(toastElement);
             bsToast.show();
             
-            // Remove toast from DOM after it's hidden
             toastElement.addEventListener('hidden.bs.toast', function() {
                 toastElement.remove();
             });
@@ -773,6 +822,8 @@
         let currentStock = null;
         let maxStock = null;
         let currentBookId = null;
+        let stockMgmtAddHandler = null;
+        let stockMgmtEditHandler = null;
 
         function openStockManagementModal(bookId, bookName, stock, max) {
             currentBookId = bookId;
@@ -780,21 +831,25 @@
             currentStock = stock;
             maxStock = max;
 
-            // Set book info
             document.getElementById('mgmtBookName').value = bookName;
             document.getElementById('mgmtCurrentStock').value = stock;
             document.getElementById('mgmtMaxStock').value = max || 'Not Set';
             
-            // Reset all inputs
             document.getElementById('mgmtAddQuantity').value = '';
             document.getElementById('mgmtAddWarning').innerHTML = '';
             document.getElementById('mgmtAddPreview').style.display = 'none';
+            document.getElementById('mgmtEditQuantity').value = '';
+            document.getElementById('mgmtEditWarning').innerHTML = '';
+            document.getElementById('mgmtEditPreview').style.display = 'none';
 
-            const modal = new bootstrap.Modal(document.getElementById('stockManagementModal'));
-            modal.show();
+            if (stockMgmtAddHandler) {
+                document.getElementById('mgmtAddQuantity').removeEventListener('input', stockMgmtAddHandler);
+            }
+            if (stockMgmtEditHandler) {
+                document.getElementById('mgmtEditQuantity').removeEventListener('input', stockMgmtEditHandler);
+            }
 
-            // Add event listeners for real-time preview
-            document.getElementById('mgmtAddQuantity').addEventListener('keyup', function() {
+            stockMgmtAddHandler = function() {
                 const quantity = parseInt(this.value) || 0;
                 const newStock = currentStock + quantity;
                 const warning = document.getElementById('mgmtAddWarning');
@@ -815,15 +870,14 @@
                     preview.style.display = 'none';
                     warning.innerHTML = '';
                 }
-            });
+            };
 
-            // Add event listeners for edit quantity
-            document.getElementById('mgmtEditQuantity').addEventListener('keyup', function() {
+            stockMgmtEditHandler = function() {
                 const newStock = parseInt(this.value);
                 const warning = document.getElementById('mgmtEditWarning');
                 const preview = document.getElementById('mgmtEditPreview');
 
-                if (newStock >= 0) {
+                if (!isNaN(newStock) && newStock >= 0) {
                     preview.style.display = 'block';
                     document.getElementById('mgmtEditOldStock').textContent = currentStock;
                     document.getElementById('mgmtEditNewStock').textContent = newStock;
@@ -839,14 +893,20 @@
                     preview.style.display = 'none';
                     warning.innerHTML = '';
                 }
-            });
+            };
+
+            document.getElementById('mgmtAddQuantity').addEventListener('input', stockMgmtAddHandler);
+            document.getElementById('mgmtEditQuantity').addEventListener('input', stockMgmtEditHandler);
+
+            const modal = new bootstrap.Modal(document.getElementById('stockManagementModal'));
+            modal.show();
         }
 
         function saveStockManagement() {
-            const activeTab = document.querySelector('.nav-link.active');
-            if (activeTab.id === 'addTab') {
+            const activeTab = document.querySelector('#stockManagementModal .nav-link.active');
+            if (activeTab && activeTab.id === 'addTab') {
                 saveAddStock();
-            } else if (activeTab.id === 'editTab') {
+            } else if (activeTab && activeTab.id === 'editTab') {
                 saveEditStock();
             }
         }
@@ -865,7 +925,6 @@
                 return;
             }
 
-            // Send to backend
             fetch(`/production/inventory/update-stock/${currentBookId}`, {
                 method: 'POST',
                 headers: {
@@ -897,7 +956,7 @@
         function saveEditStock() {
             const newStock = parseInt(document.getElementById('mgmtEditQuantity').value);
 
-            if (newStock === null || newStock === undefined || isNaN(newStock)) {
+            if (isNaN(newStock)) {
                 showNotification('Please enter a valid stock value', 'warning');
                 return;
             }
@@ -907,7 +966,6 @@
                 return;
             }
 
-            // Send to backend
             fetch(`/production/inventory/update-stock/${currentBookId}`, {
                 method: 'POST',
                 headers: {
@@ -924,6 +982,7 @@
                 if (data.success) {
                     showNotification('Stock updated successfully!', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('stockManagementModal')).hide();
+                    setTimeout(() => location.reload(), 1500);
                 } else {
                     showNotification('Error: ' + data.message, 'error');
                 }
@@ -935,7 +994,7 @@
         }
 
         // Site Management Functions
-        document.getElementById('addSiteForm').addEventListener('submit', function(e) {
+        document.getElementById('addSiteForm')?.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             
@@ -962,7 +1021,6 @@
             });
         });
 
-        // Edit Site Forms
         document.querySelectorAll('.editSiteForm').forEach(form => {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -993,43 +1051,436 @@
             });
         });
         
-        document.getElementById('transferStockForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
+        // Stock Transfer Variables
+        let selectedBooksMap = {};
+        let siteBooks = {};
+        let nextRowId = 1;
+
+        // Store master books data for Main Warehouse
+        const masterBooksData = [
+            @forelse($allBooks ?? [] as $book)
+                {
+                    book_id: {{ $book->id }},
+                    book: { name: '{{ addslashes($book->name ?? 'Unknown') }}' },
+                    quantity: {{ $book->stock ?? 0 }}
+                }{{ !$loop->last ? ',' : '' }}
+            @empty
+            @endforelse
+        ];
+
+        // Store sites inventory data from Blade
+        const sitesInventoryData = {
+            @foreach($sites ?? [] as $site)
+                {{ $site->id }}: [
+                    @foreach($site->inventory ?? [] as $inv)
+                        {
+                            book_id: {{ $inv->book_id }},
+                            book: { name: '{{ addslashes($inv->book->name ?? 'Unknown') }}' },
+                            quantity: {{ $inv->quantity }}
+                        }{{ !$loop->last ? ',' : '' }}
+                    @endforeach
+                ]{{ !$loop->last ? ',' : '' }}
+            @endforeach
+        };
+
+        // Initialize transfer modal from master inventory
+        window.initTransferModalFromMaster = function() {
+            selectedBooksMap = {};
+            nextRowId = 1;
+            siteBooks = {}; // Clear cache
             
-            fetch('/production/sites/transfer', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('Transfer request submitted!', 'success');
+            document.getElementById('fromSiteSelect').value = '';
+            document.getElementById('toSiteSelect').value = '';
+            const notesTextarea = document.querySelector('textarea[name="notes"]');
+            if (notesTextarea) notesTextarea.value = '';
+            
+            const addBookForm = document.getElementById('addBookForm');
+            const showAddBookBtn = document.getElementById('showAddBookBtn');
+            if (addBookForm) addBookForm.style.display = 'none';
+            if (showAddBookBtn) {
+                showAddBookBtn.disabled = true;
+                showAddBookBtn.style.display = 'block';
+            }
+            
+            const bookSelect = document.getElementById('bookSelect');
+            const quantityInput = document.getElementById('bookQuantity');
+            if (bookSelect) bookSelect.innerHTML = '<option value="">-- Select a Book --</option>';
+            if (quantityInput) {
+                quantityInput.value = '';
+                quantityInput.disabled = true;
+            }
+            
+            renderSelectedBooks();
+            updateSubmitButton();
+        };
+
+        // Transfer Stock Functions
+        document.getElementById('transferStockForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const bookIds = Object.keys(selectedBooksMap);
+            if (bookIds.length === 0) {
+                showNotification('Please add at least one book', 'error');
+                return;
+            }
+
+            const fromSiteId = document.getElementById('fromSiteSelect').value;
+            const toSiteId = document.getElementById('toSiteSelect').value;
+            
+            if (!fromSiteId) {
+                showNotification('Please select source site', 'error');
+                return;
+            }
+            
+            if (!toSiteId) {
+                showNotification('Please select destination site', 'error');
+                return;
+            }
+            
+            if (fromSiteId === toSiteId) {
+                showNotification('Source and destination sites cannot be the same', 'error');
+                return;
+            }
+
+            const transfers = bookIds.map(bookId => ({
+                from_site_id: fromSiteId,
+                to_site_id: toSiteId,
+                book_id: parseInt(bookId),
+                quantity: selectedBooksMap[bookId].quantity,
+                notes: document.querySelector('textarea[name="notes"]')?.value || ''
+            }));
+
+            const submitBtn = document.getElementById('submitTransferBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="las la-spinner la-spin me-1"></i>Processing...';
+            submitBtn.disabled = true;
+
+            Promise.all(transfers.map(transfer => {
+                const formData = new FormData();
+                formData.append('from_site_id', transfer.from_site_id);
+                formData.append('to_site_id', transfer.to_site_id);
+                formData.append('book_id', transfer.book_id);
+                formData.append('quantity', transfer.quantity);
+                formData.append('notes', transfer.notes);
+
+                return fetch('/production/sites/transfer', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: formData
+                }).then(response => response.json());
+            }))
+            .then(results => {
+                const allSuccessful = results.every(r => r.success);
+                if (allSuccessful) {
+                    showNotification(`${results.length} transfer request(s) submitted successfully!`, 'success');
                     bootstrap.Modal.getInstance(document.getElementById('transferStockModal')).hide();
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showNotification('Error: ' + data.message, 'error');
+                    const failed = results.filter(r => !r.success).length;
+                    showNotification(`${failed} transfer(s) failed. Please check stock availability.`, 'error');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 showNotification('An error occurred', 'error');
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
             });
         });
 
-        function initTransferModal(siteId, bookId, siteName, bookName, quantity) {
-            document.getElementById('fromSiteId').value = siteId;
-            document.getElementById('bookId').value = bookId;
-            document.getElementById('fromSiteName').value = siteName;
-            document.getElementById('bookName').value = bookName;
-            document.getElementById('maxTransferQty').textContent = quantity;
-            document.getElementById('transferQty').setAttribute('max', quantity);
+        // When source site is selected, load its inventory
+        document.getElementById('fromSiteSelect')?.addEventListener('change', function() {
+            const siteId = this.value;
+            const showAddBookBtn = document.getElementById('showAddBookBtn');
+            
+            if (siteId) {
+                selectedBooksMap = {};
+                nextRowId = 1;
+                renderSelectedBooks();
+                updateSubmitButton();
+                
+                loadBooksForSite(siteId);
+                showAddBookBtn.disabled = false;
+            } else {
+                showAddBookBtn.disabled = true;
+                const bookSelect = document.getElementById('bookSelect');
+                if (bookSelect) bookSelect.innerHTML = '<option value="">-- Select a Book --</option>';
+            }
+        });
+
+        function loadBooksForSite(siteId) {
+            console.log('Loading books for site:', siteId);
+            
+            // Always fetch real-time data from server
+            console.log('Fetching real-time books from server for site:', siteId);
+            fetch(`/production/sites/${siteId}/inventory`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Real-time books loaded from server:', data);
+                if (data.success && data.inventory && Array.isArray(data.inventory)) {
+                    siteBooks[siteId] = data.inventory;
+                    populateBookSelect(siteId);
+                } else {
+                    const select = document.getElementById('bookSelect');
+                    if (select) select.innerHTML = '<option value="">No books available</option>';
+                    showNotification('No inventory found for this site', 'warning');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading books:', error);
+                showNotification('Could not load books: ' + error.message, 'error');
+                const select = document.getElementById('bookSelect');
+                if (select) select.innerHTML = '<option value="">Error loading books</option>';
+            });
         }
 
-        function approveTransfer(transferId) {
+        function populateBookSelect(siteId) {
+            const select = document.getElementById('bookSelect');
+            if (!select) return;
+            
+            const inventory = siteBooks[siteId] || [];
+            console.log('Populating dropdown with inventory:', inventory);
+            
+            const availableBooks = inventory.filter(item => !selectedBooksMap[item.book_id]);
+            
+            select.innerHTML = '<option value="">-- Select a Book --</option>';
+            
+            if (availableBooks.length === 0) {
+                if (inventory.length === 0) {
+                    select.innerHTML = '<option value="">-- No books available --</option>';
+                } else {
+                    select.innerHTML = '<option value="">-- All books added --</option>';
+                }
+                return;
+            }
+
+            availableBooks.forEach(item => {
+                const bookName = item.book && item.book.name ? item.book.name : 'Unknown Book';
+                const option = document.createElement('option');
+                option.value = item.book_id;
+                option.textContent = `${bookName} (Available: ${item.quantity})`;
+                option.dataset.available = item.quantity;
+                option.dataset.name = bookName;
+                select.appendChild(option);
+                console.log('Added option:', bookName, 'Qty:', item.quantity);
+            });
+
+            select.onchange = function() {
+                const selected = this.options[this.selectedIndex];
+                const availableSpan = document.getElementById('selectedBookAvailable');
+                const quantityInput = document.getElementById('bookQuantity');
+                
+                if (selected && selected.value) {
+                    if (availableSpan) availableSpan.textContent = selected.dataset.available;
+                    if (quantityInput) {
+                        quantityInput.max = selected.dataset.available;
+                        quantityInput.value = '';
+                        quantityInput.disabled = false;
+                    }
+                } else {
+                    if (availableSpan) availableSpan.textContent = '0';
+                    if (quantityInput) {
+                        quantityInput.max = 1;
+                        quantityInput.disabled = true;
+                    }
+                }
+            };
+            
+            if (select.onchange) select.onchange();
+        }
+
+        document.getElementById('showAddBookBtn')?.addEventListener('click', function() {
+            const addBookForm = document.getElementById('addBookForm');
+            const showAddBookBtn = document.getElementById('showAddBookBtn');
+            addBookForm.style.display = 'block';
+            showAddBookBtn.style.display = 'none';
+            
+            const bookSelect = document.getElementById('bookSelect');
+            const quantityInput = document.getElementById('bookQuantity');
+            if (bookSelect) bookSelect.value = '';
+            if (quantityInput) {
+                quantityInput.value = '';
+                quantityInput.disabled = true;
+            }
+            const availableSpan = document.getElementById('selectedBookAvailable');
+            if (availableSpan) availableSpan.textContent = '0';
+        });
+
+        document.getElementById('closeAddBookForm')?.addEventListener('click', function() {
+            const addBookForm = document.getElementById('addBookForm');
+            const showAddBookBtn = document.getElementById('showAddBookBtn');
+            addBookForm.style.display = 'none';
+            showAddBookBtn.style.display = 'block';
+            
+            const bookSelect = document.getElementById('bookSelect');
+            const quantityInput = document.getElementById('bookQuantity');
+            if (bookSelect) bookSelect.value = '';
+            if (quantityInput) {
+                quantityInput.value = '';
+                quantityInput.disabled = true;
+            }
+        });
+
+        document.getElementById('confirmAddBookBtn')?.addEventListener('click', function() {
+            const bookSelect = document.getElementById('bookSelect');
+            const quantityInput = document.getElementById('bookQuantity');
+
+            if (!bookSelect || !bookSelect.value) {
+                showNotification('Please select a book', 'error');
+                return;
+            }
+
+            if (!quantityInput || !quantityInput.value || parseInt(quantityInput.value) < 1) {
+                showNotification('Please enter a valid quantity', 'error');
+                return;
+            }
+
+            const bookId = parseInt(bookSelect.value);
+            const selectedOption = bookSelect.options[bookSelect.selectedIndex];
+            const bookName = selectedOption.dataset.name;
+            const available = parseInt(selectedOption.dataset.available);
+            const quantity = parseInt(quantityInput.value);
+
+            if (quantity > available) {
+                showNotification(`Insufficient stock. Available: ${available}`, 'error');
+                return;
+            }
+
+            addBookToTransfer(bookId, bookName, quantity, available);
+
+            bookSelect.value = '';
+            quantityInput.value = '';
+            quantityInput.disabled = true;
+            const availableSpan = document.getElementById('selectedBookAvailable');
+            if (availableSpan) availableSpan.textContent = '0';
+            
+            const addBookForm = document.getElementById('addBookForm');
+            const showAddBookBtn = document.getElementById('showAddBookBtn');
+            if (addBookForm) addBookForm.style.display = 'none';
+            if (showAddBookBtn) showAddBookBtn.style.display = 'block';
+            
+            const fromSiteId = document.getElementById('fromSiteSelect').value;
+            if (fromSiteId) {
+                populateBookSelect(parseInt(fromSiteId));
+            }
+        });
+
+        function addBookToTransfer(bookId, bookName, quantity, available) {
+            if (selectedBooksMap[bookId]) {
+                showNotification('This book is already added', 'error');
+                return;
+            }
+
+            selectedBooksMap[bookId] = {
+                name: bookName,
+                quantity: quantity,
+                available: available,
+                rowId: nextRowId++
+            };
+
+            renderSelectedBooks();
+            updateSubmitButton();
+            showNotification(`${bookName} added to transfer list`, 'success');
+        }
+
+        window.removeBookFromTransfer = function(bookId) {
+            delete selectedBooksMap[bookId];
+            renderSelectedBooks();
+            updateSubmitButton();
+            
+            const fromSiteId = document.getElementById('fromSiteSelect').value;
+            if (fromSiteId) {
+                populateBookSelect(parseInt(fromSiteId));
+            }
+        };
+        
+        window.updateBookQuantity = function(bookId, newQuantity) {
+            const book = selectedBooksMap[bookId];
+            if (!book) return;
+            
+            if (newQuantity < 1) {
+                showNotification('Quantity must be at least 1', 'error');
+                return;
+            }
+            
+            if (newQuantity > book.available) {
+                showNotification(`Maximum quantity available: ${book.available}`, 'error');
+                return;
+            }
+            
+            book.quantity = newQuantity;
+            renderSelectedBooks();
+            updateSubmitButton();
+        };
+
+        function renderSelectedBooks() {
+            const tbody = document.getElementById('transferBooksBody');
+            if (!tbody) return;
+
+            if (Object.keys(selectedBooksMap).length === 0) {
+                tbody.innerHTML = '<tr id="emptyBooksRow"><td colspan="4" class="text-center text-muted py-3">No books added. Click "Add Book" to start.您</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = Object.entries(selectedBooksMap).map(([bookId, book]) => `
+                <tr data-book-id="${bookId}">
+                    <td><strong>${escapeHtml(book.name)}</strong></td>
+                    <td>
+                        <input type="number" 
+                               class="form-control form-control-sm" 
+                               value="${book.quantity}" 
+                               min="1" 
+                               max="${book.available}"
+                               style="width: 100px;"
+                               onchange="updateBookQuantity(${bookId}, parseInt(this.value))">
+                    </td>
+                    <td><span class="badge bg-info">${book.available} available</span></td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeBookFromTransfer(${bookId})" title="Remove">
+                            <i class="las la-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submitTransferBtn');
+            const bookCount = Object.keys(selectedBooksMap).length;
+            const fromSiteId = document.getElementById('fromSiteSelect').value;
+            const toSiteId = document.getElementById('toSiteSelect').value;
+            
+            if (submitBtn) {
+                submitBtn.disabled = bookCount === 0 || !fromSiteId || !toSiteId || fromSiteId === toSiteId;
+                submitBtn.innerHTML = `<i class="las la-check me-1"></i>Request Transfer (${bookCount} book${bookCount !== 1 ? 's' : ''})`;
+            }
+        }
+        
+        document.getElementById('toSiteSelect')?.addEventListener('change', function() {
+            updateSubmitButton();
+        });
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.approveTransfer = function(transferId) {
             if (confirm('Approve this transfer?')) {
                 fetch(`/production/sites/approve-transfer/${transferId}`, {
                     method: 'POST',
@@ -1050,9 +1501,9 @@
                     showNotification('An error occurred', 'error');
                 });
             }
-        }
+        };
 
-        function rejectTransfer(transferId) {
+        window.rejectTransfer = function(transferId) {
             if (confirm('Reject this transfer?')) {
                 fetch(`/production/sites/reject-transfer/${transferId}`, {
                     method: 'POST',
@@ -1073,6 +1524,6 @@
                     showNotification('An error occurred', 'error');
                 });
             }
-        }
+        };
     </script>
 </x-app-layout>

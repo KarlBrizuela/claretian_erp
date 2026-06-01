@@ -274,4 +274,39 @@ class SiteController extends Controller
             ], 422);
         }
     }
+
+    public function getInventory($siteId)
+    {
+        try {
+            $site = Site::findOrFail($siteId);
+            
+            // Get real-time site-specific inventory only
+            $inventory = SiteInventory::where('site_id', $siteId)
+                ->with('book')
+                ->where('quantity', '>', 0)
+                ->get()
+                ->map(function($item) {
+                    return [
+                        'book_id' => $item->book_id,
+                        'book' => [
+                            'id' => $item->book->id ?? null,
+                            'name' => $item->book->name ?? 'Unknown'
+                        ],
+                        'quantity' => $item->quantity
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'site_id' => $siteId,
+                'site_name' => $site->name,
+                'inventory' => $inventory->values()->all()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching inventory: ' . $e->getMessage()
+            ], 422);
+        }
+    }
 }
