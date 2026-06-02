@@ -11,6 +11,7 @@ class SalesOrder extends Model
         'customer_id',
         'so_number',
         'type',
+        'transaction_type', // COD, Credit, Prepaid, Check, Other
         'terms',
         'ref_number',
         'status', // draft, pending_mkt_approval, pending_acct_approval, picking, gathered, pending_si_prep, pending_si_approval, pending_dr_prep, pending_dr_approval, ready_for_delivery, completed, cancelled
@@ -43,6 +44,7 @@ class SalesOrder extends Model
         'change_amount',
         'platform',
         'payment_status',
+        'collection_status', // pending_collection, collected, handed_over, reconciled
         'tracking_number',
         'shipping_address',
         'attachment',
@@ -106,6 +108,11 @@ class SalesOrder extends Model
     public function driverUser()
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function riderCollection()
+    {
+        return $this->hasOne(RiderCollection::class, 'sales_order_id');
     }
 
     public function getDueDateAttribute()

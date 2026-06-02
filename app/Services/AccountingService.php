@@ -537,6 +537,87 @@ class AccountingService
         });
     }
 
+    /**
+     * Post a journal entry for a Payment (COD or AR Collection)
+     * 
+     * Target Flow:
+     * DR Cash/Bank (increase cash)
+     * CR Accounts Receivable (reduce AR)
+     */
+    public function postPaymentEntry($salesOrder, $payment, $paymentMethod = 'cod_cash', $amount = null)
+    {
+        return DB::transaction(function () use ($salesOrder, $payment, $paymentMethod, $amount) {
+            $paymentAmount = $amount ?? $payment->amount;
+
+            // 1. Create Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('PM'),
+                'entry_type' => 'PMT',
+                'date' => now(),
+                'reference' => $payment->id ?? 'PMT-' . $salesOrder->id,
+                'memo' => "Payment received for SO #" . $salesOrder->so_number . " via " . $paymentMethod,
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Determine Cash Account based on payment method
+            $cashAccount = null;
+            if ($paymentMethod === 'cod_cash') {
+                // Cash on Hand
+                $cashAccount = ChartOfAccount::where('code', '1010')->first();
+            } elseif ($paymentMethod === 'bank_transfer' || $paymentMethod === 'check') {
+                // Cash in Bank
+                $cashAccount = ChartOfAccount::where('code', '1000')->first();
+            } else {
+                // Default to Cash on Hand
+                $cashAccount = ChartOfAccount::where('code', '1010')->first();
+            }
+
+            // Fallback if accounts don't exist
+            if (!$cashAccount) {
+                $cashAccount = ChartOfAccount::where('type', 'Asset')->where('name', 'like', '%Cash%')->first();
+            }
+
+            // 3. Get AR Account
+            $arAccount = ChartOfAccount::where('code', '1200')->first(); // Accounts Receivable
+
+            // If required accounts don't exist, still create the entry but log it
+            if (!$cashAccount || !$arAccount) {
+                \Log::warning('Payment entry posting: Required accounts missing', [
+                    'cash_account' => $cashAccount?->code,
+                    'ar_account' => $arAccount?->code,
+                ]);
+            }
+
+            // 4. Create Items
+            if ($cashAccount) {
+                // DR Cash
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $cashAccount->id,
+                    'debit' => $paymentAmount,
+                    'credit' => 0,
+                    'memo' => "Cash receipt from SO #" . $salesOrder->so_number,
+                ]);
+            }
+
+            if ($arAccount) {
+                // CR Accounts Receivable
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $arAccount->id,
+                    'debit' => 0,
+                    'credit' => $paymentAmount,
+                    'memo' => "AR collection for SO #" . $salesOrder->so_number,
+                ]);
+            }
+
+            return $entry;
+        });
+    }
+
     private function generateEntryNumber($prefix)
     {
         $year = now()->year;

@@ -309,4 +309,27 @@ class SiteController extends Controller
             ], 422);
         }
     }
+
+    public function deleteSite($id)
+    {
+        try {
+            $site = Site::findOrFail($id);
+            
+            // Delete all related site inventory
+            SiteInventory::where('site_id', $id)->delete();
+            
+            // Delete the site
+            $site->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Site deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting site: ' . $e->getMessage()
+            ], 422);
+        }
+    }
 }

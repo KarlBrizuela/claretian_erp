@@ -45,7 +45,7 @@
 
 	<!-- Accounting -->
     @if($hasAccounting)
-	<div class="modern-nav-group {{ request()->is('admin-finance/accounting*') ? 'active' : '' }}">
+	<div class="modern-nav-group {{ request()->is('admin-finance/accounting*', 'admin-finance/cashier*') ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="accounting">
 			<div class="modern-nav-icon">
 				<i class="las la-calculator"></i>
@@ -60,6 +60,7 @@
 			<a href="{{ route('admin-finance.accounting.materials-requisition') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.materials-requisition') ? 'active' : '' }}">Materials/Supplies Requisition</a>
 			<a href="{{ route('admin-finance.accounting.material-requests.incoming') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.material-requests.incoming') ? 'active' : '' }}">Material Requests</a>
 			<a href="{{ route('admin-finance.accounting.expense-management') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expense-management') ? 'active' : '' }}">Cash Advance Liquidation</a>
+			<a href="{{ route('cashier.collections.index') }}" class="modern-nav-subitem {{ request()->routeIs('cashier.collections.*') ? 'active' : '' }}">COD Collections Verification</a>
 		</div>
 	</div>
     @endif

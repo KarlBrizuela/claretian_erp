@@ -178,10 +178,27 @@
                                         <td class="align-middle">
                                             @if($order->type == 'paid')
                                                 <span class="status-badge status-paid">PAID</span>
-                                            @elseif($order->terms == 'cod')
-                                                <span class="status-badge status-cod">COD: ₱{{ number_format($order->total_amount, 2) }}</span>
+                                            @elseif($order->transaction_type === 'COD')
+                                                @php
+                                                    $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
+                                                    $collectionStatus = $collection ? $collection->status : 'pending';
+                                                @endphp
+                                                <span class="status-badge status-cod">
+                                                    COD: ₱{{ number_format($order->total_amount, 2) }}
+                                                </span>
+                                                <br>
+                                                @if($collection)
+                                                    <small class="d-block mt-1">
+                                                        Collection: 
+                                                        <span class="badge bg-{{ $collection->status == 'verified' ? 'success' : ($collection->status == 'handed_over' ? 'warning' : 'secondary') }}">
+                                                            {{ ucfirst($collection->status) }}
+                                                        </span>
+                                                    </small>
+                                                @else
+                                                    <small class="d-block mt-1 text-danger">No collection created</small>
+                                                @endif
                                             @else
-                                                <span class="status-badge status-charge">{{ strtoupper($order->type ?? $order->terms ?? 'CHARGE') }}</span>
+                                                <span class="status-badge status-charge">{{ strtoupper($order->type ?? $order->transaction_type ?? 'CHARGE') }}</span>
                                             @endif
                                         </td>
                                         <td class="align-middle">
@@ -189,9 +206,27 @@
                                         </td>
                                         <td class="align-middle text-end">
                                             <div class="d-flex justify-content-end gap-2">
+                                                @php
+                                                    $canDeliver = true;
+                                                    $disableReason = '';
+                                                    
+                                                    if ($order->transaction_type === 'COD') {
+                                                        $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
+                                                        if (!$collection) {
+                                                            $canDeliver = false;
+                                                            $disableReason = 'No collection created';
+                                                        } elseif ($collection->status !== 'verified') {
+                                                            $canDeliver = false;
+                                                            $disableReason = 'Collection not verified by accounting';
+                                                        }
+                                                    }
+                                                @endphp
                                                 <form action="{{ route('production.logistic.mark-as-delivered', $order->id) }}" method="POST" onsubmit="return confirm('Confirm delivery completion?');">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Mark Complete">
+                                                    <button type="submit" 
+                                                            class="btn btn-{{ $canDeliver ? 'success' : 'secondary disabled' }} shadow btn-xs sharp" 
+                                                            {{ !$canDeliver ? 'disabled' : '' }}
+                                                            title="{{ !$canDeliver ? $disableReason : 'Mark Complete' }}">
                                                         <i class="fas fa-check"></i>
                                                     </button>
                                                 </form>

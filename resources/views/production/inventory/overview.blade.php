@@ -294,8 +294,11 @@
                 <div class="row">
                     <div class="col-xl-12">
                         <div class="card">
-                            <div class="card-header border-0">
+                            <div class="card-header border-0 d-flex justify-content-between align-items-center">
                                 <h4 class="fs-20 mb-0 text-black">Warehouse/Sites Management</h4>
+                                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSiteModal">
+                                    <i class="las la-plus me-2"></i>Add Site
+                                </button>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -330,8 +333,11 @@
                                                     <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#viewSiteInventory{{ $site->id }}" title="View Inventory">
                                                         <i class="las la-boxes"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#editSiteModal{{ $site->id }}" title="Edit Site">
+                                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editSiteModal{{ $site->id }}" title="Edit Site">
                                                         <i class="las la-pen"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-danger" onclick="deleteSite({{ $site->id }}, '{{ $site->name }}')" title="Delete Site">
+                                                        <i class="las la-trash"></i>
                                                     </button>
                                                 </td>
                                             </tr>
@@ -1050,6 +1056,42 @@
                 });
             });
         });
+        
+        // Delete Site Function
+        function deleteSite(siteId, siteName) {
+            if (confirm(`Are you sure you want to delete "${siteName}"? This action cannot be undone.`)) {
+                const deleteBtn = event.target.closest('button');
+                const originalHTML = deleteBtn.innerHTML;
+                deleteBtn.innerHTML = '<i class="las la-spinner la-spin"></i>';
+                deleteBtn.disabled = true;
+
+                fetch(`/production/sites/delete/${siteId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Site deleted successfully!', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showNotification('Error: ' + data.message, 'error');
+                        deleteBtn.innerHTML = originalHTML;
+                        deleteBtn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('An error occurred while deleting the site', 'error');
+                    deleteBtn.innerHTML = originalHTML;
+                    deleteBtn.disabled = false;
+                });
+            }
+        }
         
         // Stock Transfer Variables
         let selectedBooksMap = {};

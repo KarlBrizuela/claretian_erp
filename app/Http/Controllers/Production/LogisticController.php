@@ -89,6 +89,20 @@ class LogisticController extends Controller
     {
         $order = \App\Models\SalesOrder::findOrFail($id);
         
+        // Check if this is a COD (Cash on Delivery) order
+        if ($order->transaction_type === 'COD') {
+            // Verify that COD collection has been approved by accounting
+            $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
+            
+            if (!$collection) {
+                return redirect()->back()->with('error', 'Cannot mark delivery as complete: COD collection not found. Please create a rider collection first.');
+            }
+            
+            if ($collection->status !== 'verified') {
+                return redirect()->back()->with('error', 'Cannot mark delivery as complete: COD collection must be verified by accounting first. Current status: ' . $collection->status);
+            }
+        }
+        
         $order->update([
             'status' => 'completed',
         ]);
@@ -116,6 +130,27 @@ class LogisticController extends Controller
             'driver' => $driver->first_name . ' ' . $driver->last_name,
             'plate_number' => $request->plate_number,
         ]);
+
+        // Create RiderCollection if this is a COD (Cash on Delivery) order
+        if ($order->transaction_type === 'COD') {
+            // Check if RiderCollection already exists for this order
+            $existingCollection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
+            
+            if (!$existingCollection) {
+                // Create new rider collection
+                \App\Models\RiderCollection::create([
+                    'sales_order_id' => $order->id,
+                    'rider_id' => $request->driver_id,
+                    'amount_to_collect' => $order->total_amount,
+                    'status' => 'pending',
+                ]);
+                
+                // Update SO collection status
+                $order->update([
+                    'collection_status' => 'pending_collection',
+                ]);
+            }
+        }
 
         return redirect()->back()->with('success', 'Driver ' . $driver->first_name . ' ' . $driver->last_name . ' assigned to Order #' . $order->so_number);
     }
@@ -332,7 +367,7 @@ class LogisticController extends Controller
 
     public function driverDashboard()
     {
-        $assignedDeliveries = \App\Models\SalesOrder::with(['customer', 'items.book'])
+        $assignedDeliveries = \App\Models\SalesOrder::with(['customer', 'items.book', 'riderCollection'])
             ->where('driver_id', auth()->id())
             ->whereIn('status', ['ready_for_delivery', 'in_transit'])
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])

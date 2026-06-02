@@ -59,6 +59,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/store', [App\Http\Controllers\Production\SiteController::class, 'store'])->name('store');
       Route::post('/add-stock', [App\Http\Controllers\Production\SiteController::class, 'addStock'])->name('add-stock');
       Route::post('/update/{id}', [App\Http\Controllers\Production\SiteController::class, 'updateSite'])->name('update');
+      Route::post('/delete/{id}', [App\Http\Controllers\Production\SiteController::class, 'deleteSite'])->name('delete');
       Route::get('/{siteId}/inventory', [App\Http\Controllers\Production\SiteController::class, 'getInventory'])->name('inventory');
       Route::post('/transfer', [App\Http\Controllers\Production\SiteController::class, 'transfer'])->name('transfer');
       Route::post('/approve-transfer/{id}', [App\Http\Controllers\Production\SiteController::class, 'approveTransfer'])->name('approve-transfer');
@@ -96,6 +97,9 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/receiving-report/create/{po_id?}', [App\Http\Controllers\Production\LogisticController::class, 'createReceivingReport'])->name('receiving-report.create');
       Route::get('/receiving-report/{id}', [App\Http\Controllers\Production\LogisticController::class, 'showReceivingReport'])->name('receiving-report.show');
       Route::post('/receiving-report', [App\Http\Controllers\Production\LogisticController::class, 'storeReceivingReport'])->name('receiving-report.store');
+      
+      // Delivery Form View
+      Route::get('/delivery-form/{id}', [App\Http\Controllers\Production\LogisticController::class, 'viewDeliveryForm'])->name('view-delivery-form');
     });
 
     // Production DTO Management
@@ -254,9 +258,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/suppliers', [SupplierController::class, 'index'])->name('marketing.suppliers');
     Route::resource('suppliers', SupplierController::class)->except(['index']);
     Route::get('/marketing/purchase-orders', [MarketingController::class, 'purchaseOrders'])->name('marketing.purchase-orders');
-    
-    // Delivery Form View for Drivers
-    Route::get('/logistic/delivery-form/{id}', [App\Http\Controllers\Production\LogisticController::class, 'viewDeliveryForm'])->name('production.logistic.view-delivery-form');
   });
 
   Route::post('/employee/cash-advance/store', [App\Http\Controllers\EmployeeCashAdvanceController::class, 'store'])->name('employee.cash-advance.store');
@@ -387,4 +388,29 @@ Route::prefix('admin-finance')->group(function () {
   Route::post('/freight-voucher', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'store'])->name('admin-finance.freight-voucher.store');
   Route::get('/freight-voucher/{id}', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'show'])->name('admin-finance.freight-voucher.show');
   Route::delete('/freight-voucher/{id}', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'destroy'])->name('admin-finance.freight-voucher.destroy');
+});
+
+// COD Payment & Rider Collections - Protected Routes
+Route::middleware(['auth'])->group(function () {
+  // Rider Collection Routes
+  Route::prefix('rider/collections')->name('rider.collections.')->group(function () {
+    Route::get('/', [App\Http\Controllers\RiderCollectionController::class, 'index'])->name('index');
+    // Specific routes must come BEFORE generic {id} route
+    Route::get('/awaiting/handover', [App\Http\Controllers\RiderCollectionController::class, 'awaitingHandover'])->name('awaiting-handover');
+    Route::get('/daily/summary', [App\Http\Controllers\RiderCollectionController::class, 'dailySummary'])->name('daily-summary');
+    // Generic routes last
+    Route::get('/{id}', [App\Http\Controllers\RiderCollectionController::class, 'show'])->name('show');
+    Route::post('/{id}/record', [App\Http\Controllers\RiderCollectionController::class, 'recordCollection'])->name('record');
+    Route::post('/{id}/hand-over', [App\Http\Controllers\RiderCollectionController::class, 'handOver'])->name('hand-over');
+  });
+
+  // Cashier Payment Verification Routes (Admin & Finance)
+  Route::prefix('admin-finance/cashier')->name('cashier.')->middleware('division.access:admin-finance')->group(function () {
+    Route::get('/collections', [App\Http\Controllers\Accounting\CashierPaymentController::class, 'index'])->name('collections.index');
+    Route::get('/collections/{id}', [App\Http\Controllers\Accounting\CashierPaymentController::class, 'show'])->name('collections.show');
+    Route::post('/collections/{id}/verify', [App\Http\Controllers\Accounting\CashierPaymentController::class, 'verify'])->name('collections.verify');
+    Route::post('/collections/{id}/reject', [App\Http\Controllers\Accounting\CashierPaymentController::class, 'reject'])->name('collections.reject');
+    Route::get('/daily-report', [App\Http\Controllers\Accounting\CashierPaymentController::class, 'dailyReport'])->name('daily-report');
+    Route::get('/export', [App\Http\Controllers\Accounting\CashierPaymentController::class, 'exportForAccounting'])->name('export');
+  });
 });

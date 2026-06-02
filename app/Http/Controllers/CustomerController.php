@@ -107,6 +107,7 @@ class CustomerController extends Controller
 
         $validated['opening_balance'] = $validated['opening_balance'] ?? 0;
         $validated['credit_limit'] = $validated['credit_limit'] ?? 0;
+        $validated['manual_status'] = 'good'; // Automatically set new customers as good
 
         $customer = Customer::create($validated);
 

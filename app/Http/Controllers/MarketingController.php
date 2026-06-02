@@ -575,6 +575,13 @@ class MarketingController extends Controller
         // 5. Update Total
         $so->update(['total_amount' => $totalAmount]);
 
+        // 6. Set transaction type to COD if SO type is 'cod'
+        if ($validated['type'] === 'cod') {
+            $so->update([
+                'transaction_type' => 'COD',
+            ]);
+        }
+
         return redirect()->route('marketing.sales-orders.list')->with('success', 'Sales Order created and routed successfully!');
     }
 

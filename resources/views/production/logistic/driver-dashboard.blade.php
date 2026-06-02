@@ -141,9 +141,15 @@
                                         </td>
                                         <td class="align-middle text-end">
                                             <div class="d-flex justify-content-end gap-2">
-                                                <a href="{{ route('production.logistic.view-delivery-form', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Form">
-                                                    <i class="fas fa-file-alt"></i>
-                                                </a>
+                                                @if($order->transaction_type === 'COD' && $order->riderCollection)
+                                                    <a href="{{ route('rider.collections.show', $order->riderCollection->id) }}" class="btn btn-primary shadow btn-xs sharp" title="Record Collection">
+                                                        <i class="fas fa-file-alt"></i>
+                                                    </a>
+                                                @else
+                                                    <a href="{{ route('production.logistic.view-delivery-form', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Form">
+                                                        <i class="fas fa-file-alt"></i>
+                                                    </a>
+                                                @endif
                                                 
                                                 @if($order->status !== 'completed')
                                                 <form action="{{ route('production.logistic.mark-as-delivered', $order->id) }}" method="POST" onsubmit="return confirm('Mark this delivery as completed?');">
