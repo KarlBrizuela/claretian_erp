@@ -15,96 +15,207 @@
                         </div>
                     @endif
 
+                    <!-- Pending Orders Ready to Create Pick Lists -->
+                    <div class="pending-orders-section mb-4">
+                        <h5 style="font-weight: 700; color: #333; margin-bottom: 1rem;">
+                            <i class="las la-hourglass-start me-2"></i>Pending Orders (Ready to Create Pick Lists)
+                            <span class="badge bg-warning rounded-pill ms-2">{{ $pendingOrders->count() }}</span>
+                        </h5>
+
+                        @if($pendingOrders->count() > 0)
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" style="border: 1px solid #dee2e6;">
+                                <thead style="background: linear-gradient(135deg, #ffc107, #ff9800); color: #fff;">
+                                    <tr>
+                                        <th style="padding: 0.75rem;">SO #</th>
+                                        <th>Customer</th>
+                                        <th>Items</th>
+                                        <th>Total Amount</th>
+                                        <th>Type</th>
+                                        <th>Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($pendingOrders as $order)
+                                    @php
+                                        $itemsJson = json_encode($order->items->map(function($item) {
+                                            return [
+                                                'product' => $item->book->name ?? 'Unknown',
+                                                'quantity' => $item->quantity,
+                                                'price' => $item->price,
+                                                'unit' => $item->unit,
+                                            ];
+                                        })->values()->all());
+                                    @endphp
+                                    <tr>
+                                        <td class="fw-bold">{{ $order->so_number }}</td>
+                                        <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
+                                        <td><span class="badge bg-light text-dark">{{ $order->items->count() }} items</span></td>
+                                        <td class="fw-bold">₱{{ number_format($order->total_amount, 2) }}</td>
+                                        <td>
+                                            @if($order->type === 'evaluation')
+                                                <span class="badge bg-info">Evaluation</span>
+                                            @elseif($order->type === 'direct_consignment')
+                                                <span class="badge bg-primary">Direct Consignment</span>
+                                            @else
+                                                <span class="badge bg-secondary">{{ ucfirst($order->type) }}</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $order->created_at->format('M d, Y') }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-success create-pick-list-btn"
+                                                    data-order-id="{{ $order->id }}"
+                                                    data-so-number="{{ $order->so_number }}"
+                                                    data-customer="{{ $order->customer->customer_name ?? 'Unknown' }}"
+                                                    data-items='{{ $itemsJson }}'
+                                                    style="background: #28a745; border: none;">
+                                                <i class="las la-plus me-1"></i> Create Pick List
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @else
+                        <div class="text-center py-4" style="background: #f8f9fa; border-radius: 8px; border: 1px dashed #dee2e6;">
+                            <i class="las la-check-circle" style="font-size: 2rem; color: #28a745;"></i>
+                            <p class="text-muted mt-2 mb-0">No pending orders. All approved orders have pick lists created.</p>
+                        </div>
+                        @endif
+                    </div>
+
+                    <hr style="margin: 2rem 0;">
+
+                    <!-- Completed Pick Lists (For Recreation) -->
+                    <div class="completed-picklists-section mb-4">
+                        <h5 style="font-weight: 700; color: #333; margin-bottom: 1rem;">
+                            <i class="las la-check-square me-2"></i>Completed Pick Lists (Click to Recreate)
+                            <span class="badge bg-success rounded-pill ms-2">{{ $completedPickLists->count() }}</span>
+                        </h5>
+
+                        @if($completedPickLists->count() > 0)
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" style="border: 1px solid #dee2e6;">
+                                <thead style="background: linear-gradient(135deg, #28a745, #20c997); color: #fff;">
+                                    <tr>
+                                        <th style="padding: 0.75rem;">Pick List #</th>
+                                        <th>SO #</th>
+                                        <th>Customer</th>
+                                        <th>Items</th>
+                                        <th>Total</th>
+                                        <th>Completed</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($completedPickLists as $pickList)
+                                    @php
+                                        $pickListItemsJson = json_encode($pickList->pickListItems->map(function($item) {
+                                            return [
+                                                'product'      => $item->salesOrderItem->book->name ?? 'Unknown',
+                                                'quantity'     => $item->requested_qty,
+                                                'picked_qty'   => $item->picked_qty,
+                                                'price'        => $item->salesOrderItem->price,
+                                                'subtotal'     => $item->salesOrderItem->subtotal,
+                                                'unit'         => $item->salesOrderItem->unit,
+                                                'status'       => $item->status,
+                                                'notes'        => $item->notes,
+                                            ];
+                                        })->values()->all());
+                                    @endphp
+                                    <tr>
+                                        <td class="fw-bold">{{ $pickList->pick_list_number }}</td>
+                                        <td class="fw-bold">{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                        <td>{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}</td>
+                                        <td><span class="badge bg-light text-dark">{{ $pickList->pickListItems->count() }} items</span></td>
+                                        <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum('salesOrderItem.subtotal'), 2) }}</td>
+                                        <td>{{ $pickList->created_at->format('M d, Y') }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-warning recreate-picklist-btn"
+                                                    data-order-id="{{ $pickList->salesOrder->id }}"
+                                                    data-pick-list-id="{{ $pickList->id }}"
+                                                    data-so-number="{{ $pickList->salesOrder->so_number }}"
+                                                    data-customer="{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}"
+                                                    data-date="{{ $pickList->created_at->format('Y-m-d') }}"
+                                                    data-items='{{ $pickListItemsJson }}'
+                                                    style="background: #ffc107; border: none; color: #000;">
+                                                <i class="las la-redo me-1"></i> Recreate
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @else
+                        <div class="text-center py-4" style="background: #f8f9fa; border-radius: 8px; border: 1px dashed #dee2e6;">
+                            <i class="las la-check-circle" style="font-size: 2rem; color: #28a745;"></i>
+                            <p class="text-muted mt-2 mb-0">No completed pick lists available for recreation.</p>
+                        </div>
+                        @endif
+                    </div>
+
+                    <hr style="margin: 2rem 0;">
+
                     <!-- Orders Ready for Picking Queue -->
                     <div class="picking-queue-section mb-4">
                         <h5 style="font-weight: 700; color: #333; margin-bottom: 1rem;">
                             <i class="las la-clipboard-list me-2"></i>Orders Ready for Picking
-                            <span class="badge bg-danger rounded-pill ms-2">{{ $pickingOrders->count() }}</span>
+                            <span class="badge bg-danger rounded-pill ms-2">{{ $pickLists->count() }}</span>
                         </h5>
 
-                        @if($pickingOrders->count() > 0)
+                        @if($pickLists->count() > 0)
                         <div class="table-responsive">
                             <table class="table table-hover align-middle" style="border: 1px solid #dee2e6;">
                                 <thead style="background: linear-gradient(135deg, #cc0000, #ff0000); color: #fff;">
                                     <tr>
                                         <th style="padding: 0.75rem;">SO / Invoice #</th>
                                         <th>Customer</th>
-                                        <th>Type</th>
-                                        <th>Platform</th>
+                                        <th>Pick List #</th>
                                         <th>Items</th>
                                         <th>Total</th>
                                         <th>Prepared By</th>
                                         <th>Date</th>
-                                        <th>Attachments</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($pickingOrders as $order)
+                                    @foreach($pickLists as $pickList)
                                     @php
-                                        $orderItemsJson = json_encode($order->items->map(function($item) {
+                                        // Build items data from PickListItems (which have picked_qty)
+                                        $pickListItemsJson = json_encode($pickList->pickListItems->map(function($item) {
                                             return [
-                                                'product'  => $item->book->name ?? 'Unknown',
-                                                'quantity' => $item->quantity,
-                                                'price'    => $item->price,
-                                                'subtotal' => $item->subtotal,
-                                                'unit'     => $item->unit,
+                                                'product'      => $item->salesOrderItem->book->name ?? 'Unknown',
+                                                'quantity'     => $item->requested_qty,
+                                                'picked_qty'   => $item->picked_qty,
+                                                'price'        => $item->salesOrderItem->price,
+                                                'subtotal'     => $item->salesOrderItem->subtotal,
+                                                'unit'         => $item->salesOrderItem->unit,
+                                                'status'       => $item->status,
+                                                'notes'        => $item->notes,
                                             ];
                                         })->values()->all());
                                     @endphp
                                     <tr>
-                                        <td class="fw-bold">{{ $order->so_number }}</td>
-                                        <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                        <td class="fw-bold">{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                        <td>{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}</td>
+                                        <td>{{ $pickList->pick_list_number }}</td>
                                         <td>
-                                            @if($order->type === 'website_direct')
-                                                <span class="badge bg-primary">Website</span>
-                                                @if($order->transaction_subtype)
-                                                    <span class="badge {{ $order->transaction_subtype === 'foreign' ? 'bg-purple' : 'bg-info' }}" style="{{ $order->transaction_subtype === 'foreign' ? 'background: #7b1fa2;' : '' }}">
-                                                        {{ ucfirst($order->transaction_subtype) }}
-                                                    </span>
-                                                @endif
-                                            @elseif($order->type === 'ecom_direct')
-                                                <span class="badge bg-success">E-com</span>
-                                            @else
-                                                <span class="badge bg-secondary">{{ ucfirst(str_replace('_', ' ', $order->type)) }}</span>
-                                            @endif
+                                            <span class="badge bg-light text-dark">{{ $pickList->pickListItems->count() }} items</span>
                                         </td>
-                                        <td>
-                                            @if($order->ecom_platform)
-                                                <span class="platform-badge platform-{{ $order->ecom_platform }}">
-                                                    {{ ucfirst($order->ecom_platform) }}
-                                                </span>
-                                            @else
-                                                <span class="text-muted">—</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-light text-dark">{{ $order->items->count() }} items</span>
-                                        </td>
-                                        <td class="fw-bold">₱{{ number_format($order->total_amount, 2) }}</td>
-                                        <td>{{ $order->preparedBy->name ?? 'N/A' }}</td>
-                                        <td>{{ $order->created_at->format('M d, Y') }}</td>
-                                        <td>
-                                            @if($order->proof_of_payment)
-                                                <a href="{{ asset('storage/'.$order->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-warning" title="Proof of Payment"><i class="las la-receipt"></i></a>
-                                            @endif
-                                            @if($order->order_list_attachment)
-                                                <a href="{{ asset('storage/'.$order->order_list_attachment) }}" target="_blank" class="btn btn-sm btn-outline-info" title="Order List"><i class="las la-file-alt"></i></a>
-                                            @endif
-                                            @if($order->pick_list_attachment)
-                                                <a href="{{ asset('storage/'.$order->pick_list_attachment) }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Pick List"><i class="las la-clipboard-list"></i></a>
-                                            @endif
-                                            @if($order->shipping_label_attachment)
-                                                <a href="{{ asset('storage/'.$order->shipping_label_attachment) }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Shipping Label"><i class="las la-shipping-fast"></i></a>
-                                            @endif
-                                        </td>
+                                        <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum('salesOrderItem.subtotal'), 2) }}</td>
+                                        <td>{{ $pickList->preparedByUser->name ?? 'N/A' }}</td>
+                                        <td>{{ $pickList->created_at->format('M d, Y') }}</td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-primary view-order-btn"
-                                                    data-order-id="{{ $order->id }}"
-                                                    data-so-number="{{ $order->so_number }}"
-                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
-                                                    data-date="{{ $order->created_at->format('Y-m-d') }}"
-                                                    data-items='{{ $orderItemsJson }}'
+                                                    data-order-id="{{ $pickList->salesOrder->id }}"
+                                                    data-pick-list-id="{{ $pickList->id }}"
+                                                    data-so-number="{{ $pickList->salesOrder->so_number }}"
+                                                    data-customer="{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}"
+                                                    data-date="{{ $pickList->created_at->format('Y-m-d') }}"
+                                                    data-items='{{ $pickListItemsJson }}'
                                                     style="background: #ff0000; border: none;">
                                                 <i class="las la-eye me-1"></i> View Items
                                             </button>
@@ -117,7 +228,7 @@
                         @else
                         <div class="text-center py-5" style="background: #f8f9fa; border-radius: 8px;">
                             <i class="las la-inbox" style="font-size: 3rem; color: #ccc;"></i>
-                            <p class="text-muted mt-2 mb-0">No orders ready for picking at this time.</p>
+                            <p class="text-muted mt-2 mb-0">No pick lists ready for picking at this time.</p>
                         </div>
                         @endif
                     </div>
@@ -198,7 +309,12 @@
                             <div class="order-info-box">
                                 <h5>Actions</h5>
                                 <div class="form-group">
-                                    <button type="button" class="btn btn-secondary-custom" style="width: 100%; margin-bottom: 0.5rem;" onclick="window.print()">
+                                    <button type="button" class="btn btn-success" style="width: 100%; margin-bottom: 0.5rem; background: #28a745; color: #fff; border: none; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;" id="savePickedBtn" onclick="savePickedItems()">
+                                        <i class="las la-save"></i> Save Picked Items
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-secondary-custom" style="width: 100%; margin-bottom: 0.5rem;" onclick="printPickList()">
                                         <i class="las la-print"></i> Print Pick List
                                     </button>
                                 </div>
@@ -358,9 +474,178 @@
         }
 
         @media print {
-            .sidebar, .header, .picking-queue-section { display: none !important; }
-            .pick-list-form { box-shadow: none; }
-            #orderDetailPanel { display: block !important; }
+            /* HIDE EVERYTHING BY DEFAULT */
+            html, body { width: 100%; height: 100%; }
+            body { margin: 0; padding: 0; }
+            
+            .sidebar { display: none !important; }
+            .header { display: none !important; }
+            .alert { display: none !important; }
+            .form-header { display: none !important; }
+            
+            /* Hide the pick lists queue section entirely */
+            .picking-queue-section { display: none !important; }
+            .table-responsive { display: none !important; }
+            .container-fluid { margin: 0; padding: 0.5in; }
+            .row { margin: 0; padding: 0; }
+            .col-12 { padding: 0; }
+            
+            .card { 
+                border: none !important;
+                box-shadow: none !important; 
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            
+            /* SHOW ONLY THE DETAIL PANEL */
+            #orderDetailPanel {
+                display: block !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* Detail panel styling */
+            #orderDetailPanel hr { display: none !important; }
+            
+            /* Body and container */
+            body { 
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+            }
+            
+            .container-fluid { 
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            .row { margin: 0 !important; }
+            .col-12 { padding: 0 !important; }
+            
+            /* Detail panel content */
+            #orderDetailPanel hr {
+                visibility: hidden !important;
+            }
+            
+            .order-info-section { 
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 1.5rem !important;
+                margin-bottom: 1.5rem !important;
+                page-break-inside: avoid !important;
+            }
+            
+            .order-info-box { 
+                background: #f5f5f5 !important;
+                padding: 1rem !important;
+                border: 1px solid #ddd !important;
+                border-radius: 4px !important;
+                page-break-inside: avoid !important;
+            }
+            
+            .order-info-box h5 {
+                font-size: 1rem !important;
+                font-weight: bold !important;
+                margin: 0 0 1rem 0 !important;
+                padding-bottom: 0.5rem !important;
+                border-bottom: 2px solid #cc0000 !important;
+                color: #333 !important;
+            }
+            
+            .form-group {
+                margin-bottom: 0.75rem !important;
+                display: block !important;
+            }
+            
+            .form-group label {
+                font-weight: 600 !important;
+                font-size: 0.9rem !important;
+                margin-bottom: 0.25rem !important;
+                display: block !important;
+                color: #333 !important;
+            }
+            
+            .form-group input[readonly],
+            .form-group input[type="text"],
+            .form-group select {
+                width: 100% !important;
+                border: none !important;
+                border-bottom: 1px solid #999 !important;
+                background: transparent !important;
+                color: #000 !important;
+                padding: 0.25rem 0 !important;
+                font-size: 0.9rem !important;
+            }
+            
+            /* Pick list table */
+            #orderDetailPanel h5 {
+                font-size: 1.1rem !important;
+                font-weight: 600 !important;
+                margin-top: 1.5rem !important;
+                margin-bottom: 1rem !important;
+                color: #333 !important;
+            }
+            
+            .pick-list-table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                page-break-inside: avoid !important;
+                font-size: 0.85rem !important;
+            }
+            
+            .pick-list-table thead {
+                display: table-header-group !important;
+            }
+            
+            .pick-list-table tbody {
+                display: table-row-group !important;
+            }
+            
+            .pick-list-table tr {
+                display: table-row !important;
+                page-break-inside: avoid !important;
+            }
+            
+            .pick-list-table th {
+                display: table-cell !important;
+                padding: 10px !important;
+                background: #cc0000 !important;
+                color: #fff !important;
+                font-weight: bold !important;
+                border: 1px solid #999 !important;
+                text-align: left !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            .pick-list-table td {
+                display: table-cell !important;
+                padding: 8px !important;
+                border: 1px solid #ddd !important;
+                background: #fff !important;
+                color: #000 !important;
+            }
+            
+            .pick-list-table input,
+            .pick-list-table select {
+                width: 100% !important;
+                border: none !important;
+                background: transparent !important;
+                color: #000 !important;
+                padding: 0 !important;
+                font-size: 0.85rem !important;
+            }
+            
+            /* Buttons - hide in print */
+            .btn, button {
+                display: none !important;
+            }
+        }
+        
+        @page {
+            margin: 0.5in;
+            size: A4;
         }
     </style>
     @endpush
@@ -379,6 +664,7 @@
                     
                     try {
                         const soNumber = this.dataset.soNumber;
+                        const orderId = this.dataset.orderId;
                         const customer = this.dataset.customer;
                         const date = this.dataset.date;
                         const itemsJson = this.dataset.items;
@@ -392,6 +678,10 @@
                         document.getElementById('detailCustomerName').value = customer;
                         document.getElementById('pickListNumber').value = 'PL-' + soNumber;
 
+                        // Store order data for saving
+                        detailPanel.dataset.orderId = orderId;
+                        detailPanel.dataset.soNumber = soNumber;
+
                         // Fill items table
                         pickListBody.innerHTML = '';
                         items.forEach((item, idx) => {
@@ -402,21 +692,37 @@
                                 <td style="text-align:center;">${item.quantity} ${item.unit || 'pcs'}</td>
                                 <td style="text-align:right;">₱${parseFloat(item.price).toFixed(2)}</td>
                                 <td style="text-align:right;">₱${parseFloat(item.subtotal).toFixed(2)}</td>
-                                <td><input type="number" class="picked-qty" value="0" min="0" max="${item.quantity}" style="text-align:center;"></td>
+                                <td><input type="number" class="picked-qty" value="${item.picked_qty || 0}" min="0" max="${item.quantity}" style="text-align:center;"></td>
                                 <td>
-                                    <select class="form-control" style="border:none;">
-                                        <option value="pending">Pending</option>
-                                        <option value="picked">Picked</option>
-                                        <option value="short">Short</option>
+                                    <select class="status-select form-control" style="border:none;">
+                                        <option value="pending" ${(item.status === 'pending') ? 'selected' : ''}>Pending</option>
+                                        <option value="picked" ${(item.status === 'picked') ? 'selected' : ''}>Picked</option>
+                                        <option value="short" ${(item.status === 'short') ? 'selected' : ''}>Short</option>
                                     </select>
                                 </td>
-                                <td><input type="text" placeholder="Notes" style="border:none;"></td>
+                                <td><input type="text" class="notes-input" placeholder="Notes" value="${item.notes || ''}" style="border:none;"></td>
                             `;
                             pickListBody.appendChild(tr);
                         });
 
                         document.getElementById('totalItems').value = items.length;
-                        document.getElementById('itemsPicked').value = 0;
+                        document.getElementById('itemsPicked').value = items.reduce((sum, item) => sum + (parseFloat(item.picked_qty) || 0), 0);
+
+                        // Add real-time update handler for picked quantity changes
+                        const updateItemsPicked = () => {
+                            const rows = document.querySelectorAll('#pickListTableBody tr');
+                            let total = 0;
+                            rows.forEach(row => {
+                                const pickedQtyInput = row.querySelector('.picked-qty');
+                                total += parseFloat(pickedQtyInput.value) || 0;
+                            });
+                            document.getElementById('itemsPicked').value = total;
+                        };
+
+                        // Attach event listeners to all picked quantity inputs
+                        document.querySelectorAll('#pickListTableBody .picked-qty').forEach(input => {
+                            input.addEventListener('input', updateItemsPicked);
+                        });
 
                         // Show panel and scroll to it
                         detailPanel.style.display = 'block';
@@ -439,6 +745,324 @@
                 });
             }
         });
+
+        // Function to save picked items
+        function savePickedItems() {
+            const detailPanel = document.getElementById('orderDetailPanel');
+            const orderId = detailPanel.dataset.orderId;
+            const soNumber = detailPanel.dataset.soNumber;
+            const rows = document.querySelectorAll('#pickListTableBody tr');
+            
+            const pickedItems = [];
+            let totalPicked = 0;
+            let hasInvalidData = false;
+
+            rows.forEach((row, idx) => {
+                const pickedQtyInput = row.querySelector('.picked-qty');
+                const statusSelect = row.querySelector('.status-select');
+                const notesInput = row.querySelector('.notes-input');
+                
+                const pickedQty = parseFloat(pickedQtyInput.value) || 0;
+                const status = statusSelect.value;
+                const notes = notesInput.value;
+                const product = row.cells[1].innerText;
+
+                // Validate: if status is 'picked', picked_qty should be > 0
+                if (status === 'picked' && pickedQty === 0) {
+                    alert(`Item "${product}" is marked as "Picked" but has 0 quantity. Please enter a quantity or change status.`);
+                    hasInvalidData = true;
+                    return;
+                }
+
+                pickedItems.push({
+                    product: product,
+                    picked_qty: pickedQty,
+                    status: status,
+                    notes: notes,
+                    item_index: idx
+                });
+
+                totalPicked += pickedQty;
+            });
+
+            if (hasInvalidData) {
+                return;
+            }
+
+            // Confirmation
+            const confirmMsg = `Save picked items for SO ${soNumber}?\n\nTotal items picked: ${totalPicked}`;
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                            document.querySelector('input[name="_token"]')?.value;
+            
+            if (!csrfToken) {
+                alert('Security token not found. Please refresh the page.');
+                return;
+            }
+
+            // Show loading
+            const saveBtn = document.getElementById('savePickedBtn');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="las la-spinner la-spin"></i> Saving...';
+
+            // Send to backend
+            fetch('/production/logistic/pick-list/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    order_id: orderId,
+                    so_number: soNumber,
+                    picked_items: pickedItems
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+                
+                if (data.success) {
+                    // Show brief success feedback
+                    saveBtn.style.background = '#28a745';
+                    saveBtn.innerHTML = '<i class="las la-check-circle"></i> Saved!';
+                    setTimeout(() => {
+                        saveBtn.style.background = '#28a745';
+                        saveBtn.innerHTML = originalText;
+                        // Optionally refresh the page or hide the panel
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to save picked items'));
+                }
+            })
+            .catch(error => {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+                console.error('Error:', error);
+                alert('Error saving picked items: ' + error.message);
+            });
+        }
+
+        // Function to print pick list
+        function printPickList() {
+            const detailPanel = document.getElementById('orderDetailPanel');
+            
+            // Check if detail panel has content
+            if (!detailPanel.querySelector('#detailSONumber').value) {
+                alert('Please select a pick list to print first.');
+                return;
+            }
+            
+            // Force show the detail panel for printing
+            detailPanel.style.display = 'block';
+            detailPanel.style.visibility = 'visible';
+            
+            // Small delay to ensure rendering
+            setTimeout(() => {
+                window.print();
+            }, 50);
+        }
+
+        // Handle Create Pick List button click
+        document.querySelectorAll('.create-pick-list-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const orderId = this.dataset.orderId;
+                const soNumber = this.dataset.soNumber;
+                const customer = this.dataset.customer;
+                const items = JSON.parse(this.dataset.items);
+                
+                // Show the order detail panel
+                const detailPanel = document.getElementById('orderDetailPanel');
+                detailPanel.style.display = 'block';
+                
+                // Set data attributes on panel for saving
+                detailPanel.dataset.orderId = orderId;
+                detailPanel.dataset.soNumber = soNumber;
+                
+                // Populate the form
+                document.getElementById('detailSONumber').value = soNumber;
+                document.getElementById('detailOrderDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('detailCustomerName').value = customer;
+                document.getElementById('pickListNumber').value = 'PL-' + soNumber + '-' + Date.now();
+                document.getElementById('pickListStatus').value = 'in_progress';
+                
+                // Populate items table
+                const pickListBody = document.getElementById('pickListTableBody');
+                pickListBody.innerHTML = '';
+                
+                items.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${item.product}</td>
+                        <td class="text-center">${item.quantity}</td>
+                        <td class="text-right">₱${parseFloat(item.price || 0).toFixed(2)}</td>
+                        <td class="text-right">₱${(item.quantity * parseFloat(item.price || 0)).toFixed(2)}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm picked-qty" 
+                                   value="${item.quantity}" min="0" max="${item.quantity}" style="width: 80px;">
+                        </td>
+                        <td>
+                            <select class="form-control form-control-sm status-select" style="width: 100px;">
+                                <option value="pending">Pending</option>
+                                <option value="picked" selected>Picked</option>
+                                <option value="not_available">Not Available</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" style="width: 150px;">
+                        </td>
+                    `;
+                    pickListBody.appendChild(row);
+                });
+                
+                // Update summary
+                document.getElementById('totalItems').value = items.length;
+                document.getElementById('itemsPicked').value = items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
+
+                // Add real-time update handler for picked quantity changes
+                const updateItemsPicked = () => {
+                    const rows = document.querySelectorAll('#pickListTableBody tr');
+                    let total = 0;
+                    rows.forEach(row => {
+                        const pickedQtyInput = row.querySelector('.picked-qty');
+                        total += parseFloat(pickedQtyInput.value) || 0;
+                    });
+                    document.getElementById('itemsPicked').value = total;
+                };
+
+                // Attach event listeners to all picked quantity inputs
+                document.querySelectorAll('#pickListTableBody .picked-qty').forEach(input => {
+                    input.addEventListener('input', updateItemsPicked);
+                });
+                
+                // Scroll to form
+                detailPanel.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Handle Recreate Pick List button click
+        document.querySelectorAll('.recreate-picklist-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const orderId = this.dataset.orderId;
+                const soNumber = this.dataset.soNumber;
+                const customer = this.dataset.customer;
+                const items = JSON.parse(this.dataset.items);
+                
+                // Show the order detail panel
+                const detailPanel = document.getElementById('orderDetailPanel');
+                detailPanel.style.display = 'block';
+                
+                // Set data attributes on panel for saving
+                detailPanel.dataset.orderId = orderId;
+                detailPanel.dataset.soNumber = soNumber;
+                
+                // Populate the form
+                document.getElementById('detailSONumber').value = soNumber;
+                document.getElementById('detailOrderDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('detailCustomerName').value = customer;
+                document.getElementById('pickListNumber').value = 'PL-' + soNumber + '-' + Date.now();
+                document.getElementById('pickListStatus').value = 'in_progress';
+                
+                // Populate items table with previous pick quantities
+                const pickListBody = document.getElementById('pickListTableBody');
+                pickListBody.innerHTML = '';
+                
+                items.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${item.product}</td>
+                        <td class="text-center">${item.quantity}</td>
+                        <td class="text-right">₱${parseFloat(item.price || 0).toFixed(2)}</td>
+                        <td class="text-right">₱${(item.quantity * parseFloat(item.price || 0)).toFixed(2)}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm picked-qty" 
+                                   value="${item.picked_qty}" min="0" max="${item.quantity}" style="width: 80px;">
+                        </td>
+                        <td>
+                            <select class="form-control form-control-sm status-select" style="width: 100px;">
+                                <option value="pending">Pending</option>
+                                <option value="picked" selected>Picked</option>
+                                <option value="not_available">Not Available</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" style="width: 150px;">
+                        </td>
+                    `;
+                    pickListBody.appendChild(row);
+                });
+                
+                // Update summary
+                document.getElementById('totalItems').value = items.length;
+                document.getElementById('itemsPicked').value = items.reduce((sum, item) => sum + (parseFloat(item.picked_qty) || 0), 0);
+
+                // Add real-time update handler for picked quantity changes
+                const updateItemsPickedRecreate = () => {
+                    const rows = document.querySelectorAll('#pickListTableBody tr');
+                    let total = 0;
+                    rows.forEach(row => {
+                        const pickedQtyInput = row.querySelector('.picked-qty');
+                        total += parseFloat(pickedQtyInput.value) || 0;
+                    });
+                    document.getElementById('itemsPicked').value = total;
+                };
+
+                // Attach event listeners to all picked quantity inputs
+                document.querySelectorAll('#pickListTableBody .picked-qty').forEach(input => {
+                    input.addEventListener('input', updateItemsPickedRecreate);
+                });
+                
+                // Add info message about recreation
+                let infoMsg = document.querySelector('.recreation-info');
+                if (!infoMsg) {
+                    infoMsg = document.createElement('div');
+                    infoMsg.className = 'alert alert-info recreation-info';
+                    detailPanel.insertBefore(infoMsg, detailPanel.firstChild);
+                }
+                infoMsg.innerHTML = '<i class="las la-info-circle"></i> <strong>Recreation Mode:</strong> This will create a new pick list with the same items.';
+                
+                // Scroll to form
+                detailPanel.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Auto-load pick list if pickListId is provided
+        @if($preloadPickListId)
+        document.addEventListener('DOMContentLoaded', function() {
+            const pickListId = {{ $preloadPickListId }};
+            
+            // Find the pick list in active pick lists
+            let pickListBtn = null;
+            document.querySelectorAll('.view-order-btn').forEach(btn => {
+                if (btn.dataset.pickListId == pickListId) {
+                    pickListBtn = btn;
+                }
+            });
+            
+            // If not found in active, check completed
+            if (!pickListBtn) {
+                document.querySelectorAll('.recreate-picklist-btn').forEach(btn => {
+                    if (btn.dataset.pickListId == pickListId) {
+                        pickListBtn = btn;
+                    }
+                });
+            }
+            
+            // Click the button if found
+            if (pickListBtn) {
+                pickListBtn.click();
+            }
+        });
+        @endif
     </script>
     @endpush
 </x-app-layout>

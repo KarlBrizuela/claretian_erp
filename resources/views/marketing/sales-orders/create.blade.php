@@ -88,7 +88,7 @@
                                 <label>Attachment:</label>
                                 @if($isEdit && $order->attachment)
                                     <div class="mb-2">
-                                        <a href="{{ asset('storage/'.$order->attachment) }}" target="_blank" class="text-primary"><i class="bi bi-paperclip"></i> View Current Attachment</a>
+                                        <a href="/storage/{{ $order->attachment }}" target="_blank" class="text-primary"><i class="bi bi-paperclip"></i> View Current Attachment</a>
                                     </div>
                                 @endif
                                 <!-- Premium Upload UI -->
@@ -131,7 +131,7 @@
                                 <th style="width: 120px;">AREA</th> <!-- Added AREA -->
                                 <th style="width: 150px;">UNIT PRICE</th>
                                 <th style="width: 150px;">AMOUNT</th>
-                                <th style="width: 60px;"></th>
+                                <th style="width: 80px;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody id="itemsBody">
@@ -229,6 +229,22 @@
         /* Consistency across inputs */
         .form-table input, .form-table .bootstrap-select {
             height: 38px;
+        }
+        
+        /* Remove button styling */
+        .remove-row {
+            background-color: #ff0000 !important;
+            color: white !important;
+            padding: 0.4rem 0.6rem !important;
+            font-size: 0.9rem;
+            border: none !important;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .remove-row:hover {
+            background-color: #cc0000 !important;
         }
     </style>
     @endpush
@@ -339,7 +355,7 @@
                     </td>
                     <td class="subtotal-display fw-bold text-end pe-3">₱ ${subtotalVal.toFixed(2)}</td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-row border-0"><i class="bi bi-trash"></i></button>
+                        <button type="button" class="btn btn-sm remove-row"><i class="bi bi-trash me-1"></i>Remove</button>
                     </td>
                 `;
                 

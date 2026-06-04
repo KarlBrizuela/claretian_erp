@@ -119,7 +119,7 @@
                             <td><span class="text-muted small">{{ $sponsor->remarks ?? 'N/A' }}</span></td>
                             <td>
                                 @if($sponsor->file_path)
-                                    <a href="{{ asset('storage/' . $sponsor->file_path) }}" target="_blank" class="btn btn-xs btn-outline-info">
+                                    <a href="/storage/{{ $sponsor->file_path }}" target="_blank" class="btn btn-xs btn-outline-info">
                                         <i class="las la-file-download me-1"></i> View File
                                     </a>
                                 @else

@@ -21,52 +21,139 @@
                 <div class="form-info-row">
                     <div class="form-info-item">
                         <label>DR No.:</label>
-                        <input type="text" class="form-control" id="receiptNumber" placeholder="Enter DR number">
+                        <input type="text" class="form-control" id="receiptNumber" placeholder="Enter DR number" value="{{ $order ? 'DR-' . $order->so_number : '' }}" {{ $order ? 'readonly' : '' }}>
                     </div>
                     <div class="form-info-item">
                         <label>Date:</label>
-                        <input type="date" class="form-control" id="receiptDate">
+                        <input type="date" class="form-control" id="receiptDate" value="{{ $order ? ($order->dr_prepared_at ? \Carbon\Carbon::parse($order->dr_prepared_at)->format('Y-m-d') : date('Y-m-d')) : date('Y-m-d') }}">
                     </div>
                     <div class="form-info-item">
                         <label>Sales Order:</label>
-                        <select class="form-control" id="salesOrder">
-                            <option value="">Select Sales Order</option>
-                        </select>
+                        <input type="text" class="form-control" placeholder="Sales Order" value="{{ $order ? $order->so_number : '' }}" readonly>
                     </div>
-                    <!-- Signature Section -->
-                    <div class="signature-section">
-                        <div class="signature-box">
-                            <label>Prepared by:</label>
-                            <input type="text" id="preparedBy" placeholder="Enter name" value="Johndoe">
-                            <div style="text-align: center; padding-top: 2rem;">
-                                <div style="border-top: 1px solid #333; width: 200px; margin: 0 auto; padding-top: 0.5rem;">SIGNATURE</div>
-                            </div>
-                        </div>
-                        <div class="signature-box">
-                            <label>Received by:</label>
-                            <input type="text" id="receivedBy" placeholder="Enter name">
-                            <div style="text-align: center; padding-top: 2rem;">
-                                <div style="border-top: 1px solid #333; width: 200px; margin: 0 auto; padding-top: 0.5rem;">SIGNATURE</div>
-                            </div>
-                        </div>
+                </div>
+
+                @if($order)
+                    <!-- Delivered To Section -->
+                    <div class="form-group">
+                        <label class="fw-bold">Delivered To:</label>
+                        <input type="text" class="form-control" value="{{ $order->customer->customer_name ?? 'Unknown' }}" readonly>
                     </div>
 
-                    <!-- Form Actions -->
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-light" onclick="window.print()">
-                            <i class="las la-print"></i> Print
-                        </button>
+                    <!-- Delivery Address -->
+                    <div class="form-group">
+                        <label class="fw-bold">Delivery Address:</label>
+                        <textarea class="form-control" readonly>{{ $order->shipping_address ?: ($order->customer->shipping_address ?? $order->customer->billing_address ?? '') }}</textarea>
+                    </div>
+
+                    <!-- Items Table -->
+                    <div class="table-responsive">
+                        <table class="receipt-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;">QUANTITY</th>
+                                    <th>DESCRIPTION</th>
+                                    <th style="width: 120px; text-align: right;">UNIT PRICE</th>
+                                    <th style="width: 120px; text-align: right;">AMOUNT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($order->items as $item)
+                                    <tr>
+                                        <td>{{ $item->quantity }}</td>
+                                        <td>{{ $item->book->name ?? 'Unknown Item' }}</td>
+                                        <td style="text-align: right;">₱{{ number_format($item->unit_price, 2) }}</td>
+                                        <td style="text-align: right;">₱{{ number_format($item->quantity * $item->unit_price, 2) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="text-center">No items found</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Total Amount -->
+                    <div style="text-align: right; margin-bottom: 1.5rem; font-size: 1.1rem; font-weight: 600;">
+                        <strong>Total Amount: ₱{{ number_format($order->total_amount, 2) }}</strong>
+                    </div>
+                @else
+                    <!-- Empty Form for Creating New Receipt -->
+                    <div class="form-group">
+                        <label class="fw-bold">Delivered To:</label>
+                        <select class="form-control" id="recipient">
+                            <option value="">Select Customer</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="fw-bold">Delivery Address:</label>
+                        <textarea class="form-control" rows="2" placeholder="Enter delivery address"></textarea>
+                    </div>
+
+                    <button type="button" class="btn btn-danger btn-sm mb-3" onclick="addRow()">+ Add Row</button>
+                    
+                    <div class="table-responsive">
+                        <table class="receipt-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;">QUANTITY</th>
+                                    <th>DESCRIPTION</th>
+                                    <th style="width: 120px; text-align: right;">UNIT PRICE</th>
+                                    <th style="width: 120px; text-align: right;">AMOUNT</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="receiptTableBody">
+                                <tr>
+                                    <td><input type="number" class="qty-input" value="0"></td>
+                                    <td><input type="text" placeholder="Product description"></td>
+                                    <td><input type="number" class="price-input" value="0.00" step="0.01" style="text-align: right;"></td>
+                                    <td><input type="number" class="amount-input" value="0.00" readonly style="text-align: right;"></td>
+                                    <td class="text-center"><button type="button" class="btn btn-xs sharp btn-danger" onclick="removeRow(this)"><i class="fa fa-times"></i></button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+
+                <!-- Signature Section -->
+                <div class="signature-section">
+                    <div class="signature-box">
+                        <label>Prepared by:</label>
+                        <input type="text" id="preparedBy" placeholder="Enter name" value="{{ $order && $order->preparedBy ? $order->preparedBy->name : 'Johndoe' }}">
+                        <div style="text-align: center; padding-top: 2rem;">
+                            <div style="border-top: 1px solid #333; width: 200px; margin: 0 auto; padding-top: 0.5rem;">SIGNATURE</div>
+                        </div>
+                    </div>
+                    <div class="signature-box">
+                        <label>Received by:</label>
+                        <input type="text" id="receivedBy" placeholder="Enter name">
+                        <div style="text-align: center; padding-top: 2rem;">
+                            <div style="border-top: 1px solid #333; width: 200px; margin: 0 auto; padding-top: 0.5rem;">SIGNATURE</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" class="btn btn-light" onclick="window.print()">
+                        <i class="las la-print"></i> Print
+                    </button>
+                    @if(!$order)
                         <button type="button" class="btn btn-primary">
                             <i class="las la-save"></i> Save Receipt
                         </button>
                         <button type="button" class="btn btn-success">
                             <i class="las la-paper-plane"></i> Submit
                         </button>
-                    </div>
+                    @else
+                        <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-secondary">
+                            <i class="las la-arrow-left"></i> Back to List
+                        </a>
+                    @endif
                 </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal System -->
     <div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">

@@ -18,3 +18,6 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
 
+// Evaluation order customer selections
+Route::middleware('auth')->post('/evaluation-selections/save', [\App\Http\Controllers\Production\LogisticController::class, 'saveEvaluationSelections']);
+

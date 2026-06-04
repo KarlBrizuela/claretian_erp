@@ -69,8 +69,10 @@ Route::middleware(['auth'])->group(function () {
     // Production Logistic Management
     Route::prefix('production/logistic')->name('production.logistic.')->group(function () {
       Route::get('/pick-lists', [App\Http\Controllers\Production\LogisticController::class, 'pickListList'])->name('pick-list-list');
+      Route::get('/pick-lists/{id}', [App\Http\Controllers\Production\LogisticController::class, 'showPickList'])->name('pick-list-details');
       Route::get('/pick-list-management', [App\Http\Controllers\Production\LogisticController::class, 'pickListManagement'])->name('pick-list-management'); // Keep for form
-      Route::post('/pick-lists/{id}/mark-as-gathered', [App\Http\Controllers\Production\LogisticController::class, 'markAsGathered'])->name('mark-as-gathered');
+      Route::post('/pick-list/save', [App\Http\Controllers\Production\LogisticController::class, 'savePickedItems'])->name('pick-list.save');
+      Route::post('/mark-as-gathered/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'markAsGathered'])->name('mark-as-gathered');
       
       // Delivery & Fleet management
       Route::get('/delivery-scheduling', [App\Http\Controllers\Production\LogisticController::class, 'deliveryScheduling'])->name('delivery-scheduling');
@@ -82,7 +84,7 @@ Route::middleware(['auth'])->group(function () {
       
       // Delivery Receipts (Restored)
       Route::get('/delivery-receipt-list', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceiptList'])->name('delivery-receipt-list');
-      Route::get('/delivery-receipt', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('delivery-receipt');
+      Route::get('/delivery-receipt/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('delivery-receipt');
       Route::post('/mark-as-dr-prepared/{id}', [App\Http\Controllers\Production\LogisticController::class, 'markAsDRPrepared'])->name('mark-as-dr-prepared');
       Route::post('/approve-dr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'approveDR'])->name('approve-dr');
 
@@ -402,6 +404,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/{id}', [App\Http\Controllers\RiderCollectionController::class, 'show'])->name('show');
     Route::post('/{id}/record', [App\Http\Controllers\RiderCollectionController::class, 'recordCollection'])->name('record');
     Route::post('/{id}/hand-over', [App\Http\Controllers\RiderCollectionController::class, 'handOver'])->name('hand-over');
+    Route::post('/{id}/evaluation-selection', [App\Http\Controllers\RiderCollectionController::class, 'recordEvaluationSelection'])->name('evaluation-selection');
   });
 
   // Cashier Payment Verification Routes (Admin & Finance)

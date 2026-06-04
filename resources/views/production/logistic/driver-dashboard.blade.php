@@ -109,6 +109,7 @@
                                         <th>Ref #</th>
                                         <th>Customer</th>
                                         <th>Delivery Address</th>
+                                        <th>Delivery Date</th>
                                         <th>Status</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
@@ -135,6 +136,13 @@
                                             </div>
                                         </td>
                                         <td class="align-middle">
+                                            @if($order->delivery_date)
+                                                <span class="badge bg-info">{{ \Carbon\Carbon::parse($order->delivery_date)->format('M d, Y') }}</span>
+                                            @else
+                                                <span class="text-muted small">Not set</span>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle">
                                             <span class="status-badge status-{{ $order->status }}">
                                                 {{ ucwords(str_replace('_', ' ', $order->status)) }}
                                             </span>
@@ -152,9 +160,36 @@
                                                 @endif
                                                 
                                                 @if($order->status !== 'completed')
+                                                @php
+                                                    $canMarkComplete = true;
+                                                    $completeReason = 'Mark Complete';
+                                                    
+                                                    // PAID orders can always mark complete
+                                                    // COD orders need verified collection
+                                                    if ($order->type === 'paid') {
+                                                        // PAID order - allow
+                                                        $canMarkComplete = true;
+                                                    } elseif ($order->transaction_type === 'COD') {
+                                                        // COD order - check collection
+                                                        $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
+                                                        if (!$collection) {
+                                                            $canMarkComplete = false;
+                                                            $completeReason = 'No collection created';
+                                                        } elseif ($collection->status !== 'verified') {
+                                                            $canMarkComplete = false;
+                                                            $completeReason = 'Collection not verified by accounting';
+                                                        }
+                                                    } else {
+                                                        // Other types - allow
+                                                        $canMarkComplete = true;
+                                                    }
+                                                @endphp
                                                 <form action="{{ route('production.logistic.mark-as-delivered', $order->id) }}" method="POST" onsubmit="return confirm('Mark this delivery as completed?');">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Mark Complete">
+                                                    <button type="submit" 
+                                                            class="btn btn-{{ $canMarkComplete ? 'success' : 'secondary disabled' }} shadow btn-xs sharp" 
+                                                            {{ !$canMarkComplete ? 'disabled' : '' }}
+                                                            title="{{ $completeReason }}">
                                                         <i class="fas fa-check"></i>
                                                     </button>
                                                 </form>

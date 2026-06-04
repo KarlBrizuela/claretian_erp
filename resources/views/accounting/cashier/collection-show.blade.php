@@ -127,7 +127,7 @@
                         <div class="mt-3">
                             <label class="font-weight-bold">Customer Signature/Proof:</label>
                             <div class="text-center">
-                                <img src="{{ asset('storage/' . $collection->customer_signature_photo) }}" 
+                                <img src="/storage/{{ $collection->customer_signature_photo }}" 
                                     class="img-fluid" style="max-width: 300px; max-height: 300px; border: 1px solid #ddd; padding: 5px;">
                             </div>
                         </div>

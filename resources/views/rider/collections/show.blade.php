@@ -23,16 +23,34 @@
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="form-group">
                                 <label class="font-weight-bold">SO Number:</label>
                                 <p class="text-dark">{{ $collection->salesOrder->so_number }}</p>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="form-group">
                                 <label class="font-weight-bold">Customer:</label>
                                 <p class="text-dark">{{ $collection->salesOrder->customer->customer_name ?? 'N/A' }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="font-weight-bold">Transaction Type:</label>
+                                <p class="text-dark">
+                                    @if($collection->transaction_type === 'COD')
+                                        <span class="badge badge-danger">{{ $collection->transaction_type }}</span>
+                                    @elseif($collection->transaction_type === 'Credit')
+                                        <span class="badge badge-info">{{ $collection->transaction_type }}</span>
+                                    @elseif($collection->transaction_type === 'Prepaid')
+                                        <span class="badge badge-success">{{ $collection->transaction_type }}</span>
+                                    @elseif($collection->transaction_type === 'Evaluation')
+                                        <span class="badge badge-primary">{{ $collection->transaction_type }}</span>
+                                    @else
+                                        <span class="badge badge-secondary">{{ $collection->transaction_type ?? 'Other' }}</span>
+                                    @endif
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -56,7 +74,12 @@
 
                     <!-- Items -->
                     <div class="form-group mb-3">
-                        <label class="font-weight-bold">Items:</label>
+                        <label class="font-weight-bold">
+                            Items:
+                            @if($collection->isEvaluationCollection() && $collection->evaluation_completed_at)
+                                <span class="badge badge-success ml-2">Selected Items Only</span>
+                            @endif
+                        </label>
                         <div class="table-responsive">
                             <table class="table table-sm table-bordered">
                                 <thead class="bg-light">
@@ -68,14 +91,40 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($collection->salesOrder->items as $item)
+                                    @php
+                                        // If evaluation is completed, show only selected items
+                                        $itemsToDisplay = $collection->salesOrder->items;
+                                        if ($collection->isEvaluationCollection() && $collection->evaluation_completed_at && $collection->items_selection) {
+                                            $itemsToDisplay = $itemsToDisplay->filter(function($item) use ($collection) {
+                                                return isset($collection->items_selection[$item->book_id]) && 
+                                                       $collection->items_selection[$item->book_id]['purchased_qty'] > 0;
+                                            });
+                                        }
+                                    @endphp
+                                    @forelse($itemsToDisplay as $item)
                                         <tr>
                                             <td>{{ $item->book->name ?? 'Unknown' }}</td>
-                                            <td class="text-right">{{ $item->quantity }}</td>
+                                            <td class="text-right">
+                                                @if($collection->isEvaluationCollection() && $collection->evaluation_completed_at)
+                                                    {{ $collection->items_selection[$item->book_id]['purchased_qty'] ?? $item->quantity }}
+                                                @else
+                                                    {{ $item->quantity }}
+                                                @endif
+                                            </td>
                                             <td class="text-right">₱{{ number_format($item->price, 2) }}</td>
-                                            <td class="text-right">₱{{ number_format($item->subtotal, 2) }}</td>
+                                            <td class="text-right">
+                                                @if($collection->isEvaluationCollection() && $collection->evaluation_completed_at)
+                                                    ₱{{ number_format(($collection->items_selection[$item->book_id]['purchased_qty'] ?? 0) * $item->price, 2) }}
+                                                @else
+                                                    ₱{{ number_format($item->subtotal, 2) }}
+                                                @endif
+                                            </td>
                                         </tr>
-                                    @endforeach
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted">No items to display</td>
+                                        </tr>
+                                    @endforelse
                                 </tbody>
                                 <tfoot>
                                     <tr class="bg-light font-weight-bold">
@@ -168,6 +217,9 @@
             @endif
         </div>
     </div>
+
+    <!-- Include Evaluation Item Selection Partial -->
+    @include('rider.collections.partials.evaluation-selection')
 </div>
 
 <script>

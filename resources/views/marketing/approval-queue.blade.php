@@ -319,7 +319,7 @@
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td>
                                             @if($order->attachment)
-                                                <a href="{{ asset('storage/' . $order->attachment) }}" target="_blank" class="text-primary"><i class="las la-paperclip"></i> View</a>
+                                                <a href="/storage/{{ $order->attachment }}" target="_blank" class="text-primary"><i class="las la-paperclip"></i> View</a>
                                             @else
                                                 <span class="text-muted">None</span>
                                             @endif

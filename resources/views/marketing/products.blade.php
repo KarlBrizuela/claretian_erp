@@ -256,7 +256,7 @@
                                     </td>
                                     <td>
                                         @if($product->image)
-                                            <img src="{{ asset('storage/' . $product->image) }}" 
+                                            <img src="/storage/{{ $product->image }}" 
                                                  alt="" class="rounded" width="35" height="35" style="object-fit: cover;">
                                         @else
                                             <div class="rounded bg-light d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;">

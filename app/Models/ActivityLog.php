@@ -16,6 +16,9 @@ class ActivityLog extends Model
         'status',
         'description',
         'ip_address',
+        'reference_type',
+        'reference_id',
+        'details',
     ];
 
     public function user()

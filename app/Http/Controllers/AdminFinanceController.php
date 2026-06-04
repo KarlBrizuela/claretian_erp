@@ -1077,7 +1077,8 @@ public function checkVoucher()
   public function salesInvoice()
   {
     $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-      ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'ready_for_delivery'])
+      ->whereIn('status', ['pending_si_prep', 'pending_si_approval'])
+      ->whereNull('signed_by_af_manager')
       ->latest()
       ->get();
 

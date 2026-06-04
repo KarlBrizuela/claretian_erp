@@ -15,6 +15,7 @@ class RiderCollection extends Model
         'amount_to_collect',
         'amount_collected',
         'status', // pending, collected, handed_over, verified
+        'transaction_type', // COD, Credit, Prepaid, Check, Other, Evaluation
         'collected_at',
         'handed_over_at',
         'verified_at',
@@ -24,12 +25,16 @@ class RiderCollection extends Model
         'verified_by',
         'amount_discrepancy',
         'discrepancy_notes',
+        'items_selection',
+        'evaluation_completed_at',
     ];
 
     protected $casts = [
         'collected_at' => 'datetime',
         'handed_over_at' => 'datetime',
         'verified_at' => 'datetime',
+        'evaluation_completed_at' => 'datetime',
+        'items_selection' => 'array',
     ];
 
     /**
@@ -152,6 +157,67 @@ class RiderCollection extends Model
             ->orWhere('status', 'collected')
             ->with('salesOrder', 'salesOrder.customer', 'rider')
             ->get();
+    }
+
+    /**
+     * Check if this is an evaluation collection (7-day evaluation order)
+     */
+    public function isEvaluationCollection()
+    {
+        return $this->salesOrder && $this->salesOrder->type === 'evaluation';
+    }
+
+    /**
+     * Record customer item selection during evaluation collection
+     * @param array $itemsSelection { book_id => { sent_qty, purchased_qty, returned_qty } }
+     */
+    public function recordItemSelection($itemsSelection)
+    {
+        $this->update([
+            'items_selection' => $itemsSelection,
+            'evaluation_completed_at' => now(),
+        ]);
+
+        return $this;
+    }
+
+    /**
+     * Get item selection summary for evaluation collection
+     * Returns array with total sent, total purchased, total returned
+     */
+    public function getEvaluationSummary()
+    {
+        if (!$this->items_selection) {
+            return null;
+        }
+
+        $totalSent = 0;
+        $totalPurchased = 0;
+        $totalReturned = 0;
+
+        foreach ($this->items_selection as $bookId => $item) {
+            $totalSent += $item['sent_qty'] ?? 0;
+            $totalPurchased += $item['purchased_qty'] ?? 0;
+            $totalReturned += $item['returned_qty'] ?? 0;
+        }
+
+        return [
+            'total_sent' => $totalSent,
+            'total_purchased' => $totalPurchased,
+            'total_returned' => $totalReturned,
+            'balance' => $totalSent - ($totalPurchased + $totalReturned),
+        ];
+    }
+
+    /**
+     * Check if evaluation items are reconciled
+     * (total_sent = total_purchased + total_returned)
+     */
+    public function isEvaluationReconciled()
+    {
+        $summary = $this->getEvaluationSummary();
+        if (!$summary) return false;
+        return $summary['balance'] === 0;
     }
 
     /**

@@ -14,54 +14,125 @@ class LogisticController extends Controller
     {
         $this->accounting = $accounting;
     }
-    public function pickListManagement()
+    public function pickListManagement(Request $request)
     {
-        $pickingOrders = \App\Models\SalesOrder::with(['customer', 'items.book', 'preparedBy'])
-            ->where('status', 'picking')
+        // Get existing pick lists (not completed)
+        $pickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'preparedByUser'])
+            ->where('status', '!=', 'completed')
             ->latest()
             ->get();
 
+        // Get completed pick lists for recreation option
+        $completedPickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'preparedByUser'])
+            ->where('status', 'completed')
+            ->latest()
+            ->get();
+
+        // Get pending Sales Orders ready for picking (status = 'picking' and no active pick list yet)
+        $pendingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+            ->where('status', 'picking')
+            ->whereDoesntHave('pickLists', function($query) {
+                $query->where('status', '!=', 'completed');
+            })
+            ->latest()
+            ->get();
+
+        // If pickListId is provided, preload that pick list
+        $preloadPickListId = $request->input('pickListId');
+
         return view('production.logistic.pick-list-management', [
-            'pickingOrders' => $pickingOrders,
+            'pickLists' => $pickLists,
+            'completedPickLists' => $completedPickLists,
+            'pendingOrders' => $pendingOrders,
+            'preloadPickListId' => $preloadPickListId,
         ]);
     }
 
     public function pickListList()
     {
-        $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->where('status', 'picking')
+        $pickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
+            ->where('status', '!=', 'completed')
             ->latest()
             ->get();
 
-        \Illuminate\Support\Facades\Log::debug('PickListList orders count: ' . $orders->count());
-        if ($orders->count() > 0) {
-            \Illuminate\Support\Facades\Log::debug('First order SO: ' . $orders->first()->so_number);
+        \Illuminate\Support\Facades\Log::debug('PickListList pick lists count: ' . $pickLists->count());
+        if ($pickLists->count() > 0) {
+            \Illuminate\Support\Facades\Log::debug('First pick list: ' . $pickLists->first()->pick_list_number);
         }
 
         return view('production.logistic.pick-list-list', [
             'title' => 'Pick Lists',
             'role' => 'Logistics Staff',
             'sidebar' => 'production',
-            'orders' => $orders
+            'pickLists' => $pickLists
         ]);
     }
 
-    public function markAsGathered($id)
+    public function showPickList($id)
     {
-        $order = \App\Models\SalesOrder::findOrFail($id);
-        
-        // Determine next status
-        $nextStatus = 'pending_si_prep'; // Default for Paid/Charge/Foreign
-        
-        if (str_contains($order->type, 'consignment') || $order->type === 'complimentary') {
-            $nextStatus = 'pending_dr_prep';
-        }
-        
-        $order->update([
-            'status' => $nextStatus
-        ]);
+        $pickList = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'preparedByUser'])
+            ->findOrFail($id);
 
-        return redirect()->back()->with('success', 'Order #' . $order->so_number . ' marked as gathered and routed to the next stage.');
+        return view('production.logistic.pick-list-details', [
+            'pickList' => $pickList
+        ]);
+    }
+
+    public function markAsGathered(Request $request)
+    {
+        try {
+            // Get order_id from request (JSON) or route parameter
+            $orderId = $request->input('order_id') ?? $request->route('id');
+            
+            if (!$orderId) {
+                return response()->json(['success' => false, 'message' => 'Order ID is required'], 400);
+            }
+            
+            $order = \App\Models\SalesOrder::findOrFail($orderId);
+            
+            // Move to "pending_si_prep" status for Sales Invoice Preparation
+            $order->update([
+                'status' => 'pending_si_prep',
+                'gathered_at' => now(),
+                'gathered_by' => auth()->id()
+            ]);
+
+            // Mark all associated pick lists as completed
+            \App\Models\PickList::where('sales_order_id', $orderId)
+                ->where('status', '!=', 'completed')
+                ->update([
+                    'status' => 'completed',
+                    'completed_at' => now(),
+                    'completed_by' => auth()->id()
+                ]);
+
+            // Log the action
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Pick list gathered',
+                'description' => 'Order marked as gathered for SO ' . $order->so_number,
+                'reference_type' => 'SalesOrder',
+                'reference_id' => $order->id,
+                'details' => json_encode(['gathered_at' => now()])
+            ]);
+
+            // If AJAX request, return JSON
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Order marked as gathered and moved to Sales Invoice Preparation'
+                ]);
+            }
+
+            // Otherwise redirect
+            return redirect()->back()->with('success', 'Order #' . $order->so_number . ' marked as gathered and moved to Sales Invoice.');
+
+        } catch (\Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+            }
+            return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
+        }
     }
 
     public function deliveryScheduling()
@@ -69,7 +140,7 @@ class LogisticController extends Controller
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
             ->where('status', 'ready_for_delivery')
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
-            ->latest()
+            ->orderBy('signed_at', 'desc')
             ->get();
 
         $drivers = \App\Models\User::where('position', 'Driver')
@@ -89,8 +160,8 @@ class LogisticController extends Controller
     {
         $order = \App\Models\SalesOrder::findOrFail($id);
         
-        // Check if this is a COD (Cash on Delivery) order
-        if ($order->transaction_type === 'COD') {
+        // Check if this is a COD (Cash on Delivery) order - PAID orders can skip this check
+        if ($order->type !== 'paid' && $order->transaction_type === 'COD') {
             // Verify that COD collection has been approved by accounting
             $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
             
@@ -115,6 +186,7 @@ class LogisticController extends Controller
         $request->validate([
             'driver_id' => 'required|exists:users,id',
             'plate_number' => 'required|string|max:255',
+            'delivery_date' => 'required|date',
         ]);
 
         $order = \App\Models\SalesOrder::findOrFail($id);
@@ -129,6 +201,7 @@ class LogisticController extends Controller
             'driver_id' => $request->driver_id,
             'driver' => $driver->first_name . ' ' . $driver->last_name,
             'plate_number' => $request->plate_number,
+            'delivery_date' => $request->delivery_date,
         ]);
 
         // Create RiderCollection if this is a COD (Cash on Delivery) order
@@ -142,6 +215,7 @@ class LogisticController extends Controller
                     'sales_order_id' => $order->id,
                     'rider_id' => $request->driver_id,
                     'amount_to_collect' => $order->total_amount,
+                    'transaction_type' => $order->transaction_type,
                     'status' => 'pending',
                 ]);
                 
@@ -412,9 +486,18 @@ class LogisticController extends Controller
         ]);
     }
 
-    public function deliveryReceipt()
+    public function deliveryReceipt($id = null)
     {
-        return view('production.logistic.delivery-receipt');
+        $order = null;
+        if ($id) {
+            $order = \App\Models\SalesOrder::with('customer', 'items.book', 'preparedBy')->findOrFail($id);
+        }
+
+        return view('production.logistic.delivery-receipt', [
+            'order' => $order,
+            'title' => 'Delivery Receipt',
+            'sidebar' => 'production'
+        ]);
     }
 
     public function markAsDRPrepared($id)
@@ -477,5 +560,171 @@ class LogisticController extends Controller
             'role' => 'Driver',
             'sidebar' => 'production'
         ]);
+    }
+
+    /**
+     * Save customer selected quantities for evaluation orders
+     * API endpoint for recording what customer chose to keep from evaluation
+     */
+    public function saveEvaluationSelections(Request $request)
+    {
+        try {
+            $orderId = $request->input('order_id');
+            $soNumber = $request->input('so_number');
+            $selections = $request->input('selections', []);
+
+            // Validate
+            if (!$orderId || empty($selections)) {
+                return response()->json(['success' => false, 'message' => 'Invalid order or selections']);
+            }
+
+            // Get order
+            $order = \App\Models\SalesOrder::with('items.book')->findOrFail($orderId);
+
+            // Verify it's an evaluation order
+            if ($order->type !== 'evaluation') {
+                return response()->json(['success' => false, 'message' => 'This order is not an evaluation order']);
+            }
+
+            // Process selections
+            $totalSelectedQty = 0;
+            foreach ($selections as $selection) {
+                $productName = $selection['product'];
+                $selectedQty = floatval($selection['quantity']);
+
+                // Find the SalesOrderItem by product name
+                $item = $order->items()
+                    ->whereHas('book', function($query) use ($productName) {
+                        $query->where('name', $productName);
+                    })
+                    ->first();
+
+                if ($item) {
+                    // Update customer_selected_qty
+                    $item->update(['customer_selected_qty' => $selectedQty]);
+                    $totalSelectedQty += $selectedQty;
+                }
+            }
+
+            // Record activity log
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Evaluation selections recorded',
+                'description' => 'Customer selections recorded for evaluation SO ' . $soNumber . ' - Total items: ' . $totalSelectedQty,
+                'reference_type' => 'SalesOrder',
+                'reference_id' => $orderId,
+                'details' => json_encode($selections)
+            ]);
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Customer selections saved successfully - Total items selected: ' . $totalSelectedQty
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error saving evaluation selections: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function savePickedItems(Request $request)
+    {
+        try {
+            $request->validate([
+                'order_id' => 'required|exists:sales_orders,id',
+                'so_number' => 'required|string',
+                'picked_items' => 'required|array|min:1'
+            ]);
+
+            $order = \App\Models\SalesOrder::findOrFail($request->order_id);
+            
+            // Check if a pick list already exists for this SO (that's not completed)
+            $pickList = \App\Models\PickList::where('sales_order_id', $order->id)
+                ->where('status', '!=', 'completed')
+                ->first();
+            
+            if (!$pickList) {
+                // Generate unique pick list number only if creating new
+                $pickListNumber = 'PL-' . $request->so_number . '-' . now()->format('YmdHis');
+                
+                // Create the PickList record
+                $pickList = \App\Models\PickList::create([
+                    'sales_order_id' => $order->id,
+                    'pick_list_number' => $pickListNumber,
+                    'status' => 'in_progress',
+                    'prepared_by' => auth()->id(),
+                    'notes' => $request->input('notes', null),
+                ]);
+            } else {
+                // Update existing pick list
+                $pickList->update([
+                    'notes' => $request->input('notes', null),
+                ]);
+                // Delete old items so we can recreate them
+                $pickList->pickListItems()->delete();
+            }
+
+            // Get the sales order items for matching
+            $soItems = $order->items()->get();
+
+            // Create PickListItem records for each picked item
+            foreach ($request->picked_items as $pickedItem) {
+                // Try to match by item_index first, then by product name
+                $matchedItem = null;
+                
+                // If item_index is provided, use it directly
+                if (isset($pickedItem['item_index'])) {
+                    $matchedItem = $soItems[$pickedItem['item_index']] ?? null;
+                } else {
+                    // Fallback: match by product name
+                    $matchedItem = $soItems->first(function ($item) use ($pickedItem) {
+                        return $item->book->name === $pickedItem['product'];
+                    });
+                }
+
+                if ($matchedItem) {
+                    \App\Models\PickListItem::create([
+                        'pick_list_id' => $pickList->id,
+                        'sales_order_item_id' => $matchedItem->id,
+                        'requested_qty' => $matchedItem->quantity,
+                        'picked_qty' => floatval($pickedItem['picked_qty']),
+                        'status' => $pickedItem['status'] ?? 'pending',
+                        'notes' => $pickedItem['notes'] ?? null,
+                    ]);
+                }
+            }
+
+            // Update order status to picking to indicate it's in the pick process
+            $order->update([
+                'status' => 'picking',
+                'picked_at' => now(),
+                'picked_by' => auth()->id()
+            ]);
+
+            // Store activity log for audit trail
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Pick list updated with items',
+                'description' => 'Pick list items updated for SO ' . $request->so_number,
+                'reference_type' => 'PickList',
+                'reference_id' => $pickList->id,
+                'details' => json_encode([
+                    'pick_list_number' => $pickList->pick_list_number,
+                    'items_count' => count($request->picked_items),
+                    'total_picked' => array_sum(array_column($request->picked_items, 'picked_qty'))
+                ])
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pick list saved successfully for SO ' . $request->so_number,
+                'pick_list_id' => $pickList->id,
+                'pick_list_number' => $pickList->pick_list_number,
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error saving picked items: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
     }
 }

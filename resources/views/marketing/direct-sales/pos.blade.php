@@ -225,7 +225,6 @@
 
             <div class="pos-total-section">
                 <div class="d-flex justify-content-between mb-2 text-muted"><span>Subtotal</span><span id="subtotal">₱0.00</span></div>
-                <div class="d-flex justify-content-between mb-2 text-muted"><span>Tax (12%)</span><span id="tax">₱0.00</span></div>
                 <div class="d-flex justify-content-between mt-3 pt-3 border-top"><h4 class="mb-0">Total</h4><h4 id="total" class="text-primary mb-0">₱0.00</h4></div>
             </div>
             
@@ -246,7 +245,6 @@
                 <div class="modal-body p-3">
                     <div class="checkout-summary">
                         <div class="checkout-summary-row"><span>Subtotal</span><span id="modalSubtotal">₱0.00</span></div>
-                        <div class="checkout-summary-row"><span>VAT (12%)</span><span id="modalTax">₱0.00</span></div>
                         <div class="checkout-summary-row"><span>Total Payable</span><span id="modalTotal">₱0.00</span></div>
                     </div>
 
@@ -496,7 +494,6 @@
             }
 
             document.getElementById('modalSubtotal').textContent = `₱${subtotalAmt.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById('modalTax').textContent = `₱${taxAmt.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('modalTotal').textContent = `₱${totalAmt.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             
             // Reset modal state
@@ -667,10 +664,9 @@
 
         function calculateTotals() {
             subtotalAmt = cart.reduce((sum, item) => sum + (item.qty * item.price), 0);
-            taxAmt = subtotalAmt * taxRate;
-            totalAmt = subtotalAmt + taxAmt;
+            taxAmt = 0;
+            totalAmt = subtotalAmt;
             document.getElementById('subtotal').textContent = `₱${subtotalAmt.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById('tax').textContent = `₱${taxAmt.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('total').textContent = `₱${totalAmt.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
         }
 

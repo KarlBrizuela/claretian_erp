@@ -171,7 +171,7 @@
                         <i class="las la-tag me-2"></i>Shipping Label
                     </button>
                     <iframe id="shippingLabelFrame" style="display:none;"></iframe>
-                    @if($order->type === 'direct_consignment')
+                    @if($order->type === 'direct_consignment' || $order->type === 'evaluation')
                     <a href="{{ route('marketing.nbs-consignment-receipt', $order->id) }}" class="btn btn-primary" target="_blank">
                         <i class="las la-file-invoice me-2"></i>Print NBS Consignment DR
                     </a>

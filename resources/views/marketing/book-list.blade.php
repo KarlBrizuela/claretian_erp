@@ -209,7 +209,7 @@
                                 @forelse($books as $book)
                                 <tr>
                                     <td>
-                                        <img src="{{ $book->image ? asset('storage/' . $book->image) : asset('images/no-book-cover.svg') }}" 
+                                        <img src="{{ $book->image ? '/storage/' . $book->image : asset('images/no-book-cover.svg') }}" 
                                              class="rounded-circle" width="35" height="35" style="object-fit: cover; border: 1px solid #eee;">
                                     </td>
                                     <td><strong>#{{ $book->sku }}</strong></td>

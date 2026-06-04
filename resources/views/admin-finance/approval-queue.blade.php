@@ -612,7 +612,7 @@
                                         <td>
                                             <strong>{{ $approved['reference_no'] }}</strong>
                                             @if($approved['attachment'])
-                                                <a href="{{ asset('storage/' . $approved['attachment']) }}" target="_blank" class="ms-1 text-primary" title="View Attachment">
+                                                <a href="/storage/{{ $approved['attachment'] }}" target="_blank" class="ms-1 text-primary" title="View Attachment">
                                                     <i class="las la-paperclip"></i>
                                                 </a>
                                             @endif

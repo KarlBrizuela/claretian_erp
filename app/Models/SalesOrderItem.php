@@ -15,6 +15,10 @@ class SalesOrderItem extends Model
         'subtotal',
         'unit',
         'source_price_at_sale',
+        'customer_selected_qty',
+        'sent_qty',
+        'returned_qty',
+        'selected_qty',
     ];
 
     public function order()
@@ -33,5 +37,42 @@ class SalesOrderItem extends Model
     public function product()
     {
         return $this->belongsTo(Book::class, 'book_id');
+    }
+
+    /**
+     * Get evaluation status for this item
+     * Returns: 'full' (all selected), 'partial' (some returned), 'fully_returned' (none selected), 'not_evaluated' (pending)
+     */
+    public function getEvaluationStatus()
+    {
+        if (!$this->sent_qty) {
+            return 'not_evaluated';
+        }
+
+        if ($this->selected_qty === 0) {
+            return 'fully_returned';
+        }
+
+        if ($this->selected_qty === $this->sent_qty) {
+            return 'full';
+        }
+
+        return 'partial';
+    }
+
+    /**
+     * Calculate returned quantity for this item
+     */
+    public function getReturnedQtyAttribute()
+    {
+        return ($this->sent_qty ?? 0) - ($this->selected_qty ?? 0);
+    }
+
+    /**
+     * Check if this is an evaluation item
+     */
+    public function isEvaluationItem()
+    {
+        return $this->order && $this->order->type === 'evaluation' && $this->sent_qty > 0;
     }
 }

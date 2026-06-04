@@ -489,24 +489,15 @@ class MarketingController extends Controller
         }
 
         // 1. Calculate Status based on Type (Intelligent Routing)
-        // By default, everything starts as pending_mkt_approval unless it's FORD or explicitly draft
+        // ALL SO types require BOTH Marketing and Accounting approval
         $initialStatus = 'pending_mkt_approval';
         
         // Check if user is already a Manager/Supervisor to auto-approve to next stage
         $isMktManager = str_contains(auth()->user()->position, 'Manager') || str_contains(auth()->user()->position, 'Supervisor');
         
         if ($isMktManager) {
+            // All SO types now proceed to Accounting approval after Marketing Manager approval
             $initialStatus = 'pending_acct_approval';
-            
-            // Special case: Direct Consignment and Complimentary route directly to Picking after Mkt Manager approval
-            if ($request->type === 'direct_consignment' || $request->type === 'complimentary') {
-                $initialStatus = 'picking';
-            }
-            
-            // Special case: Foreign orders are approved by Production Manager
-            if ($request->type === 'foreign') {
-                $initialStatus = 'pending_prod_approval';
-            }
         }
 
         // 2. Handle Attachment
@@ -594,12 +585,8 @@ class MarketingController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         
-        // Determine next status based on flow
+        // All SO types now proceed to Accounting approval after Marketing Manager approval
         $nextStatus = 'pending_acct_approval';
-        
-        if ($order->type === 'direct_consignment' || $order->type === 'complimentary') {
-            $nextStatus = 'picking';
-        }
         
         $order->update([
             'status' => $nextStatus,
@@ -607,7 +594,7 @@ class MarketingController extends Controller
             'mkt_approved_at' => now()
         ]);
 
-        return redirect()->route('marketing.approval-queue')->with('success', 'Sales Order #' . $order->so_number . ' has been approved by Marketing.');
+        return redirect()->route('marketing.approval-queue')->with('success', 'Sales Order #' . $order->so_number . ' has been approved by Marketing. Awaiting Accounting approval.');
     }
 
     public function editSalesOrder($id)

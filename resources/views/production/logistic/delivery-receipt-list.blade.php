@@ -51,7 +51,7 @@
                                         <td>-</td>
                                         <td>
                                             <div class="workflow-actions">
-                                                <a href="{{ route('marketing.sales-orders.detail', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Details">
+                                                <a href="{{ route('production.logistic.delivery-receipt', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Details">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 

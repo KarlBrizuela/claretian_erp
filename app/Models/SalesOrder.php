@@ -58,6 +58,7 @@ class SalesOrder extends Model
         'driver',
         'plate_number',
         'driver_id',
+        'delivery_date',
     ];
 
     public function customer()
@@ -113,6 +114,20 @@ class SalesOrder extends Model
     public function riderCollection()
     {
         return $this->hasOne(RiderCollection::class, 'sales_order_id');
+    }
+
+    public function pickLists()
+    {
+        return $this->hasMany(PickList::class, 'sales_order_id');
+    }
+
+    /**
+     * Get all activity logs related to this sales order
+     */
+    public function activities()
+    {
+        return $this->hasMany(ActivityLog::class, 'reference_id')
+            ->where('reference_type', 'SalesOrder');
     }
 
     public function getDueDateAttribute()

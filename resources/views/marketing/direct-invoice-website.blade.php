@@ -276,12 +276,12 @@
                                 <td>{{ $inv->created_at->format('M d, Y') }}</td>
                                 <td>
                                     @if($inv->proof_of_payment)
-                                        <a href="{{ asset('storage/'.$inv->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-warning" title="Proof of Payment">
+                                        <a href="/storage/{{ $inv->proof_of_payment }}" target="_blank" class="btn btn-sm btn-outline-warning" title="Proof of Payment">
                                             <i class="las la-receipt"></i> POP
                                         </a>
                                     @endif
                                     @if($inv->order_list_attachment)
-                                        <a href="{{ asset('storage/'.$inv->order_list_attachment) }}" target="_blank" class="btn btn-sm btn-outline-info" title="Order List">
+                                        <a href="/storage/{{ $inv->order_list_attachment }}" target="_blank" class="btn btn-sm btn-outline-info" title="Order List">
                                             <i class="las la-file-alt"></i> OL
                                         </a>
                                     @endif

@@ -36,7 +36,7 @@
                                 @foreach($products as $book)
                                 <tr>
                                     <td>
-                                        <img src="{{ $book->image ? asset('storage/' . $book->image) : asset('images/no-book-cover.svg') }}" class="product-image-preview">
+                                        <img src="{{ $book->image ? '/storage/' . $book->image : asset('images/no-book-cover.svg') }}" class="product-image-preview">
                                     </td>
                                     <td>
                                         <strong>{{ $book->name }}</strong>

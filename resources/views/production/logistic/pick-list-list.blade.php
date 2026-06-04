@@ -29,24 +29,32 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($orders as $order)
+                                    @forelse($pickLists as $pickList)
                                     <tr>
-                                        <td><strong>PL-{{ $order->so_number }}</strong></td>
-                                        <td>{{ $order->so_number }}</td>
-                                        <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
-                                        <td>{{ $order->acct_approved_at ? \Carbon\Carbon::parse($order->acct_approved_at)->format('Y-m-d') : $order->created_at->format('Y-m-d') }}</td>
-                                        <td>{{ $order->items->sum('quantity') }}</td>
-                                        <td>-</td>
-                                        <td><span class="status-badge status-in-progress">Picking</span></td>
-                                        <td>{{ $order->preparedBy->name ?? 'System' }}</td>
+                                        <td><strong>{{ $pickList->pick_list_number }}</strong></td>
+                                        <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                        <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
+                                        <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
+                                        <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
+                                        <td>{{ $pickList->pickListItems->sum('picked_qty') }}</td>
+                                        <td>
+                                            @if($pickList->status === 'draft')
+                                                <span class="status-badge status-draft">Draft</span>
+                                            @elseif($pickList->status === 'in_progress')
+                                                <span class="status-badge status-in-progress">In Progress</span>
+                                            @elseif($pickList->status === 'completed')
+                                                <span class="status-badge status-completed">Completed</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $pickList->preparedByUser->name ?? 'System' }}</td>
                                         <td>
                                             <div class="workflow-actions">
-                                                <a href="{{ route('marketing.sales-orders.detail', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Details">
+                                                <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-primary shadow btn-xs sharp me-1" title="View Details">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <form action="{{ route('production.logistic.mark-as-gathered', $order->id) }}" method="POST" style="display:inline;">
+                                                <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark {{ $pickList->pick_list_number }} as gathered and move to Delivery Scheduling?');">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Mark as Gathered">
+                                                    <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
                                                         <i class="fas fa-check"></i>
                                                     </button>
                                                 </form>
@@ -58,7 +66,7 @@
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="9" class="text-center">No orders currently in picking status.</td>
+                                        <td colspan="9" class="text-center">No active pick lists.</td>
                                     </tr>
                                     @endforelse
                                 </tbody>
@@ -102,8 +110,25 @@
         }
         .workflow-actions {
             display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
+            flex-wrap: nowrap;
+            gap: 6px;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .workflow-actions .btn {
+            padding: 6px 8px !important;
+            font-size: 12px !important;
+            min-width: 36px !important;
+            height: 36px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .workflow-actions .btn i {
+            margin: 0 !important;
+            font-size: 16px !important;
         }
     </style>
     @endpush

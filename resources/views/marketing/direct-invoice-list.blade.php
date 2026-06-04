@@ -67,10 +67,10 @@
                                 <td>{{ $inv->created_at->format('M d, Y') }}</td>
                                 <td>
                                     @if($inv->proof_of_payment)
-                                        <a href="{{ asset('storage/'.$inv->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-warning">POP</a>
+                                        <a href="/storage/{{ $inv->proof_of_payment }}" target="_blank" class="btn btn-sm btn-outline-warning">POP</a>
                                     @endif
                                     @if($inv->order_list_attachment)
-                                        <a href="{{ asset('storage/'.$inv->order_list_attachment) }}" target="_blank" class="btn btn-sm btn-outline-info">OL</a>
+                                        <a href="/storage/{{ $inv->order_list_attachment }}" target="_blank" class="btn btn-sm btn-outline-info">OL</a>
                                     @endif
                                 </td>
                                 <td>

@@ -106,7 +106,7 @@
                                             </div>
                                         </td>
                                         <td class="align-middle">
-                                            @if($order->type == 'direct_consignment' || $order->type == 'consignment')
+                                            @if($order->type == 'direct_consignment' || $order->type == 'consignment' || $order->type == 'evaluation')
                                                 <span class="text-info small font-w500">DR Only (Consignment)</span>
                                             @else
                                                 <div class="small">
@@ -161,9 +161,13 @@
                                                                         @endforeach
                                                                     </select>
                                                                 </div>
-                                                                <div class="mb-0">
+                                                                <div class="mb-3">
                                                                     <label class="form-label font-w500 text-black">Vehicle Plate Number</label>
                                                                     <input type="text" name="plate_number" class="form-control shadow-sm" value="{{ $order->plate_number ?? '' }}" placeholder="Ex: ABC 1234" required>
+                                                                </div>
+                                                                <div class="mb-0">
+                                                                    <label class="form-label font-w500 text-black">Delivery Date</label>
+                                                                    <input type="date" name="delivery_date" class="form-control shadow-sm" value="{{ $order->delivery_date ?? '' }}" required>
                                                                 </div>
                                                             </div>
                                                             <div class="modal-footer border-0 pt-0 px-4 pb-4">
@@ -210,7 +214,13 @@
                                                     $canDeliver = true;
                                                     $disableReason = '';
                                                     
-                                                    if ($order->transaction_type === 'COD') {
+                                                    // PAID orders can always mark complete
+                                                    // COD orders need verified collection
+                                                    if ($order->type === 'paid') {
+                                                        // PAID order - allow
+                                                        $canDeliver = true;
+                                                    } elseif ($order->transaction_type === 'COD') {
+                                                        // COD order - check collection
                                                         $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
                                                         if (!$collection) {
                                                             $canDeliver = false;
@@ -219,6 +229,9 @@
                                                             $canDeliver = false;
                                                             $disableReason = 'Collection not verified by accounting';
                                                         }
+                                                    } else {
+                                                        // Other types - allow
+                                                        $canDeliver = true;
                                                     }
                                                 @endphp
                                                 <form action="{{ route('production.logistic.mark-as-delivered', $order->id) }}" method="POST" onsubmit="return confirm('Confirm delivery completion?');">

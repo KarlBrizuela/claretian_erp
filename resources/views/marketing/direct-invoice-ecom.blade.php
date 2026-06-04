@@ -302,12 +302,12 @@
                                 <td>{{ $inv->created_at->format('M d, Y') }}</td>
                                 <td>
                                     @if($inv->pick_list_attachment)
-                                        <a href="{{ asset('storage/'.$inv->pick_list_attachment) }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Pick List">
+                                        <a href="/storage/{{ $inv->pick_list_attachment }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Pick List">
                                             <i class="las la-clipboard-list"></i> PL
                                         </a>
                                     @endif
                                     @if($inv->shipping_label_attachment)
-                                        <a href="{{ asset('storage/'.$inv->shipping_label_attachment) }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Shipping Label">
+                                        <a href="/storage/{{ $inv->shipping_label_attachment }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Shipping Label">
                                             <i class="las la-shipping-fast"></i> SL
                                         </a>
                                     @endif

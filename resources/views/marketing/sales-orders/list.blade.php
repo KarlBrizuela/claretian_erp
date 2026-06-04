@@ -50,6 +50,7 @@
                                     <th>Order Date</th>
                                     <th>Platform/Source</th>
                                     <th>Total Amount</th>
+                                    <th>Items Picked</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -67,6 +68,22 @@
                                     @endphp
                                     <td class="text-uppercase {{ $order->type === 'paid' ? 'text-success' : 'text-primary' }}">{{ $typeDisplay }}</td>
                                     <td>₱{{ number_format($order->total_amount, 2) }}</td>
+                                    <td>
+                                        @php
+                                            $totalItems = $order->items->count();
+                                            $pickedActivity = $order->activities()
+                                                ->where('action', 'Pick list items saved')
+                                                ->latest()
+                                                ->first();
+                                            $pickedCount = $pickedActivity ? count(json_decode($pickedActivity->details, true)) : 0;
+                                        @endphp
+                                        {{-- Only show items picked for non-PAID orders that are in picking/delivery phases --}}
+                                        @if($order->type !== 'paid' && ($order->status == 'picking' || $order->status == 'ready_for_delivery' || $order->status == 'completed'))
+                                            <span class="badge bg-info">{{ $pickedCount }}/{{ $totalItems }} picked</span>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         <span class="status-badge status-{{ $order->status }}">
                                             @php

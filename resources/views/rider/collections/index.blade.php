@@ -58,6 +58,7 @@
                             <tr>
                                 <th>SO Number</th>
                                 <th>Customer</th>
+                                <th>Transaction Type</th>
                                 <th>Amount</th>
                                 <th>Status</th>
                                 <th>Delivery Date</th>
@@ -72,6 +73,19 @@
                                     </td>
                                     <td>
                                         {{ $collection->salesOrder->customer->customer_name ?? 'N/A' }}
+                                    </td>
+                                    <td>
+                                        @if($collection->transaction_type === 'COD')
+                                            <span class="badge badge-danger">{{ $collection->transaction_type }}</span>
+                                        @elseif($collection->transaction_type === 'Credit')
+                                            <span class="badge badge-info">{{ $collection->transaction_type }}</span>
+                                        @elseif($collection->transaction_type === 'Prepaid')
+                                            <span class="badge badge-success">{{ $collection->transaction_type }}</span>
+                                        @elseif($collection->transaction_type === 'Evaluation')
+                                            <span class="badge badge-primary">{{ $collection->transaction_type }}</span>
+                                        @else
+                                            <span class="badge badge-secondary">{{ $collection->transaction_type ?? 'Other' }}</span>
+                                        @endif
                                     </td>
                                     <td>
                                         <strong class="text-success">₱{{ number_format($collection->amount_to_collect, 2) }}</strong>
