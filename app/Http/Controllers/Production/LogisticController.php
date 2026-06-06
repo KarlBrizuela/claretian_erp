@@ -50,8 +50,18 @@ class LogisticController extends Controller
 
     public function pickListList()
     {
+        // Get active pick lists (not completed)
         $pickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
             ->where('status', '!=', 'completed')
+            ->latest()
+            ->get();
+
+        // Get pending Sales Orders ready for picking (status = 'picking' and no active pick list yet)
+        $pendingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+            ->where('status', 'picking')
+            ->whereDoesntHave('pickLists', function($query) {
+                $query->where('status', '!=', 'completed');
+            })
             ->latest()
             ->get();
 
@@ -64,7 +74,8 @@ class LogisticController extends Controller
             'title' => 'Pick Lists',
             'role' => 'Logistics Staff',
             'sidebar' => 'production',
-            'pickLists' => $pickLists
+            'pickLists' => $pickLists,
+            'pendingOrders' => $pendingOrders
         ]);
     }
 
@@ -132,6 +143,31 @@ class LogisticController extends Controller
                 return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
             }
             return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    public function deletePickList($id)
+    {
+        try {
+            $pickList = \App\Models\PickList::findOrFail($id);
+            
+            // Log the deletion
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Pick list deleted',
+                'description' => 'Pick list ' . $pickList->pick_list_number . ' was deleted',
+                'reference_type' => 'PickList',
+                'reference_id' => $pickList->id,
+                'details' => json_encode(['pick_list_number' => $pickList->pick_list_number])
+            ]);
+            
+            // Delete the pick list (cascade will handle pick_list_items)
+            $pickList->delete();
+            
+            return redirect()->route('production.logistic.pick-list-list')
+                ->with('success', 'Pick list ' . $pickList->pick_list_number . ' has been deleted successfully.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error deleting pick list: ' . $e->getMessage());
         }
     }
 

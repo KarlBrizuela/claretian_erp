@@ -73,6 +73,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/pick-list-management', [App\Http\Controllers\Production\LogisticController::class, 'pickListManagement'])->name('pick-list-management'); // Keep for form
       Route::post('/pick-list/save', [App\Http\Controllers\Production\LogisticController::class, 'savePickedItems'])->name('pick-list.save');
       Route::post('/mark-as-gathered/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'markAsGathered'])->name('mark-as-gathered');
+      Route::get('/pick-list/{id}/delete', [App\Http\Controllers\Production\LogisticController::class, 'deletePickList'])->name('pick-list-delete');
       
       // Delivery & Fleet management
       Route::get('/delivery-scheduling', [App\Http\Controllers\Production\LogisticController::class, 'deliveryScheduling'])->name('delivery-scheduling');
