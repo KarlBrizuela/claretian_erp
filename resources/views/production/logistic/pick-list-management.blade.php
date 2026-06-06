@@ -652,15 +652,27 @@
 
     @push('scripts')
     <script>
+        console.log('Pick List Management page loaded');
+        console.log('Pending orders count: {{ $pendingOrders->count() }}');
+        console.log('Completed pick lists count: {{ $completedPickLists->count() }}');
+        console.log('Active pick lists count: {{ $pickLists->count() }}');
+        
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded - Initializing Pick List Management');
+            
             const detailPanel = document.getElementById('orderDetailPanel');
             const pickListBody = document.getElementById('pickListTableBody');
             const closeDetailBtn = document.getElementById('closeDetailBtn');
+            
+            console.log('Detail panel found:', !!detailPanel);
+            console.log('Pick list body found:', !!pickListBody);
+            console.log('Close detail button found:', !!closeDetailBtn);
 
             // View Items buttons
             document.querySelectorAll('.view-order-btn').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
+                    console.log('View order button clicked:', this.dataset.soNumber);
                     
                     try {
                         const soNumber = this.dataset.soNumber;
@@ -669,8 +681,11 @@
                         const date = this.dataset.date;
                         const itemsJson = this.dataset.items;
                         
+                        console.log('Processing order:', { soNumber, orderId, customer, date });
+                        
                         // Parse items from data attribute
                         const items = JSON.parse(itemsJson);
+                        console.log('Parsed items:', items);
 
                         // Fill details
                         document.getElementById('detailSONumber').value = soNumber;
@@ -748,10 +763,14 @@
 
         // Function to save picked items
         function savePickedItems() {
+            console.log('savePickedItems called');
+            
             const detailPanel = document.getElementById('orderDetailPanel');
             const orderId = detailPanel.dataset.orderId;
             const soNumber = detailPanel.dataset.soNumber;
             const rows = document.querySelectorAll('#pickListTableBody tr');
+            
+            console.log('Saving picked items for:', { orderId, soNumber, rowCount: rows.length });
             
             const pickedItems = [];
             let totalPicked = 0;
@@ -767,6 +786,8 @@
                 const notes = notesInput.value;
                 const product = row.cells[1].innerText;
 
+                console.log(`Item ${idx}:`, { product, pickedQty, status, notes });
+                
                 // Validate: if status is 'picked', picked_qty should be > 0
                 if (status === 'picked' && pickedQty === 0) {
                     alert(`Item "${product}" is marked as "Picked" but has 0 quantity. Please enter a quantity or change status.`);
@@ -786,12 +807,14 @@
             });
 
             if (hasInvalidData) {
+                console.log('Validation failed - invalid data found');
                 return;
             }
 
             // Confirmation
             const confirmMsg = `Save picked items for SO ${soNumber}?\n\nTotal items picked: ${totalPicked}`;
             if (!confirm(confirmMsg)) {
+                console.log('User cancelled save operation');
                 return;
             }
 
@@ -799,8 +822,11 @@
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
                             document.querySelector('input[name="_token"]')?.value;
             
+            console.log('CSRF token found:', !!csrfToken);
+            
             if (!csrfToken) {
                 alert('Security token not found. Please refresh the page.');
+                console.error('CSRF token not found!');
                 return;
             }
 
@@ -811,6 +837,12 @@
             saveBtn.innerHTML = '<i class="las la-spinner la-spin"></i> Saving...';
 
             // Send to backend
+            console.log('Sending request to /production/logistic/pick-list/save with data:', {
+                order_id: orderId,
+                so_number: soNumber,
+                picked_items: pickedItems
+            });
+            
             fetch('/production/logistic/pick-list/save', {
                 method: 'POST',
                 headers: {
@@ -823,8 +855,12 @@
                     picked_items: pickedItems
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response received:', { status: response.status, ok: response.ok });
+                return response.json();
+            })
             .then(data => {
+                console.log('Response data:', data);
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;
                 
@@ -839,13 +875,16 @@
                         window.location.reload();
                     }, 2000);
                 } else {
+                    console.error('Save failed:', data.message);
                     alert('Error: ' + (data.message || 'Failed to save picked items'));
                 }
             })
             .catch(error => {
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;
-                console.error('Error:', error);
+                console.error('Fetch error:', error);
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
                 alert('Error saving picked items: ' + error.message);
             });
         }
@@ -873,10 +912,17 @@
         // Handle Create Pick List button click
         document.querySelectorAll('.create-pick-list-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                console.log('Create pick list button clicked');
+                
                 const orderId = this.dataset.orderId;
                 const soNumber = this.dataset.soNumber;
                 const customer = this.dataset.customer;
-                const items = JSON.parse(this.dataset.items);
+                
+                console.log('Creating pick list for:', { orderId, soNumber, customer });
+                
+                try {
+                    const items = JSON.parse(this.dataset.items);
+                    console.log('Parsed items for creation:', items);
                 
                 // Show the order detail panel
                 const detailPanel = document.getElementById('orderDetailPanel');
@@ -951,10 +997,17 @@
         // Handle Recreate Pick List button click
         document.querySelectorAll('.recreate-picklist-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                console.log('Recreate pick list button clicked');
+                
                 const orderId = this.dataset.orderId;
                 const soNumber = this.dataset.soNumber;
                 const customer = this.dataset.customer;
-                const items = JSON.parse(this.dataset.items);
+                
+                console.log('Recreating pick list for:', { orderId, soNumber, customer });
+                
+                try {
+                    const items = JSON.parse(this.dataset.items);
+                    console.log('Parsed items for recreation:', items);
                 
                 // Show the order detail panel
                 const detailPanel = document.getElementById('orderDetailPanel');
