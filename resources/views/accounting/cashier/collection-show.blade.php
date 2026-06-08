@@ -99,14 +99,33 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($collection->salesOrder->items as $item)
-                                        <tr>
-                                            <td>{{ $item->book->name ?? 'Unknown' }}</td>
-                                            <td class="text-right">{{ $item->quantity }}</td>
-                                            <td class="text-right">₱{{ number_format($item->price, 2) }}</td>
-                                            <td class="text-right">₱{{ number_format($item->subtotal, 2) }}</td>
-                                        </tr>
-                                    @endforeach
+                                    @if($collection->items_selection && is_array($collection->items_selection))
+                                        @foreach($collection->items_selection as $bookId => $itemData)
+                                            @php
+                                                // Find the corresponding book/item to get product name and price
+                                                $soItem = $collection->salesOrder->items->firstWhere('book_id', $bookId);
+                                                $productName = $soItem ? ($soItem->book->name ?? 'Unknown') : 'Unknown';
+                                                $unitPrice = $soItem ? ($soItem->price ?? 0) : 0;
+                                                $purchasedQty = $itemData['purchased_qty'] ?? 0;
+                                                $subtotal = $purchasedQty * $unitPrice;
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $productName }}</td>
+                                                <td class="text-right">{{ $purchasedQty }}</td>
+                                                <td class="text-right">₱{{ number_format($unitPrice, 2) }}</td>
+                                                <td class="text-right">₱{{ number_format($subtotal, 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    @else
+                                        @foreach($collection->salesOrder->items as $item)
+                                            <tr>
+                                                <td>{{ $item->book->name ?? 'Unknown' }}</td>
+                                                <td class="text-right">{{ $item->quantity }}</td>
+                                                <td class="text-right">₱{{ number_format($item->price, 2) }}</td>
+                                                <td class="text-right">₱{{ number_format($item->subtotal, 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    @endif
                                 </tbody>
                             </table>
                         </div>

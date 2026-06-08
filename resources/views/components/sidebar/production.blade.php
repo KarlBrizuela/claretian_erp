@@ -73,6 +73,7 @@
 		</a>
 		<div class="modern-nav-submenu" data-submenu="logistics">
 			<a href="{{ route('production.logistic.pick-list-list') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.pick-list-list') ? 'active' : '' }}">Pick Lists</a>
+			<a href="{{ route('production.logistic.packing-management') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.packing-management') ? 'active' : '' }}">Packing</a>
 			<a href="{{ route('production.logistic.delivery-scheduling') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.delivery-scheduling') ? 'active' : '' }}">Delivery Scheduling</a>
 			<a href="{{ route('production.logistic.delivery-receipt-list') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.delivery-receipt-list') ? 'active' : '' }}">Delivery Receipts</a>
 			<a href="{{ route('production.logistic.driver-dashboard') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.driver-dashboard') ? 'active' : '' }}">Driver Dashboard</a>

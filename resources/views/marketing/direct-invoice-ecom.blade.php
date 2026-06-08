@@ -178,7 +178,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Terms:</label>
-                                <input type="text" class="form-control" name="terms" placeholder="e.g., COD, Prepaid" value="{{ old('terms') }}">
+                                <input type="text" class="form-control" name="terms"  value="COD/Due on Receipt">
                             </div>
                             <div class="form-group">
                                 <label>Prepared By:</label>

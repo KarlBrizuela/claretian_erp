@@ -75,6 +75,11 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/mark-as-gathered/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'markAsGathered'])->name('mark-as-gathered');
       Route::get('/pick-list/{id}/delete', [App\Http\Controllers\Production\LogisticController::class, 'deletePickList'])->name('pick-list-delete');
       
+      // Packing Management
+      Route::get('/packing-management', [App\Http\Controllers\Production\LogisticController::class, 'packingManagement'])->name('packing-management');
+      Route::get('/packing/{id}/data', [App\Http\Controllers\Production\LogisticController::class, 'getPackingOrderData'])->name('packing-order-data');
+      Route::post('/packing/save', [App\Http\Controllers\Production\LogisticController::class, 'savePackingData'])->name('packing.save');
+
       // Delivery & Fleet management
       Route::get('/delivery-scheduling', [App\Http\Controllers\Production\LogisticController::class, 'deliveryScheduling'])->name('delivery-scheduling');
       Route::post('/delivery-scheduling/{id}/delivered', [App\Http\Controllers\Production\LogisticController::class, 'markAsDelivered'])->name('mark-as-delivered');

@@ -59,6 +59,10 @@ class SalesOrder extends Model
         'plate_number',
         'driver_id',
         'delivery_date',
+        'packing_data',
+        'packing_prepared_by',
+        'picked_at',
+        'picked_by',
     ];
 
     public function customer()

@@ -763,4 +763,111 @@ class LogisticController extends Controller
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
+
+    public function packingManagement()
+    {
+        // Get orders ready for packing (SI signed = status 'ready_for_delivery')
+        // Show only orders that: have NO packing data OR packing is not completed
+        $packingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+            ->where('status', 'ready_for_delivery')
+            ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
+            ->where(function($query) {
+                // Only show orders where packing is NOT completed
+                $query->whereNull('packing_data')
+                      ->orWhere('packing_data->status', '<>', 'completed');
+            })
+            ->orderBy('signed_at', 'desc')
+            ->get();
+
+        // Get completed packing orders (hide from packing queue, show in completed section)
+        $completedPackingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+            ->where('status', 'ready_for_delivery')
+            ->whereNotNull('packing_data')
+            ->where('packing_data->status', '=', 'completed')
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        return view('production.logistic.packing-management', [
+            'packingOrders' => $packingOrders,
+            'completedPackingOrders' => $completedPackingOrders,
+            'title' => 'Packing Management',
+            'role' => 'Warehouse Staff',
+            'sidebar' => 'production'
+        ]);
+    }
+
+    public function getPackingOrderData($id)
+    {
+        try {
+            $order = \App\Models\SalesOrder::with('customer', 'items.book')->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'order' => $order,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found'
+            ], 404);
+        }
+    }
+
+    public function savePackingData(Request $request)
+    {
+        try {
+            $orderId = $request->input('order_id');
+            $packingStatus = $request->input('packing_status', 'in_progress');
+            $packingItems = $request->input('items', []);
+
+            $order = \App\Models\SalesOrder::findOrFail($orderId);
+
+            // Build packing data structure
+            $packingData = [
+                'status' => $packingStatus,
+                'packed_by' => auth()->user()->name,
+                'packed_at' => now()->toDateTimeString(),
+            ];
+
+            // Add item-level packing data
+            foreach ($packingItems as $item) {
+                $itemKey = 'item_' . $item['index'];
+                $packingData[$itemKey] = [
+                    'packed_qty' => $item['packed_qty'],
+                    'status' => $item['status'],
+                    'notes' => $item['notes'],
+                    'packed_date' => $item['packed_date'],
+                ];
+            }
+
+            // Update order with packing data
+            $order->update([
+                'packing_data' => json_encode($packingData),
+                'packing_prepared_by' => auth()->user()->name,
+            ]);
+
+            // Log the activity
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Packing items marked',
+                'description' => 'Items packed for SO ' . $order->so_number,
+                'reference_type' => 'SalesOrder',
+                'reference_id' => $order->id,
+                'details' => json_encode([
+                    'packing_status' => $packingStatus,
+                    'items_count' => count($packingItems),
+                    'packed_by' => auth()->user()->name
+                ])
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Packing data saved successfully for SO ' . $order->so_number,
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error saving packing data: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
 }

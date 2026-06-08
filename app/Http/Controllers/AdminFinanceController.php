@@ -1692,12 +1692,49 @@ public function checkVoucher()
 
   public function approveSalesOrder(Request $request, $id)
   {
-    $order = \App\Models\SalesOrder::findOrFail($id);
+    $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
+    
+    \Log::info('Processing approval for SO #' . $order->so_number . ' with ' . $order->items->count() . ' items');
+    
     $order->update([
       'status' => 'picking',
       'approved_by_acct' => auth()->id(),
       'acct_approved_at' => now()
     ]);
+
+    // Automatically create a pick list after accounting approval
+    try {
+      // Check if SO has items
+      if (!$order->items || $order->items->count() === 0) {
+        \Log::warning('SO #' . $order->so_number . ' has NO items - cannot create pick list');
+        return redirect()->route('admin-finance.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' approved but has no items.');
+      }
+
+      $pickList = \App\Models\PickList::create([
+        'sales_order_id' => $order->id,
+        'pick_list_number' => 'PL-' . $order->so_number . '-' . date('YmdHis'),
+        'status' => 'in_progress',
+        'prepared_by' => auth()->id(),
+      ]);
+
+      \Log::info('Created pick list: ' . $pickList->pick_list_number);
+
+      // Create pick list items from sales order items
+      foreach ($order->items as $item) {
+        \App\Models\PickListItem::create([
+          'pick_list_id' => $pickList->id,
+          'sales_order_item_id' => $item->id,
+          'requested_qty' => $item->quantity,
+          'picked_qty' => 0,
+          'status' => 'pending',
+        ]);
+      }
+      
+      \Log::info('Successfully created pick list with ' . $order->items->count() . ' items');
+      
+    } catch (\Exception $e) {
+      \Log::error('Failed to create pick list for SO #' . $order->so_number . ': ' . $e->getMessage());
+    }
 
     return redirect()->route('admin-finance.approval-queue')->with('success', 'Sales Order #' . $order->so_number . ' has been approved and sent to Logistics for picking.');
   }

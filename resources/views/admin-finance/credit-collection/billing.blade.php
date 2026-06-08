@@ -1360,7 +1360,7 @@
 
             // --- Account Statement Handlers ---
 
-            // "To Prepare" / "All" / "Approved" View/Edit buttons
+            // "View" / "Edit" buttons (NOT "Prepare" - that uses a real form page)
             document.addEventListener('click', function(e) {
                 const asBtn = e.target.closest('#account-statement button, #account-statement a');
                 if (!asBtn || asBtn.closest('#compiled') || asBtn.closest('.jv-row')) return; // Compiled and JV have their own logic
@@ -1369,11 +1369,14 @@
                 const isPrepare = asBtn.title === 'Prepare Statement' || asBtn.querySelector('.la-file-invoice');
                 const isEdit = asBtn.title === 'Edit Statement' || asBtn.querySelector('.la-edit');
 
-                if (isView || isPrepare || isEdit) {
+                // Skip Prepare - let it navigate to the real form page
+                if (isPrepare) return;
+
+                if (isView || isEdit) {
                     e.preventDefault();
                     const row = asBtn.closest('tr');
                     const id = row.cells[0].textContent.trim();
-                    const mode = isView ? 'view' : (isPrepare ? 'prepare' : 'edit');
+                    const mode = isView ? 'view' : 'edit';
                     
                     populateStatementModal(id, row, mode);
                 }

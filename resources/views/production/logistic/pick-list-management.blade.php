@@ -15,79 +15,6 @@
                         </div>
                     @endif
 
-                    <!-- Pending Orders Ready to Create Pick Lists -->
-                    <div class="pending-orders-section mb-4">
-                        <h5 style="font-weight: 700; color: #333; margin-bottom: 1rem;">
-                            <i class="las la-hourglass-start me-2"></i>Pending Orders (Ready to Create Pick Lists)
-                            <span class="badge bg-warning rounded-pill ms-2">{{ $pendingOrders->count() }}</span>
-                        </h5>
-
-                        @if($pendingOrders->count() > 0)
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle" style="border: 1px solid #dee2e6;">
-                                <thead style="background: linear-gradient(135deg, #ffc107, #ff9800); color: #fff;">
-                                    <tr>
-                                        <th style="padding: 0.75rem;">SO #</th>
-                                        <th>Customer</th>
-                                        <th>Items</th>
-                                        <th>Total Amount</th>
-                                        <th>Type</th>
-                                        <th>Date</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($pendingOrders as $order)
-                                    @php
-                                        $itemsJson = json_encode($order->items->map(function($item) {
-                                            return [
-                                                'product' => $item->book->name ?? 'Unknown',
-                                                'quantity' => $item->quantity,
-                                                'price' => $item->price,
-                                                'unit' => $item->unit,
-                                            ];
-                                        })->values()->all());
-                                    @endphp
-                                    <tr>
-                                        <td class="fw-bold">{{ $order->so_number }}</td>
-                                        <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
-                                        <td><span class="badge bg-light text-dark">{{ $order->items->count() }} items</span></td>
-                                        <td class="fw-bold">₱{{ number_format($order->total_amount, 2) }}</td>
-                                        <td>
-                                            @if($order->type === 'evaluation')
-                                                <span class="badge bg-info">Evaluation</span>
-                                            @elseif($order->type === 'direct_consignment')
-                                                <span class="badge bg-primary">Direct Consignment</span>
-                                            @else
-                                                <span class="badge bg-secondary">{{ ucfirst($order->type) }}</span>
-                                            @endif
-                                        </td>
-                                        <td>{{ $order->created_at->format('M d, Y') }}</td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-success create-pick-list-btn"
-                                                    data-order-id="{{ $order->id }}"
-                                                    data-so-number="{{ $order->so_number }}"
-                                                    data-customer="{{ $order->customer->customer_name ?? 'Unknown' }}"
-                                                    data-items='{{ $itemsJson }}'
-                                                    style="background: #28a745; border: none;">
-                                                <i class="las la-plus me-1"></i> Create Pick List
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                        @else
-                        <div class="text-center py-4" style="background: #f8f9fa; border-radius: 8px; border: 1px dashed #dee2e6;">
-                            <i class="las la-check-circle" style="font-size: 2rem; color: #28a745;"></i>
-                            <p class="text-muted mt-2 mb-0">No pending orders. All approved orders have pick lists created.</p>
-                        </div>
-                        @endif
-                    </div>
-
-                    <hr style="margin: 2rem 0;">
-
                     <!-- Completed Pick Lists (For Recreation) -->
                     <div class="completed-picklists-section mb-4">
                         <h5 style="font-weight: 700; color: #333; margin-bottom: 1rem;">
@@ -232,6 +159,8 @@
                         </div>
                         @endif
                     </div>
+
+                    <hr style="margin: 2rem 0;">
 
                     <!-- Order Details Panel (shown when clicking View Items) -->
                     <div id="orderDetailPanel" style="display: none;">
@@ -909,91 +838,6 @@
             }, 50);
         }
 
-        // Handle Create Pick List button click
-        document.querySelectorAll('.create-pick-list-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                console.log('Create pick list button clicked');
-                
-                const orderId = this.dataset.orderId;
-                const soNumber = this.dataset.soNumber;
-                const customer = this.dataset.customer;
-                
-                console.log('Creating pick list for:', { orderId, soNumber, customer });
-                
-                try {
-                    const items = JSON.parse(this.dataset.items);
-                    console.log('Parsed items for creation:', items);
-                
-                // Show the order detail panel
-                const detailPanel = document.getElementById('orderDetailPanel');
-                detailPanel.style.display = 'block';
-                
-                // Set data attributes on panel for saving
-                detailPanel.dataset.orderId = orderId;
-                detailPanel.dataset.soNumber = soNumber;
-                
-                // Populate the form
-                document.getElementById('detailSONumber').value = soNumber;
-                document.getElementById('detailOrderDate').value = new Date().toISOString().split('T')[0];
-                document.getElementById('detailCustomerName').value = customer;
-                document.getElementById('pickListNumber').value = 'PL-' + soNumber + '-' + Date.now();
-                document.getElementById('pickListStatus').value = 'in_progress';
-                
-                // Populate items table
-                const pickListBody = document.getElementById('pickListTableBody');
-                pickListBody.innerHTML = '';
-                
-                items.forEach((item, index) => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${index + 1}</td>
-                        <td>${item.product}</td>
-                        <td class="text-center">${item.quantity}</td>
-                        <td class="text-right">₱${parseFloat(item.price || 0).toFixed(2)}</td>
-                        <td class="text-right">₱${(item.quantity * parseFloat(item.price || 0)).toFixed(2)}</td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm picked-qty" 
-                                   value="${item.quantity}" min="0" max="${item.quantity}" style="width: 80px;">
-                        </td>
-                        <td>
-                            <select class="form-control form-control-sm status-select" style="width: 100px;">
-                                <option value="pending">Pending</option>
-                                <option value="picked" selected>Picked</option>
-                                <option value="not_available">Not Available</option>
-                            </select>
-                        </td>
-                        <td>
-                            <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" style="width: 150px;">
-                        </td>
-                    `;
-                    pickListBody.appendChild(row);
-                });
-                
-                // Update summary
-                document.getElementById('totalItems').value = items.length;
-                document.getElementById('itemsPicked').value = items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
-
-                // Add real-time update handler for picked quantity changes
-                const updateItemsPicked = () => {
-                    const rows = document.querySelectorAll('#pickListTableBody tr');
-                    let total = 0;
-                    rows.forEach(row => {
-                        const pickedQtyInput = row.querySelector('.picked-qty');
-                        total += parseFloat(pickedQtyInput.value) || 0;
-                    });
-                    document.getElementById('itemsPicked').value = total;
-                };
-
-                // Attach event listeners to all picked quantity inputs
-                document.querySelectorAll('#pickListTableBody .picked-qty').forEach(input => {
-                    input.addEventListener('input', updateItemsPicked);
-                });
-                
-                // Scroll to form
-                detailPanel.scrollIntoView({ behavior: 'smooth' });
-            });
-        });
-
         // Handle Recreate Pick List button click
         document.querySelectorAll('.recreate-picklist-btn').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -1085,37 +929,14 @@
                 
                 // Scroll to form
                 detailPanel.scrollIntoView({ behavior: 'smooth' });
-            });
-        });
-
-        // Auto-load pick list if pickListId is provided
-        @if($preloadPickListId)
-        document.addEventListener('DOMContentLoaded', function() {
-            const pickListId = {{ $preloadPickListId }};
-            
-            // Find the pick list in active pick lists
-            let pickListBtn = null;
-            document.querySelectorAll('.view-order-btn').forEach(btn => {
-                if (btn.dataset.pickListId == pickListId) {
-                    pickListBtn = btn;
+                
+                } catch (error) {
+                    console.error('Error:', error);
+                    console.error('Items data:', this.dataset.items);
+                    alert('Error loading order items: ' + error.message);
                 }
             });
-            
-            // If not found in active, check completed
-            if (!pickListBtn) {
-                document.querySelectorAll('.recreate-picklist-btn').forEach(btn => {
-                    if (btn.dataset.pickListId == pickListId) {
-                        pickListBtn = btn;
-                    }
-                });
-            }
-            
-            // Click the button if found
-            if (pickListBtn) {
-                pickListBtn.click();
-            }
         });
-        @endif
     </script>
     @endpush
 </x-app-layout>
