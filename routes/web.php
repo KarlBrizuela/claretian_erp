@@ -106,6 +106,10 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/receiving-report/{id}', [App\Http\Controllers\Production\LogisticController::class, 'showReceivingReport'])->name('receiving-report.show');
       Route::post('/receiving-report', [App\Http\Controllers\Production\LogisticController::class, 'storeReceivingReport'])->name('receiving-report.store');
       
+      // Freight Quotation
+      Route::get('/freight-quotation', [App\Http\Controllers\Production\LogisticController::class, 'freightQuotation'])->name('freight-quotation');
+      Route::post('/freight-quotation', [App\Http\Controllers\Production\LogisticController::class, 'storeFreightQuotation'])->name('freight-quotation.store');
+      
       // Delivery Form View
       Route::get('/delivery-form/{id}', [App\Http\Controllers\Production\LogisticController::class, 'viewDeliveryForm'])->name('view-delivery-form');
     });

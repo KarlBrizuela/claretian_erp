@@ -161,10 +161,6 @@
                                 <label>Address:</label>
                                 <textarea class="form-control" name="billing_address" id="billingAddress" rows="2" placeholder="Customer address...">{{ old('billing_address') }}</textarea>
                             </div>
-                            <div class="form-group">
-                                <label>Remarks:</label>
-                                <textarea class="form-control" name="remarks" rows="2" placeholder="Additional notes...">{{ old('remarks') }}</textarea>
-                            </div>
                         </div>
                         <div class="transaction-details">
                             <h5><i class="las la-file-invoice me-1"></i> Transaction Details</h5>
@@ -187,24 +183,42 @@
                         </div>
                     </div>
 
+                    <!-- Shipping Details -->
+                    <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <h5 style="font-weight: 600; color: #333; margin-bottom: 1rem;"><i class="las la-truck me-1"></i> Shipping Details</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Day to Ship: *</label>
+                                    <input type="date" class="form-control" name="day_to_ship" value="{{ old('day_to_ship') }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Courier: *</label>
+                                    <select class="form-control" name="courier" required>
+                                        <option value="" disabled selected>Select Courier...</option>
+                                        <option value="Lex" {{ old('courier') == 'Lex' ? 'selected' : '' }}>Lex</option>
+                                        <option value="Spx" {{ old('courier') == 'Spx' ? 'selected' : '' }}>Spx</option>
+                                        <option value="Jnt" {{ old('courier') == 'Jnt' ? 'selected' : '' }}>Jnt</option>
+                                        <option value="Flash" {{ old('courier') == 'Flash' ? 'selected' : '' }}>Flash</option>
+                                        <option value="Ninja Van" {{ old('courier') == 'Ninja Van' ? 'selected' : '' }}>Ninja Van</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Attachments -->
                     <div class="attachments-section">
                         <h5><i class="las la-paperclip me-2"></i>Required Attachments</h5>
                         <div class="row mt-3">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 mb-3">
                                 <label class="form-label fw-bold">Pick List *</label>
                                 <div class="upload-box" id="plUploadBox">
                                     <input type="file" name="pick_list" id="plFile" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.csv" required>
                                     <span class="upload-icon"><i class="las la-clipboard-list"></i></span>
                                     <span class="upload-label" id="plLabel">Click or drag Pick List file here</span>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Shipping Label *</label>
-                                <div class="upload-box" id="slUploadBox">
-                                    <input type="file" name="shipping_label" id="slFile" accept=".pdf,.jpg,.jpeg,.png" required>
-                                    <span class="upload-icon"><i class="las la-shipping-fast"></i></span>
-                                    <span class="upload-label" id="slLabel">Click or drag Shipping Label here</span>
                                 </div>
                             </div>
                         </div>
@@ -396,7 +410,6 @@
                 });
             }
             setupUpload(document.getElementById('plFile'), document.getElementById('plUploadBox'), document.getElementById('plLabel'));
-            setupUpload(document.getElementById('slFile'), document.getElementById('slUploadBox'), document.getElementById('slLabel'));
 
             // Row calculations
             function calculateRow(row) {

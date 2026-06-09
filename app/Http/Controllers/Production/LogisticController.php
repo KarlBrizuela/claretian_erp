@@ -870,4 +870,115 @@ class LogisticController extends Controller
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
+
+    public function freightQuotation()
+    {
+        $quotations = \App\Models\FreightQuotation::with(['createdBy', 'approvedBy'])
+            ->latest()
+            ->paginate(20);
+
+        return view('production.logistic.freight-quotation', [
+            'title' => 'Freight Quotation',
+            'sidebar' => 'production',
+            'quotations' => $quotations,
+        ]);
+    }
+
+    public function storeFreightQuotation(\Illuminate\Http\Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'quote_number' => 'required|string|max:255|unique:freight_quotations,quote_number',
+                'quote_date' => 'required|date_format:Y-m-d',
+                'validity_days' => 'required|integer|min:1|max:365',
+                'origin_contact' => 'nullable|string|max:255',
+                'origin_address' => 'nullable|string',
+                'origin_province' => 'nullable|string|max:255',
+                'destination_contact' => 'nullable|string|max:255',
+                'destination_address' => 'nullable|string',
+                'destination_province' => 'nullable|string|max:255',
+                'service_mode' => 'nullable|string|max:255',
+                'service_carrier' => 'nullable|string|max:255',
+                'service_remarks' => 'nullable|string',
+                'estimated_freight' => 'required|numeric|min:0.01',
+                'valuation_percentage' => 'nullable|numeric|min:0|max:100',
+                'handling_percentage' => 'nullable|numeric|min:0|max:100',
+                'total_amount' => 'required|numeric|min:0.01',
+            ], [
+                'quote_number.required' => 'Quote number is required',
+                'quote_number.unique' => 'This quote number already exists',
+                'quote_date.required' => 'Please select a quote date',
+                'quote_date.date_format' => 'Quote date must be in YYYY-MM-DD format',
+                'validity_days.required' => 'Validity days is required',
+                'validity_days.min' => 'Validity days must be at least 1',
+                'estimated_freight.required' => 'Estimated freight amount is required',
+                'estimated_freight.min' => 'Estimated freight must be greater than 0',
+                'total_amount.required' => 'Total amount is required',
+                'total_amount.min' => 'Total amount must be greater than 0',
+            ]);
+
+            // Build cargo items array
+            $cargoItems = [];
+            if ($request->has('cargo_qty') && is_array($request->cargo_qty)) {
+                foreach ($request->cargo_qty as $index => $qty) {
+                    if (!empty($qty)) {
+                        $cargoItems[] = [
+                            'qty' => (int) $qty,
+                            'package_type' => $request->cargo_package_type[$index] ?? null,
+                            'dimensions' => $request->cargo_dimensions[$index] ?? null,
+                            'gross_weight' => (float) ($request->cargo_gross_weight[$index] ?? 0),
+                            'vol_weight' => (float) ($request->cargo_vol_weight[$index] ?? 0),
+                        ];
+                    }
+                }
+            }
+
+            // Calculate charges
+            $estimatedFreight = (float) $validated['estimated_freight'];
+            $valuationPercent = (float) ($validated['valuation_percentage'] ?? 1);
+            $handlingPercent = (float) ($validated['handling_percentage'] ?? 20);
+
+            $valuationCharge = ($estimatedFreight * $valuationPercent) / 100;
+            $handlingFee = ($estimatedFreight * $handlingPercent) / 100;
+            $totalAmount = $estimatedFreight + $valuationCharge + $handlingFee;
+
+            // Create freight quotation record
+            $quotation = \App\Models\FreightQuotation::create([
+                'quote_number' => $validated['quote_number'],
+                'quote_date' => $validated['quote_date'],
+                'validity_days' => $validated['validity_days'],
+                'origin_contact' => $validated['origin_contact'] ?? null,
+                'origin_address' => $validated['origin_address'] ?? null,
+                'origin_province' => $validated['origin_province'] ?? null,
+                'destination_contact' => $validated['destination_contact'] ?? null,
+                'destination_address' => $validated['destination_address'] ?? null,
+                'destination_province' => $validated['destination_province'] ?? null,
+                'service_mode' => $validated['service_mode'] ?? null,
+                'service_carrier' => $validated['service_carrier'] ?? null,
+                'service_remarks' => $validated['service_remarks'] ?? null,
+                'cargo_items' => !empty($cargoItems) ? json_encode($cargoItems) : null,
+                'estimated_freight' => $estimatedFreight,
+                'valuation_percentage' => $valuationPercent,
+                'valuation_charge' => $valuationCharge,
+                'handling_percentage' => $handlingPercent,
+                'handling_fee' => $handlingFee,
+                'total_amount' => $totalAmount,
+                'status' => 'pending',
+                'created_by' => auth()->id(),
+            ]);
+
+            return redirect()->route('production.logistic.freight-quotation')
+                ->with('success', 'Freight quotation #' . $validated['quote_number'] . ' created successfully!');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error creating freight quotation: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Error creating freight quotation: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
 }

@@ -938,9 +938,8 @@ class MarketingController extends Controller
             'items.*.unit' => 'nullable|string',
             'billing_address' => 'nullable|string',
             'terms' => 'nullable|string',
-            'remarks' => 'nullable|string',
             'pick_list' => 'required|file|max:10240',
-            'shipping_label' => 'required|file|max:10240',
+            'shipping_label' => 'nullable|file|max:10240',
         ]);
 
         // STOCK VALIDATION: Check if all items have sufficient stock
@@ -967,7 +966,7 @@ class MarketingController extends Controller
 
         // Store attachments
         $pickListPath = $request->file('pick_list')->store('direct_invoices/pick_lists', 'public');
-        $shippingLabelPath = $request->file('shipping_label')->store('direct_invoices/shipping_labels', 'public');
+        // $shippingLabelPath = $request->file('shipping_label')->store('direct_invoices/shipping_labels', 'public');
 
         // E-com always goes to Marketing Manager/Supervisor for approval
         $user = auth()->user();
@@ -987,9 +986,8 @@ class MarketingController extends Controller
             'billing_address' => $request->billing_address,
             'shipping_address' => $request->billing_address,
             'terms' => $request->terms,
-            'remarks' => $request->remarks,
             'pick_list_attachment' => $pickListPath,
-            'shipping_label_attachment' => $shippingLabelPath,
+            // 'shipping_label_attachment' => $shippingLabelPath,
         ]);
 
         // Create items

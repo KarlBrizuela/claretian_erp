@@ -1750,21 +1750,28 @@ public function checkVoucher()
     return redirect()->route('admin-finance.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');
   }
 
-  public function jobOrders()
+  public function jobOrders(Request $request)
   {
     $user = auth()->user();
     $pos = $user->position;
+    $status = $request->query('status', 'all');
+    
+    if ($status === 'all') {
+        $statuses = ['approved', 'ongoing', 'on_hold', 'completed'];
+    } else {
+        $statuses = [$status];
+    }
 
     // --- CCTV Requests ---
     $cctvQuery = CCTVReq::query();
     if ($pos === 'Director') {
       $cctvQuery->where('status', '!=', 'Pending Final Approval');
     }
-    $cctvRequests = $cctvQuery->orderBy('created_at', 'desc')->get();
-    $materialRequests = MaterialReq::orderBy('created_at', 'desc')->get();
-    $qbRequests = MisQbRequest::with('items')->orderBy('created_at', 'desc')->get();
-    $undertimeRequests = MisUndertimeRequest::orderBy('created_at', 'desc')->get();
-    $serviceRequests = MisServiceRequest::orderBy('created_at', 'desc')->get();
+    $cctvRequests = $cctvQuery->whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
+    $materialRequests = MaterialReq::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
+    $qbRequests = MisQbRequest::with('items')->whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
+    $undertimeRequests = MisUndertimeRequest::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
+    $serviceRequests = MisServiceRequest::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
 
     return view('admin-finance.mis.job-orders', [
       'title' => 'Job Orders',
@@ -1774,19 +1781,29 @@ public function checkVoucher()
       'materialRequests' => $materialRequests,
       'qbRequests' => $qbRequests,
       'undertimeRequests' => $undertimeRequests,
-      'serviceRequests' => $serviceRequests
+      'serviceRequests' => $serviceRequests,
+      'currentStatus' => $status
     ]);
   }
 
-  public function hrJobOrders()
+  public function hrJobOrders(Request $request)
   {
-    $cctvRequests = CCTVReq::where('status', 'Pending HR approval')->orderBy('created_at', 'desc')->get();
+    $status = $request->query('status', 'all');
+    
+    if ($status === 'all') {
+        $statuses = ['approved', 'ongoing', 'on_hold', 'completed'];
+    } else {
+        $statuses = [$status];
+    }
+    
+    $cctvRequests = CCTVReq::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
 
     return view('admin-finance.hr.job-orders', [
       'title' => 'Job Orders',
       'role' => 'Finance Manager',
       'sidebar' => 'admin-finance',
-      'cctvRequests' => $cctvRequests
+      'cctvRequests' => $cctvRequests,
+      'currentStatus' => $status
     ]);
   }
 

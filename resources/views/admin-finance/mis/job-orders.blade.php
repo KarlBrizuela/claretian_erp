@@ -48,8 +48,15 @@
     <div class="row">
         <div class="col-xl-12">
             <div class="card request-form">
-                <div class="form-header">
-                    <div class="document-title">JOB ORDERS</div>
+                <div class="form-header d-flex justify-content-between align-items-center">
+                    <div class="document-title mb-0">JOB ORDERS</div>
+                    <div class="d-flex gap-2">
+                        <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'all']) }}" class="btn btn-sm btn-{{ $currentStatus == 'all' ? 'primary' : 'outline-primary' }}">All</a>
+                        <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'approved']) }}" class="btn btn-sm btn-{{ $currentStatus == 'approved' ? 'success' : 'outline-success' }}">Approved</a>
+                        <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'ongoing']) }}" class="btn btn-sm btn-{{ $currentStatus == 'ongoing' ? 'info' : 'outline-info' }}">Ongoing</a>
+                        <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'on_hold']) }}" class="btn btn-sm btn-{{ $currentStatus == 'on_hold' ? 'warning' : 'outline-warning' }}">On Hold</a>
+                        <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'completed']) }}" class="btn btn-sm btn-{{ $currentStatus == 'completed' ? 'secondary' : 'outline-secondary' }}">Completed</a>
+                    </div>
                 </div>
 
                 <ul class="nav nav-tabs" id="jobTabs" role="tablist">
