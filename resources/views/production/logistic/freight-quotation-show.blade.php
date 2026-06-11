@@ -128,7 +128,85 @@
                             </div>
                         @endif
 
-                        <!-- FREIGHT QUOTATION FORM SECTION - PROMINENT & VISIBLE -->
+                        <!-- Books/Items Breakdown List -->
+                        <h6 class="border-bottom pb-2 mb-3"><strong>📚 Books/Items Breakdown</strong></h6>
+
+                        @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->items && $quotation->salesOrder->items->count() > 0)
+                            <div class="table-responsive mb-4">
+                                <table class="table table-hover table-bordered">
+                                    <thead class="table-info">
+                                        <tr>
+                                            <th style="width: 40px;">#</th>
+                                            <th>Book/Product Name</th>
+                                            <th style="width: 80px;" class="text-center">QTY</th>
+                                            <th style="width: 100px;" class="text-center">Weight (kg)</th>
+                                            <th style="width: 120px;" class="text-center">Total Weight</th>
+                                            <th style="width: 120px;" class="text-end">Unit Price</th>
+                                            <th style="width: 120px;" class="text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @php $totalAmount = 0; $totalWeight = 0; @endphp
+                                        @foreach($quotation->salesOrder->items as $key => $item)
+                                            @php
+                                                $product = $item->product ?? $item->book;
+                                                $weight = $product?->weight ?? 0;
+                                                $itemTotalWeight = ($item->quantity * $weight);
+                                                $itemAmount = $item->quantity * $item->price;
+                                                $totalAmount += $itemAmount;
+                                                $totalWeight += $itemTotalWeight;
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $key + 1 }}</td>
+                                                <td>
+                                                    <strong>{{ $product?->name ?? $item->product_name ?? 'Unknown' }}</strong>
+                                                    @if($product?->sku)
+                                                        <br><small class="text-muted">SKU: {{ $product->sku }}</small>
+                                                    @endif
+                                                </td>
+                                                <td class="text-center">{{ $item->quantity }}</td>
+                                                <td class="text-center">
+                                                    @if($weight > 0)
+                                                        {{ number_format($weight, 2) }}
+                                                    @else
+                                                        <span class="text-muted">-</span>
+                                                    @endif
+                                                </td>
+                                                <td class="text-center fw-bold">
+                                                    @if($weight > 0)
+                                                        {{ number_format($itemTotalWeight, 2) }} kg
+                                                    @else
+                                                        <span class="text-muted">-</span>
+                                                    @endif
+                                                </td>
+                                                <td class="text-end">₱ {{ number_format($item->price, 2) }}</td>
+                                                <td class="text-end fw-bold">₱ {{ number_format($itemAmount, 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot class="table-light">
+                                        <tr>
+                                            <td colspan="4"></td>
+                                            <td class="text-center fw-bold">
+                                                @if($totalWeight > 0)
+                                                    {{ number_format($totalWeight, 2) }} kg
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                            <td colspan="1"></td>
+                                            <td class="text-end fw-bold fs-5">₱ {{ number_format($totalAmount, 2) }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        @else
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>No items found in this sales order.
+                            </div>
+                        @endif
+
+                        <hr>
                         @if($quotation->workflow_status !== 'approved')
                             <div class="card border-success border-3 mb-4" style="background-color: #f0fdf4;">
                                 <div class="card-header bg-success text-white">

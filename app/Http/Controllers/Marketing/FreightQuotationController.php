@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\FreightQuotation;
 use App\Models\SalesOrder;
 use App\Models\Customer;
+use App\Models\Book;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -214,11 +215,17 @@ class FreightQuotationController extends Controller
                 ->with('error', 'You are not authorized to view this quotation');
         }
 
+        // Get all active books
+        $allBooks = Book::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
         return view('marketing.freight-quotations.show', [
             'title' => 'Freight Quotation Details',
             'role' => auth()->user()->position,
             'sidebar' => 'marketing',
             'quotation' => $freightQuotation,
+            'allBooks' => $allBooks,
         ]);
     }
 
