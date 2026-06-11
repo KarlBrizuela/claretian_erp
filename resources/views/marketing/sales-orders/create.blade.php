@@ -139,6 +139,18 @@
                         </tbody>
                         <tfoot>
                             <tr>
+                                <td colspan="6" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
+                                <td class="text-end fw-bold fs-5" id="subtotalAmount">₱ 0.00</td>
+                                <td></td>
+                            </tr>
+                            @if($isEdit && $order->freight_charges)
+                            <tr class="bg-light">
+                                <td colspan="6" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                                <td class="text-end fw-bold fs-5" id="freightChargesDisplay">₱ {{ number_format($order->freight_charges, 2) }}</td>
+                                <td></td>
+                            </tr>
+                            @endif
+                            <tr>
                                 <td colspan="6" class="text-end text-uppercase"><strong>Total Amount:</strong></td>
                                 <td class="text-end fw-bold fs-5" id="grandTotal">₱ 0.00</td>
                                 <td></td>
@@ -148,7 +160,12 @@
 
                     <div class="form-actions">
                         <a href="{{ route('marketing.sales-orders.list') }}" class="btn btn-light border">Cancel</a>
-                        <button type="submit" class="btn btn-primary px-4" id="saveBtn">{{ $isEdit ? 'Update Sales Order' : 'Create Sales Order' }}</button>
+                        <button type="submit" class="btn btn-secondary px-4" id="saveDraftBtn" name="action" value="draft">
+                            <i class="las la-save me-2"></i>{{ $isEdit ? 'Update as Draft' : 'Save as Draft' }}
+                        </button>
+                        <button type="submit" class="btn btn-primary px-4" id="saveBtn" name="action" value="submit">
+                            <i class="las la-check me-2"></i>{{ $isEdit ? 'Update Sales Order' : 'Create Sales Order' }}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -312,7 +329,17 @@
                 document.querySelectorAll('.subtotal-display').forEach(el => {
                     total += parseFloat(el.textContent.replace('₱ ', '')) || 0;
                 });
-                grandTotalEl.textContent = '₱ ' + total.toFixed(2);
+                
+                // Display items subtotal
+                document.getElementById('subtotalAmount').textContent = '₱ ' + total.toFixed(2);
+                
+                // Add freight charges if they exist
+                const freightChargesDisplay = document.getElementById('freightChargesDisplay');
+                const freightCharges = freightChargesDisplay ? 
+                    parseFloat(freightChargesDisplay.textContent.replace('₱ ', '')) : 0;
+                
+                const grandTotal = total + freightCharges;
+                document.getElementById('grandTotal').textContent = '₱ ' + grandTotal.toFixed(2);
             }
 
             const existingItems = @json($isEdit ? $order->items : []);

@@ -461,11 +461,13 @@ class MarketingController extends Controller
 
     public function storeSalesOrder(\Illuminate\Http\Request $request)
     {
+        $action = $request->input('action', 'submit'); // 'draft' or 'submit'
+        
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
             'type' => 'required',
             'so_number' => 'required|unique:sales_orders,so_number',
-            'items' => 'required|array|min:1',
+            'items' => $action === 'draft' ? 'nullable|array' : 'required|array|min:1', // Items optional for draft
             'remarks' => 'nullable',
             'terms' => 'nullable',
             'ref_number' => 'nullable',
@@ -473,31 +475,38 @@ class MarketingController extends Controller
             'attachment' => 'nullable|file|max:5120', // 5MB Limit
         ]);
 
-        // STOCK VALIDATION: Check if all items have sufficient stock
-        $insufficientItems = [];
-        foreach ($request->items as $item) {
-            $book = \App\Models\Book::find($item['product_id']);
-            if (!$book || $book->stock < $item['quantity']) {
-                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
-                $availableStock = $book ? $book->stock : 0;
-                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+        // For submitted SOs, validate stock
+        if ($action === 'submit') {
+            // STOCK VALIDATION: Check if all items have sufficient stock
+            $insufficientItems = [];
+            foreach ($request->items ?? [] as $item) {
+                $book = \App\Models\Book::find($item['product_id']);
+                if (!$book || $book->stock < $item['quantity']) {
+                    $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+                    $availableStock = $book ? $book->stock : 0;
+                    $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+                }
+            }
+
+            if (!empty($insufficientItems)) {
+                return redirect()->back()->with('error', 'Insufficient stock for the following items: ' . implode('<br>• ', $insufficientItems));
             }
         }
 
-        if (!empty($insufficientItems)) {
-            return redirect()->back()->with('error', 'Insufficient stock for the following items: ' . implode('<br>• ', $insufficientItems));
-        }
-
-        // 1. Calculate Status based on Type (Intelligent Routing)
-        // ALL SO types require BOTH Marketing and Accounting approval
-        $initialStatus = 'pending_mkt_approval';
-        
-        // Check if user is already a Manager/Supervisor to auto-approve to next stage
-        $isMktManager = str_contains(auth()->user()->position, 'Manager') || str_contains(auth()->user()->position, 'Supervisor');
-        
-        if ($isMktManager) {
-            // All SO types now proceed to Accounting approval after Marketing Manager approval
-            $initialStatus = 'pending_acct_approval';
+        // 1. Determine Initial Status
+        if ($action === 'draft') {
+            // Draft mode: wait for freight quotation
+            $initialStatus = 'draft';
+        } else {
+            // Submit mode: proceed with approval flow
+            $initialStatus = 'pending_mkt_approval';
+            
+            // Check if user is already a Manager/Supervisor to auto-approve to next stage
+            $isMktManager = str_contains(auth()->user()->position, 'Manager') || str_contains(auth()->user()->position, 'Supervisor');
+            
+            if ($isMktManager) {
+                $initialStatus = 'pending_acct_approval';
+            }
         }
 
         // 2. Handle Attachment
@@ -506,60 +515,62 @@ class MarketingController extends Controller
             $attachmentPath = $request->file('attachment')->store('sales_orders', 'public');
         }
 
-        // 3. Create Header (PHP Saving to DB)
+        // 3. Create Header
         $so = \App\Models\SalesOrder::create([
             'customer_id' => $request->customer_id,
             'so_number' => $request->so_number,
             'type' => $request->type,
             'status' => $initialStatus,
             'prepared_by' => auth()->id(),
-            'approved_by_mkt' => auth()->id(), // Auto-approve for now
+            'approved_by_mkt' => $action === 'submit' ? auth()->id() : null, // Only set for submissions
             'remarks' => $request->remarks,
             'terms' => $request->terms,
             'ref_number' => $request->ref_number,
             'billing_address' => $request->billing_address,
-            'shipping_address' => $request->billing_address, // Defaulting shipping to billing for now
+            'shipping_address' => $request->billing_address,
             'attachment' => $attachmentPath,
         ]);
 
-        // 4. Create Items
+        // 4. Create Items (only if provided)
         $totalAmount = 0;
-        foreach ($request->items as $item) {
-            $subtotal = $item['quantity'] * $item['price'];
-            $totalAmount += $subtotal;
+        if (!empty($request->items)) {
+            foreach ($request->items as $item) {
+                $subtotal = $item['quantity'] * $item['price'];
+                $totalAmount += $subtotal;
 
-            $book = \App\Models\Book::find($item['product_id']);
-            \App\Models\SalesOrderItem::create([
-                'sales_order_id' => $so->id,
-                'book_id' => $item['product_id'],
-                'quantity' => $item['quantity'],
-                'price' => $item['price'],
-                'subtotal' => $subtotal,
-                'unit' => $item['unit'] ?? 'pcs',
-                'area' => $item['area'] ?? null,
-                'source_price_at_sale' => $book ? $book->source_price : 0,
-            ]);
-
-            // STOCK MANAGEMENT: Decrement inventory for sales order
-            if ($book) {
-                $deductedQty = $item['quantity'];
-                $book->decrement('stock', $deductedQty);
-
-                // Record Inventory Transaction for audit trail
-                \App\Models\InventoryTransaction::create([
-                    'book_id' => $book->id,
-                    'type' => 'out',
-                    'quantity' => $deductedQty,
-                    'location' => 'Main Warehouse',
-                    'source' => 'Sales Order',
-                    'reference_number' => $so->so_number,
-                    'unit_cost' => $book->cost ?? 0,
-                    'total_cost' => $deductedQty * ($book->cost ?? 0),
-                    'notes' => 'Sales Order #' . $so->so_number . ' - ' . $so->type,
-                    'status' => 'completed',
-                    'transaction_date' => now(),
-                    'user_id' => auth()->id()
+                $book = \App\Models\Book::find($item['product_id']);
+                \App\Models\SalesOrderItem::create([
+                    'sales_order_id' => $so->id,
+                    'book_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                    'subtotal' => $subtotal,
+                    'unit' => $item['unit'] ?? 'pcs',
+                    'area' => $item['area'] ?? null,
+                    'source_price_at_sale' => $book ? $book->source_price : 0,
                 ]);
+
+                // STOCK MANAGEMENT: Only decrement for submitted SOs
+                if ($action === 'submit' && $book) {
+                    $deductedQty = $item['quantity'];
+                    $book->decrement('stock', $deductedQty);
+
+                    // Record Inventory Transaction for audit trail
+                    \App\Models\InventoryTransaction::create([
+                        'book_id' => $book->id,
+                        'type' => 'out',
+                        'quantity' => $deductedQty,
+                        'location' => 'Main Warehouse',
+                        'source' => 'Sales Order',
+                        'reference_number' => $so->so_number,
+                        'unit_cost' => $book->cost ?? 0,
+                        'total_cost' => $deductedQty * ($book->cost ?? 0),
+                        'notes' => 'Sales Order #' . $so->so_number . ' - ' . $so->type,
+                        'status' => 'completed',
+                        'transaction_date' => now(),
+                        'user_id' => auth()->id()
+                    ]);
+                }
             }
         }
 
@@ -573,7 +584,11 @@ class MarketingController extends Controller
             ]);
         }
 
-        return redirect()->route('marketing.sales-orders.list')->with('success', 'Sales Order created and routed successfully!');
+        $message = $action === 'draft' 
+            ? 'Sales Order saved as draft. Please request freight quotation from Logistics.'
+            : 'Sales Order created and routed successfully!';
+        
+        return redirect()->route('marketing.sales-orders.list')->with('success', $message);
     }
 
     public function approveSalesOrder(Request $request, $id)
@@ -595,6 +610,60 @@ class MarketingController extends Controller
         ]);
 
         return redirect()->route('marketing.approval-queue')->with('success', 'Sales Order #' . $order->so_number . ' has been approved by Marketing. Awaiting Accounting approval.');
+    }
+
+    public function proceedToFinalSalesOrder(Request $request, $id)
+    {
+        /**
+         * This method finalizes a draft SO after freight charges have been approved
+         * Transitions: draft (with freight_charges) → pending_mkt_approval
+         */
+        $so = \App\Models\SalesOrder::findOrFail($id);
+        
+        // Validate: only draft SOs with freight charges can proceed
+        if ($so->status !== 'draft') {
+            return redirect()->back()->with('error', 'Only draft sales orders can be finalized.');
+        }
+
+        if (!$so->freight_charges || $so->freight_charges <= 0) {
+            return redirect()->back()->with('error', 'Freight charges must be approved before proceeding.');
+        }
+
+        // Transition to pending approval
+        $isMktManager = str_contains(auth()->user()->position, 'Manager') || str_contains(auth()->user()->position, 'Supervisor');
+        $nextStatus = $isMktManager ? 'pending_acct_approval' : 'pending_mkt_approval';
+        
+        $so->update([
+            'status' => $nextStatus,
+            'approved_by_mkt' => $isMktManager ? auth()->id() : null,
+            'mkt_approved_at' => $isMktManager ? now() : null,
+        ]);
+
+        // Deduct stock only now when finalizing (so we don't hold stock during draft period)
+        foreach ($so->items as $item) {
+            $book = \App\Models\Book::find($item->book_id);
+            if ($book && $book->stock >= $item->quantity) {
+                $book->decrement('stock', $item->quantity);
+
+                \App\Models\InventoryTransaction::create([
+                    'book_id' => $book->id,
+                    'type' => 'out',
+                    'quantity' => $item->quantity,
+                    'location' => 'Main Warehouse',
+                    'source' => 'Sales Order',
+                    'reference_number' => $so->so_number,
+                    'unit_cost' => $book->cost ?? 0,
+                    'total_cost' => $item->quantity * ($book->cost ?? 0),
+                    'notes' => 'Sales Order #' . $so->so_number . ' - ' . $so->type . ' (Finalized from Draft)',
+                    'status' => 'completed',
+                    'transaction_date' => now(),
+                    'user_id' => auth()->id()
+                ]);
+            }
+        }
+
+        $message = 'Sales Order #' . $so->so_number . ' has been finalized with freight charges (₱' . number_format($so->freight_charges, 2) . ') and routed for approval.';
+        return redirect()->route('marketing.sales-orders.list')->with('success', $message);
     }
 
     public function editSalesOrder($id)

@@ -80,7 +80,9 @@
 			<a href="{{ route('production.logistic.delivery-tracking') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.delivery-tracking') ? 'active' : '' }}">Delivery Tracking</a>
 			<a href="{{ route('production.logistic.purchase-order-list') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.purchase-order-list') ? 'active' : '' }}">Purchase Orders</a>
 			<a href="{{ route('production.logistic.receiving-report-list') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.receiving-report-list') ? 'active' : '' }}">Receiving Reports</a>
-			<a href="{{ route('production.logistic.freight-quotation') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.freight-quotation') ? 'active' : '' }}">Freight Quotation</a>
+			<a href="{{ route('production.logistic.pending-freight-quotations') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.pending-freight-quotations') ? 'active' : '' }}">
+				<i class="bi bi-inbox me-1"></i>Freight Quotation (Review)
+			</a>
 			<a href="{{ route('rider.collections.index') }}" class="modern-nav-subitem {{ request()->routeIs('rider.collections.*') ? 'active' : '' }}">Rider Collections</a>
 		</div>
 	</div>

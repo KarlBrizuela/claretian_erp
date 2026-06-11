@@ -14,6 +14,7 @@ class FreightQuotation extends Model
         'quote_number',
         'quote_date',
         'validity_days',
+        'customer_id',
         'origin_contact',
         'origin_address',
         'origin_province',
@@ -31,15 +32,22 @@ class FreightQuotation extends Model
         'handling_fee',
         'total_amount',
         'status',
+        'workflow_status',
+        'sales_order_id',
+        'boxes_count',
+        'logistics_notes',
         'created_by',
         'approved_by',
         'approved_at',
+        'responded_by',
+        'responded_at',
         'notes',
     ];
 
     protected $casts = [
         'quote_date' => 'date',
         'approved_at' => 'datetime',
+        'responded_at' => 'datetime',
         'cargo_items' => 'array',
     ];
 
@@ -51,5 +59,20 @@ class FreightQuotation extends Model
     public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function respondedBy()
+    {
+        return $this->belongsTo(User::class, 'responded_by');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+    }
+
+    public function salesOrder()
+    {
+        return $this->belongsTo(SalesOrder::class);
     }
 }

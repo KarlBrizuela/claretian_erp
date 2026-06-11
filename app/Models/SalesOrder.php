@@ -63,6 +63,8 @@ class SalesOrder extends Model
         'packing_prepared_by',
         'picked_at',
         'picked_by',
+        'freight_charges',
+        'freight_notes',
     ];
 
     public function customer()
@@ -123,6 +125,11 @@ class SalesOrder extends Model
     public function pickLists()
     {
         return $this->hasMany(PickList::class, 'sales_order_id');
+    }
+
+    public function freightQuotation()
+    {
+        return $this->hasOne(FreightQuotation::class, 'sales_order_id');
     }
 
     /**

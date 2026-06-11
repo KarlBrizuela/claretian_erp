@@ -57,7 +57,7 @@
 
 	<!-- Area Sales -->
 	@if($hasAreaSales)
-	<div class="modern-nav-group {{ request()->is('marketing/sales-orders*', 'marketing/sales-order*', 'marketing/direct-invoice*', 'marketing/acknowledgement-receipt*', 'marketing/credit-memo*', 'marketing/proof-of-payment*') ? 'active' : '' }}">
+	<div class="modern-nav-group {{ request()->is('marketing/sales-orders*', 'marketing/sales-order*', 'marketing/direct-invoice*', 'marketing/acknowledgement-receipt*', 'marketing/credit-memo*', 'marketing/proof-of-payment*', 'marketing/freight-quotations*') ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="area-sales">
 			<div class="modern-nav-icon">
 				<i class="las la-map-marked-alt"></i>
@@ -67,6 +67,10 @@
 		</a>
 		<div class="modern-nav-submenu">
 			<a href="{{ route('marketing.sales-orders.list') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.sales-orders.list', 'marketing.sales-orders.create') ? 'active' : '' }}">Sales Orders List</a>
+
+			<a href="{{ route('marketing.freight-quotations.list') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.freight-quotations.*') ? 'active' : '' }}">
+				<i class="bi bi-truck me-1"></i>Freight Quotations
+			</a>
 
 			<a href="{{ route('marketing.direct-invoice.website') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.direct-invoice.website') ? 'active' : '' }}">Direct Invoice (Website)</a>
 			<a href="{{ route('marketing.direct-invoice.ecom') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.direct-invoice.ecom') ? 'active' : '' }}">Direct Invoice (E-com)</a>

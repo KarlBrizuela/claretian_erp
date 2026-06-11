@@ -110,6 +110,12 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/freight-quotation', [App\Http\Controllers\Production\LogisticController::class, 'freightQuotation'])->name('freight-quotation');
       Route::post('/freight-quotation', [App\Http\Controllers\Production\LogisticController::class, 'storeFreightQuotation'])->name('freight-quotation.store');
       
+      // Pending Freight Quotations from Marketing
+      Route::get('/freight-quotations', [App\Http\Controllers\Production\LogisticController::class, 'pendingFreightQuotations'])->name('pending-freight-quotations');
+      Route::get('/freight-quotations/{freightQuotation}', [App\Http\Controllers\Production\LogisticController::class, 'showFreightQuotation'])->name('show-freight-quotation');
+      Route::post('/freight-quotations/{freightQuotation}/approve', [App\Http\Controllers\Production\LogisticController::class, 'approveFreightQuotation'])->name('approve-freight-quotation');
+      Route::post('/freight-quotations/{freightQuotation}/reject', [App\Http\Controllers\Production\LogisticController::class, 'rejectFreightQuotation'])->name('reject-freight-quotation');
+      
       // Delivery Form View
       Route::get('/delivery-form/{id}', [App\Http\Controllers\Production\LogisticController::class, 'viewDeliveryForm'])->name('view-delivery-form');
     });
@@ -213,6 +219,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/sales-orders/{id}/edit', [MarketingController::class, 'editSalesOrder'])->name('marketing.sales-orders.edit');
     Route::put('/marketing/sales-orders/{id}', [MarketingController::class, 'updateSalesOrder'])->name('marketing.sales-orders.update');
     Route::post('/marketing/sales-orders/{id}/approve', [MarketingController::class, 'approveSalesOrder'])->name('marketing.sales-orders.approve');
+    Route::post('/marketing/sales-orders/{id}/proceed-to-final', [MarketingController::class, 'proceedToFinalSalesOrder'])->name('marketing.sales-orders.proceed-to-final');
     Route::delete('/marketing/sales-orders/{id}', [MarketingController::class, 'destroySalesOrder'])->name('marketing.sales-orders.destroy');
     Route::get('/marketing/sales-order/{id?}', [MarketingController::class, 'salesOrderDetail'])->name('marketing.sales-orders.detail');
     Route::get('/marketing/sales-orders/{id}/shipping-label', [MarketingController::class, 'shippingLabel'])->name('marketing.sales-orders.shipping-label');
@@ -223,6 +230,21 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/direct-invoice-ecom', [MarketingController::class, 'directInvoiceEcom'])->name('marketing.direct-invoice.ecom');
     Route::post('/marketing/direct-invoice-ecom', [MarketingController::class, 'storeDirectInvoiceEcom'])->name('marketing.direct-invoice.ecom.store');
     Route::post('/marketing/direct-invoice-ecom/{id}/approve', [MarketingController::class, 'approveDirectInvoiceEcom'])->name('marketing.direct-invoice.ecom.approve');
+    
+    // Freight Quotations (Area Sales)
+    Route::prefix('marketing/freight-quotations')->name('marketing.freight-quotations.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'list'])->name('list');
+        Route::get('/create', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'create'])->name('create');
+        Route::post('/store', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'store'])->name('store');
+        Route::get('/{freightQuotation}', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'show'])->name('show');
+        Route::post('/{freightQuotation}/create-so-directly', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'createSalesOrderFromApprovedQuotation'])->name('create-so-directly');
+        Route::get('/{freightQuotation}/proceed-to-so', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'proceedToSalesOrder'])->name('proceed-to-so');
+        Route::post('/{freightQuotation}/create-so', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'createSalesOrderFromQuotation'])->name('create-so');
+        Route::get('/{freightQuotation}/logistics-response', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'viewLogisticsResponse'])->name('logistics-response');
+    });
+    
+    Route::get('/marketing/sales-orders/{id}', [MarketingController::class, 'salesOrderDetail'])->name('marketing.sales-orders.show');
+    
     Route::get('/marketing/acknowledgement-receipt', [MarketingController::class, 'acknowledgementReceipt'])->name('marketing.acknowledgement-receipt');
     Route::get('/marketing/credit-memo', [MarketingController::class, 'creditMemo'])->name('marketing.credit-memo');
     Route::get('/marketing/proof-of-payment', [MarketingController::class, 'proofOfPayment'])->name('marketing.proof-of-payment');

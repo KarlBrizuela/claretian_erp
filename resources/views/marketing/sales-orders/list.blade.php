@@ -21,8 +21,19 @@
         .status-completed { background-color: #c3e6cb; color: #155724; }
         .status-cancelled { background-color: #f8d7da; color: #721c24; }
         .status-gathered { background-color: #d1ecf1; color: #0c5460; }
+        .status-pending_acct_approval { background-color: #fff3cd; color: #856404; }
         .workflow-actions { display: flex; flex-wrap: wrap; gap: 4px; }
         .workflow-actions .btn { padding: 4px 8px; font-size: 11px; }
+        
+        /* Draft status variants */
+        .status-badge:has-text("Draft (Pending Freight)") {
+            background-color: #e9ecef !important;
+            color: #721c24 !important;
+        }
+        .status-badge:has-text("Draft (Freight Approved)") {
+            background-color: #d4edda !important;
+            color: #155724 !important;
+        }
     </style>
     @endpush
 
@@ -88,6 +99,13 @@
                                         <span class="status-badge status-{{ $order->status }}">
                                             @php
                                                 $displayStatus = str_replace('_', ' ', $order->status);
+                                                if ($order->status == 'draft') {
+                                                    if ($order->freight_charges && $order->freight_charges > 0) {
+                                                        $displayStatus = 'Draft (Freight Approved)';
+                                                    } else {
+                                                        $displayStatus = 'Draft (Pending Freight)';
+                                                    }
+                                                }
                                                 if ($order->status == 'pending_si_prep') $displayStatus = 'Gathered (In SI Prep)';
                                                 if ($order->status == 'pending_dr_prep') $displayStatus = 'SI Signed (In DR Prep)';
                                                 if ($order->status == 'pending_mkt_approval') $displayStatus = 'Pending Marketing Approval';
@@ -97,20 +115,31 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="d-flex">
-                                            <a href="{{ route('marketing.sales-orders.detail', $order->id) }}" class="btn btn-primary shadow btn-xs sharp me-1" title="View Order"><i class="fas fa-eye"></i></a>
+                                        <div class="d-flex gap-1">
+                                            <a href="{{ route('marketing.sales-orders.detail', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Order"><i class="fas fa-eye"></i></a>
+                                            
                                             <!-- Edit Button -->
                                             @if($order->status == 'draft' || $order->status == 'mkt_approved')
-                                                <a href="{{ route('marketing.sales-orders.edit', $order->id) }}" class="btn btn-warning shadow btn-xs sharp me-1" title="Edit Order"><i class="fas fa-pencil-alt"></i></a>
+                                                <a href="{{ route('marketing.sales-orders.edit', $order->id) }}" class="btn btn-warning shadow btn-xs sharp" title="Edit Order"><i class="fas fa-pencil-alt"></i></a>
                                                 
                                                 <!-- Delete Button -->
-                                                <button type="button" class="btn btn-danger shadow btn-xs sharp me-1" title="Delete Order" 
+                                                <button type="button" class="btn btn-danger shadow btn-xs sharp" title="Delete Order" 
                                                     onclick="confirmDelete('{{ $order->id }}', '{{ $order->so_number }}')">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                                 <form id="delete-form-{{ $order->id }}" action="{{ route('marketing.sales-orders.destroy', $order->id) }}" method="POST" style="display: none;">
                                                     @csrf
                                                     @method('DELETE')
+                                                </form>
+                                            @endif
+
+                                            <!-- Proceed to Final SO Button (for draft with freight charges) -->
+                                            @if($order->status == 'draft' && $order->freight_charges && $order->freight_charges > 0)
+                                                <form action="{{ route('marketing.sales-orders.proceed-to-final', $order->id) }}" method="POST" style="display: inline;">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Proceed to Final SO with Freight (₱{{ number_format($order->freight_charges, 2) }})">
+                                                        <i class="fas fa-arrow-right"></i>
+                                                    </button>
                                                 </form>
                                             @endif
                                         </div>

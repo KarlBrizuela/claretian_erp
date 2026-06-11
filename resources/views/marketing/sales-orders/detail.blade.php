@@ -159,6 +159,45 @@
                     </tfoot>
                 </table>
 
+                <!-- Freight Information Section (for draft SOs) -->
+                @if($order->status === 'draft')
+                <div class="alert alert-info mt-3">
+                    <h6 class="mb-2"><i class="fas fa-truck me-2"></i>Freight Quotation Status</h6>
+                    @if($order->freight_charges && $order->freight_charges > 0)
+                        <p class="mb-0"><strong>✓ Freight Charges Approved:</strong> ₱{{ number_format($order->freight_charges, 2) }}</p>
+                        <p class="mt-2 mb-0 text-muted small">{{ $order->freight_notes ?? 'No additional notes.' }}</p>
+                    @else
+                        <p class="mb-0"><i class="fas fa-hourglass-half me-2 text-warning"></i><strong>Awaiting Freight Quotation</strong></p>
+                        <p class="mt-2 mb-0 text-muted small">Logistics team is processing your freight request. You'll be able to proceed once freight charges are approved.</p>
+                    @endif
+                </div>
+                @endif
+
+                <!-- Freight Charges Breakdown -->
+                @if($order->freight_charges && $order->freight_charges > 0)
+                <table class="order-table mt-3">
+                    <thead>
+                        <tr>
+                            <th colspan="2">Cost Breakdown</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-end"><strong>Items Subtotal:</strong></td>
+                            <td class="text-end">₱{{ number_format($order->total_amount - $order->freight_charges, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-end"><strong>Freight Charges:</strong></td>
+                            <td class="text-end text-success"><strong>₱{{ number_format($order->freight_charges, 2) }}</strong></td>
+                        </tr>
+                        <tr style="background: #f0f0f0;">
+                            <td class="text-end"><strong>Grand Total:</strong></td>
+                            <td class="text-end"><strong>₱{{ number_format($order->total_amount, 2) }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+                @endif
+
                 <!-- Actions -->
                 <div class="d-flex justify-content-end gap-2 mt-4 form-actions">
                     <button type="button" class="btn btn-dark" onclick="window.history.back()">
@@ -186,6 +225,16 @@
                         @csrf
                         <button type="submit" class="btn btn-success">
                             <i class="las la-check-circle me-2"></i>Approve Order
+                        </button>
+                    </form>
+                    @endif
+
+                    <!-- Proceed to Final SO Button (for draft with freight) -->
+                    @if($order->status === 'draft' && $order->freight_charges && $order->freight_charges > 0)
+                    <form action="{{ route('marketing.sales-orders.proceed-to-final', $order->id) }}" method="POST" id="proceedForm">
+                        @csrf
+                        <button type="submit" class="btn btn-success">
+                            <i class="las la-arrow-right me-2"></i>Proceed to Final Sales Order
                         </button>
                     </form>
                     @endif

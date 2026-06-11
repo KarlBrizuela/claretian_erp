@@ -981,4 +981,151 @@ class LogisticController extends Controller
                 ->withInput();
         }
     }
+
+    /**
+     * Display pending freight quotations from marketing
+     */
+    public function pendingFreightQuotations(Request $request)
+    {
+        $status = $request->query('status', 'all');
+
+        $query = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy'])
+            ->where('workflow_status', 'draft')
+            ->whereNull('responded_by');
+
+        if ($status === 'responded') {
+            $query = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy'])
+                ->where('workflow_status', 'approved')
+                ->whereNotNull('responded_by');
+        }
+
+        $quotations = $query->latest()->paginate(20);
+
+        return view('production.logistic.pending-freight-quotations', [
+            'title' => 'Pending Freight Quotations',
+            'sidebar' => 'production',
+            'quotations' => $quotations,
+            'currentStatus' => $status,
+        ]);
+    }
+
+    /**
+     * Show freight quotation details for logistics to review
+     */
+    public function showFreightQuotation(\App\Models\FreightQuotation $freightQuotation)
+    {
+        return view('production.logistic.freight-quotation-show', [
+            'title' => 'Freight Quotation Review',
+            'sidebar' => 'production',
+            'quotation' => $freightQuotation->load(['createdBy']),
+        ]);
+    }
+
+    /**
+     * Approve and add pricing to freight quotation
+     */
+    public function approveFreightQuotation(Request $request, \App\Models\FreightQuotation $freightQuotation)
+    {
+        try {
+            // Check if already responded
+            if ($freightQuotation->workflow_status === 'approved') {
+                return redirect()->route('production.logistic.pending-freight-quotations')
+                    ->with('info', 'This quotation has already been reviewed');
+            }
+
+            $validated = $request->validate([
+                'estimated_freight' => 'required|numeric|min:0.01',
+                'valuation_percentage' => 'nullable|numeric|min:0|max:100',
+                'handling_percentage' => 'nullable|numeric|min:0|max:100',
+                'boxes_count' => 'required|integer|min:1',
+                'logistics_notes' => 'nullable|string',
+            ], [
+                'estimated_freight.required' => 'Estimated freight is required',
+                'boxes_count.required' => 'Number of boxes is required',
+            ]);
+
+            // Calculate charges
+            $estimatedFreight = (float) $validated['estimated_freight'];
+            $valuationPercent = (float) ($validated['valuation_percentage'] ?? 1);
+            $handlingPercent = (float) ($validated['handling_percentage'] ?? 20);
+
+            $valuationCharge = ($estimatedFreight * $valuationPercent) / 100;
+            $handlingFee = ($estimatedFreight * $handlingPercent) / 100;
+            $totalAmount = $estimatedFreight + $valuationCharge + $handlingFee;
+
+            // Update quotation with logistics response
+            $freightQuotation->update([
+                'estimated_freight' => $estimatedFreight,
+                'valuation_percentage' => $valuationPercent,
+                'valuation_charge' => $valuationCharge,
+                'handling_percentage' => $handlingPercent,
+                'handling_fee' => $handlingFee,
+                'total_amount' => $totalAmount,
+                'boxes_count' => $validated['boxes_count'],
+                'logistics_notes' => $validated['logistics_notes'] ?? null,
+                'workflow_status' => 'approved',
+                'responded_by' => auth()->id(),
+                'responded_at' => now(),
+            ]);
+
+            // Update linked Sales Order with freight charges
+            if ($freightQuotation->sales_order_id) {
+                $salesOrder = \App\Models\SalesOrder::find($freightQuotation->sales_order_id);
+                if ($salesOrder) {
+                    $salesOrder->update([
+                        'freight_charges' => $totalAmount,
+                        'freight_notes' => 'Freight approved: ₱' . number_format($estimatedFreight, 2) . 
+                                         ' (Valuation: ₱' . number_format($valuationCharge, 2) . ', Handling: ₱' . number_format($handlingFee, 2) . ')',
+                    ]);
+                }
+            }
+
+            return redirect()->route('production.logistic.pending-freight-quotations')
+                ->with('success', 'Freight quotation #' . $freightQuotation->quote_number . ' approved! Linked Sales Order updated with freight charges.');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error approving freight quotation: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Reject freight quotation
+     */
+    public function rejectFreightQuotation(Request $request, \App\Models\FreightQuotation $freightQuotation)
+    {
+        try {
+            $validated = $request->validate([
+                'rejection_reason' => 'required|string|min:10',
+            ], [
+                'rejection_reason.required' => 'Reason for rejection is required',
+                'rejection_reason.min' => 'Reason must be at least 10 characters',
+            ]);
+
+            $freightQuotation->update([
+                'workflow_status' => 'draft',
+                'logistics_notes' => 'Rejected: ' . $validated['rejection_reason'],
+                'responded_by' => auth()->id(),
+                'responded_at' => now(),
+            ]);
+
+            return redirect()->route('production.logistic.pending-freight-quotations')
+                ->with('warning', 'Freight quotation #' . $freightQuotation->quote_number . ' has been rejected and returned to marketing');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error rejecting freight quotation: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
 }
+
