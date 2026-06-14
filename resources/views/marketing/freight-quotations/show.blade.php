@@ -289,7 +289,7 @@
 
                             <!-- SO Items Table -->
                             @if($quotation->salesOrder->items && $quotation->salesOrder->items->count() > 0)
-                                <h6 class="border-bottom pb-2 mb-3"><strong>📦 Sales Order Items</strong></h6>
+                                <h6 class="border-bottom pb-2 mb-3"><strong> Sales Order Items</strong></h6>
                                 <div class="table-responsive mb-4">
                                     <table class="table table-sm table-bordered">
                                         <thead class="table-primary">

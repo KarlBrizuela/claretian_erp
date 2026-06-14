@@ -385,6 +385,10 @@ Route::middleware(['auth'])->group(function () {
       Route::resource('/asset-requests', App\Http\Controllers\Admin\GSD\AssetController::class)->names('admin-finance.gsd.asset-requests');
       Route::get('/job-orders', [App\Http\Controllers\AdminFinanceController::class, 'gsdJobOrders'])->name('admin-finance.gsd.job-orders');
       Route::put('/job-orders/{type}/{id}/update-status', [App\Http\Controllers\AdminFinanceController::class, 'gsdUpdateJobOrderStatus'])->name('admin-finance.gsd.job-orders.update-status');
+      Route::resource('/material-requests', App\Http\Controllers\Admin\GSD\MaterialReqController::class)->names('admin-finance.gsd.material-requests');
+      Route::post('/material-requests/{id}/submit', [App\Http\Controllers\Admin\GSD\MaterialReqController::class, 'submit'])->name('admin-finance.gsd.material-requests.submit');
+      Route::resource('/service-requests', App\Http\Controllers\Admin\GSD\ServiceReqController::class)->names('admin-finance.gsd.service-requests');
+      Route::post('/service-requests/{id}/submit', [App\Http\Controllers\Admin\GSD\ServiceReqController::class, 'submit'])->name('admin-finance.gsd.service-requests.submit');
     });
 
     // HR

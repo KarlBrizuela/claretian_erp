@@ -14,6 +14,7 @@ class MaterialReq extends Model
 
     protected $fillable = [
         'user_id',
+        'module',
         'requested_by',
         'request_date',
         'request_details',

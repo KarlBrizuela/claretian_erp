@@ -388,8 +388,8 @@ class AdminFinanceController extends Controller
     }
     $cctvRequests = $cctvQuery->orderBy('created_at', 'desc')->get();
 
-    // --- Material Requests ---
-    $materialQuery = MaterialReq::query();
+    // --- Material Requests (MIS) ---
+    $materialQuery = MaterialReq::query()->where('module', '!=', 'GSD');
     if (in_array($pos, ['Manager', 'MIS Supervisor'])) {
       $materialQuery->where('status', 'pending approval');
     } elseif ($pos === 'Director') {
@@ -400,6 +400,19 @@ class AdminFinanceController extends Controller
       $materialQuery->whereRaw('1 = 0');
     }
     $materialRequests = $materialQuery->orderBy('created_at', 'desc')->get();
+
+    // --- GSD Material Requests ---
+    $gsdMaterialQuery = MaterialReq::query()->where('module', 'GSD');
+    if (in_array($pos, ['Manager', 'MIS Supervisor'])) {
+      $gsdMaterialQuery->where('status', 'pending approval');
+    } elseif ($pos === 'Director') {
+      $gsdMaterialQuery->where('status', 'Pending Final Approval');
+    } elseif ($pos === 'Super Admin') {
+      $gsdMaterialQuery->whereIn('status', ['pending approval', 'Pending Final Approval', 'forwarded to accounting', 'received']);
+    } else {
+      $gsdMaterialQuery->whereRaw('1 = 0');
+    }
+    $gsdMaterialRequests = $gsdMaterialQuery->orderBy('created_at', 'desc')->get();
 
     // --- QB Requests ---
     $qbQuery = MisQbRequest::with(['user', 'items']);
@@ -416,8 +429,8 @@ class AdminFinanceController extends Controller
     }
     $qbRequests = $qbQuery->orderBy('created_at', 'desc')->get();
 
-    // --- Service Requests ---
-    $serviceQuery = MisServiceRequest::query();
+    // --- Service Requests (MIS) ---
+    $serviceQuery = MisServiceRequest::query()->where('module', '!=', 'GSD');
     if (in_array($pos, ['Manager', 'MIS Supervisor'])) {
       $serviceQuery->where('status', 'pending');
     } elseif (in_array($pos, ['HR Manager', 'HR Specialist', 'HR Staff'])) {
@@ -430,6 +443,21 @@ class AdminFinanceController extends Controller
       $serviceQuery->whereRaw('1 = 0');
     }
     $serviceRequests = $serviceQuery->orderBy('created_at', 'desc')->get();
+
+    // --- GSD Service Requests ---
+    $gsdServiceQuery = MisServiceRequest::query()->where('module', 'GSD');
+    if (in_array($pos, ['Manager', 'MIS Supervisor'])) {
+      $gsdServiceQuery->where('status', 'pending');
+    } elseif (in_array($pos, ['HR Manager', 'HR Specialist', 'HR Staff'])) {
+      $gsdServiceQuery->where('status', 'Pending HR approval');
+    } elseif ($pos === 'Director') {
+      $gsdServiceQuery->where('status', 'Pending Final Approval');
+    } elseif ($pos === 'Super Admin') {
+      $gsdServiceQuery->whereIn('status', ['pending', 'Pending HR approval', 'Pending Final Approval']);
+    } else {
+      $gsdServiceQuery->whereRaw('1 = 0');
+    }
+    $gsdServiceRequests = $gsdServiceQuery->orderBy('created_at', 'desc')->get();
 
     // --- Undertime Requests ---
     $undertimeQuery = MisUndertimeRequest::query();
@@ -515,6 +543,20 @@ class AdminFinanceController extends Controller
         'original' => $req
       ];
     }
+    foreach ($gsdMaterialRequests as $req) {
+      $pendingApprovals[] = [
+        'type' => 'GSD Material',
+        'id' => $req->material_req_id,
+        'reference_no' => 'GSD-MAT-' . str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT),
+        'submitted_by' => $req->requested_by,
+        'submitted_date' => \Carbon\Carbon::parse($req->request_date)->format('M. d, Y'),
+        'description' => \Illuminate\Support\Str::limit($req->request_details, 50),
+        'full_description' => $req->request_details,
+        'department' => 'GSD',
+        'status' => $req->status,
+        'original' => $req
+      ];
+    }
     foreach ($cashAdvanceRequests as $req) {
       $pendingApprovals[] = [
         'type' => 'Cash Advance',
@@ -573,6 +615,20 @@ class AdminFinanceController extends Controller
         'description' => \Illuminate\Support\Str::limit($req->nature_of_request, 50),
         'full_description' => $req->nature_of_request,
         'department' => 'N/A',
+        'status' => $req->status,
+        'original' => $req
+      ];
+    }
+    foreach ($gsdServiceRequests as $req) {
+      $pendingApprovals[] = [
+        'type' => 'GSD Service',
+        'id' => $req->service_req_id,
+        'reference_no' => 'GSD-SRV-' . str_pad($req->service_req_id, 4, '0', STR_PAD_LEFT),
+        'submitted_by' => $req->requestor_name,
+        'submitted_date' => \Carbon\Carbon::parse($req->date)->format('M. d, Y'),
+        'description' => \Illuminate\Support\Str::limit($req->nature_of_request, 50),
+        'full_description' => $req->nature_of_request,
+        'department' => 'GSD',
         'status' => $req->status,
         'original' => $req
       ];
@@ -1819,16 +1875,11 @@ public function checkVoucher()
         $statuses = [$status];
     }
     
-    $qbRequests = MisQbRequest::with(['user', 'items', 'approver'])
-        ->whereIn('status', $statuses)
-        ->orderBy('updated_at', 'desc')
+    // Material Requests - apply status filter
+    $materialRequests = MaterialReq::whereIn('status', $statuses)
+        ->orderBy('created_at', 'desc')
         ->get();
-        
-    $undertimeRequests = MisUndertimeRequest::with('approver')
-        ->whereIn('status', $statuses)
-        ->orderBy('updated_at', 'desc')
-        ->get();
-        
+    
     $serviceRequests = MisServiceRequest::with('approver')
         ->whereIn('status', $statuses)
         ->orderBy('updated_at', 'desc')
@@ -1838,8 +1889,7 @@ public function checkVoucher()
       'title' => 'GSD Job Orders',
       'role' => auth()->user()->position,
       'sidebar' => 'admin-finance',
-      'qbRequests' => $qbRequests,
-      'undertimeRequests' => $undertimeRequests,
+      'materialRequests' => $materialRequests,
       'serviceRequests' => $serviceRequests,
       'currentStatus' => $status
     ]);
@@ -1852,7 +1902,9 @@ public function checkVoucher()
           'status' => 'required|in:on_hold,ongoing,completed'
       ]);
 
-      if ($type == 'qb') {
+      if ($type == 'material') {
+          $order = MaterialReq::findOrFail($id);
+      } elseif ($type == 'qb') {
           $order = MisQbRequest::findOrFail($id);
       } elseif ($type == 'undertime') {
           $order = MisUndertimeRequest::findOrFail($id);

@@ -1148,6 +1148,14 @@
                     approveUrl = rejectUrl = `{{ url('admin-finance/mis/material-requests') }}/${id}`;
                     const nextStatusMap = { 'pending approval': 'Pending Final Approval', 'Pending Final Approval': 'forwarded to accounting' };
                     approveStatus = nextStatusMap[status] || 'completed';
+                } else if (type === 'GSD Material') {
+                    approveUrl = rejectUrl = `{{ url('admin-finance/gsd/material-requests') }}/${id}`;
+                    const nextStatusMap = { 'pending approval': 'Pending Final Approval', 'Pending Final Approval': 'forwarded to accounting' };
+                    approveStatus = nextStatusMap[status] || 'completed';
+                } else if (type === 'GSD Service') {
+                    approveUrl = rejectUrl = `{{ url('admin-finance/gsd/service-requests') }}/${id}`;
+                    const nextStatusMap = { 'pending': 'Pending Final Approval', 'Pending Final Approval': 'completed' };
+                    approveStatus = nextStatusMap[status] || 'completed';
                 } else if (type === 'Cash Advance') {
                     approveUrl = rejectUrl = `{{ url('employee/cash-advance') }}/${id}`;
                     const nextStatusMap = { 
