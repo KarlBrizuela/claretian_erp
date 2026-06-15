@@ -40,6 +40,19 @@ class ProductionController extends Controller
                 ->get()
             : collect();
 
+        $pendingCctvRequests = $isAuthorized
+            ? \App\Models\Admin\MIS\CCTVReq::with('user')
+                ->where('status', 'pending approval')
+                ->whereHas('user', function ($query) {
+                    $query->where('division', 'like', '%Production%')
+                        ->orWhereHas('divisions', function ($divisionQuery) {
+                            $divisionQuery->where('division', 'like', '%Production%');
+                        });
+                })
+                ->latest()
+                ->get()
+            : collect();
+
         // 3. Unified Listing for "My Approvals" tab
         $myApprovals = [];
         
@@ -71,6 +84,22 @@ class ProductionController extends Controller
                 'department' => $ca->department,
                 'description' => $ca->purpose,
                 'original' => $ca
+            ];
+        }
+
+        foreach ($pendingCctvRequests as $req) {
+            $myApprovals[] = [
+                'type' => 'CCTV',
+                'id' => $req->cctv_req_id,
+                'reference_no' => 'CCTV-' . str_pad($req->cctv_req_id, 4, '0', STR_PAD_LEFT),
+                'submitted_by' => $req->user->name ?? $req->requested_by,
+                'submitted_date' => $req->created_at,
+                'amount' => 'N/A',
+                'attachment' => $req->attachment,
+                'status' => $req->status,
+                'department' => $req->department,
+                'description' => $req->purpose,
+                'original' => $req
             ];
         }
 
@@ -138,6 +167,7 @@ class ProductionController extends Controller
             'sidebar' => 'production',
             'salesOrders' => $salesOrders,
             'pendingCashAdvances' => $pendingCashAdvances,
+            'pendingCctvRequests' => $pendingCctvRequests,
             'myApprovals' => collect($myApprovals)->sortByDesc('submitted_date'),
             'mySubmissions' => $mySubmissions->sortByDesc('submitted_date'),
             'myApprovedRequests' => $myApprovedRequests->sortByDesc('submitted_date')
@@ -149,12 +179,16 @@ class ProductionController extends Controller
         $cashAdvances = \App\Models\EmployeeCashAdvance::where('user_id', auth()->id())
             ->latest()
             ->get();
+        $cctvRequests = \App\Models\Admin\MIS\CCTVReq::where('user_id', auth()->id())
+            ->latest()
+            ->get();
 
         return view('production.my-requests.index', [
             'title' => '',
             'role' => auth()->user()->position,
             'sidebar' => 'production',
-            'cashAdvances' => $cashAdvances
+            'cashAdvances' => $cashAdvances,
+            'cctvRequests' => $cctvRequests,
         ]);
     }
 

@@ -256,7 +256,7 @@
 
     <div class="approval-stats">
         <div class="stat-card pending">
-            <h3 id="pendingCount">{{ $salesOrders->count() + $pendingCashAdvances->count() }}</h3>
+            <h3 id="pendingCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingCctvRequests->count() }}</h3>
             <p>Pending Approvals</p>
         </div>
         <div class="stat-card urgent">
@@ -267,13 +267,14 @@
             @php
                 $recentSales = $salesOrders->where('created_at', '>=', now()->startOfDay())->count();
                 $recentCash = $pendingCashAdvances->where('created_at', '>=', now()->startOfDay())->count();
-                $recentTotal = $recentSales + $recentCash;
+                $recentCctv = $pendingCctvRequests->where('created_at', '>=', now()->startOfDay())->count();
+                $recentTotal = $recentSales + $recentCash + $recentCctv;
             @endphp
             <h3 id="recentCount">{{ $recentTotal }}</h3>
             <p>Received Today</p>
         </div>
         <div class="stat-card total">
-            <h3 id="totalCount">{{ $salesOrders->count() + $pendingCashAdvances->count() }}</h3>
+            <h3 id="totalCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingCctvRequests->count() }}</h3>
             <p>Total Pending</p>
         </div>
     </div>
@@ -312,7 +313,7 @@
                                     <tr>
                                         <td>
                                             @php
-                                                $typeClass = $approval['type'] === 'Sales Order' ? 'type-sales-order' : 'badge-info';
+                                                $typeClass = $approval['type'] === 'Sales Order' ? 'type-sales-order' : ($approval['type'] === 'CCTV' ? 'type-job-order' : 'badge-info');
                                             @endphp
                                             <span class="document-type-badge {{ $typeClass }}" @if($approval['type'] === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @endif>{{ $approval['type'] }}</span>
                                         </td>
@@ -330,6 +331,19 @@
                                         <td>
                                             @if($approval['type'] === 'Sales Order')
                                                 <a href="{{ $approval['url'] }}" class="btn btn-primary btn-sm"><i class="las la-eye"></i> Review</a>
+                                            @elseif($approval['type'] === 'CCTV')
+                                                <form action="{{ route('user.cctv-requests.update', $approval['id']) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <input type="hidden" name="status" value="Pending HR approval">
+                                                    <button type="submit" class="btn btn-success btn-sm"><i class="las la-check"></i> Approve</button>
+                                                </form>
+                                                <form action="{{ route('user.cctv-requests.update', $approval['id']) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <input type="hidden" name="status" value="rejected">
+                                                    <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times"></i> Reject</button>
+                                                </form>
                                             @else
                                                 <button type="button" 
                                                         class="btn btn-primary btn-sm"

@@ -61,9 +61,12 @@ class ProfileController extends Controller
         $pendingJobOrders = [];
         if ($user->position === 'Manager' || $user->position === 'MIS Supervisor' || $user->position === 'Super Admin') {
             // Fetch CCTV requests with pending approval status
-            $cctvRequests = \App\Models\Admin\MIS\CCTVReq::where('status', 'pending approval')
+            $cctvRequests = \App\Models\Admin\MIS\CCTVReq::whereIn('status', ['pending approval', 'Pending HR approval', 'Pending Final Approval'])
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->get()
+                ->filter(function ($request) use ($user) {
+                    return $request->canBeApprovedBy($user);
+                });
             
             foreach ($cctvRequests as $req) {
                 $pendingJobOrders[] = [

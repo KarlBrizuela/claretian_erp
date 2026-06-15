@@ -77,7 +77,8 @@ class MarketingController extends Controller
             ->get();
 
         // 2. Pending Cash Advances (Only Marketing Manager or Super Admin)
-        $isAuthorized = str_contains(auth()->user()->position, 'Manager') || auth()->user()->position === 'Super Admin';
+        $user = auth()->user();
+        $isAuthorized = str_contains($user->position, 'Manager') || str_contains($user->position, 'Supervisor') || $user->position === 'Super Admin';
         
         $pendingCashAdvances = $isAuthorized 
             ? EmployeeCashAdvance::where('status', 'pending_supervisor_approval')
@@ -90,6 +91,19 @@ class MarketingController extends Controller
         $pendingTransfers = $isAuthorized
             ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book')
                 ->where('status', 'pending')
+                ->latest()
+                ->get()
+            : collect();
+
+        $pendingCctvRequests = $isAuthorized
+            ? \App\Models\Admin\MIS\CCTVReq::with('user')
+                ->where('status', 'pending approval')
+                ->whereHas('user', function ($query) {
+                    $query->where('division', 'like', '%Marketing%')
+                        ->orWhereHas('divisions', function ($divisionQuery) {
+                            $divisionQuery->where('division', 'like', '%Marketing%');
+                        });
+                })
                 ->latest()
                 ->get()
             : collect();
@@ -159,6 +173,7 @@ class MarketingController extends Controller
             'salesOrders' => $salesOrders,
             'pendingCashAdvances' => $pendingCashAdvances,
             'pendingTransfers' => $pendingTransfers,
+            'pendingCctvRequests' => $pendingCctvRequests,
             'mySubmissions' => $mySubmissions,
             'myApprovedRequests' => $myApprovedRequests->sortByDesc('submitted_date')
         ]);
@@ -169,12 +184,16 @@ class MarketingController extends Controller
         $cashAdvances = \App\Models\EmployeeCashAdvance::where('user_id', auth()->id())
             ->latest()
             ->get();
+        $cctvRequests = \App\Models\Admin\MIS\CCTVReq::where('user_id', auth()->id())
+            ->latest()
+            ->get();
 
         return view('marketing.my-requests.index', [
             'title' => '',
             'role' => auth()->user()->position,
             'sidebar' => 'marketing',
-            'cashAdvances' => $cashAdvances
+            'cashAdvances' => $cashAdvances,
+            'cctvRequests' => $cctvRequests,
         ]);
     }
 

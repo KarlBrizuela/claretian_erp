@@ -505,7 +505,7 @@
     <div class="modal fade" id="editCctvModal" tabindex="-1" aria-labelledby="editCctvModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <form id="editCctvForm" method="POST">
+                <form id="editCctvForm" method="POST" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
                     <div class="modal-header">
@@ -561,6 +561,11 @@
                             <div class="col-12 mb-3">
                                 <label class="form-label fw-bold">Purpose:</label>
                                 <textarea name="purpose" id="edit_purpose" class="form-control" rows="3" required></textarea>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label fw-bold">Attachment:</label>
+                                <input type="file" name="attachment" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                <small class="text-muted">Accepted files: PDF, JPG, PNG, DOC, DOCX. Max 5MB.</small>
                             </div>
                         </div>
                     </div>
@@ -1272,7 +1277,7 @@
     <div class="modal fade" id="createCctvModal" tabindex="-1" aria-labelledby="createCctvModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <form id="createCctvForm" action="{{ route('admin-finance.mis.cctv-requests.store') }}" method="POST">
+                <form id="createCctvForm" action="{{ route('admin-finance.mis.cctv-requests.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     <div class="modal-header">
                         <h5 class="modal-title" id="createCctvModalLabel">Create New CCTV Request</h5>
@@ -1317,6 +1322,11 @@
                             <div class="col-12 mb-3">
                                 <label class="form-label fw-bold">Purpose:</label>
                                 <textarea name="purpose" class="form-control" rows="3" required>{{ old('purpose') }}</textarea>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label fw-bold">Attachment:</label>
+                                <input type="file" name="attachment" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                <small class="text-muted">Accepted files: PDF, JPG, PNG, DOC, DOCX. Max 5MB.</small>
                             </div>
                         </div>
                     </div>

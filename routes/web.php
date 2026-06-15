@@ -296,6 +296,9 @@ Route::middleware(['auth'])->group(function () {
 
   Route::post('/employee/cash-advance/store', [App\Http\Controllers\EmployeeCashAdvanceController::class, 'store'])->name('employee.cash-advance.store');
   Route::put('/employee/cash-advance/{id}', [App\Http\Controllers\EmployeeCashAdvanceController::class, 'update'])->name('employee.cash-advance.update');
+  Route::post('/my-requests/cctv-requests', [App\Http\Controllers\Admin\MIS\CCTVReqController::class, 'store'])->name('user.cctv-requests.store');
+  Route::put('/my-requests/cctv-requests/{id}', [App\Http\Controllers\Admin\MIS\CCTVReqController::class, 'update'])->name('user.cctv-requests.update');
+  Route::delete('/my-requests/cctv-requests/{cctvRequest}', [App\Http\Controllers\Admin\MIS\CCTVReqController::class, 'destroy'])->name('user.cctv-requests.destroy');
     
   // Admin & Finance Division - Protected by division.access:admin-finance middleware
   Route::middleware(['division.access:admin-finance'])->prefix('admin-finance')->group(function () {

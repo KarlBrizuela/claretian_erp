@@ -22,6 +22,7 @@ class CCTVReq extends Model
         'purpose',
         'hardcopy',
         'viewing',
+        'attachment',
         'approved_by_manager',
         'manager_approved_at',
         'approved_by_hr',
@@ -57,6 +58,75 @@ class CCTVReq extends Model
         return $this->belongsTo(\App\Models\User::class, 'rejected_by');
     }
 
+    public function creatorDivisionKey()
+    {
+        $creator = $this->user;
+        $division = $creator->division ?? '';
+
+        if (str_contains($division, 'Marketing')) {
+            return 'marketing';
+        }
+
+        if (str_contains($division, 'Production')) {
+            return 'production';
+        }
+
+        if (str_contains($division, 'Admin') || str_contains($division, 'Finance')) {
+            return 'admin-finance';
+        }
+
+        if ($creator) {
+            foreach ($creator->divisions as $creatorDivision) {
+                $division = $creatorDivision->division ?? '';
+
+                if (str_contains($division, 'Marketing')) {
+                    return 'marketing';
+                }
+
+                if (str_contains($division, 'Production')) {
+                    return 'production';
+                }
+
+                if (str_contains($division, 'Admin') || str_contains($division, 'Finance')) {
+                    return 'admin-finance';
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function userBelongsToDivision($user, $division)
+    {
+        if (str_contains($user->division ?? '', $division)) {
+            return true;
+        }
+
+        return $user->divisions()->where('division', 'like', "%{$division}%")->exists();
+    }
+
+    private function isDivisionApprover($user, $division)
+    {
+        if ($user->position === 'Super Admin') {
+            return true;
+        }
+
+        $isApproverPosition = str_contains($user->position ?? '', 'Manager')
+            || str_contains($user->position ?? '', 'Supervisor');
+
+        return $isApproverPosition && $this->userBelongsToDivision($user, $division);
+    }
+
+    private function isAdminFinanceManager($user)
+    {
+        if ($user->position === 'Super Admin') {
+            return true;
+        }
+
+        return str_contains($user->position ?? '', 'Manager')
+            && $this->userBelongsToDivision($user, 'Admin');
+    }
+
     /**
      * Check if the user can approve the request based on its current status.
      */
@@ -70,11 +140,25 @@ class CCTVReq extends Model
             case 'to submit':
                 return $this->user_id === $user->id;
             case 'pending approval':
-                return in_array($user->position, ['Manager', 'MIS Supervisor']);
+                $creatorDivision = $this->creatorDivisionKey();
+
+                if ($creatorDivision === 'marketing') {
+                    return $this->isDivisionApprover($user, 'Marketing');
+                }
+
+                if ($creatorDivision === 'production') {
+                    return $this->isDivisionApprover($user, 'Production');
+                }
+
+                if ($creatorDivision === 'admin-finance') {
+                    return $this->isAdminFinanceManager($user) || $user->position === 'MIS Supervisor';
+                }
+
+                return false;
             case 'Pending HR approval':
                 return in_array($user->position, ['HR Manager', 'HR Specialist', 'HR Staff']);
             case 'Pending Final Approval':
-                return $user->position === 'Manager';
+                return $this->isAdminFinanceManager($user);
             default:
                 return false;
         }

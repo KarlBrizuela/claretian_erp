@@ -40,6 +40,9 @@
                         <li class="nav-item">
                             <a class="nav-link active" data-bs-toggle="tab" href="#cash-advance" role="tab">Material Request / Cash Advance</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#cctv-requests" role="tab">CCTV Request</a>
+                        </li>
                     </ul>
 
                     <div class="tab-content">
@@ -103,6 +106,8 @@
                                 </table>
                             </div>
                         </div>
+
+                        @include('partials.my-requests.cctv-tab', ['cctvDepartment' => 'Admin'])
                     </div>
                 </div>
             </div>
@@ -239,7 +244,8 @@
                         'received': { badge: 'success', text: 'Received' },
                         'completed': { badge: 'success', text: 'Completed' },
                         'rejected': { badge: 'danger', text: 'Rejected' },
-                        'approved': { badge: 'success', text: 'Approved' }
+                        'approved': { badge: 'success', text: 'Approved' },
+                        'to submit': { badge: 'secondary', text: 'To Submit' }
                     };
                     const config = statusConfig[status] || { badge: 'secondary', text: status };
                     $('#modalStatus').html(`<span class="badge badge-${config.badge}">${config.text}</span>`);
@@ -263,6 +269,43 @@
                         </table>
                         <div class="mt-2">
                             <label class="fw-bold mb-1 d-block small">Purpose / Justification:</label>
+                            <div class="p-2 border rounded bg-white">${description}</div>
+                        </div>`;
+                } else if (type === 'CCTV') {
+                    const requestTypes = [];
+                    if (original.hardcopy) requestTypes.push('Hardcopy (CD/USB)');
+                    if (original.viewing) requestTypes.push('Viewing Only');
+                    const attachmentHtml = original.attachment
+                        ? `<a href="/storage/${original.attachment}" target="_blank" class="btn btn-light btn-sm"><i class="las la-paperclip me-1"></i>View Attachment</a>`
+                        : '<span class="text-muted">No attachment uploaded</span>';
+
+                    descriptionHtml = `
+                        <table class="table table-sm mb-2">
+                            <tbody>
+                                <tr>
+                                    <th class="bg-light py-1" style="width: 30%;">Requested By</th>
+                                    <td class="py-1">${original.requested_by || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light py-1">Department</th>
+                                    <td class="py-1">${original.department || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light py-1">Incident Date / Time</th>
+                                    <td class="py-1">${original.date_of_incident || 'N/A'} ${original.time_of_incident || ''}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light py-1">Request Type</th>
+                                    <td class="py-1">${requestTypes.length ? requestTypes.join(', ') : 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light py-1">Attachment</th>
+                                    <td class="py-1">${attachmentHtml}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="mt-2">
+                            <label class="fw-bold mb-1 d-block small">Purpose:</label>
                             <div class="p-2 border rounded bg-white">${description}</div>
                         </div>`;
                 }

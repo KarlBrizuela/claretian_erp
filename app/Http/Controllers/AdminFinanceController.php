@@ -372,21 +372,13 @@ class AdminFinanceController extends Controller
     $pos = $user->position;
 
     // --- CCTV Requests ---
-    $cctvQuery = CCTVReq::query();
-    if ($pos === 'Manager') {
-      $cctvQuery->whereIn('status', ['pending approval', 'Pending Final Approval']);
-    } elseif ($pos === 'MIS Supervisor') {
-      $cctvQuery->where('status', 'pending approval');
-    } elseif (in_array($pos, ['HR Manager', 'HR Specialist', 'HR Staff'])) {
-      $cctvQuery->where('status', 'Pending HR approval');
-    } elseif ($pos === 'Director') {
-      $cctvQuery->whereRaw('1 = 0');
-    } elseif ($pos === 'Super Admin') {
-      $cctvQuery->whereIn('status', ['pending approval', 'Pending HR approval', 'Pending Final Approval']);
-    } else {
-      $cctvQuery->whereRaw('1 = 0');
-    }
-    $cctvRequests = $cctvQuery->orderBy('created_at', 'desc')->get();
+    $cctvRequests = CCTVReq::with('user')
+      ->whereIn('status', ['pending approval', 'Pending HR approval', 'Pending Final Approval'])
+      ->orderBy('created_at', 'desc')
+      ->get()
+      ->filter(function ($request) use ($user) {
+        return $request->canBeApprovedBy($user);
+      });
 
     // --- Material Requests (MIS) ---
     $materialQuery = MaterialReq::query()->where('module', '!=', 'GSD');

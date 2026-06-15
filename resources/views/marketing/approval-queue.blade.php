@@ -256,7 +256,7 @@
 
     <div class="approval-stats">
         <div class="stat-card pending">
-            <h3 id="pendingCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingTransfers->count() }}</h3>
+            <h3 id="pendingCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingTransfers->count() + $pendingCctvRequests->count() }}</h3>
             <p>Pending Approvals</p>
         </div>
         <div class="stat-card urgent">
@@ -268,13 +268,14 @@
                 $recentSales = $salesOrders->where('created_at', '>=', now()->startOfDay())->count();
                 $recentCash = $pendingCashAdvances->where('created_at', '>=', now()->startOfDay())->count();
                 $recentTransfers = $pendingTransfers->where('created_at', '>=', now()->startOfDay())->count();
-                $recentTotal = $recentSales + $recentCash + $recentTransfers;
+                $recentCctv = $pendingCctvRequests->where('created_at', '>=', now()->startOfDay())->count();
+                $recentTotal = $recentSales + $recentCash + $recentTransfers + $recentCctv;
             @endphp
             <h3 id="recentCount">{{ $recentTotal }}</h3>
             <p>Received Today</p>
         </div>
         <div class="stat-card total">
-            <h3 id="totalCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingTransfers->count() }}</h3>
+            <h3 id="totalCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingTransfers->count() + $pendingCctvRequests->count() }}</h3>
             <p>Total Pending</p>
         </div>
     </div>
@@ -377,6 +378,38 @@
                                                     data-quantity="{{ $transfer->quantity }}">
                                                 <i class="las la-eye"></i> Review
                                             </button>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+
+                                    @foreach($pendingCctvRequests as $req)
+                                    <tr>
+                                        <td><span class="document-type-badge type-job-order">CCTV</span></td>
+                                        <td><strong>CCTV-{{ str_pad($req->cctv_req_id, 4, '0', STR_PAD_LEFT) }}</strong></td>
+                                        <td>{{ $req->user->name ?? $req->requested_by }}</td>
+                                        <td>{{ $req->created_at->format('Y-m-d h:i A') }}</td>
+                                        <td>N/A</td>
+                                        <td>
+                                            @if($req->attachment)
+                                                <a href="/storage/{{ $req->attachment }}" target="_blank" class="text-primary"><i class="las la-paperclip"></i> View</a>
+                                            @else
+                                                <span class="text-muted">None</span>
+                                            @endif
+                                        </td>
+                                        <td><span class="status-badge status-pending">Pending Manager</span></td>
+                                        <td>
+                                            <form action="{{ route('user.cctv-requests.update', $req->cctv_req_id) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                @method('PUT')
+                                                <input type="hidden" name="status" value="Pending HR approval">
+                                                <button type="submit" class="btn btn-success btn-sm"><i class="las la-check"></i> Approve</button>
+                                            </form>
+                                            <form action="{{ route('user.cctv-requests.update', $req->cctv_req_id) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                @method('PUT')
+                                                <input type="hidden" name="status" value="rejected">
+                                                <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times"></i> Reject</button>
+                                            </form>
                                         </td>
                                     </tr>
                                     @endforeach

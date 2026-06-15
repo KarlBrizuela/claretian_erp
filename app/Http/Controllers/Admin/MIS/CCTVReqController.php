@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\MIS;
 use App\Http\Controllers\Controller;
 use App\Models\Admin\MIS\CCTVReq;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class CCTVReqController extends Controller
 {
@@ -24,12 +25,16 @@ class CCTVReqController extends Controller
             'purpose' => 'required|string',
             'hardcopy' => 'nullable|boolean',
             'viewing' => 'nullable|boolean',
+            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:5120',
         ]);
 
         $validated['user_id'] = auth()->id();
         $validated['status'] = 'to submit';
         $validated['hardcopy'] = $request->boolean('hardcopy');
         $validated['viewing'] = $request->boolean('viewing');
+        if ($request->hasFile('attachment')) {
+            $validated['attachment'] = $request->file('attachment')->store('cctv_requests', 'public');
+        }
 
         CCTVReq::create($validated);
 
@@ -56,6 +61,7 @@ class CCTVReqController extends Controller
             'date_of_incident' => 'sometimes|required|date',
             'purpose' => 'sometimes|required|string',
             'rejection_reason' => 'nullable|string',
+            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:5120',
         ]);
 
         $newStatus = $request->status;
@@ -111,6 +117,12 @@ class CCTVReqController extends Controller
             // This prevents status-only updates (like from approval queue) from resetting these to false
             $cctvReq->hardcopy = $request->boolean('hardcopy');
             $cctvReq->viewing = $request->boolean('viewing');
+        }
+        if ($request->hasFile('attachment')) {
+            if ($cctvReq->attachment) {
+                Storage::disk('public')->delete($cctvReq->attachment);
+            }
+            $cctvReq->attachment = $request->file('attachment')->store('cctv_requests', 'public');
         }
 
         $cctvReq->save();
