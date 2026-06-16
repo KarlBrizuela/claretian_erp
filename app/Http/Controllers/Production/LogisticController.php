@@ -81,12 +81,36 @@ class LogisticController extends Controller
 
     public function showPickList($id)
     {
-        $pickList = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'preparedByUser'])
-            ->findOrFail($id);
+        try {
+            \Log::info('Loading pick list with ID: ' . $id);
+            
+            $pickList = \App\Models\PickList::with([
+                'salesOrder', 
+                'salesOrder.customer', 
+                'pickListItems.salesOrderItem.book', 
+                'preparedByUser'
+            ])->findOrFail($id);
 
-        return view('production.logistic.pick-list-details', [
-            'pickList' => $pickList
-        ]);
+            \Log::info('Pick List loaded successfully:', [
+                'id' => $pickList->id,
+                'pick_list_number' => $pickList->pick_list_number,
+                'items_count' => $pickList->pickListItems->count(),
+                'sales_order_id' => $pickList->salesOrder->id ?? null,
+                'prepared_by' => $pickList->preparedByUser->name ?? 'System'
+            ]);
+
+            return view('production.logistic.pick-list-details', [
+                'pickList' => $pickList
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error loading pick list: ' . $e->getMessage(), [
+                'id' => $id,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     public function markAsGathered(Request $request)

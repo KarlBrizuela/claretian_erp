@@ -212,4 +212,50 @@
         }
     </style>
     @endpush
+
+    @push('scripts')
+    <script>
+        console.log('=== PICK LIST DEBUG INFO ===');
+        console.log('Pick List ID:', '{{ $pickList->id ?? 'N/A' }}');
+        console.log('Pick List Number:', '{{ $pickList->pick_list_number ?? 'N/A' }}');
+        console.log('Sales Order ID:', '{{ $pickList->salesOrder->id ?? 'N/A' }}');
+        console.log('Sales Order Number:', '{{ $pickList->salesOrder->so_number ?? 'N/A' }}');
+        console.log('Customer Name:', '{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}');
+        console.log('Prepared By:', '{{ $pickList->preparedByUser->name ?? 'N/A' }}');
+        console.log('Number of Items:', {{ $pickList->pickListItems->count() }});
+        console.log('Pick List Items Count:', '{{ count($pickList->pickListItems) }}');
+        
+        // Log each item for debugging
+        const items = {!! json_encode($pickList->pickListItems->map(function($item) {
+            return [
+                'id' => $item->id,
+                'requested_qty' => $item->requested_qty,
+                'picked_qty' => $item->picked_qty,
+                'status' => $item->status,
+                'book_name' => $item->salesOrderItem->book->name ?? 'Unknown',
+                'price' => $item->salesOrderItem->price ?? 'N/A',
+                'subtotal' => $item->salesOrderItem->subtotal ?? 'N/A'
+            ];
+        })) !!};
+        
+        console.log('Pick List Items:', items);
+        console.log('Total Requested Qty:', {{ $pickList->pickListItems->sum('requested_qty') }});
+        console.log('Total Picked Qty:', {{ $pickList->pickListItems->sum('picked_qty') }});
+        console.log('Created At:', '{{ $pickList->created_at }}');
+        console.log('=== END DEBUG INFO ===');
+
+        // Check for any missing relationships
+        @if(!$pickList->salesOrder)
+            console.error('ERROR: Sales Order relationship is missing!');
+        @endif
+
+        @if(!$pickList->preparedByUser)
+            console.warn('WARNING: Prepared By User is missing!');
+        @endif
+
+        @if($pickList->pickListItems->isEmpty())
+            console.warn('WARNING: Pick List has no items!');
+        @endif
+    </script>
+    @endpush
 </x-app-layout>
