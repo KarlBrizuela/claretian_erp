@@ -99,7 +99,7 @@
                             </div>
 
                             <!-- Cargo Items Section -->
-                            <h6 class="border-bottom pb-2 mb-3"><strong>Cargo Items</strong></h6>
+                            <!-- <h6 class="border-bottom pb-2 mb-3"><strong>Cargo Items</strong></h6>
 
                             <div class="table-responsive mb-3">
                                 <table class="table table-sm table-bordered" id="cargoItemsTable">
@@ -120,11 +120,13 @@
                                         </tr>
                                     </tbody>
                                 </table>
-                            </div>
+                            </div> -->
 
-                            <button type="button" class="btn btn-sm btn-outline-danger mb-3" id="addCargoItem">
+                            
+
+                            <!-- <button type="button" class="btn btn-sm btn-outline-danger mb-3" id="addCargoItem">
                                 <i class="bi bi-plus me-1"></i>Add Item
-                            </button>
+                            </button> -->
 
                             @error('cargo_qty')<div class="alert alert-danger">{{ $message }}</div>@enderror
 

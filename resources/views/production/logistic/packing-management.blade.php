@@ -43,7 +43,7 @@
                                 @foreach($packingOrders as $order)
                                 @php
                                     $packingData = json_decode($order->packing_data ?? '{}', true);
-                                    $packedCount = count(array_filter($packingData, function($item) { return $item['status'] ?? null === 'Packed'; }));
+                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
                                     $totalItems = $order->items->count();
                                     
                                     if($packedCount === 0) {
@@ -142,6 +142,14 @@
         </div>
 
                 <!-- Packing Items Table -->
+                <div class="packing-scan-section">
+                    <div class="form-group">
+                        <label for="barcodeScannerInput">Barcode Scanner:</label>
+                        <input type="text" id="barcodeScannerInput" class="form-control" placeholder="Scan book barcode here" autocomplete="off">
+                    </div>
+                    <div id="barcodeScanMessage" class="barcode-scan-message">Ready to scan</div>
+                </div>
+
                 <h5 style="margin-bottom: 1rem; margin-top: 1.5rem; font-weight: 600;">Items to Pack</h5>
                 <div class="table-wrapper-packing">
                     <table class="packing-table">
@@ -193,7 +201,7 @@
                     </button>
                 </div>
                 <div class="form-group">
-                    <button type="button" class="btn btn-primary-custom" style="width: 100%;" class="close-modal-btn">
+                    <button type="button" class="btn btn-primary-custom close-modal-btn" style="width: 100%;" id="closeDetailsActionBtn">
                         <i class="las la-times"></i> Close Details
                     </button>
                 </div>
@@ -372,6 +380,49 @@
             background: #fff;
         }
 
+        .packing-scan-section {
+            background: #f8f9fa;
+            border-left: 4px solid #ffc107;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-top: 1.5rem;
+        }
+
+        .packing-scan-section .form-group {
+            margin-bottom: 0.5rem;
+        }
+
+        .barcode-scan-message {
+            color: #555;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .barcode-scan-message.success {
+            color: #155724;
+        }
+
+        .barcode-scan-message.error {
+            color: #b00020;
+        }
+
+        .packing-table tr.item-packed {
+            background: #e8f5e9;
+        }
+
+        .packing-table tr.item-not-packed {
+            background: #ffe5e5;
+        }
+
+        .packing-table tr.item-scanned {
+            animation: scannedPulse 0.7s ease-out;
+        }
+
+        @keyframes scannedPulse {
+            0% { box-shadow: inset 0 0 0 3px rgba(40, 167, 69, 0.8); }
+            100% { box-shadow: inset 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+
         .btn-primary-custom {
             background: #ff0000;
             color: #fff;
@@ -450,6 +501,7 @@
     <script>
         let currentOrderId = null;
         let currentOrderItems = [];
+        let barcodeScanTimer = null;
 
         // Initialize DataTable
         $(document).ready(function() {
@@ -481,27 +533,45 @@
 
         // Close Detail Modal
         document.getElementById('closeDetailBtn').addEventListener('click', function() {
-            document.getElementById('orderDetailModal').style.display = 'none';
-            currentOrderId = null;
-            currentOrderItems = [];
+            closePackingDetailsModal();
         });
 
         // Close modal button inside the modal
         document.querySelectorAll('.close-modal-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                document.getElementById('orderDetailModal').style.display = 'none';
-                currentOrderId = null;
-                currentOrderItems = [];
+                closePackingDetailsModal();
             });
         });
 
         // Close modal when clicking outside
         document.getElementById('orderDetailModal').addEventListener('click', function(e) {
             if (e.target === this) {
-                this.style.display = 'none';
-                currentOrderId = null;
-                currentOrderItems = [];
+                closePackingDetailsModal();
             }
+        });
+
+        function closePackingDetailsModal() {
+            document.getElementById('orderDetailModal').style.display = 'none';
+            currentOrderId = null;
+            currentOrderItems = [];
+            document.getElementById('barcodeScannerInput').value = '';
+        }
+
+        const barcodeScannerInput = document.getElementById('barcodeScannerInput');
+        barcodeScannerInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                processPackingBarcode(this.value);
+            }
+        });
+
+        barcodeScannerInput.addEventListener('input', function() {
+            clearTimeout(barcodeScanTimer);
+            barcodeScanTimer = setTimeout(() => {
+                if (this.value.trim().length >= 6) {
+                    processPackingBarcode(this.value);
+                }
+            }, 250);
         });
 
         function markOrderAsPacked(orderId, soNumber) {
@@ -600,7 +670,7 @@
                         if (itemData.status === 'Packed') packedItems++;
 
                         html += `
-                            <tr>
+                            <tr id="packing_item_row_${index}">
                                 <td>${index + 1}</td>
                                 <td>${item.book.name}</td>
                                 <td><input type="number" value="${item.quantity}" readonly style="width: 100%; border: none;"></td>
@@ -608,7 +678,7 @@
                                 <td>₱${parseFloat(item.subtotal).toFixed(2)}</td>
                                 <td><input type="number" id="packed_qty_${index}" min="0" max="${item.quantity}" value="${itemData.packed_qty || 0}" onchange="updatePackingCount()"></td>
                                 <td>
-                                    <select id="packed_status_${index}">
+                                    <select id="packed_status_${index}" onchange="handlePackingStatusChange()">
                                         <option value="Not Packed" ${itemData.status === 'Not Packed' ? 'selected' : ''}>Not Packed</option>
                                         <option value="In Progress" ${itemData.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
                                         <option value="Packed" ${itemData.status === 'Packed' ? 'selected' : ''}>Packed</option>
@@ -627,10 +697,15 @@
                     // Show detail modal
                     document.getElementById('orderDetailModal').style.display = 'flex';
                     document.getElementById('modalTitle').textContent = `Packing Details - ${order.so_number}`;
+                    document.getElementById('barcodeScannerInput').value = '';
+                    setBarcodeScanMessage('Ready to scan', 'neutral');
+                    refreshPackingRowColors();
+                    setTimeout(() => document.getElementById('barcodeScannerInput').focus(), 100);
                     
                     // Disable inputs if completed
                     if (isCompleted) {
                         document.getElementById('packingStatus').disabled = true;
+                        document.getElementById('barcodeScannerInput').disabled = true;
                         for (let i = 0; i < totalItems; i++) {
                             document.getElementById(`packed_qty_${i}`).disabled = true;
                             document.getElementById(`packed_status_${i}`).disabled = true;
@@ -640,6 +715,7 @@
                         document.getElementById('savePackingBtn').style.display = 'none';
                     } else {
                         document.getElementById('packingStatus').disabled = false;
+                        document.getElementById('barcodeScannerInput').disabled = false;
                         for (let i = 0; i < totalItems; i++) {
                             document.getElementById(`packed_qty_${i}`).disabled = false;
                             document.getElementById(`packed_status_${i}`).disabled = false;
@@ -670,6 +746,99 @@
             const percent = totalItems > 0 ? Math.round((packedCount / totalItems) * 100) : 0;
             document.getElementById('packingProgressBar').style.width = percent + '%';
             document.getElementById('packingPercent').textContent = percent + '%';
+            document.getElementById('packingStatus').value = packedCount === totalItems && totalItems > 0
+                ? 'completed'
+                : (packedCount > 0 ? 'in_progress' : 'not_started');
+            refreshPackingRowColors();
+        }
+
+        function handlePackingStatusChange() {
+            updatePackingCount();
+            focusBarcodeScanner();
+        }
+
+        function focusBarcodeScanner() {
+            if (!barcodeScannerInput.disabled && document.getElementById('orderDetailModal').style.display !== 'none') {
+                setTimeout(() => barcodeScannerInput.focus(), 50);
+            }
+        }
+
+        function normalizeBarcode(value) {
+            return (value || '').toString().trim().toLowerCase();
+        }
+
+        function getItemBarcodes(item) {
+            const book = item.book || {};
+            return [
+                book.barcode,
+                book.nbs_barcode,
+                book.sku,
+                book.item_code,
+                item.isbn,
+            ].map(normalizeBarcode).filter(Boolean);
+        }
+
+        function processPackingBarcode(rawBarcode) {
+            clearTimeout(barcodeScanTimer);
+            const barcode = normalizeBarcode(rawBarcode);
+
+            if (!barcode || !currentOrderItems.length) {
+                return;
+            }
+
+            const matchedIndex = currentOrderItems.findIndex(item => getItemBarcodes(item).includes(barcode));
+            barcodeScannerInput.value = '';
+            barcodeScannerInput.focus();
+
+            if (matchedIndex === -1) {
+                setBarcodeScanMessage(`Barcode not found in this order: ${rawBarcode.trim()}`, 'error');
+                return;
+            }
+
+            const item = currentOrderItems[matchedIndex];
+            const qtyInput = document.getElementById(`packed_qty_${matchedIndex}`);
+            const statusSelect = document.getElementById(`packed_status_${matchedIndex}`);
+            const notesInput = document.getElementById(`packed_notes_${matchedIndex}`);
+            const dateInput = document.getElementById(`packed_date_${matchedIndex}`);
+            const row = document.getElementById(`packing_item_row_${matchedIndex}`);
+
+            qtyInput.value = item.quantity;
+            statusSelect.value = 'Packed';
+            dateInput.value = new Date().toISOString().split('T')[0];
+            if (!notesInput.value.trim()) {
+                notesInput.value = 'Scanned by barcode';
+            }
+
+            updatePackingCount();
+            row.classList.remove('item-scanned');
+            void row.offsetWidth;
+            row.classList.add('item-scanned');
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setBarcodeScanMessage(`${item.book.name} marked as packed`, 'success');
+        }
+
+        function refreshPackingRowColors() {
+            const totalItems = parseInt(document.getElementById('totalItems').value) || 0;
+
+            for (let i = 0; i < totalItems; i++) {
+                const row = document.getElementById(`packing_item_row_${i}`);
+                const status = document.getElementById(`packed_status_${i}`)?.value;
+
+                if (!row) continue;
+
+                row.classList.toggle('item-packed', status === 'Packed');
+                row.classList.toggle('item-not-packed', status !== 'Packed');
+            }
+        }
+
+        function setBarcodeScanMessage(message, type) {
+            const messageBox = document.getElementById('barcodeScanMessage');
+            messageBox.textContent = message;
+            messageBox.classList.remove('success', 'error');
+
+            if (type === 'success' || type === 'error') {
+                messageBox.classList.add(type);
+            }
         }
 
         function savePackingData() {

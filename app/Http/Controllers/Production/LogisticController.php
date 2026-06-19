@@ -1151,5 +1151,52 @@ class LogisticController extends Controller
                 ->with('error', 'Error: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Update cargo items for freight quotation
+     */
+    public function updateCargoItems(Request $request, \App\Models\FreightQuotation $freightQuotation)
+    {
+        try {
+            // Get cargo item data from request
+            $cargoQty = $request->input('cargo_qty', []);
+            $cargoPackageType = $request->input('cargo_package_type', []);
+            $cargoDimensions = $request->input('cargo_dimensions', []);
+            $cargoGrossWeight = $request->input('cargo_gross_weight', []);
+            $cargoVolWeight = $request->input('cargo_vol_weight', []);
+
+            // Build cargo items array
+            $cargoItems = [];
+            $itemCount = count($cargoQty);
+
+            for ($i = 0; $i < $itemCount; $i++) {
+                // Skip empty rows
+                if (empty($cargoQty[$i]) && empty($cargoPackageType[$i])) {
+                    continue;
+                }
+
+                $cargoItems[] = [
+                    'qty' => $cargoQty[$i] ?? 0,
+                    'package_type' => $cargoPackageType[$i] ?? '',
+                    'dimensions' => $cargoDimensions[$i] ?? '',
+                    'gross_weight' => (float) ($cargoGrossWeight[$i] ?? 0),
+                    'vol_weight' => (float) ($cargoVolWeight[$i] ?? 0),
+                ];
+            }
+
+            // Update quotation with cargo items
+            $freightQuotation->update([
+                'cargo_items' => json_encode($cargoItems),
+            ]);
+
+            return redirect()->back()
+                ->with('success', 'Cargo items updated successfully! ' . count($cargoItems) . ' item(s) saved.');
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error updating cargo items: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Error updating cargo items: ' . $e->getMessage());
+        }
+    }
 }
 

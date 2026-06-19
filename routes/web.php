@@ -115,6 +115,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/freight-quotations/{freightQuotation}', [App\Http\Controllers\Production\LogisticController::class, 'showFreightQuotation'])->name('show-freight-quotation');
       Route::post('/freight-quotations/{freightQuotation}/approve', [App\Http\Controllers\Production\LogisticController::class, 'approveFreightQuotation'])->name('approve-freight-quotation');
       Route::post('/freight-quotations/{freightQuotation}/reject', [App\Http\Controllers\Production\LogisticController::class, 'rejectFreightQuotation'])->name('reject-freight-quotation');
+      Route::put('/freight-quotations/{freightQuotation}/cargo-items', [App\Http\Controllers\Production\LogisticController::class, 'updateCargoItems'])->name('update-cargo-items');
       
       // Delivery Form View
       Route::get('/delivery-form/{id}', [App\Http\Controllers\Production\LogisticController::class, 'viewDeliveryForm'])->name('view-delivery-form');

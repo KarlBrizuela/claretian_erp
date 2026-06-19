@@ -85,6 +85,7 @@
                                         <th>Address</th>
                                         <th>SI / DR #</th>
                                         <th>Assignment</th>
+                                        <th>Delivery Date</th>
                                         <th>Remarks</th>
                                         <th>Status</th>
                                         <th class="text-end">Actions</th>
@@ -180,6 +181,13 @@
                                             </div>
                                         </td>
                                         <td class="align-middle">
+                                            @if($order->delivery_date)
+                                                <span class="text-black font-w500">{{ \Carbon\Carbon::parse($order->delivery_date)->format('M d, Y') }}</span>
+                                            @else
+                                                <span class="text-muted small">Not scheduled</span>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle">
                                             @if($order->type == 'paid')
                                                 <span class="status-badge status-paid">PAID</span>
                                             @elseif($order->transaction_type === 'COD')
@@ -251,7 +259,7 @@
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="8" class="text-center py-5">
+                                        <td colspan="9" class="text-center py-5">
                                             <div class="text-muted">
                                                 <i class="las la-clipboard-list fs-50 mb-3 d-block opacity-25"></i>
                                                 No orders currently ready for delivery schedule.
