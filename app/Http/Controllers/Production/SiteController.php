@@ -7,6 +7,7 @@ use App\Models\Site;
 use App\Models\SiteInventory;
 use App\Models\StockTransfer;
 use App\Models\Book;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -154,6 +155,7 @@ class SiteController extends Controller
                 'to_site_id' => $request->to_site_id,
                 'book_id' => $request->book_id,
                 'quantity' => $request->quantity,
+                'approval_division' => StockTransfer::approvalDivisionForUser(auth()->user()),
                 'notes' => $request->notes,
                 'created_by' => auth()->id(),
                 'status' => 'pending'
@@ -161,7 +163,7 @@ class SiteController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Transfer request submitted for approval'
+                'message' => 'Transfer request submitted for ' . $transfer->approval_division . ' approval'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -176,16 +178,12 @@ class SiteController extends Controller
         try {
             $transfer = StockTransfer::findOrFail($id);
 
-            // Check permissions - allow managers, super admin, or marketing staff with approval permission
             $user = auth()->user();
-            $hasPermission = $user->isSuperAdmin() 
-                || $user->hasPermission('marketing.approval_queue')
-                || str_contains($user->position, 'Manager');
-            
-            if (!$hasPermission) {
+
+            if (!$transfer->canBeApprovedBy($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to approve stock transfers'
+                    'message' => 'Only the assigned ' . ($transfer->approval_division ?? 'division') . ' manager/supervisor can approve this transfer'
                 ], 403);
             }
 
@@ -197,36 +195,8 @@ class SiteController extends Controller
             }
 
             DB::transaction(function () use ($transfer) {
-                // Deduct from source
-                $sourceInventory = SiteInventory::where('site_id', $transfer->from_site_id)
-                    ->where('book_id', $transfer->book_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$sourceInventory || $sourceInventory->quantity < $transfer->quantity) {
-                    throw new \Exception('Insufficient stock at source site');
-                }
-
-                $sourceInventory->decrement('quantity', $transfer->quantity);
-
-                // Add to destination
-                $destInventory = SiteInventory::where('site_id', $transfer->to_site_id)
-                    ->where('book_id', $transfer->book_id)
-                    ->first();
-
-                if ($destInventory) {
-                    $destInventory->increment('quantity', $transfer->quantity);
-                } else {
-                    SiteInventory::create([
-                        'site_id' => $transfer->to_site_id,
-                        'book_id' => $transfer->book_id,
-                        'quantity' => $transfer->quantity
-                    ]);
-                }
-
-                // Mark transfer as completed
                 $transfer->update([
-                    'status' => 'completed',
+                    'status' => 'accounting_review',
                     'approved_by' => auth()->id(),
                     'approved_at' => now()
                 ]);
@@ -234,7 +204,7 @@ class SiteController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Transfer approved and completed'
+                'message' => 'Transfer approved and forwarded to Accounting'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -244,10 +214,139 @@ class SiteController extends Controller
         }
     }
 
+    public function approveAccountingTransfer($id)
+    {
+        try {
+            $transfer = StockTransfer::findOrFail($id);
+            $user = auth()->user();
+
+            if (!$transfer->canBeReviewedByAccounting($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only Accounting/Admin & Finance can review this transfer'
+                ], 403);
+            }
+
+            if ($transfer->status !== 'accounting_review') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transfer is not waiting for Accounting review'
+                ], 422);
+            }
+
+            $transfer->update([
+                'status' => 'logistics_assignment',
+                'accounting_reviewed_by' => $user->id,
+                'accounting_reviewed_at' => now()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transfer reviewed and forwarded to Logistics'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error reviewing transfer: ' . $e->getMessage()
+            ], 422);
+        }
+    }
+
+    public function assignLogisticsTransfer(Request $request, $id)
+    {
+        $request->validate([
+            'logistics_assigned_to' => 'required|exists:users,id'
+        ]);
+
+        try {
+            $transfer = StockTransfer::findOrFail($id);
+            $user = auth()->user();
+
+            if (!$transfer->canBeAssignedBy($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only Logistics supervisor/manager can assign this transfer'
+                ], 403);
+            }
+
+            if (!in_array($transfer->status, ['logistics_assignment', 'logistics_assigned'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transfer is not ready for Logistics assignment'
+                ], 422);
+            }
+
+            $assignee = User::findOrFail($request->logistics_assigned_to);
+            if (!str_contains(strtolower($assignee->position ?? ''), 'logistic')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected user must be a Logistics staff'
+                ], 422);
+            }
+
+            $transfer->update([
+                'status' => 'logistics_assigned',
+                'logistics_assigned_to' => $assignee->id,
+                'logistics_assigned_by' => $user->id,
+                'logistics_assigned_at' => now()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transfer assigned to ' . $assignee->name
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error assigning transfer: ' . $e->getMessage()
+            ], 422);
+        }
+    }
+
+    public function completeLogisticsTransfer($id)
+    {
+        try {
+            $transfer = StockTransfer::findOrFail($id);
+            $user = auth()->user();
+
+            if (!$transfer->canBeCompletedBy($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only the assigned Logistics staff can complete this transfer'
+                ], 403);
+            }
+
+            DB::transaction(function () use ($transfer) {
+                if (!$transfer->completeStockMovement()) {
+                    throw new \Exception('Transfer is not assigned or source stock is insufficient');
+                }
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transfer completed and stock moved'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error completing transfer: ' . $e->getMessage()
+            ], 422);
+        }
+    }
+
     public function rejectTransfer($id)
     {
         try {
             $transfer = StockTransfer::findOrFail($id);
+
+            $user = auth()->user();
+
+            if (!$transfer->canBeApprovedBy($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only the assigned ' . ($transfer->approval_division ?? 'division') . ' manager/supervisor can reject this transfer'
+                ], 403);
+            }
 
             if ($transfer->status !== 'pending') {
                 return response()->json([

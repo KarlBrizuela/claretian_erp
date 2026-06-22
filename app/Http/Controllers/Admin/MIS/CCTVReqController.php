@@ -29,7 +29,7 @@ class CCTVReqController extends Controller
         ]);
 
         $validated['user_id'] = auth()->id();
-        $validated['status'] = 'to submit';
+        $validated['status'] = $request->routeIs('admin-finance.mis.cctv-requests.store') ? 'on_hold' : 'to submit';
         $validated['hardcopy'] = $request->boolean('hardcopy');
         $validated['viewing'] = $request->boolean('viewing');
         if ($request->hasFile('attachment')) {
@@ -81,7 +81,7 @@ class CCTVReqController extends Controller
             // 2. Validate status transition (if changing)
             if ($newStatus !== $oldStatus) {
                 $expectedNextStatus = $cctvReq->getNextApprovalStatus();
-                // Allow direct move to 'completed' for flexibility
+                // Allow direct completion for existing admin workflows.
                 if ($newStatus !== $expectedNextStatus && $newStatus !== 'completed') {
                     return redirect()->back()->with('error', 'Invalid status transition for this request.');
                 }

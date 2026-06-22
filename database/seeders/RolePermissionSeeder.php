@@ -41,6 +41,7 @@ class RolePermissionSeeder extends Seeder
             'admin_finance.credit_collection',
             'admin_finance.accounting',
             'admin_finance.expense_management',
+            'admin_finance.service_requests',
             'admin_finance.hr',
             'admin_finance.approval_queue',
             'admin_finance.my_requests'
@@ -72,10 +73,10 @@ class RolePermissionSeeder extends Seeder
         $this->createRole('Billing Staff', 'Admin & Finance Division', $ccStaffPerms);
 
         // MIS / GSD / HR
-        $this->createRole('MIS Supervisor', 'Admin & Finance Division', ['admin_finance.dashboard', 'admin_finance.mis', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher', 'admin_finance.my_requests']);
-        $this->createRole('MIS Staff', 'Admin & Finance Division', ['admin_finance.dashboard', 'admin_finance.mis', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher', 'admin_finance.my_requests']);
-        $this->createRole('GSD Supervisor', 'Admin & Finance Division', ['admin_finance.dashboard', 'admin_finance.gsd', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher', 'admin_finance.my_requests']);
-        $this->createRole('HR Staff', 'Admin & Finance Division', ['admin_finance.dashboard', 'admin_finance.hr', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher', 'admin_finance.my_requests']);
+        $this->createRole('MIS Supervisor', 'Admin & Finance Division', ['admin_finance.dashboard', 'admin_finance.mis', 'admin_finance.service_requests', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher', 'admin_finance.my_requests']);
+        $this->createRole('MIS Staff', 'Admin & Finance Division', ['admin_finance.dashboard', 'admin_finance.mis', 'admin_finance.service_requests', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher', 'admin_finance.my_requests']);
+        $this->createRole('GSD Supervisor', 'Admin & Finance Division', ['admin_finance.dashboard', 'admin_finance.gsd', 'admin_finance.service_requests', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher', 'admin_finance.my_requests']);
+        $this->createRole('HR Staff', 'Admin & Finance Division', ['admin_finance.dashboard', 'admin_finance.hr', 'admin_finance.service_requests', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher', 'admin_finance.my_requests']);
 
         // MARKETING
         $this->createRole('Marketing Manager', 'Marketing Division', array_merge($marketingPerms, ['marketing.dashboard', 'admin_finance.petty_cash_voucher', 'admin_finance.freight_voucher']));

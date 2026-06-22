@@ -115,6 +115,7 @@
         .type-direct-invoice { background-color: #ceffbcff; color: #00991fff; }
         .type-expense { background-color: #fff3cd; color: #856404; }
         .type-job-order { background-color: #f8d7da; color: #721c24; }
+        .type-stock-transfer { background-color: #d4edda; color: #155724; }
 
         .btn-xs {
             padding: 0.35rem 0.65rem;
@@ -440,7 +441,8 @@
                                         <td>
                                             @php
                                                 $typeClass = 'type-sales-order';
-                                                if($item['type'] !== 'Sales Order') $typeClass = 'type-job-order';
+                                                if($item['type'] === 'Stock Transfer') $typeClass = 'type-stock-transfer';
+                                                elseif($item['type'] !== 'Sales Order') $typeClass = 'type-job-order';
                                             @endphp
                                             <span class="document-type-badge {{ $typeClass }}">{{ $item['type'] }}</span>
                                         </td>
@@ -527,7 +529,8 @@
                                         <td>
                                             @php
                                                 $typeClass = 'type-sales-order';
-                                                if($submission['type'] !== 'Sales Order') $typeClass = 'type-job-order';
+                                                if($submission['type'] === 'Stock Transfer') $typeClass = 'type-stock-transfer';
+                                                elseif($submission['type'] !== 'Sales Order') $typeClass = 'type-job-order';
                                             @endphp
                                             <span class="document-type-badge {{ $typeClass }}">{{ $submission['type'] }}</span>
                                         </td>
@@ -605,7 +608,8 @@
                                         <td>
                                             @php
                                                 $typeClass = 'type-sales-order';
-                                                if($approved['type'] !== 'Sales Order') $typeClass = 'type-job-order';
+                                                if($approved['type'] === 'Stock Transfer') $typeClass = 'type-stock-transfer';
+                                                elseif($approved['type'] !== 'Sales Order') $typeClass = 'type-job-order';
                                             @endphp
                                             <span class="document-type-badge {{ $typeClass }}">{{ $approved['type'] }}</span>
                                         </td>
@@ -687,6 +691,7 @@
                         <button class="queue-btn filter-trigger active" onclick="filterQueue(this, '')">All Records</button>
                         <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Sales Order')">Sales Orders</button>
                         <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Job Order')">Job Orders (MIS)</button>
+                        <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Stock Transfer')">Stock Transfers</button>
                     </div>
 
                     <div class="table-responsive">
@@ -721,8 +726,12 @@
                                 @endforeach
 
                                 @foreach($pendingApprovals as $approval)
-                                <tr data-type="Job Order">
-                                    <td><span class="document-type-badge type-job-order">{{ $approval['type'] }} Request</span></td>
+                                <tr data-type="{{ $approval['type'] === 'Stock Transfer' ? 'Stock Transfer' : 'Job Order' }}">
+                                    <td>
+                                        <span class="document-type-badge {{ $approval['type'] === 'Stock Transfer' ? 'type-stock-transfer' : 'type-job-order' }}">
+                                            {{ $approval['type'] }}{{ $approval['type'] === 'Stock Transfer' ? '' : ' Request' }}
+                                        </span>
+                                    </td>
                                     <td><strong>{{ $approval['reference_no'] }}</strong></td>
                                     <td>{{ $approval['submitted_by'] }}</td>
                                     <td>{{ $approval['submitted_date'] }}</td>
@@ -905,7 +914,7 @@
                                 @csrf
                                 @method('PUT')
                                 <input type="hidden" name="status" id="modalStatusValue" value="Pending HR approval">
-                                <button type="submit" class="btn btn-success px-4 py-2 fw-semibold">
+                                <button type="submit" class="btn btn-success px-4 py-2 fw-semibold" id="modalApproveBtn">
                                     <i class="las la-check-circle me-1"></i>Approve Request
                                 </button>
                             </form>
@@ -1006,12 +1015,17 @@
                         'Pending Final Approval': { badge: 'primary', text: 'Final Review' },
                         'forwarded to accounting': { badge: 'info', text: 'Forwarded to Accounting' },
                         'received': { badge: 'success', text: 'Received' },
+                        'on_hold': { badge: 'warning', text: 'On Hold' },
+                        'ongoing': { badge: 'info', text: 'Ongoing' },
                         'completed': { badge: 'success', text: 'Completed' },
                         'rejected': { badge: 'danger', text: 'Rejected' },
                         'Pending AR': { badge: 'warning', text: 'Awaiting AR' },
                         'pending_supervisor_approval': { badge: 'warning', text: 'Manager Review' },
                         'pending_admin_approval': { badge: 'info', text: 'Finance Review (2nd Approval)' },
-                        'pending_director_approval': { badge: 'primary', text: 'Final Review (Director)' }
+                        'pending_director_approval': { badge: 'primary', text: 'Final Review (Director)' },
+                        'accounting_review': { badge: 'info', text: 'Accounting Review' },
+                        'logistics_assignment': { badge: 'primary', text: 'For Logistics Assignment' },
+                        'logistics_assigned': { badge: 'info', text: 'Assigned to Logistics' }
                     };
                     const config = statusConfig[status] || statusConfig[status.toLowerCase()] || { 
                         badge: 'secondary', 
@@ -1042,7 +1056,13 @@
                     'jv_number': 'Journal Voucher No.',
                     'date': 'Voucher Date',
                     'reason': 'Adjustment Reason',
-                    'category': 'Voucher Category'
+                    'category': 'Voucher Category',
+                    'from_site_id': 'From Site ID',
+                    'to_site_id': 'To Site ID',
+                    'book_id': 'Book ID',
+                    'quantity': 'Quantity',
+                    'approval_division': 'Initial Approval Division',
+                    'notes': 'Notes'
                 };
 
                 const excludedFields = [
@@ -1053,7 +1073,10 @@
                     'approved_by_director', 'director_approved_at',
                     'rejected_by', 'rejected_at', 'rejection_reason',
                     'cctv_req_id', 'material_req_id', 'qb_req_id', 'service_req_id', 'undertime_req_id',
-                    'prepared_by', 'signed_by_af_manager', 'customer_id', 'requested_by', 'requestor', 'items'
+                    'prepared_by', 'signed_by_af_manager', 'customer_id', 'requested_by', 'requestor', 'items',
+                    'from_site', 'to_site', 'book', 'created_by', 'approved_by', 'accounting_reviewed_by',
+                    'logistics_assigned_to', 'logistics_assigned_by', 'completed_by',
+                    'approved_at', 'accounting_reviewed_at', 'logistics_assigned_at', 'completed_at'
                 ];
 
                 let descriptionHtml = `<div class="table-responsive"><table class="table table-sm table-borderless mb-0"><tbody>`;
@@ -1125,6 +1148,22 @@
                         descriptionHtml += `<tr><td>${item.customer_name}</td><td>${item.reference_no}</td><td class="text-end">₱${parseFloat(item.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</td></tr>`;
                     });
                     descriptionHtml += `</tbody></table></div></div>`;
+                } else if (type === 'Stock Transfer') {
+                    descriptionHtml += `</tbody></table></div>
+                        <div class="mt-3 pt-2 border-top">
+                            <h6 class="fw-bold fs-12 text-muted mb-2">TRANSFER DETAILS</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mb-0 small">
+                                    <tbody>
+                                        <tr><th>From Site</th><td>${original.from_site?.name || 'N/A'}</td></tr>
+                                        <tr><th>To Site</th><td>${original.to_site?.name || 'N/A'}</td></tr>
+                                        <tr><th>Book</th><td>${original.book?.name || 'N/A'}</td></tr>
+                                        <tr><th>Quantity</th><td>${original.quantity || 'N/A'} units</td></tr>
+                                        <tr><th>Approved By</th><td>${original.approved_by?.name || 'N/A'}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>`;
                 } else {
                     descriptionHtml += `</tbody></table></div>`;
                 }
@@ -1142,8 +1181,8 @@
                     method = 'POST';
                 } else if (type === 'CCTV') {
                     approveUrl = rejectUrl = `{{ url('admin-finance/mis/cctv-requests') }}/${id}`;
-                    const nextStatusMap = { 'pending approval': 'Pending HR approval', 'Pending HR approval': 'Pending Final Approval', 'Pending Final Approval': 'completed' };
-                    approveStatus = nextStatusMap[status] || 'completed';
+                    const nextStatusMap = { 'pending approval': 'Pending HR approval', 'Pending HR approval': 'Pending Final Approval', 'Pending Final Approval': 'on_hold' };
+                    approveStatus = nextStatusMap[status] || 'on_hold';
                 } else if (type === 'Material') {
                     approveUrl = rejectUrl = `{{ url('admin-finance/mis/material-requests') }}/${id}`;
                     const nextStatusMap = { 'pending approval': 'Pending Final Approval', 'Pending Final Approval': 'forwarded to accounting' };
@@ -1154,8 +1193,12 @@
                     approveStatus = nextStatusMap[status] || 'completed';
                 } else if (type === 'GSD Service') {
                     approveUrl = rejectUrl = `{{ url('admin-finance/gsd/service-requests') }}/${id}`;
-                    const nextStatusMap = { 'pending': 'Pending Final Approval', 'Pending Final Approval': 'completed' };
-                    approveStatus = nextStatusMap[status] || 'completed';
+                    const nextStatusMap = { 'pending': 'Pending Final Approval', 'Pending Final Approval': 'on_hold' };
+                    approveStatus = nextStatusMap[status] || 'on_hold';
+                } else if (type === 'Service') {
+                    approveUrl = rejectUrl = `{{ url('admin-finance/mis/service-requests') }}/${id}`;
+                    const nextStatusMap = { 'pending': 'Pending Final Approval', 'Pending Final Approval': 'on_hold' };
+                    approveStatus = nextStatusMap[status] || 'on_hold';
                 } else if (type === 'Cash Advance') {
                     approveUrl = rejectUrl = `{{ url('employee/cash-advance') }}/${id}`;
                     const nextStatusMap = { 
@@ -1176,6 +1219,11 @@
                     }
                     // default approve status for JV flows
                     approveStatus = 'approved';
+                } else if (type === 'Stock Transfer') {
+                    approveUrl = `{{ url('stock-transfers') }}/${id}/accounting-approve`;
+                    rejectUrl = approveUrl;
+                    method = 'POST';
+                    approveStatus = 'logistics_assignment';
                 } else {
                     approveUrl = rejectUrl = `{{ url('admin-finance/mis') }}/${type.toLowerCase()}-requests/${id}`;
                     method = 'PUT';
@@ -1183,9 +1231,16 @@
 
                 $('#approveForm').attr('action', approveUrl).show();
                 $('#rejectForm').attr('action', rejectUrl).show();
+                $('#modalRejectWrapper').show();
+                $('#modalApproveBtn').html('<i class="las la-check-circle me-1"></i>Approve Request');
                 $('#modalStatusValue').val(approveStatus);
                 $('input[name="_method"]', '#approveForm').val(method);
                 $('input[name="_method"]', '#rejectForm').val(method);
+
+                if (type === 'Stock Transfer') {
+                    $('#modalRejectWrapper').hide();
+                    $('#modalApproveBtn').html('<i class="las la-check-circle me-1"></i>Approve & Forward to Logistics');
+                }
                 
                 var viewOnly = button.attr('data-view-only') === 'true';
                 if (viewOnly || status === 'rejected' || status === 'completed') {
@@ -1195,6 +1250,33 @@
                     $('#approveForm').show();
                     $('#rejectForm').show();
                 }
+            });
+
+            $('#approveForm').on('submit', function(e) {
+                const action = $(this).attr('action') || '';
+                if (!action.includes('/stock-transfers/') || !action.includes('/accounting-approve')) {
+                    return;
+                }
+
+                e.preventDefault();
+                fetch(action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok || data.success === false) {
+                        alert(data.message || 'Unable to approve stock transfer.');
+                        return;
+                    }
+
+                    alert(data.message || 'Stock transfer approved and forwarded to Logistics.');
+                    window.location.reload();
+                })
+                .catch(() => alert('Unable to approve stock transfer.'));
             });
         });
     </script>

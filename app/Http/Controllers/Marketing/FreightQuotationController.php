@@ -74,10 +74,13 @@ class FreightQuotationController extends Controller
                 'destination_address' => 'required|string',
                 'destination_province' => 'required|string|max:255',
                 'service_mode' => 'required|string|max:255',
-                'cargo_qty' => 'required|array',
-                'cargo_qty.*' => 'required|integer|min:1',
-                'cargo_package_type' => 'required|array',
-                'cargo_dimensions' => 'required|array',
+                'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
+                'cargo_qty' => 'nullable|array',
+                'cargo_qty.*' => 'nullable|integer|min:1',
+                'cargo_package_type' => 'nullable|array',
+                'cargo_package_type.*' => 'nullable|string',
+                'cargo_dimensions' => 'nullable|array',
+                'cargo_dimensions.*' => 'nullable|string',
                 'so_items' => 'nullable|array',
                 'so_items.*.product_id' => 'nullable|exists:books,id',
                 'so_items.*.quantity' => 'nullable|integer|min:1',
@@ -87,7 +90,6 @@ class FreightQuotationController extends Controller
                 'customer_id.exists' => 'Selected customer does not exist',
                 'origin_contact.required' => 'Origin contact is required',
                 'destination_contact.required' => 'Destination contact is required',
-                'cargo_qty.required' => 'At least one cargo item is required',
             ]);
 
             DB::beginTransaction();
@@ -102,13 +104,15 @@ class FreightQuotationController extends Controller
 
             // Build cargo items array
             $cargoItems = [];
-            foreach ($request->cargo_qty as $index => $qty) {
-                if (!empty($qty)) {
-                    $cargoItems[] = [
-                        'qty' => (int) $qty,
-                        'package_type' => $request->cargo_package_type[$index] ?? null,
-                        'dimensions' => $request->cargo_dimensions[$index] ?? null,
-                    ];
+            if ($request->cargo_qty && is_array($request->cargo_qty)) {
+                foreach ($request->cargo_qty as $index => $qty) {
+                    if (!empty($qty)) {
+                        $cargoItems[] = [
+                            'qty' => (int) $qty,
+                            'package_type' => $request->cargo_package_type[$index] ?? null,
+                            'dimensions' => $request->cargo_dimensions[$index] ?? null,
+                        ];
+                    }
                 }
             }
 
@@ -124,6 +128,7 @@ class FreightQuotationController extends Controller
                 'destination_address' => $validated['destination_address'],
                 'destination_province' => $validated['destination_province'],
                 'service_mode' => $validated['service_mode'],
+                'freight_option' => $validated['freight_option'] ?? null,
                 'cargo_items' => !empty($cargoItems) ? json_encode($cargoItems) : null,
                 'estimated_freight' => 0,
                 'total_amount' => 0,
@@ -155,12 +160,17 @@ class FreightQuotationController extends Controller
                         $itemsTotal += ($item['quantity'] * $item['price']);
                     }
 
+                    if (($validated['freight_option'] ?? null) === 'freight_collect') {
+                        $itemsTotal += 50.00;
+                    }
+
                     $salesOrder = SalesOrder::create([
                         'customer_id' => $validated['customer_id'],
                         'so_number' => $soNumber,
                         'type' => 'paid',
                         'status' => 'draft',
                         'total_amount' => $itemsTotal,
+                        'freight_option' => $validated['freight_option'] ?? null,
                         'prepared_by' => auth()->id(),
                         'remarks' => 'Created from Freight Quotation #' . $quoteNumber,
                     ]);
@@ -265,14 +275,17 @@ class FreightQuotationController extends Controller
             $customer = Customer::find($freightQuotation->customer_id) ?? 
                        Customer::find($freightQuotation->origin_contact);
 
+            $serviceFee = $freightQuotation->freight_option === 'freight_collect' ? 50.00 : 0;
+
             $salesOrder = SalesOrder::create([
                 'customer_id' => $freightQuotation->customer_id ?? $customer?->customer_id,
                 'so_number' => $soNumber,
                 'type' => 'paid',
                 'status' => 'pending_mkt_approval',
-                'total_amount' => 0,
+                'total_amount' => $freightQuotation->total_amount + $serviceFee,
                 'freight_charges' => $freightQuotation->total_amount,
                 'freight_notes' => $freightQuotation->logistics_notes ?? 'Freight approved from Quotation #' . $freightQuotation->quote_number,
+                'freight_option' => $freightQuotation->freight_option,
                 'prepared_by' => auth()->id(),
                 'billing_address' => $customer?->shipping_address ?? $customer?->billing_address ?? '',
                 'remarks' => 'Created from Freight Quotation #' . $freightQuotation->quote_number,
@@ -378,12 +391,18 @@ class FreightQuotationController extends Controller
                 // Add freight charges
                 $totalAmount += $freightQuotation->total_amount;
 
+                if ($freightQuotation->freight_option === 'freight_collect') {
+                    $totalAmount += 50.00;
+                }
+
                 $salesOrder = SalesOrder::create([
                     'customer_id' => $validated['customer_id'],
                     'so_number' => $soNumber,
                     'type' => $validated['type'],
                     'status' => 'draft',
                     'total_amount' => $totalAmount,
+                    'freight_charges' => $freightQuotation->total_amount,
+                    'freight_option' => $freightQuotation->freight_option,
                     'prepared_by' => auth()->id(),
                     'remarks' => 'Created from Freight Quotation #' . $freightQuotation->quote_number,
                 ]);

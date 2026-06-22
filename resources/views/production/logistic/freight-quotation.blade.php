@@ -193,6 +193,15 @@
                                 </select>
                             </div>
                             <div class="field">
+                                <label>Freight Option:</label>
+                                <select name="freight_option" id="freightOption">
+                                    <option value="">Select Freight Option</option>
+                                    <option value="freight_collect" {{ old('freight_option') === 'freight_collect' ? 'selected' : '' }}>Freight Collect</option>
+                                    <option value="freight_billing" {{ old('freight_option') === 'freight_billing' ? 'selected' : '' }}>Freight Billing</option>
+                                </select>
+                                @error('freight_option')<div class="error-text">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="field">
                                 <label>Carrier:</label>
                                 <input type="text" name="service_carrier" placeholder="Enter carrier name">
                             </div>
@@ -246,9 +255,9 @@
                         <input type="number" name="valuation_charge_total" id="valuationTotal" readonly style="background: #f0f0f0;">
                     </div>
                     <div class="rate-row">
-                        <label>Handling Fee / Service Fee (20%)</label>
-                        <input type="number" name="handling_percentage" value="20" step="0.01" placeholder="20" id="handlingPercent">
-                        <input type="number" name="handling_fee_total" id="handlingTotal" readonly style="background: #f0f0f0;">
+                        <label id="serviceFeeLabel">Service Fee</label>
+                        <div></div>
+                        <input type="number" name="service_fee_total" id="serviceFeeTotal" readonly style="background: #f0f0f0;">
                     </div>
                     <div class="rate-row rate-total">
                         <label>TOTAL QUOTATION AMOUNT:</label>
@@ -409,26 +418,42 @@
 
             const freightInput = document.getElementById('freightAmount');
             const valuationInput = document.getElementById('valuationPercent');
-            const handlingInput = document.getElementById('handlingPercent');
+            const freightOptionInput = document.getElementById('freightOption');
+            const serviceFeeLabel = document.getElementById('serviceFeeLabel');
 
             function calculateTotals() {
                 const freight = parseFloat(freightInput.value) || 0;
                 const valuationPercent = parseFloat(valuationInput.value) || 0;
-                const handlingPercent = parseFloat(handlingInput.value) || 0;
+                const isFreightCollect = freightOptionInput?.value === 'freight_collect';
 
+                // Service fee is fixed at 50 pesos only for freight collect
+                const serviceFee = isFreightCollect ? 50 : 0;
+
+                // Update label based on freight option
+                if (serviceFeeLabel) {
+                    if (isFreightCollect) {
+                        serviceFeeLabel.textContent = 'Service Fee (₱50 - Freight Collect)';
+                    } else if (freightOptionInput?.value === 'freight_billing') {
+                        serviceFeeLabel.textContent = 'Service Fee (No charge)';
+                    } else {
+                        serviceFeeLabel.textContent = 'Service Fee';
+                    }
+                }
+
+                // Calculate totals
                 const valuationCharge = (freight * valuationPercent) / 100;
-                const handlingFee = (freight * handlingPercent) / 100;
-                const total = freight + valuationCharge + handlingFee;
+                const total = freight + valuationCharge + serviceFee;
 
                 document.getElementById('freightTotal').value = freight.toFixed(2);
                 document.getElementById('valuationTotal').value = valuationCharge.toFixed(2);
-                document.getElementById('handlingTotal').value = handlingFee.toFixed(2);
+                document.getElementById('serviceFeeTotal').value = serviceFee.toFixed(2);
                 document.getElementById('totalAmount').value = total.toFixed(2);
             }
 
             freightInput?.addEventListener('input', calculateTotals);
             valuationInput?.addEventListener('input', calculateTotals);
-            handlingInput?.addEventListener('input', calculateTotals);
+            freightOptionInput?.addEventListener('change', calculateTotals);
+            calculateTotals();
         });
 
         function viewQuotation(id) {

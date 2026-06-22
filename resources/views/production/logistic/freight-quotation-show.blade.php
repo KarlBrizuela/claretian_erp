@@ -139,121 +139,8 @@
                         </div>
 
                         <p><strong>Service Mode:</strong> {{ $quotation->service_mode }}</p>
-
-                        <!-- Cargo Items -->
-                        <h6 class="border-bottom pb-2 mb-3"><strong>Cargo Items</strong></h6>
-
-                        @if($quotation->cargo_items)
-                            <div class="table-responsive mb-3" style="max-height: 220px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
-                                <table class="table table-sm table-bordered mb-0">
-                                    <thead class="table-light" style="position: sticky; top: 0;">
-                                        <tr>
-                                            <th style="width: 15%;">Quantity</th>
-                                            <th style="width: 25%;">Package Type</th>
-                                            <th style="width: 30%;">Dimensions</th>
-                                            <th style="width: 15%;">Gross Weight</th>
-                                            <th style="width: 15%;">Vol. Weight</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @php
-                                            $cargoItems = is_string($quotation->cargo_items) ? json_decode($quotation->cargo_items, true) : $quotation->cargo_items;
-                                        @endphp
-                                        @foreach($cargoItems as $item)
-                                            <tr>
-                                                <td>{{ $item['qty'] ?? '-' }}</td>
-                                                <td>{{ $item['package_type'] ?? '-' }}</td>
-                                                <td>{{ $item['dimensions'] ?? '-' }}</td>
-                                                <td>{{ $item['gross_weight'] ?? '-' }}</td>
-                                                <td>{{ $item['vol_weight'] ?? '-' }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        @else
-                            <div class="alert alert-info mb-4">
-                                <i class="bi bi-info-circle me-2"></i>No cargo items recorded yet.
-                            </div>
-                        @endif
-
-                        <!-- Books/Items Breakdown List -->
-                        <h6 class="border-bottom pb-2 mb-3"><strong>📚 Books/Items Breakdown</strong></h6>
-
-                        @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->items && $quotation->salesOrder->items->count() > 0)
-                            <div class="table-responsive mb-4">
-                                <table class="table table-hover table-bordered">
-                                    <thead class="table-info">
-                                        <tr>
-                                            <th style="width: 40px;">#</th>
-                                            <th>Book/Product Name</th>
-                                            <th style="width: 80px;" class="text-center">QTY</th>
-                                            <th style="width: 100px;" class="text-center">Weight (kg)</th>
-                                            <th style="width: 120px;" class="text-center">Total Weight</th>
-                                            <th style="width: 120px;" class="text-end">Unit Price</th>
-                                            <th style="width: 120px;" class="text-end">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @php $totalAmount = 0; $totalWeight = 0; @endphp
-                                        @foreach($quotation->salesOrder->items as $key => $item)
-                                            @php
-                                                $product = $item->product ?? $item->book;
-                                                $weight = $product?->weight ?? 0;
-                                                $itemTotalWeight = ($item->quantity * $weight);
-                                                $itemAmount = $item->quantity * $item->price;
-                                                $totalAmount += $itemAmount;
-                                                $totalWeight += $itemTotalWeight;
-                                            @endphp
-                                            <tr>
-                                                <td>{{ $key + 1 }}</td>
-                                                <td>
-                                                    <strong>{{ $product?->name ?? $item->product_name ?? 'Unknown' }}</strong>
-                                                    @if($product?->sku)
-                                                        <br><small class="text-muted">SKU: {{ $product->sku }}</small>
-                                                    @endif
-                                                </td>
-                                                <td class="text-center">{{ $item->quantity }}</td>
-                                                <td class="text-center">
-                                                    @if($weight > 0)
-                                                        {{ number_format($weight, 2) }}
-                                                    @else
-                                                        <span class="text-muted">-</span>
-                                                    @endif
-                                                </td>
-                                                <td class="text-center fw-bold">
-                                                    @if($weight > 0)
-                                                        {{ number_format($itemTotalWeight, 2) }} kg
-                                                    @else
-                                                        <span class="text-muted">-</span>
-                                                    @endif
-                                                </td>
-                                                <td class="text-end">₱ {{ number_format($item->price, 2) }}</td>
-                                                <td class="text-end fw-bold">₱ {{ number_format($itemAmount, 2) }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                    <tfoot class="table-light">
-                                        <tr>
-                                            <td colspan="4"></td>
-                                            <td class="text-center fw-bold">
-                                                @if($totalWeight > 0)
-                                                    {{ number_format($totalWeight, 2) }} kg
-                                                @else
-                                                    <span class="text-muted">-</span>
-                                                @endif
-                                            </td>
-                                            <td colspan="1"></td>
-                                            <td class="text-end fw-bold fs-5">₱ {{ number_format($totalAmount, 2) }}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        @else
-                            <div class="alert alert-warning">
-                                <i class="bi bi-exclamation-triangle me-2"></i>No items found in this sales order.
-                            </div>
-                        @endif
+                        <p><strong>Freight Option:</strong> {{ $quotation->freight_option ? ucwords(str_replace('_', ' ', $quotation->freight_option)) : 'N/A' }}</p>
+                        <p><strong>Service Fee:</strong> {{ $quotation->freight_option === 'freight_collect' ? 'Applies to Freight Collect' : 'No service fee for Freight Billing' }}</p>
 
                         <hr>
                         
@@ -339,52 +226,144 @@
                             </div>
                         @else
                             <!-- Already Approved - Show Summary -->
-                            <div class="card border-success border-3 mb-4" style="background-color: #f0fdf4;">
-                                <div class="card-header bg-success text-white">
-                                    <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>✓ Freight Quotation Approved</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="card">
-                                                <div class="card-body text-center">
-                                                    <small class="text-muted d-block">📦 Boxes</small>
-                                                    <h5 class="mb-0 fw-bold">{{ $quotation->boxes_count }}</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-8">
-                                            <div class="card border border-danger border-2">
-                                                <div class="card-body text-center">
-                                                    <small class="text-muted d-block">💰 Total Freight Charge</small>
-                                                    <h5 class="mb-0 fw-bold text-danger" style="font-size: 1.3rem;">₱ {{ number_format($quotation->estimated_freight, 2) }}</h5>
-                                                </div>
-                                            </div>
-                                        </div>
+                            <div class="alert alert-success mb-2 p-2" style="font-size: 0.9rem;">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-auto">
+                                        <strong><i class="bi bi-check-circle me-1"></i>Approved</strong> | 📦 {{ $quotation->boxes_count }} boxes | 💰 ₱{{ number_format($quotation->estimated_freight, 2) }}
                                     </div>
-
-                                    @if($quotation->logistics_notes)
-                                        <div class="alert alert-info">
-                                            <strong>📝 Logistics Notes:</strong><br>
-                                            {{ $quotation->logistics_notes }}
-                                        </div>
-                                    @endif
-
-                                    <p class="text-muted small mt-3">
-                                        ✓ Approved by <strong>{{ $quotation->respondedBy->name ?? 'System' }}</strong> on <strong>{{ $quotation->responded_at->format('M d, Y \a\t g:i A') }}</strong>
-                                    </p>
+                                    <div class="col-auto ms-auto">
+                                        <small class="text-muted">by {{ $quotation->respondedBy->name ?? 'System' }} on {{ $quotation->responded_at->format('M d, Y') }}</small>
+                                    </div>
                                 </div>
                             </div>
                         @endif
 
-                        <!-- CARGO ITEMS INPUT SECTION - ALWAYS VISIBLE, NO COLLAPSE -->
-                        @if($quotation->workflow_status !== 'approved')
-                            <div class="card border-info border-2 mb-3 cargo-action-card" style="background-color: #f0f8ff;">
-                                <div class="card-header bg-info text-white py-2">
-                                    <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>📦 Cargo Items</h6>
-                                </div>
-                                <div class="card-body p-1" style="padding: 0.5rem !important;">
-                                    <form id="cargoItemsForm" method="POST" action="{{ route('production.logistic.update-cargo-items', $quotation->id) }}">
+                        <hr>
+
+                        <!-- CARGO ITEMS DISPLAY - ALWAYS VISIBLE -->
+                        <h6 class="border-bottom pb-2 mb-3"><strong>📦 Cargo Items</strong></h6>
+                        @if($quotation->cargo_items)
+                            <div class="table-responsive mb-3" style="max-height: 220px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+                                <table class="table table-sm table-bordered mb-0">
+                                    <thead class="table-light" style="position: sticky; top: 0;">
+                                        <tr>
+                                            <th style="width: 15%;">Quantity</th>
+                                            <th style="width: 25%;">Package Type</th>
+                                            <th style="width: 30%;">Dimensions</th>
+                                            <th style="width: 15%;">Gross Weight</th>
+                                            <th style="width: 15%;">Vol. Weight</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @php
+                                            $cargoItems = is_string($quotation->cargo_items) ? json_decode($quotation->cargo_items, true) : $quotation->cargo_items;
+                                        @endphp
+                                        @foreach($cargoItems as $item)
+                                            <tr>
+                                                <td>{{ $item['qty'] ?? '-' }}</td>
+                                                <td>{{ $item['package_type'] ?? '-' }}</td>
+                                                <td>{{ $item['dimensions'] ?? '-' }}</td>
+                                                <td>{{ $item['gross_weight'] ?? '-' }}</td>
+                                                <td>{{ $item['vol_weight'] ?? '-' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <div class="alert alert-info mb-4">
+                                <i class="bi bi-info-circle me-2"></i>No cargo items recorded yet.
+                            </div>
+                        @endif
+
+                        <!-- BOOKS/ITEMS BREAKDOWN DISPLAY - ALWAYS VISIBLE -->
+                        <h6 class="border-bottom pb-2 mb-3"><strong>📚 Books/Items Breakdown</strong></h6>
+                        @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->items && $quotation->salesOrder->items->count() > 0)
+                            <div class="table-responsive mb-4">
+                                <table class="table table-hover table-bordered">
+                                    <thead class="table-info">
+                                        <tr>
+                                            <th style="width: 40px;">#</th>
+                                            <th>Book/Product Name</th>
+                                            <th style="width: 80px;" class="text-center">QTY</th>
+                                            <th style="width: 100px;" class="text-center">Weight (kg)</th>
+                                            <th style="width: 120px;" class="text-center">Total Weight</th>
+                                            <th style="width: 120px;" class="text-end">Unit Price</th>
+                                            <th style="width: 120px;" class="text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @php $totalAmount = 0; $totalWeight = 0; @endphp
+                                        @foreach($quotation->salesOrder->items as $key => $item)
+                                            @php
+                                                $product = $item->product ?? $item->book;
+                                                $weight = (float)($product?->weight ?? 0);
+                                                $quantity = (int)($item->quantity ?? 0);
+                                                $price = (float)($item->price ?? 0);
+                                                $itemTotalWeight = ($quantity * $weight);
+                                                $itemAmount = ($quantity * $price);
+                                                $totalAmount += $itemAmount;
+                                                $totalWeight += $itemTotalWeight;
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $key + 1 }}</td>
+                                                <td>
+                                                    <strong>{{ $product?->name ?? $item->product_name ?? 'Unknown' }}</strong>
+                                                    @if($product?->sku)
+                                                        <br><small class="text-muted">SKU: {{ $product->sku }}</small>
+                                                    @endif
+                                                </td>
+                                                <td class="text-center">{{ $quantity }}</td>
+                                                <td class="text-center">
+                                                    @if($weight > 0)
+                                                        {{ number_format($weight, 2) }}
+                                                    @else
+                                                        <span class="text-muted">-</span>
+                                                    @endif
+                                                </td>
+                                                <td class="text-center fw-bold">
+                                                    @if($weight > 0)
+                                                        {{ number_format($itemTotalWeight, 2) }} kg
+                                                    @else
+                                                        <span class="text-muted">-</span>
+                                                    @endif
+                                                </td>
+                                                <td class="text-end">₱ {{ number_format($price, 2) }}</td>
+                                                <td class="text-end fw-bold">₱ {{ number_format($itemAmount, 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot class="table-light">
+                                        <tr>
+                                            <td colspan="4"></td>
+                                            <td class="text-center fw-bold">
+                                                @if($totalWeight > 0)
+                                                    {{ number_format($totalWeight, 2) }} kg
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                            <td colspan="1"></td>
+                                            <td class="text-end fw-bold fs-5">₱ {{ number_format($totalAmount, 2) }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        @else
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>No items found in this sales order.
+                            </div>
+                        @endif
+
+                        <hr>
+
+                        <!-- CARGO ITEMS INPUT SECTION - ALWAYS VISIBLE -->
+                        <div class="card border-info border-2 mb-3 cargo-action-card" style="background-color: #f0f8ff;">
+                            <div class="card-header bg-info text-white py-2">
+                                <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>📦 Cargo Items</h6>
+                            </div>
+                            <div class="card-body p-1" style="padding: 0.5rem !important;">
+                                <form id="cargoItemsForm" method="POST" action="{{ route('production.logistic.update-cargo-items', $quotation->id) }}">
                                         @csrf
                                         @method('PUT')
 
@@ -496,13 +475,8 @@
                                 </form>
                             </div>
                         </div>
-                    @endif
 
-                    @if($quotation->workflow_status !== 'approved')
-                        <div class="clearfix"></div>
-                    @endif
-
-                    <hr>
+                        <hr>
 
                     <!-- Linked Sales Order -->
                     @if($quotation->sales_order_id)
@@ -557,6 +531,24 @@
                                                     <td colspan="3" class="text-end"><strong>Order Subtotal:</strong></td>
                                                     <td class="text-end fw-bold">₱ {{ number_format($soSubtotal, 2) }}</td>
                                                 </tr>
+                                                @php
+                                                    $serviceFee = $quotation->freight_option === 'freight_collect' ? 50 : 0;
+                                                @endphp
+                                                @if($serviceFee > 0)
+                                                <tr style="background-color: #fff3cd;">
+                                                    <td colspan="3" class="text-end"><strong>Service Fee (Freight Collect):</strong></td>
+                                                    <td class="text-end fw-bold text-success">₱ {{ number_format($serviceFee, 2) }}</td>
+                                                </tr>
+                                                <tr style="background-color: #e8f5e9;">
+                                                    <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                                                    <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">₱ {{ number_format($soSubtotal + $serviceFee, 2) }}</td>
+                                                </tr>
+                                                @else
+                                                <tr style="background-color: #e8f5e9;">
+                                                    <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                                                    <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">₱ {{ number_format($soSubtotal, 2) }}</td>
+                                                </tr>
+                                                @endif
                                             </tfoot>
                                         </table>
                                     </div>

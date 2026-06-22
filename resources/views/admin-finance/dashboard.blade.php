@@ -257,7 +257,13 @@
                                     <td><span class="badge light badge-primary">{{ $p['type'] }}</span></td>
                                     <td>{{ $p['submitted_by'] }}</td>
                                     <td>{{ $p['department'] }}</td>
-                                    <td>₱ {{ number_format($p['amount'] ?? 0, 2) }}</td>
+                                    <td>
+                                        @if(is_numeric($p['amount'] ?? null))
+                                            PhP {{ number_format((float) $p['amount'], 2) }}
+                                        @else
+                                            {{ $p['amount'] ?? 'N/A' }}
+                                        @endif
+                                    </td>
                                     <td>{{ \Carbon\Carbon::parse($p['date'])->format('Y-m-d') }}</td>
                                     @php
                                         $rawStatus = $p['status'] ?? '';

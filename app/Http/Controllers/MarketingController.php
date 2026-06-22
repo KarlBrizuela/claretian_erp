@@ -87,10 +87,22 @@ class MarketingController extends Controller
                 ->get()
             : collect();
 
-        // 3. Pending Stock Transfers (Marketing Manager approves transfers)
+        // 3. Pending Stock Transfers (Marketing Manager approves Marketing-origin requests)
         $pendingTransfers = $isAuthorized
-            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book')
+            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'createdBy')
                 ->where('status', 'pending')
+                ->where(function ($query) {
+                    $query->where('approval_division', 'Marketing')
+                        ->orWhere(function ($legacyQuery) {
+                            $legacyQuery->whereNull('approval_division')
+                                ->whereHas('createdBy', function ($creatorQuery) {
+                                    $creatorQuery->where('division', 'like', '%Marketing%')
+                                        ->orWhereHas('divisions', function ($divisionQuery) {
+                                            $divisionQuery->where('division', 'like', '%Marketing%');
+                                        });
+                                });
+                        });
+                })
                 ->latest()
                 ->get()
             : collect();
@@ -492,6 +504,7 @@ class MarketingController extends Controller
             'ref_number' => 'nullable',
             'billing_address' => 'nullable',
             'attachment' => 'nullable|file|max:5120', // 5MB Limit
+            'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
         ]);
 
         // For submitted SOs, validate stock
@@ -548,6 +561,7 @@ class MarketingController extends Controller
             'billing_address' => $request->billing_address,
             'shipping_address' => $request->billing_address,
             'attachment' => $attachmentPath,
+            'freight_option' => $validated['freight_option'] ?? null,
         ]);
 
         // 4. Create Items (only if provided)
@@ -591,6 +605,10 @@ class MarketingController extends Controller
                     ]);
                 }
             }
+        }
+
+        if (($validated['freight_option'] ?? null) === 'freight_collect') {
+            $totalAmount += 50.00;
         }
 
         // 5. Update Total
@@ -701,6 +719,49 @@ class MarketingController extends Controller
         ]);
     }
 
+    // Handle AJAX/JSON updates for freight option only
+    public function updateSalesOrderQuick(Request $request, $id)
+    {
+        try {
+            $so = \App\Models\SalesOrder::findOrFail($id);
+            
+            // Only allow updates on non-completed/cancelled orders
+            if (in_array($so->status, ['completed', 'cancelled'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot edit completed or cancelled orders.'
+                ], 422);
+            }
+
+            $validated = $request->validate([
+                'freight_option' => 'nullable|string|in:,freight_collect,freight_billing'
+            ]);
+
+            // Calculate items subtotal (sum of all line items)
+            $itemsSubtotal = $so->items()->sum('subtotal');
+            
+            // Add service fee (₱50.00) if freight_option is 'freight_collect'
+            $serviceFee = ($validated['freight_option'] === 'freight_collect') ? 50.00 : 0;
+            $newTotal = $itemsSubtotal + ($so->freight_charges ?? 0) + $serviceFee;
+
+            $so->update([
+                'freight_option' => $validated['freight_option'],
+                'total_amount' => $newTotal
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sales Order updated successfully!',
+                'data' => $so
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function updateSalesOrder(Request $request, $id)
     {
         $so = \App\Models\SalesOrder::with('items')->findOrFail($id);
@@ -714,6 +775,7 @@ class MarketingController extends Controller
             'ref_number' => 'nullable',
             'billing_address' => 'nullable',
             'attachment' => 'nullable|file|max:5120',
+            'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
         ]);
 
         if ($request->hasFile('attachment')) {
@@ -730,6 +792,7 @@ class MarketingController extends Controller
             'ref_number' => $request->ref_number,
             'billing_address' => $request->billing_address,
             'shipping_address' => $request->billing_address,
+            'freight_option' => $validated['freight_option'] ?? null,
         ]);
 
         // STOCK MANAGEMENT: Handle inventory adjustments
@@ -796,6 +859,12 @@ class MarketingController extends Controller
                 ]);
             }
         }
+
+        if (($validated['freight_option'] ?? null) === 'freight_collect') {
+            $totalAmount += 50.00;
+        }
+
+        $totalAmount += $so->freight_charges ?? 0;
 
         $so->update(['total_amount' => $totalAmount]);
 

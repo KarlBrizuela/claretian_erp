@@ -29,6 +29,8 @@ class CCTVReq extends Model
         'hr_approved_at',
         'approved_by_director',
         'director_approved_at',
+        'completed_by',
+        'completed_at',
         'rejected_by',
         'rejected_at',
     ];
@@ -173,7 +175,7 @@ class CCTVReq extends Model
             'to submit' => 'pending approval',
             'pending approval' => 'Pending HR approval',
             'Pending HR approval' => 'Pending Final Approval',
-            'Pending Final Approval' => 'completed',
+            'Pending Final Approval' => 'on_hold',
         ];
 
         return $flow[$this->status] ?? null;

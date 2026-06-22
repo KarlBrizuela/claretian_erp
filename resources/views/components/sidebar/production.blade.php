@@ -4,13 +4,13 @@
     
     // Check permissions for specific modules
     $hasDashboard = $user->hasPermission('production.dashboard');
-    $hasInventory = $user->hasPermission('production.inventory');
-    $hasLogistics = $user->hasPermission('production.logistic');
-    $hasDTO = $user->hasPermission('production.dto');
-    $hasFORD = $user->hasPermission('production.ford');
-    $hasPrinting = $user->hasPermission('production.printing');
-    $hasPettyCashVoucher = true; // All users have access to petty cash
-    $hasFreightVoucher = true; // All users have access to freight voucher
+    $hasInventory = $user->hasPermission('production.inventory') || $user->hasAnyPermission(['production.inventory.overview', 'production.inventory.add_stock', 'production.inventory.received']);
+    $hasLogistics = $user->hasPermission('production.logistic') || $user->hasAnyPermission(['production.logistic.pick_lists', 'production.logistic.packing', 'production.logistic.delivery_scheduling', 'production.logistic.delivery_receipts', 'production.logistic.driver_dashboard', 'production.logistic.delivery_tracking', 'production.logistic.purchase_orders', 'production.logistic.receiving_reports', 'production.logistic.freight_quotation_review', 'production.logistic.rider_collections']);
+    $hasDTO = $user->hasPermission('production.dto') || $user->hasPermission('production.dto.job_request_form');
+    $hasFORD = $user->hasPermission('production.ford') || $user->hasAnyPermission(['production.ford.auto_debit', 'production.ford.client_payment_posting', 'production.ford.eford_payout', 'production.ford.payment_request', 'production.ford.purchase_order', 'production.ford.request_for_quotation', 'production.ford.sales_order', 'production.ford.transmittal']);
+    $hasPrinting = $user->hasPermission('production.printing') || $user->hasPermission('production.printing.request_payment_to_printer');
+    $hasPettyCashVoucher = $user->hasPermission('admin_finance.petty_cash_voucher');
+    $hasFreightVoucher = $user->hasPermission('admin_finance.freight_voucher');
     $hasApprovalQueue = $user->hasPermission('production.approval_queue');
     $hasMyRequests = $user->hasPermission('production.my_requests');
 @endphp
@@ -54,9 +54,15 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="inventory">
+			@if($user->hasPermission('production.inventory.overview'))
 			<a href="{{ route('production.inventory.overview') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.overview') ? 'active' : '' }}">Inventory Overview</a>
+			@endif
+			@if($user->hasPermission('production.inventory.add_stock'))
 			<a href="{{ route('production.inventory.add-stock') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.add-stock') ? 'active' : '' }}">Add Stock</a>
+			@endif
+			@if($user->hasPermission('production.inventory.received'))
 			<a href="{{ route('production.inventory.received') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.received') ? 'active' : '' }}">Received Items</a>
+			@endif
 		</div>
 	</div>
 	@endif
@@ -72,18 +78,38 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="logistics">
+			@if($user->hasPermission('production.logistic.pick_lists'))
 			<a href="{{ route('production.logistic.pick-list-list') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.pick-list-list') ? 'active' : '' }}">Pick Lists</a>
+			@endif
+			@if($user->hasPermission('production.logistic.packing'))
 			<a href="{{ route('production.logistic.packing-management') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.packing-management') ? 'active' : '' }}">Packing</a>
+			@endif
+			@if($user->hasPermission('production.logistic.delivery_scheduling'))
 			<a href="{{ route('production.logistic.delivery-scheduling') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.delivery-scheduling') ? 'active' : '' }}">Delivery Scheduling</a>
+			@endif
+			@if($user->hasPermission('production.logistic.delivery_receipts'))
 			<a href="{{ route('production.logistic.delivery-receipt-list') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.delivery-receipt-list') ? 'active' : '' }}">Delivery Receipts</a>
+			@endif
+			@if($user->hasPermission('production.logistic.driver_dashboard'))
 			<a href="{{ route('production.logistic.driver-dashboard') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.driver-dashboard') ? 'active' : '' }}">Driver Dashboard</a>
+			@endif
+			@if($user->hasPermission('production.logistic.delivery_tracking'))
 			<a href="{{ route('production.logistic.delivery-tracking') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.delivery-tracking') ? 'active' : '' }}">Delivery Tracking</a>
+			@endif
+			@if($user->hasPermission('production.logistic.purchase_orders'))
 			<a href="{{ route('production.logistic.purchase-order-list') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.purchase-order-list') ? 'active' : '' }}">Purchase Orders</a>
+			@endif
+			@if($user->hasPermission('production.logistic.receiving_reports'))
 			<a href="{{ route('production.logistic.receiving-report-list') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.receiving-report-list') ? 'active' : '' }}">Receiving Reports</a>
+			@endif
+			@if($user->hasPermission('production.logistic.freight_quotation_review'))
 			<a href="{{ route('production.logistic.pending-freight-quotations') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.pending-freight-quotations') ? 'active' : '' }}">
 				<i class="bi bi-inbox me-1"></i>Freight Quotation (Review)
 			</a>
+			@endif
+			@if($user->hasPermission('production.logistic.rider_collections'))
 			<a href="{{ route('rider.collections.index') }}" class="modern-nav-subitem {{ request()->routeIs('rider.collections.*') ? 'active' : '' }}">Rider Collections</a>
+			@endif
 		</div>
 	</div>
 	@endif
@@ -99,7 +125,9 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="dto">
+			@if($user->hasPermission('production.dto.job_request_form'))
 			<a href="{{ route('production.dto.job-request-form') }}" class="modern-nav-subitem {{ request()->routeIs('production.dto.job-request-form') ? 'active' : '' }}">Job Request Form</a>
+			@endif
 		</div>
 	</div>
 	@endif
@@ -115,14 +143,30 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="ford">
+			@if($user->hasPermission('production.ford.auto_debit'))
 			<a href="{{ route('production.ford.auto-debit') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.auto-debit') ? 'active' : '' }}">Auto Debit</a>
+			@endif
+			@if($user->hasPermission('production.ford.client_payment_posting'))
 			<a href="{{ route('production.ford.client-payment-posting') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.client-payment-posting') ? 'active' : '' }}">Client Payment for posting</a>
+			@endif
+			@if($user->hasPermission('production.ford.eford_payout'))
 			<a href="{{ route('production.ford.eford-payout') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.eford-payout') ? 'active' : '' }}">E-FORD Payout</a>
+			@endif
+			@if($user->hasPermission('production.ford.payment_request'))
 			<a href="{{ route('production.ford.payment-request') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.payment-request') ? 'active' : '' }}">Payment Request</a>
+			@endif
+			@if($user->hasPermission('production.ford.purchase_order'))
 			<a href="{{ route('production.ford.purchase-order') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.purchase-order') ? 'active' : '' }}">Purchase Order</a>
+			@endif
+			@if($user->hasPermission('production.ford.request_for_quotation'))
 			<a href="{{ route('production.ford.request-for-quotation') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.request-for-quotation') ? 'active' : '' }}">Request for Quotation</a>
+			@endif
+			@if($user->hasPermission('production.ford.sales_order'))
 			<a href="{{ route('production.ford.sales-order') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.sales-order') ? 'active' : '' }}">Sales Order</a>
+			@endif
+			@if($user->hasPermission('production.ford.transmittal'))
 			<a href="{{ route('production.ford.transmittal') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.transmittal') ? 'active' : '' }}">Transmittal</a>
+			@endif
 		</div>
 	</div>
 	@endif
@@ -138,7 +182,9 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="printing">
+			@if($user->hasPermission('production.printing.request_payment_to_printer'))
 			<a href="{{ route('production.printing.request-payment-to-printer') }}" class="modern-nav-subitem {{ request()->routeIs('production.printing.request-payment-to-printer') ? 'active' : '' }}">Request Payment to Printer</a>
+			@endif
 		</div>
 	</div>
 	@endif

@@ -79,6 +79,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/packing-management', [App\Http\Controllers\Production\LogisticController::class, 'packingManagement'])->name('packing-management');
       Route::get('/packing/{id}/data', [App\Http\Controllers\Production\LogisticController::class, 'getPackingOrderData'])->name('packing-order-data');
       Route::post('/packing/save', [App\Http\Controllers\Production\LogisticController::class, 'savePackingData'])->name('packing.save');
+      Route::post('/packing/set-ready-for-pickup', [App\Http\Controllers\Production\LogisticController::class, 'setReadyForPickup'])->name('packing.set-ready-for-pickup');
 
       // Delivery & Fleet management
       Route::get('/delivery-scheduling', [App\Http\Controllers\Production\LogisticController::class, 'deliveryScheduling'])->name('delivery-scheduling');
@@ -220,6 +221,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/sales-orders/{id}/edit', [MarketingController::class, 'editSalesOrder'])->name('marketing.sales-orders.edit');
     Route::put('/marketing/sales-orders/{id}', [MarketingController::class, 'updateSalesOrder'])->name('marketing.sales-orders.update');
     Route::post('/marketing/sales-orders/{id}/approve', [MarketingController::class, 'approveSalesOrder'])->name('marketing.sales-orders.approve');
+    Route::post('/marketing/sales-orders/{id}/quick-update', [MarketingController::class, 'updateSalesOrderQuick'])->name('marketing.sales-orders.quick-update');
     Route::post('/marketing/sales-orders/{id}/proceed-to-final', [MarketingController::class, 'proceedToFinalSalesOrder'])->name('marketing.sales-orders.proceed-to-final');
     Route::delete('/marketing/sales-orders/{id}', [MarketingController::class, 'destroySalesOrder'])->name('marketing.sales-orders.destroy');
     Route::get('/marketing/sales-order/{id?}', [MarketingController::class, 'salesOrderDetail'])->name('marketing.sales-orders.detail');
@@ -297,6 +299,11 @@ Route::middleware(['auth'])->group(function () {
 
   Route::post('/employee/cash-advance/store', [App\Http\Controllers\EmployeeCashAdvanceController::class, 'store'])->name('employee.cash-advance.store');
   Route::put('/employee/cash-advance/{id}', [App\Http\Controllers\EmployeeCashAdvanceController::class, 'update'])->name('employee.cash-advance.update');
+  Route::post('/stock-transfers/{id}/approve', [SiteController::class, 'approveTransfer'])->name('stock-transfers.approve');
+  Route::post('/stock-transfers/{id}/reject', [SiteController::class, 'rejectTransfer'])->name('stock-transfers.reject');
+  Route::post('/stock-transfers/{id}/accounting-approve', [SiteController::class, 'approveAccountingTransfer'])->name('stock-transfers.accounting-approve');
+  Route::post('/stock-transfers/{id}/assign-logistics', [SiteController::class, 'assignLogisticsTransfer'])->name('stock-transfers.assign-logistics');
+  Route::post('/stock-transfers/{id}/complete', [SiteController::class, 'completeLogisticsTransfer'])->name('stock-transfers.complete');
   Route::post('/my-requests/cctv-requests', [App\Http\Controllers\Admin\MIS\CCTVReqController::class, 'store'])->name('user.cctv-requests.store');
   Route::put('/my-requests/cctv-requests/{id}', [App\Http\Controllers\Admin\MIS\CCTVReqController::class, 'update'])->name('user.cctv-requests.update');
   Route::delete('/my-requests/cctv-requests/{cctvRequest}', [App\Http\Controllers\Admin\MIS\CCTVReqController::class, 'destroy'])->name('user.cctv-requests.destroy');
@@ -403,11 +410,18 @@ Route::middleware(['auth'])->group(function () {
     // MIS
     Route::prefix('mis')->group(function () {
       Route::get('/job-orders', [App\Http\Controllers\AdminFinanceController::class, 'jobOrders'])->name('admin-finance.mis.job-orders');
+      Route::put('/job-orders/{type}/{id}/update-status', [App\Http\Controllers\AdminFinanceController::class, 'misUpdateJobOrderStatus'])->name('admin-finance.mis.job-orders.update-status');
       Route::resource('/cctv-requests', App\Http\Controllers\Admin\MIS\CCTVReqController::class)->names('admin-finance.mis.cctv-requests');
       Route::resource('/material-requests', App\Http\Controllers\Admin\MIS\MaterialReqController::class)->names('admin-finance.mis.material-requests');
       Route::resource('/qb-requests', App\Http\Controllers\Admin\MIS\QBReqController::class)->names('admin-finance.mis.qb-requests');
       Route::resource('/undertime-requests', App\Http\Controllers\Admin\MIS\UndertimeReqController::class)->names('admin-finance.mis.undertime-requests');
       Route::resource('/service-requests', App\Http\Controllers\Admin\MIS\ServiceReqController::class)->names('admin-finance.mis.service-requests');
+    });
+
+    // Service Requests (Department-Specific)
+    Route::prefix('service-requests')->name('admin-finance.service-requests.')->group(function () {
+      Route::get('/create', [App\Http\Controllers\AdminFinanceController::class, 'createServiceRequest'])->name('create');
+      Route::post('/store', [App\Http\Controllers\AdminFinanceController::class, 'storeServiceRequest'])->name('store');
     });
   });
 });

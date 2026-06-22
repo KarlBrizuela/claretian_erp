@@ -15,6 +15,7 @@ use App\Models\PettyCashVoucher;
 use App\Models\PettyCashVoucherItem;
 use App\Models\JournalEntryItem;
 use App\Models\SalesOrder;
+use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\JournalVoucherRequest;
 use App\Models\JournalVoucherItem;
@@ -505,6 +506,15 @@ class AdminFinanceController extends Controller
     }
     $jvPending = $jvPendingQuery->orderBy('created_at', 'desc')->get();
 
+    // Stock Transfers awaiting Accounting/Admin & Finance review
+    $stockTransfers = StockTransfer::with(['fromSite', 'toSite', 'book', 'createdBy', 'approvedBy'])
+      ->where('status', 'accounting_review')
+      ->orderBy('created_at', 'desc')
+      ->get()
+      ->filter(function ($transfer) use ($user) {
+        return $transfer->canBeReviewedByAccounting($user);
+      });
+
     // Combine into a unified approval queue for the bottom card
     $pendingApprovals = [];
     foreach ($cctvRequests as $req) {
@@ -654,6 +664,21 @@ class AdminFinanceController extends Controller
         'original' => $req
       ];
     }
+    foreach ($stockTransfers as $transfer) {
+      $pendingApprovals[] = [
+        'type' => 'Stock Transfer',
+        'id' => $transfer->id,
+        'reference_no' => 'ST-' . str_pad($transfer->id, 5, '0', STR_PAD_LEFT),
+        'submitted_by' => $transfer->createdBy->name ?? 'Unknown',
+        'submitted_date' => $transfer->created_at->format('M. d, Y'),
+        'description' => ($transfer->book->name ?? 'Unknown Book') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A'),
+        'full_description' => 'Transfer ' . $transfer->quantity . ' unit(s) of ' . ($transfer->book->name ?? 'Unknown Book') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A') . '.',
+        'department' => 'Admin & Finance',
+        'status' => $transfer->status,
+        'amount' => $transfer->quantity . ' units',
+        'original' => $transfer
+      ];
+    }
 
     // Sort by submitted date descending
     usort($pendingApprovals, function ($a, $b) {
@@ -668,12 +693,16 @@ class AdminFinanceController extends Controller
     $cashAdvances = \App\Models\EmployeeCashAdvance::where('user_id', auth()->id())
       ->latest()
       ->get();
+    $cctvRequests = CCTVReq::where('user_id', auth()->id())
+      ->latest()
+      ->get();
 
     return view('admin-finance.my-requests.index', [
       'title' => '',
       'role' => auth()->user()->position,
       'sidebar' => 'admin-finance',
-      'cashAdvances' => $cashAdvances
+      'cashAdvances' => $cashAdvances,
+      'cctvRequests' => $cctvRequests,
     ]);
   }
 
@@ -1803,9 +1832,14 @@ public function checkVoucher()
     $user = auth()->user();
     $pos = $user->position;
     $status = $request->query('status', 'all');
+    if ($status === 'approved') {
+        $status = 'on_hold';
+    }
     
     if ($status === 'all') {
-        $statuses = ['approved', 'ongoing', 'on_hold', 'completed'];
+        $statuses = ['to submit', 'pending approval', 'Pending HR approval', 'Pending Final Approval', 'approved', 'ongoing', 'on_hold', 'completed'];
+    } elseif ($status === 'on_hold') {
+        $statuses = ['on_hold', 'approved'];
     } else {
         $statuses = [$status];
     }
@@ -1819,7 +1853,12 @@ public function checkVoucher()
     $materialRequests = MaterialReq::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
     $qbRequests = MisQbRequest::with('items')->whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
     $undertimeRequests = MisUndertimeRequest::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
-    $serviceRequests = MisServiceRequest::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
+    
+    // Service Requests - Filter by MIS department
+    $serviceRequests = MisServiceRequest::where('department', 'MIS')
+        ->whereIn('status', $statuses)
+        ->orderBy('created_at', 'desc')
+        ->get();
 
     return view('admin-finance.mis.job-orders', [
       'title' => 'Job Orders',
@@ -1834,23 +1873,62 @@ public function checkVoucher()
     ]);
   }
 
+  public function misUpdateJobOrderStatus(Request $request, $type, $id)
+  {
+    $validated = $request->validate([
+      'status' => 'required|in:on_hold,ongoing,completed'
+    ]);
+
+    if ($type === 'cctv') {
+      $order = CCTVReq::findOrFail($id);
+    } elseif ($type === 'material') {
+      $order = MaterialReq::findOrFail($id);
+    } elseif ($type === 'qb') {
+      $order = MisQbRequest::findOrFail($id);
+    } elseif ($type === 'undertime') {
+      $order = MisUndertimeRequest::findOrFail($id);
+    } elseif ($type === 'service') {
+      $order = MisServiceRequest::findOrFail($id);
+    } else {
+      abort(404);
+    }
+
+    $data = ['status' => $validated['status']];
+
+    if ($validated['status'] === 'completed') {
+      $data['completed_by'] = auth()->id();
+      $data['completed_at'] = now();
+    }
+
+    $order->update($data);
+
+    return redirect()->back()->with('success', 'Job Order status updated to ' . ucfirst(str_replace('_', ' ', $validated['status'])) . '.');
+  }
+
   public function hrJobOrders(Request $request)
   {
     $status = $request->query('status', 'all');
     
     if ($status === 'all') {
-        $statuses = ['approved', 'ongoing', 'on_hold', 'completed'];
+        $statuses = ['to submit', 'pending approval', 'Pending HR approval', 'Pending Final Approval', 'approved', 'ongoing', 'on_hold', 'completed'];
     } else {
         $statuses = [$status];
     }
     
     $cctvRequests = CCTVReq::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
+    
+    // Service Requests - Filter by HR department
+    $serviceRequests = MisServiceRequest::where('department', 'HR')
+        ->whereIn('status', $statuses)
+        ->orderBy('created_at', 'desc')
+        ->get();
 
     return view('admin-finance.hr.job-orders', [
       'title' => 'Job Orders',
       'role' => 'Finance Manager',
       'sidebar' => 'admin-finance',
       'cctvRequests' => $cctvRequests,
+      'serviceRequests' => $serviceRequests,
       'currentStatus' => $status
     ]);
   }
@@ -1862,7 +1940,7 @@ public function checkVoucher()
     $status = $request->query('status', 'all');
     
     if ($status === 'all') {
-        $statuses = ['approved', 'ongoing', 'on_hold', 'completed'];
+        $statuses = ['to submit', 'pending approval', 'Pending HR approval', 'Pending Final Approval', 'approved', 'ongoing', 'on_hold', 'completed'];
     } else {
         $statuses = [$status];
     }
@@ -1872,7 +1950,12 @@ public function checkVoucher()
         ->orderBy('created_at', 'desc')
         ->get();
     
-    $serviceRequests = MisServiceRequest::with('approver')
+    // Service Requests - Filter by GSD department
+    $serviceRequests = MisServiceRequest::where(function ($query) {
+            $query->where('module', 'GSD')
+                ->orWhere('department', 'GSD');
+        })
+        ->with('approver')
         ->whereIn('status', $statuses)
         ->orderBy('updated_at', 'desc')
         ->get();
@@ -1927,6 +2010,61 @@ public function checkVoucher()
           'sidebar' => 'admin-finance',
           'requests' => $requests
       ]);
+  }
+
+  // Create Service Request Form
+  public function createServiceRequest()
+  {
+      abort_unless(auth()->user()->hasPermission('admin_finance.service_requests'), 403);
+
+      return view('admin-finance.service-requests.create', [
+          'title' => 'Create Service Request',
+          'role' => auth()->user()->position,
+          'sidebar' => 'admin-finance'
+      ]);
+  }
+
+  // Store Service Request
+  public function storeServiceRequest(Request $request)
+  {
+      abort_unless(auth()->user()->hasPermission('admin_finance.service_requests'), 403);
+
+      $validated = $request->validate([
+          'department' => 'required|in:GSD,MIS,HR,DTO',
+          'requestor_name' => 'required|string|max:255',
+          'date' => 'required|date',
+          'nature_of_request' => 'required|string'
+      ]);
+
+      MisServiceRequest::create([
+          'user_id' => auth()->id(),
+          'module' => $validated['department'] === 'GSD' ? 'GSD' : 'MIS',
+          'requestor_name' => $validated['requestor_name'],
+          'date' => $validated['date'],
+          'nature_of_request' => $validated['nature_of_request'],
+          'department' => $validated['department'],
+          'status' => 'to submit'
+      ]);
+
+      $departmentRoutes = [
+          'GSD' => 'admin-finance.gsd.job-orders',
+          'MIS' => 'admin-finance.mis.job-orders',
+          'HR' => 'admin-finance.hr.job-orders',
+          'DTO' => 'production.dto.job-request-form',
+      ];
+
+      $user = auth()->user();
+      $canAccessProduction = $user->isSuperAdmin()
+          || $user->division === 'All Divisions'
+          || str_contains($user->division ?? '', 'Production')
+          || $user->divisions()->where('division', 'Production Division')->exists();
+
+      $redirectRoute = $validated['department'] === 'DTO' && ! $canAccessProduction
+          ? 'admin-finance.service-requests.create'
+          : $departmentRoutes[$validated['department']];
+
+      return redirect()->route($redirectRoute)
+          ->with('success', 'Service Request created successfully! View it in the ' . $validated['department'] . ' job orders.');
   }
 
   public function createJvRequest()

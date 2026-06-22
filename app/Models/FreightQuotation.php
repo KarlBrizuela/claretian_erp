@@ -22,6 +22,7 @@ class FreightQuotation extends Model
         'destination_address',
         'destination_province',
         'service_mode',
+        'freight_option',
         'service_carrier',
         'service_remarks',
         'cargo_items',

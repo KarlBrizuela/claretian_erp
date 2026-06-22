@@ -1073,7 +1073,7 @@
         // Stock Transfer Approval AJAX Handler
         function approveStockTransfer(transferId) {
             $.ajax({
-                url: '/production/sites/approve-transfer/' + transferId,
+                url: '/stock-transfers/' + transferId + '/approve',
                 type: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -1099,7 +1099,7 @@
         function rejectStockTransfer(transferId) {
             var reason = $('textarea[name="rejection_reason"]').val();
             $.ajax({
-                url: '/production/sites/reject-transfer/' + transferId,
+                url: '/stock-transfers/' + transferId + '/reject',
                 type: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')

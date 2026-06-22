@@ -39,6 +39,7 @@
     $hasHR = $user->hasPermission('admin_finance.hr') && $hasAdminFinanceDivision;
     $hasAppAF = $user->hasPermission('admin_finance.approval_queue') && $hasAdminFinanceDivision;
     $hasReqAF = $user->hasPermission('admin_finance.my_requests') && $hasAdminFinanceDivision;
+    $hasServiceRequestsAF = $user->hasPermission('admin_finance.service_requests') && $hasAdminFinanceDivision;
 @endphp
 
 <nav class="modern-nav-menu">
@@ -210,6 +211,13 @@
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-user-tie"></i></div><span class="modern-nav-label">HR</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu"><a href="{{ route('admin-finance.hr.job-orders') }}" class="modern-nav-subitem">Job Orders</a></div>
     </div>
+    @endif
+
+    @if($hasServiceRequestsAF)
+    <a href="{{ route('admin-finance.service-requests.create') }}" class="modern-nav-item">
+        <div class="modern-nav-icon"><i class="las la-tools"></i></div>
+        <span class="modern-nav-label">Create Service Request</span>
+    </a>
     @endif
 
     @if($hasPettyCash || $hasFreightVoucher)

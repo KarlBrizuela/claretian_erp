@@ -15,7 +15,11 @@
                                     <h6 class="mb-2"><strong>Freight Quotation Summary</strong></h6>
                                     <p class="mb-1"><strong>Quote #:</strong> {{ $quotation->quote_number }}</p>
                                     <p class="mb-1"><strong>Route:</strong> {{ $quotation->origin_province }} → {{ $quotation->destination_province }}</p>
-                                    <p class="mb-0"><strong>Service:</strong> {{ $quotation->service_mode }} | <strong>Boxes:</strong> {{ $quotation->boxes_count }}</p>
+                                    <p class="mb-0">
+                                        <strong>Service:</strong> {{ $quotation->service_mode }} |
+                                        <strong>Freight Option:</strong> {{ $quotation->freight_option ? ucwords(str_replace('_', ' ', $quotation->freight_option)) : 'N/A' }} |
+                                        <strong>Boxes:</strong> {{ $quotation->boxes_count }}
+                                    </p>
                                 </div>
                                 <div class="col-md-4 text-end">
                                     <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545;">
@@ -94,6 +98,13 @@
                                             <td class="text-end fw-bold text-danger">₱ {{ number_format($quotation->total_amount, 2) }}</td>
                                             <td></td>
                                         </tr>
+                                        @if($quotation->freight_option === 'freight_collect')
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>+ Service Fee:</strong></td>
+                                            <td class="text-end fw-bold text-danger">₱ 50.00</td>
+                                            <td></td>
+                                        </tr>
+                                        @endif
                                         <tr class="table-danger">
                                             <td colspan="3" class="text-end"><strong>Total Amount:</strong></td>
                                             <td class="text-end fw-bold" id="grandTotal" style="font-size: 1.1rem;">₱ 0.00</td>
@@ -138,6 +149,7 @@
             const grandTotalEl = document.getElementById('grandTotal');
             const itemsSubtotalEl = document.getElementById('itemsSubtotal');
             const freightTotal = parseFloat('{{ $quotation->total_amount }}');
+            const serviceFee = '{{ $quotation->freight_option }}' === 'freight_collect' ? 50 : 0;
 
             function calculateRow(row) {
                 const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
@@ -153,7 +165,7 @@
                     itemsTotal += parseFloat(el.textContent.replace('₱ ', '')) || 0;
                 });
                 itemsSubtotalEl.textContent = '₱ ' + itemsTotal.toFixed(2);
-                const total = itemsTotal + freightTotal;
+                const total = itemsTotal + freightTotal + serviceFee;
                 grandTotalEl.textContent = '₱ ' + total.toFixed(2);
             }
 

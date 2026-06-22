@@ -791,29 +791,29 @@ class LogisticController extends Controller
     public function packingManagement()
     {
         // Get orders ready for packing (SI signed = status 'ready_for_delivery')
-        // Show only orders that: have NO packing data OR packing is not completed
+        // Show only orders that: have NO packing data OR packing status is NOT 'ready_for_pickup'
         $packingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
             ->where(function($query) {
-                // Only show orders where packing is NOT completed
+                // Only show orders where packing is NOT ready for pickup
                 $query->whereNull('packing_data')
-                      ->orWhere('packing_data->status', '<>', 'completed');
+                      ->orWhere('packing_data->status', '<>', 'ready_for_pickup');
             })
             ->orderBy('signed_at', 'desc')
             ->get();
 
-        // Get completed packing orders (hide from packing queue, show in completed section)
-        $completedPackingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+        // Get orders ready for pickup (only those marked as 'ready_for_pickup')
+        $readyForPickupOrders = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
             ->whereNotNull('packing_data')
-            ->where('packing_data->status', '=', 'completed')
+            ->where('packing_data->status', '=', 'ready_for_pickup')
             ->orderBy('updated_at', 'desc')
             ->get();
 
         return view('production.logistic.packing-management', [
             'packingOrders' => $packingOrders,
-            'completedPackingOrders' => $completedPackingOrders,
+            'readyForPickupOrders' => $readyForPickupOrders,
             'title' => 'Packing Management',
             'role' => 'Warehouse Staff',
             'sidebar' => 'production'
@@ -823,17 +823,37 @@ class LogisticController extends Controller
     public function getPackingOrderData($id)
     {
         try {
+            \Log::info('Fetching packing order data for ID: ' . $id);
+            
             $order = \App\Models\SalesOrder::with('customer', 'items.book')->findOrFail($id);
+
+            \Log::info('Order loaded successfully', [
+                'id' => $order->id,
+                'so_number' => $order->so_number,
+                'customer' => $order->customer->customer_name ?? 'N/A',
+                'items_count' => $order->items->count()
+            ]);
 
             return response()->json([
                 'success' => true,
                 'order' => $order,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            \Log::warning('Order not found for ID: ' . $id);
             return response()->json([
                 'success' => false,
-                'message' => 'Order not found'
+                'message' => 'Order not found with ID: ' . $id
             ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching packing order data', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error loading order: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -842,13 +862,16 @@ class LogisticController extends Controller
         try {
             $orderId = $request->input('order_id');
             $packingStatus = $request->input('packing_status', 'in_progress');
+            $boxesCount = $request->input('boxes_count');
             $packingItems = $request->input('items', []);
+            $attachments = $request->input('attachments', []);
 
             $order = \App\Models\SalesOrder::findOrFail($orderId);
 
             // Build packing data structure
             $packingData = [
                 'status' => $packingStatus,
+                'boxes_count' => $boxesCount !== null && $boxesCount !== '' ? (int) $boxesCount : null,
                 'packed_by' => auth()->user()->name,
                 'packed_at' => now()->toDateTimeString(),
             ];
@@ -862,6 +885,23 @@ class LogisticController extends Controller
                     'notes' => $item['notes'],
                     'packed_date' => $item['packed_date'],
                 ];
+            }
+
+            // Handle photo attachments
+            if (!empty($attachments)) {
+                $attachmentData = [];
+
+                // Process Photo 1
+                if (!empty($attachments['photo_1'])) {
+                    $attachmentData['photo_1'] = $this->saveBase64Image($attachments['photo_1'], $order->so_number, 'photo_1');
+                }
+
+                // Process Photo 2
+                if (!empty($attachments['photo_2'])) {
+                    $attachmentData['photo_2'] = $this->saveBase64Image($attachments['photo_2'], $order->so_number, 'photo_2');
+                }
+
+                $packingData['attachments'] = $attachmentData;
             }
 
             // Update order with packing data
@@ -879,7 +919,9 @@ class LogisticController extends Controller
                 'reference_id' => $order->id,
                 'details' => json_encode([
                     'packing_status' => $packingStatus,
+                    'boxes_count' => $boxesCount,
                     'items_count' => count($packingItems),
+                    'has_attachments' => !empty($attachmentData),
                     'packed_by' => auth()->user()->name
                 ])
             ]);
@@ -891,6 +933,97 @@ class LogisticController extends Controller
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error saving packing data: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function saveBase64Image($base64String, $soNumber, $photoName)
+    {
+        try {
+            // Remove data:image/jpeg;base64, prefix if present
+            if (strpos($base64String, 'data:image') === 0) {
+                $base64String = substr($base64String, strpos($base64String, ',') + 1);
+            }
+
+            // Decode base64 string
+            $imageData = base64_decode($base64String);
+
+            if ($imageData === false) {
+                throw new \Exception('Invalid base64 image data');
+            }
+
+            // Create storage directory if it doesn't exist
+            $storagePath = storage_path('app/public/packing-photos');
+            if (!file_exists($storagePath)) {
+                mkdir($storagePath, 0755, true);
+            }
+
+            // Generate unique filename
+            $filename = 'SO-' . $soNumber . '-' . $photoName . '-' . time() . '.jpg';
+            $filePath = $storagePath . '/' . $filename;
+
+            // Save image
+            file_put_contents($filePath, $imageData);
+
+            // Return storage path for database
+            return 'packing-photos/' . $filename;
+        } catch (\Exception $e) {
+            \Log::error('Error saving base64 image: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function setReadyForPickup(Request $request)
+    {
+        try {
+            $orderIds = $request->input('order_ids', []);
+            
+            if (empty($orderIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No orders selected'
+                ], 400);
+            }
+
+            $updatedCount = 0;
+            foreach ($orderIds as $orderId) {
+                $order = \App\Models\SalesOrder::find($orderId);
+                if ($order) {
+                    // Update packing data status to ready for pickup
+                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                    $packingData['status'] = 'ready_for_pickup';
+                    $packingData['ready_for_pickup_at'] = now()->toDateTimeString();
+                    $packingData['ready_for_pickup_by'] = auth()->user()->name;
+
+                    $order->update([
+                        'packing_data' => json_encode($packingData)
+                    ]);
+
+                    // Log activity
+                    \App\Models\ActivityLog::create([
+                        'user_id' => auth()->id(),
+                        'action' => 'Order marked as ready for pickup',
+                        'description' => 'SO ' . $order->so_number . ' marked as ready for pickup/drop-off',
+                        'reference_type' => 'SalesOrder',
+                        'reference_id' => $order->id,
+                        'details' => json_encode([
+                            'so_number' => $order->so_number,
+                            'marked_by' => auth()->user()->name
+                        ])
+                    ]);
+
+                    $updatedCount++;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $updatedCount . ' order(s) marked as ready for pickup/drop-off',
+                'updated_count' => $updatedCount
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error setting ready for pickup: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
@@ -922,6 +1055,7 @@ class LogisticController extends Controller
                 'destination_address' => 'nullable|string',
                 'destination_province' => 'nullable|string|max:255',
                 'service_mode' => 'nullable|string|max:255',
+                'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
                 'service_carrier' => 'nullable|string|max:255',
                 'service_remarks' => 'nullable|string',
                 'estimated_freight' => 'required|numeric|min:0.01',
@@ -960,7 +1094,8 @@ class LogisticController extends Controller
             // Calculate charges
             $estimatedFreight = (float) $validated['estimated_freight'];
             $valuationPercent = (float) ($validated['valuation_percentage'] ?? 1);
-            $handlingPercent = (float) ($validated['handling_percentage'] ?? 20);
+            $isFreightCollect = ($validated['freight_option'] ?? null) === 'freight_collect';
+            $handlingPercent = $isFreightCollect ? (float) ($validated['handling_percentage'] ?? 20) : 0;
 
             $valuationCharge = ($estimatedFreight * $valuationPercent) / 100;
             $handlingFee = ($estimatedFreight * $handlingPercent) / 100;
@@ -978,6 +1113,7 @@ class LogisticController extends Controller
                 'destination_address' => $validated['destination_address'] ?? null,
                 'destination_province' => $validated['destination_province'] ?? null,
                 'service_mode' => $validated['service_mode'] ?? null,
+                'freight_option' => $validated['freight_option'] ?? null,
                 'service_carrier' => $validated['service_carrier'] ?? null,
                 'service_remarks' => $validated['service_remarks'] ?? null,
                 'cargo_items' => !empty($cargoItems) ? json_encode($cargoItems) : null,
@@ -1041,7 +1177,11 @@ class LogisticController extends Controller
         return view('production.logistic.freight-quotation-show', [
             'title' => 'Freight Quotation Review',
             'sidebar' => 'production',
-            'quotation' => $freightQuotation->load(['createdBy']),
+            'quotation' => $freightQuotation->load(['createdBy', 'salesOrder' => function($query) {
+                $query->with(['items' => function($q) {
+                    $q->with('book');
+                }, 'customer']);
+            }]),
         ]);
     }
 
@@ -1071,7 +1211,8 @@ class LogisticController extends Controller
             // Calculate charges
             $estimatedFreight = (float) $validated['estimated_freight'];
             $valuationPercent = (float) ($validated['valuation_percentage'] ?? 1);
-            $handlingPercent = (float) ($validated['handling_percentage'] ?? 20);
+            $isFreightCollect = $freightQuotation->freight_option === 'freight_collect';
+            $handlingPercent = $isFreightCollect ? (float) ($validated['handling_percentage'] ?? 20) : 0;
 
             $valuationCharge = ($estimatedFreight * $valuationPercent) / 100;
             $handlingFee = ($estimatedFreight * $handlingPercent) / 100;
@@ -1098,8 +1239,14 @@ class LogisticController extends Controller
                 if ($salesOrder) {
                     $salesOrder->update([
                         'freight_charges' => $totalAmount,
+                        'freight_option' => $freightQuotation->freight_option,
                         'freight_notes' => 'Freight approved: ₱' . number_format($estimatedFreight, 2) . 
                                          ' (Valuation: ₱' . number_format($valuationCharge, 2) . ', Handling: ₱' . number_format($handlingFee, 2) . ')',
+                    ]);
+                    $itemsSubtotal = $salesOrder->items()->sum('subtotal');
+                    $serviceFee = $freightQuotation->freight_option === 'freight_collect' ? 50.00 : 0;
+                    $salesOrder->update([
+                        'total_amount' => $itemsSubtotal + $totalAmount + $serviceFee,
                     ]);
                 }
             }

@@ -85,6 +85,20 @@
                             </div>
 
                             <div class="form-group">
+                                <label>Freight Option:</label>
+                                <select class="form-control" name="freight_option">
+                                    <option value="">Select Freight Option</option>
+                                    <option value="freight_collect" {{ ($isEdit && $order->freight_option == 'freight_collect') ? 'selected' : '' }}>Freight Collect</option>
+                                    <option value="freight_billing" {{ ($isEdit && $order->freight_option == 'freight_billing') ? 'selected' : '' }}>Freight Billing</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="serviceFeeGroup" style="display: none;">
+                                <label>Service Fee:</label>
+                                <input type="number" class="form-control" name="service_fee" value="50.00" readonly>
+                            </div>
+
+                            <div class="form-group">
                                 <label>Attachment:</label>
                                 @if($isEdit && $order->attachment)
                                     <div class="mb-2">
@@ -150,6 +164,11 @@
                                 <td></td>
                             </tr>
                             @endif
+                            <tr id="serviceFeeTotalRow" style="display: none;">
+                                <td colspan="6" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                                <td class="text-end fw-bold fs-5">₱ 50.00</td>
+                                <td></td>
+                            </tr>
                             <tr>
                                 <td colspan="6" class="text-end text-uppercase"><strong>Total Amount:</strong></td>
                                 <td class="text-end fw-bold fs-5" id="grandTotal">₱ 0.00</td>
@@ -276,6 +295,30 @@
             const customerSelect = document.getElementById('customerSelect');
             const billingAddress = document.getElementById('billingAddress');
 
+            // Freight Option Handler
+            const freightOptionSelect = document.querySelector('select[name="freight_option"]');
+            const serviceFeeGroup = document.getElementById('serviceFeeGroup');
+            const serviceFeeTotalRow = document.getElementById('serviceFeeTotalRow');
+
+            function toggleServiceFee() {
+                const shouldShowServiceFee = freightOptionSelect?.value === 'freight_collect';
+                if (serviceFeeGroup) {
+                    serviceFeeGroup.style.display = shouldShowServiceFee ? 'block' : 'none';
+                }
+                if (serviceFeeTotalRow) {
+                    serviceFeeTotalRow.style.display = shouldShowServiceFee ? '' : 'none';
+                }
+            }
+            
+            if (freightOptionSelect) {
+                freightOptionSelect.addEventListener('change', function() {
+                    toggleServiceFee();
+                    updateGrandTotal();
+                });
+                
+                toggleServiceFee();
+            }
+
             // Auto-fill address
             customerSelect.addEventListener('change', function() {
                 const option = this.options[this.selectedIndex];
@@ -336,9 +379,10 @@
                 // Add freight charges if they exist
                 const freightChargesDisplay = document.getElementById('freightChargesDisplay');
                 const freightCharges = freightChargesDisplay ? 
-                    parseFloat(freightChargesDisplay.textContent.replace('₱ ', '')) : 0;
+                    parseFloat(freightChargesDisplay.textContent.replace(/[^\d.-]/g, '')) : 0;
+                const serviceFee = freightOptionSelect?.value === 'freight_collect' ? 50 : 0;
                 
-                const grandTotal = total + freightCharges;
+                const grandTotal = total + freightCharges + serviceFee;
                 document.getElementById('grandTotal').textContent = '₱ ' + grandTotal.toFixed(2);
             }
 

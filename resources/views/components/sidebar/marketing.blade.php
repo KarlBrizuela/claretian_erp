@@ -5,14 +5,14 @@
     // Check permissions for specific modules
     $hasDashboard = $user->hasPermission('marketing.dashboard');
     $hasCustomers = $user->hasPermission('marketing.customers');
-    $hasAreaSales = $user->hasPermission('marketing.area_sales');
-    $hasDirectSales = $user->hasPermission('marketing.direct_sales');
-    $hasAdsAndPromo = $user->hasPermission('marketing.ads_promo');
-    $hasEcom = $user->hasPermission('marketing.ecom');
-    $hasBookMgmt = $user->hasPermission('marketing.book_mgmt');
+    $hasAreaSales = $user->hasPermission('marketing.area_sales') || $user->hasAnyPermission(['marketing.area_sales.sales_orders', 'marketing.area_sales.freight_quotations', 'marketing.area_sales.direct_invoice_website', 'marketing.area_sales.direct_invoice_ecom', 'marketing.area_sales.acknowledgement_receipt', 'marketing.area_sales.credit_memo', 'marketing.area_sales.proof_of_payment']);
+    $hasDirectSales = $user->hasPermission('marketing.direct_sales') || $user->hasAnyPermission(['marketing.direct_sales.pos', 'marketing.direct_sales.products', 'marketing.direct_sales.nbs_import']);
+    $hasAdsAndPromo = $user->hasPermission('marketing.ads_promo') || $user->hasAnyPermission(['marketing.ads_promo.marketing_plan', 'marketing.ads_promo.sponsors']);
+    $hasEcom = $user->hasPermission('marketing.ecom') || $user->hasPermission('marketing.ecom.pos');
+    $hasBookMgmt = $user->hasPermission('marketing.book_mgmt') || $user->hasAnyPermission(['marketing.book_mgmt.book_list', 'marketing.book_mgmt.consignment']);
     $hasSupplierMgmt = $user->hasPermission('marketing.supplier_mgmt');
-    $hasPettyCashVoucher = true; // All users have access to petty cash
-    $hasFreightVoucher = true; // All users have access to freight voucher
+    $hasPettyCashVoucher = $user->hasPermission('admin_finance.petty_cash_voucher');
+    $hasFreightVoucher = $user->hasPermission('admin_finance.freight_voucher');
     $hasApprovalQueue = $user->hasPermission('marketing.approval_queue');
     $hasMyRequests = $user->hasPermission('marketing.my_requests');
 @endphp
@@ -66,17 +66,31 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu">
+			@if($user->hasPermission('marketing.area_sales.sales_orders'))
 			<a href="{{ route('marketing.sales-orders.list') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.sales-orders.list', 'marketing.sales-orders.create') ? 'active' : '' }}">Sales Orders List</a>
+			@endif
 
+			@if($user->hasPermission('marketing.area_sales.freight_quotations'))
 			<a href="{{ route('marketing.freight-quotations.list') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.freight-quotations.*') ? 'active' : '' }}">
 				<i class="bi bi-truck me-1"></i>Freight Quotations
 			</a>
+			@endif
 
+			@if($user->hasPermission('marketing.area_sales.direct_invoice_website'))
 			<a href="{{ route('marketing.direct-invoice.website') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.direct-invoice.website') ? 'active' : '' }}">Direct Invoice (Website)</a>
+			@endif
+			@if($user->hasPermission('marketing.area_sales.direct_invoice_ecom'))
 			<a href="{{ route('marketing.direct-invoice.ecom') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.direct-invoice.ecom') ? 'active' : '' }}">Direct Invoice (E-com)</a>
+			@endif
+			@if($user->hasPermission('marketing.area_sales.acknowledgement_receipt'))
 			<a href="{{ route('marketing.acknowledgement-receipt') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.acknowledgement-receipt') ? 'active' : '' }}">Acknowledgement Receipt</a>
+			@endif
+			@if($user->hasPermission('marketing.area_sales.credit_memo'))
 			<a href="{{ route('marketing.credit-memo') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.credit-memo') ? 'active' : '' }}">Credit Memo Form</a>
+			@endif
+			@if($user->hasPermission('marketing.area_sales.proof_of_payment'))
 			<a href="{{ route('marketing.proof-of-payment') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.proof-of-payment') ? 'active' : '' }}">Proof of Payment</a>
+			@endif
 			<!-- Sales Reports and Territory Management removed -->
 		</div>
 	</div>
@@ -93,9 +107,15 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu">
+			@if($user->hasPermission('marketing.direct_sales.pos'))
 			<a href="{{ route('marketing.pos.sale') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.pos.sale') ? 'active' : '' }}">POS System</a>
+			@endif
+			@if($user->hasPermission('marketing.direct_sales.products'))
 			<a href="{{ route('marketing.pos.products') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.pos.products') ? 'active' : '' }}">POS Products</a>
+			@endif
+			@if($user->hasPermission('marketing.direct_sales.nbs_import'))
 			<a href="{{ route('marketing.nbs-import.index') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.nbs-import.index') ? 'active' : '' }}">NBS PO Import</a>
+			@endif
 		</div>
 	</div>
 	@endif
@@ -112,8 +132,12 @@
 		</a>
 		<div class="modern-nav-submenu">
 			<!-- Campaigns and Promotions removed -->
+			@if($user->hasPermission('marketing.ads_promo.marketing_plan'))
 			<a href="{{ route('marketing.ads-promo.crpr') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.ads-promo.crpr') ? 'active' : '' }}">Marketing Plan Itinerary Budget</a>
+			@endif
+			@if($user->hasPermission('marketing.ads_promo.sponsors'))
 			<a href="{{ route('marketing.ads-promo.sponsors') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.ads-promo.sponsors') ? 'active' : '' }}">List of Sponsors</a>
+			@endif
 		</div>
 	</div>
 	@endif
@@ -129,7 +153,9 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu">
+			@if($user->hasPermission('marketing.ecom.pos'))
 			<a href="{{ route('marketing.ecom.pos') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.ecom.pos') ? 'active' : '' }}">E-Commerce POS</a>
+			@endif
 		</div>
 	</div>
 	@endif
@@ -145,8 +171,12 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu">
+			@if($user->hasPermission('marketing.book_mgmt.book_list'))
 			<a href="{{ route('marketing.products') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.products') ? 'active' : '' }}">Book List (Master)</a>
+			@endif
+			@if($user->hasPermission('marketing.book_mgmt.consignment'))
 			<a href="{{ route('marketing.consignment.index') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.consignment.index') ? 'active' : '' }}">Consignment Management</a>
+			@endif
 		</div>
 	</div>
 	@endif
@@ -162,7 +192,7 @@
 	@endif
 
 	<!-- Finance -->
-	@if($hasPettyCashVoucher || $hasFreightVoucher)
+    @if($hasPettyCashVoucher || $hasFreightVoucher)
 	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*', 'admin-finance/freight-voucher*') ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="finance">
 			<div class="modern-nav-icon">

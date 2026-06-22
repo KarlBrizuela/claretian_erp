@@ -3,72 +3,134 @@
         <div class="col-xl-12 col-lg-12">
 
 
-            <!-- Job Request History -->
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Job Request</h5>
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addJobRequestModal">
-                        <i class="las la-plus"></i> Add Job Request
-                    </button>
+                <div class="card-header border-0 pb-0">
+                    <ul class="nav nav-tabs" id="dtoJobTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="legacy-tab" data-bs-toggle="tab" data-bs-target="#legacy-job-requests" type="button" role="tab" aria-controls="legacy-job-requests" aria-selected="true">
+                                Legacy Job Requests
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="service-tab" data-bs-toggle="tab" data-bs-target="#dto-service-requests" type="button" role="tab" aria-controls="dto-service-requests" aria-selected="false">
+                                DTO Service Requests
+                            </button>
+                        </li>
+                    </ul>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>Job No.</th>
-                                    <th>Project Title</th>
-                                    <th>Date</th>
-                                    <th>Due Date</th>
-                                    <th>Department</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($jobRequests as $request)
-                                    <tr>
-                                        <td>{{ $request->job_no }}</td>
-                                        <td>{{ $request->project_title }}</td>
-                                        <td>{{ $request->date ? \Carbon\Carbon::parse($request->date)->format('M d, Y') : '-' }}</td>
-                                        <td>{{ $request->due_date ? \Carbon\Carbon::parse($request->due_date)->format('M d, Y') : '-' }}</td>
-                                        <td>{{ $request->department->dept_name ?? 'N/A' }}</td>
-                                        <td>
-                                            <span class="badge badge-{{ $request->status == 'Completed' ? 'success' : ($request->status == 'Pending' ? 'warning' : 'info') }}">
-                                                {{ $request->status }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-info btn-view" 
-                                                data-bs-toggle="modal" data-bs-target="#viewModal"
-                                                data-data='{{ json_encode($request) }}'
-                                                data-dept='{{ $request->department->dept_name ?? "" }}'>
-                                                <i class="las la-eye"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-warning btn-edit" 
-                                                data-bs-toggle="modal" data-bs-target="#editModal"
-                                                data-data='{{ json_encode($request) }}'>
-                                                <i class="las la-edit"></i>
-                                            </button>
-                                            <form id="delete-form-{{ $request->id }}" action="{{ route('production.dto.job-request-form.destroy', $request->id) }}" method="POST" style="display: none;">
-                                                @csrf
-                                                @method('DELETE')
-                                            </form>
-                                            <button type="button" class="btn btn-sm btn-danger" onclick="if(confirm('Are you sure you want to delete this item?')) document.getElementById('delete-form-{{ $request->id }}').submit();">
-                                                <i class="las la-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="7" class="text-center">No job requests found.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-3">
-                        {{-- Pagination links can be added here if using paginate() in controller --}}
+                    <div class="tab-content" id="dtoJobTabsContent">
+                        <div class="tab-pane fade show active" id="legacy-job-requests" role="tabpanel" aria-labelledby="legacy-tab">
+                            <div class="section-title">Existing Legacy Job Requests</div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover dto-job-table">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th>Job No.</th>
+                                            <th>Project Title</th>
+                                            <th>Date</th>
+                                            <th>Due Date</th>
+                                            <th>Department</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($jobRequests as $request)
+                                            <tr>
+                                                <td>{{ $request->job_no }}</td>
+                                                <td>{{ $request->project_title }}</td>
+                                                <td>{{ $request->date ? \Carbon\Carbon::parse($request->date)->format('M d, Y') : '-' }}</td>
+                                                <td>{{ $request->due_date ? \Carbon\Carbon::parse($request->due_date)->format('M d, Y') : '-' }}</td>
+                                                <td>{{ $request->department->dept_name ?? 'N/A' }}</td>
+                                                <td>
+                                                    <span class="badge badge-{{ $request->status == 'Completed' ? 'success' : ($request->status == 'Pending' ? 'warning' : 'info') }}">
+                                                        {{ $request->status }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-info btn-view" 
+                                                        data-bs-toggle="modal" data-bs-target="#viewModal"
+                                                        data-data='{{ json_encode($request) }}'
+                                                        data-dept='{{ $request->department->dept_name ?? "" }}'>
+                                                        <i class="las la-eye"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-warning btn-edit" 
+                                                        data-bs-toggle="modal" data-bs-target="#editModal"
+                                                        data-data='{{ json_encode($request) }}'>
+                                                        <i class="las la-edit"></i>
+                                                    </button>
+                                                    <form id="delete-form-{{ $request->id }}" action="{{ route('production.dto.job-request-form.destroy', $request->id) }}" method="POST" style="display: none;">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                    </form>
+                                                    <button type="button" class="btn btn-sm btn-danger" onclick="if(confirm('Are you sure you want to delete this item?')) document.getElementById('delete-form-{{ $request->id }}').submit();">
+                                                        <i class="las la-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="7" class="text-center">No job requests found.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="dto-service-requests" role="tabpanel" aria-labelledby="service-tab">
+                            <div class="section-title">Existing Service Requests</div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover dto-job-table">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th>Reference</th>
+                                            <th>Requestor</th>
+                                            <th>Date</th>
+                                            <th>Nature of Request</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($serviceRequests as $request)
+                                            <tr>
+                                                <td>SRV-{{ str_pad($request->service_req_id, 4, '0', STR_PAD_LEFT) }}</td>
+                                                <td>{{ $request->requestor_name }}</td>
+                                                <td>{{ $request->date ? \Carbon\Carbon::parse($request->date)->format('M d, Y') : '-' }}</td>
+                                                <td>{{ Str::limit($request->nature_of_request, 80) }}</td>
+                                                <td>
+                                                    @php
+                                                        $statusClass = [
+                                                            'to submit' => 'secondary',
+                                                            'pending approval' => 'warning',
+                                                            'Pending HR approval' => 'info',
+                                                            'Pending Final Approval' => 'primary',
+                                                            'approved' => 'success',
+                                                            'ongoing' => 'info',
+                                                            'on_hold' => 'warning',
+                                                            'completed' => 'success',
+                                                            'rejected' => 'danger',
+                                                        ][$request->status] ?? 'secondary';
+                                                    @endphp
+                                                    <span class="badge badge-{{ $statusClass }}">{{ ucfirst(str_replace('_', ' ', $request->status)) }}</span>
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-info text-white" title="View">
+                                                        <i class="las la-eye"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="6" class="text-center">No DTO service requests found.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -76,71 +138,6 @@
     </div>
 
     @push('modals')
-    <!-- Add Job Request Modal -->
-    <div class="modal fade" id="addJobRequestModal" tabindex="-1" role="dialog" aria-labelledby="addJobRequestModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addJobRequestModalLabel">Add Job Request</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="addJobRequestForm" class="basic-form" method="POST" action="{{ route('production.dto.job-request-form.store') }}">
-                    @csrf
-                    <div class="modal-body">
-                        <div class="customer-section" style="display: block;">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="customer-details" style="background: none; padding: 0;">
-                                        <h5>Job Information</h5>
-                                        <div class="form-group">
-                                            <label>JOB No.:</label>
-                                            <input type="text" name="job_no" placeholder="Enter job number" required class="form-control">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Project Title:</label>
-                                            <input type="text" name="project_title" placeholder="Enter project title" required class="form-control">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Specifications:</label>
-                                            <textarea name="specifications" placeholder="Enter specifications" class="form-control"></textarea>
-                                        </div>
-                                         <div class="form-group">
-                                            <label>Due date: <span class="text-danger">*</span></label>
-                                            <input type="date" name="due_date" id="add_due_date" class="form-control" required>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="order-details" style="background: none; padding: 0;">
-                                        <h5>Request Information</h5>
-                                         <div class="form-group">
-                                            <label>Date: <span class="text-danger">*</span></label>
-                                            <input type="date" name="date" id="add_date" value="{{ date('Y-m-d') }}" class="form-control" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Department:</label>
-                                            <select name="department" class="selectpicker form-control" data-live-search="true" title="Select Department">
-                                                @foreach($departments as $dept)
-                                                    <option value="{{ $dept->dept_id }}">{{ $dept->dept_name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="las la-paper-plane"></i> Submit
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- View Modal -->
     <div class="modal fade" id="viewModal" tabindex="-1" role="dialog" aria-labelledby="viewModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
@@ -394,18 +391,6 @@
             } else {
                 console.error('Bootstrap modal is NOT loaded');
             }
-
-            // Date validation for Add Form
-            $('#addJobRequestForm').on('submit', function(e) {
-                const date = new Date($('#add_date').val());
-                const dueDate = new Date($('#add_due_date').val());
-                
-                if (dueDate < date) {
-                    e.preventDefault();
-                    alert('Due Date cannot be earlier than the Request Date.');
-                    return false;
-                }
-            });
 
             // Date validation for Edit Form
             $('#editForm').on('submit', function(e) {

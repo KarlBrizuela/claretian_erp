@@ -48,6 +48,11 @@
                             <i class="las la-map-marker me-2"></i>Sites
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="transfer-workflow-tab" data-bs-toggle="tab" data-bs-target="#transfer-workflow-content" type="button" role="tab" aria-controls="transfer-workflow-content" aria-selected="false">
+                            <i class="las la-random me-2"></i>Transfer Workflow
+                        </button>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -370,6 +375,7 @@
                                                 <th><strong>TO</strong></th>
                                                 <th><strong>BOOK</strong></th>
                                                 <th><strong>QUANTITY</strong></th>
+                                                <th><strong>APPROVER</strong></th>
                                                 <th><strong>STATUS</strong></th>
                                                 <th><strong>ACTION</strong></th>
                                             </tr>
@@ -381,6 +387,7 @@
                                                 <td>{{ $transfer->toSite->name }}</td>
                                                 <td>{{ $transfer->book->name }}</td>
                                                 <td><strong>{{ $transfer->quantity }}</strong></td>
+                                                <td>{{ $transfer->approval_division ?? 'Production' }} Manager/Supervisor</td>
                                                 <td>
                                                     @if($transfer->status == 'pending')
                                                         <span class="badge light badge-warning">Pending</span>
@@ -391,19 +398,123 @@
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    @if($transfer->status == 'pending')
+                                                    @if($transfer->status == 'pending' && $transfer->canBeApprovedBy(auth()->user()))
                                                         <button class="btn btn-xs btn-success" onclick="approveTransfer({{ $transfer->id }})">
                                                             <i class="las la-check"></i> Approve
                                                         </button>
                                                         <button class="btn btn-xs btn-danger" onclick="rejectTransfer({{ $transfer->id }})">
                                                             <i class="las la-times"></i> Reject
                                                         </button>
+                                                    @elseif($transfer->status == 'pending')
+                                                        <span class="text-muted small">Waiting for approval</span>
                                                     @endif
                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="6" class="text-center">No pending transfers</td>
+                                                <td colspan="7" class="text-center">No pending transfers</td>
+                                            </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transfer Workflow Tab Content -->
+            <div class="tab-pane fade" id="transfer-workflow-content" role="tabpanel" aria-labelledby="transfer-workflow-tab">
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="card">
+                            <div class="card-header border-0">
+                                <div>
+                                    <h4 class="fs-20 mb-0 text-black">Stock Transfer Workflow</h4>
+                                    <small class="text-muted">Approval → Accounting → Logistics Assignment → Completion</small>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-responsive-md align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th><strong>REF</strong></th>
+                                                <th><strong>FROM / TO</strong></th>
+                                                <th><strong>BOOK</strong></th>
+                                                <th><strong>QTY</strong></th>
+                                                <th><strong>REQUESTED BY</strong></th>
+                                                <th><strong>ASSIGNED LOGISTICS</strong></th>
+                                                <th><strong>STATUS</strong></th>
+                                                <th><strong>ACTION</strong></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($stockTransferWorkflow ?? [] as $transfer)
+                                            <tr>
+                                                <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                                <td>
+                                                    <div>{{ $transfer->fromSite->name ?? 'N/A' }}</div>
+                                                    <small class="text-muted">to {{ $transfer->toSite->name ?? 'N/A' }}</small>
+                                                </td>
+                                                <td>{{ $transfer->book->name ?? 'N/A' }}</td>
+                                                <td><strong>{{ $transfer->quantity }}</strong></td>
+                                                <td>{{ $transfer->createdBy->name ?? 'N/A' }}</td>
+                                                <td>{{ $transfer->logisticsAssignedTo->name ?? 'Not assigned' }}</td>
+                                                <td>
+                                                    @if($transfer->status === 'pending')
+                                                        <span class="badge light badge-warning">Manager/Supervisor Approval</span>
+                                                    @elseif($transfer->status === 'accounting_review')
+                                                        <span class="badge light badge-info">Accounting Review</span>
+                                                    @elseif($transfer->status === 'logistics_assignment')
+                                                        <span class="badge light badge-primary">For Logistics Assignment</span>
+                                                    @elseif($transfer->status === 'logistics_assigned')
+                                                        <span class="badge light badge-secondary">Assigned to Logistics</span>
+                                                    @elseif($transfer->status === 'completed')
+                                                        <span class="badge light badge-success">Completed</span>
+                                                    @else
+                                                        <span class="badge light badge-danger">Rejected</span>
+                                                    @endif
+                                                </td>
+                                                <td style="min-width: 220px;">
+                                                    @if($transfer->status === 'pending' && $transfer->canBeApprovedBy(auth()->user()))
+                                                        <button class="btn btn-xs btn-success mb-1" onclick="approveTransfer({{ $transfer->id }})">
+                                                            <i class="las la-check"></i> Approve
+                                                        </button>
+                                                        <button class="btn btn-xs btn-danger mb-1" onclick="rejectTransfer({{ $transfer->id }})">
+                                                            <i class="las la-times"></i> Reject
+                                                        </button>
+                                                    @elseif($transfer->status === 'accounting_review' && ($isAccountingReviewer ?? false))
+                                                        <button class="btn btn-xs btn-info" onclick="accountingApproveTransfer({{ $transfer->id }})">
+                                                            <i class="las la-file-invoice"></i> Accounting Approve
+                                                        </button>
+                                                    @elseif($transfer->status === 'logistics_assigned' && $transfer->canBeCompletedBy(auth()->user()))
+                                                        <button class="btn btn-xs btn-success" onclick="completeLogisticsTransfer({{ $transfer->id }})">
+                                                            <i class="las la-check-double"></i> Mark Completed
+                                                        </button>
+                                                    @elseif(in_array($transfer->status, ['logistics_assignment', 'logistics_assigned']) && ($isLogisticsAssigner ?? false))
+                                                        <div class="d-flex gap-1">
+                                                            <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
+                                                                <option value="">Select staff</option>
+                                                                @foreach($logisticsUsers ?? [] as $logisticsUser)
+                                                                    <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
+                                                                        {{ $logisticsUser->name }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+                                                            <button class="btn btn-xs btn-primary" onclick="assignLogisticsTransfer({{ $transfer->id }})">
+                                                                Assign
+                                                            </button>
+                                                        </div>
+                                                    @else
+                                                        <span class="text-muted small">No action available</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                            @empty
+                                            <tr>
+                                                <td colspan="8" class="text-center">No stock transfers found</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
@@ -1524,7 +1635,7 @@
 
         window.approveTransfer = function(transferId) {
             if (confirm('Approve this transfer?')) {
-                fetch(`/production/sites/approve-transfer/${transferId}`, {
+                fetch(`/stock-transfers/${transferId}/approve`, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -1547,7 +1658,7 @@
 
         window.rejectTransfer = function(transferId) {
             if (confirm('Reject this transfer?')) {
-                fetch(`/production/sites/reject-transfer/${transferId}`, {
+                fetch(`/stock-transfers/${transferId}/reject`, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -1563,6 +1674,85 @@
                     }
                 })
                 .catch(error => {
+                    showNotification('An error occurred', 'error');
+                });
+            }
+        };
+
+        window.accountingApproveTransfer = function(transferId) {
+            if (confirm('Approve this transfer from Accounting and forward to Logistics?')) {
+                fetch(`/stock-transfers/${transferId}/accounting-approve`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message || 'Transfer forwarded to Logistics!', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showNotification('Error: ' + data.message, 'error');
+                    }
+                })
+                .catch(() => {
+                    showNotification('An error occurred', 'error');
+                });
+            }
+        };
+
+        window.assignLogisticsTransfer = function(transferId) {
+            const select = document.getElementById(`assignLogistics${transferId}`);
+            const logisticsUserId = select ? select.value : '';
+
+            if (!logisticsUserId) {
+                showNotification('Please select a logistics staff.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('logistics_assigned_to', logisticsUserId);
+
+            fetch(`/stock-transfers/${transferId}/assign-logistics`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message || 'Transfer assigned!', 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification('Error: ' + data.message, 'error');
+                }
+            })
+            .catch(() => {
+                showNotification('An error occurred', 'error');
+            });
+        };
+
+        window.completeLogisticsTransfer = function(transferId) {
+            if (confirm('Mark this stock transfer as completed? This will move the stock now.')) {
+                fetch(`/stock-transfers/${transferId}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message || 'Transfer completed!', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showNotification('Error: ' + data.message, 'error');
+                    }
+                })
+                .catch(() => {
                     showNotification('An error occurred', 'error');
                 });
             }

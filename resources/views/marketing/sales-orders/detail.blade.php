@@ -119,6 +119,36 @@
                                 <td class="fw-bold text-dark">Remarks:</td>
                                 <td class="text-black">{{ $order->remarks ?? 'None' }}</td>
                             </tr>
+                            <tr>
+                                <td class="fw-bold text-dark">Terms:</td>
+                                <td class="text-black">{{ $order->terms ?? '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-dark">REF #:</td>
+                                <td class="text-black">{{ $order->ref_number ?? '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-dark">Freight Option:</td>
+                                <td class="text-black">
+                                    @if($order->status !== 'completed' && $order->status !== 'cancelled')
+                                        <select id="freightOptionSelect" class="form-control form-control-sm">
+                                            <option value="">Select Freight Option</option>
+                                            <option value="freight_collect" {{ $order->freight_option === 'freight_collect' ? 'selected' : '' }}>Freight Collect</option>
+                                            <option value="freight_billing" {{ $order->freight_option === 'freight_billing' ? 'selected' : '' }}>Freight Billing</option>
+                                        </select>
+                                    @else
+                                        @if($order->freight_option)
+                                            <span class="badge bg-primary">{{ ucfirst(str_replace('_', ' ', $order->freight_option)) }}</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr id="serviceFeeRow" style="display: none;">
+                                <td class="fw-bold text-dark">Service Fee:</td>
+                                <td class="text-black">₱50.00</td>
+                            </tr>
                         </table>
                     </div>
                 </div>
@@ -152,9 +182,19 @@
                         @endforeach
                     </tbody>
                     <tfoot>
+                        @php
+                            $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
+                            $grandTotal = $order->total_amount + $serviceFee;
+                        @endphp
+                        @if($serviceFee > 0)
+                        <tr>
+                            <td colspan="6" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
+                        </tr>
+                        @endif
                         <tr>
                             <td colspan="6" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
-                            <td class="text-end fw-bold fs-5">₱{{ number_format($order->total_amount, 2) }}</td>
+                            <td class="text-end fw-bold fs-5">₱{{ number_format($grandTotal, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -175,6 +215,10 @@
 
                 <!-- Freight Charges Breakdown -->
                 @if($order->freight_charges && $order->freight_charges > 0)
+                @php
+                    $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
+                    $itemsSubtotal = $order->total_amount - $order->freight_charges - $serviceFee;
+                @endphp
                 <table class="order-table mt-3">
                     <thead>
                         <tr>
@@ -184,12 +228,18 @@
                     <tbody>
                         <tr>
                             <td class="text-end"><strong>Items Subtotal:</strong></td>
-                            <td class="text-end">₱{{ number_format($order->total_amount - $order->freight_charges, 2) }}</td>
+                            <td class="text-end">₱{{ number_format($itemsSubtotal, 2) }}</td>
                         </tr>
                         <tr>
                             <td class="text-end"><strong>Freight Charges:</strong></td>
                             <td class="text-end text-success"><strong>₱{{ number_format($order->freight_charges, 2) }}</strong></td>
                         </tr>
+                        @if($serviceFee > 0)
+                        <tr>
+                            <td class="text-end"><strong>Service Fee:</strong></td>
+                            <td class="text-end text-success"><strong>₱{{ number_format($serviceFee, 2) }}</strong></td>
+                        </tr>
+                        @endif
                         <tr style="background: #f0f0f0;">
                             <td class="text-end"><strong>Grand Total:</strong></td>
                             <td class="text-end"><strong>₱{{ number_format($order->total_amount, 2) }}</strong></td>
@@ -200,6 +250,11 @@
 
                 <!-- Actions -->
                 <div class="d-flex justify-content-end gap-2 mt-4 form-actions">
+                    @if($order->status !== 'completed' && $order->status !== 'cancelled')
+                    <button type="button" class="btn btn-success" id="saveChangesBtn" onclick="saveOrderChanges('{{ $order->id }}')">
+                        <i class="las la-save me-2"></i>Save Changes
+                    </button>
+                    @endif
                     <button type="button" class="btn btn-dark" onclick="window.history.back()">
                         <i class="las la-arrow-left me-2"></i>Back
                     </button>
@@ -416,7 +471,61 @@
                     printAddress.textContent = this.value || 'Address...';
                 });
             }
+
+            // Freight Option Change Handler
+            const freightOptionSelect = document.getElementById('freightOptionSelect');
+            if (freightOptionSelect) {
+                freightOptionSelect.addEventListener('change', function() {
+                    const serviceFeeRow = document.getElementById('serviceFeeRow');
+                    if (this.value === 'freight_collect') {
+                        serviceFeeRow.style.display = '';
+                    } else {
+                        serviceFeeRow.style.display = 'none';
+                    }
+                });
+                
+                // Check on page load if freight collect is selected
+                if (freightOptionSelect.value === 'freight_collect') {
+                    document.getElementById('serviceFeeRow').style.display = '';
+                }
+            }
         });
+
+        function saveOrderChanges(orderId) {
+            const freightOption = document.getElementById('freightOptionSelect')?.value || '';
+
+            const saveBtn = document.getElementById('saveChangesBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="las la-spinner la-spin me-2"></i>Saving...';
+
+            fetch(`/marketing/sales-orders/${orderId}/quick-update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    freight_option: freightOption
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Freight Option updated successfully!');
+                    location.reload();
+                } else {
+                    alert('Error updating order: ' + (data.message || 'Unknown error'));
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = '<i class="las la-save me-2"></i>Save Changes';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving changes: ' + error.message);
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="las la-save me-2"></i>Save Changes';
+            });
+        }
 
         function printShippingLabel(url) {
             const iframe = document.getElementById('shippingLabelFrame');

@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('freight_quotations', function (Blueprint $table) {
-            $table->string('customer_id')->nullable()->after('created_by');
-            $table->foreign('customer_id')->references('customer_id')->on('customers')->onDelete('set null');
-        });
+        if (!Schema::hasColumn('freight_quotations', 'customer_id')) {
+            Schema::table('freight_quotations', function (Blueprint $table) {
+                $table->string('customer_id')->nullable()->after('created_by');
+                $table->foreign('customer_id')->references('customer_id')->on('customers')->onDelete('set null');
+            });
+        }
     }
 
     /**
@@ -22,9 +24,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('freight_quotations', function (Blueprint $table) {
-            $table->dropForeign(['customer_id']);
-            $table->dropColumn('customer_id');
-        });
+        if (Schema::hasColumn('freight_quotations', 'customer_id')) {
+            Schema::table('freight_quotations', function (Blueprint $table) {
+                $table->dropForeign(['customer_id']);
+                $table->dropColumn('customer_id');
+            });
+        }
     }
 };

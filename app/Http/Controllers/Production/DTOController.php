@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Production;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin\MIS\MisServiceRequest;
 use Illuminate\Http\Request;
 
 class DTOController extends Controller
@@ -11,7 +12,11 @@ class DTOController extends Controller
     {
         $departments = \App\Models\Department::all();
         $jobRequests = \App\Models\JobRequest::with('department')->orderBy('created_at', 'desc')->get();
-        return view('production.dto.job-request-form', compact('departments', 'jobRequests'));
+        $serviceRequests = MisServiceRequest::where('department', 'DTO')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('production.dto.job-request-form', compact('departments', 'jobRequests', 'serviceRequests'));
     }
 
     public function storeJobRequest(Request $request)

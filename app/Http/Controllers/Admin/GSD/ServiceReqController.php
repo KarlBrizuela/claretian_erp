@@ -67,7 +67,7 @@ class ServiceReqController extends Controller
             'requestor_name' => 'sometimes|required|string|max:255',
             'date' => 'sometimes|required|date',
             'nature_of_request' => 'sometimes|required|string',
-            'status' => 'sometimes|required|in:to submit,pending,Pending HR approval,Pending Final Approval,completed,rejected',
+            'status' => 'sometimes|required|in:to submit,pending,Pending HR approval,Pending Final Approval,on_hold,ongoing,completed,rejected',
         ]);
 
         $serviceRequest->update($validated);

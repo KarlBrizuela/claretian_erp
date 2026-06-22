@@ -43,9 +43,19 @@
                     </div>
                 </div>
 
+                <ul class="nav nav-tabs" id="jobTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#cctv">CCTV Review</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#service">Service Request</a>
+                    </li>
+                </ul>
+
                 <div class="tab-content">
                     <!-- CCTV Review -->
                     <div class="tab-pane fade show active" id="cctv">
+                        <div class="section-title mt-0 text-uppercase">Existing CCTV Requests</div>
                         <div class="table-responsive">
                             <table class="table table-hover" id="cctvTable">
                                 <thead class="table-light">
@@ -90,6 +100,54 @@
                                                 <h5 class="text-muted">No pending approvals</h5>
                                             </div>
                                         </td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Service Request -->
+                    <div class="tab-pane fade" id="service">
+                        <div class="section-title mt-0 text-uppercase">HR Service Requests</div>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Reference</th>
+                                        <th>Requestor</th>
+                                        <th>Date</th>
+                                        <th>Nature of Request</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($serviceRequests as $req)
+                                    <tr>
+                                        <td><strong>SRV-{{ str_pad($req->service_req_id, 4, '0', STR_PAD_LEFT) }}</strong></td>
+                                        <td>{{ $req->requestor_name }}</td>
+                                        <td>{{ \Carbon\Carbon::parse($req->date)->format('m/d/Y') }}</td>
+                                        <td>{{ Str::limit($req->nature_of_request, 60) }}</td>
+                                        <td>
+                                            @php
+                                                $statusClass = [
+                                                    'to submit' => 'secondary',
+                                                    'pending approval' => 'warning',
+                                                    'Pending HR approval' => 'info',
+                                                    'Pending Final Approval' => 'primary',
+                                                    'approved' => 'success',
+                                                    'ongoing' => 'info',
+                                                    'on_hold' => 'warning',
+                                                    'completed' => 'success',
+                                                    'rejected' => 'danger',
+                                                ][$req->status] ?? 'secondary';
+                                            @endphp
+                                            <span class="badge bg-{{ $statusClass }}">{{ ucfirst(str_replace('_', ' ', $req->status)) }}</span>
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">No HR service requests found.</td>
                                     </tr>
                                     @endforelse
                                 </tbody>

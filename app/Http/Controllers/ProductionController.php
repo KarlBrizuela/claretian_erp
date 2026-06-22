@@ -29,7 +29,10 @@ class ProductionController extends Controller
 
         // 2. Pending Cash Advances (Production Specific Authorization)
         $authorizedPositions = ['DTO Supervisor', 'Senior Ford Staff', 'Senior Logistics Staff'];
-        $isAuthorized = (str_contains($pos, 'Manager') && str_contains($user->division, 'Production')) || 
+        $isProductionApprover = (str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor'))
+                        && \App\Models\StockTransfer::approvalDivisionForUser($user) === 'Production';
+
+        $isAuthorized = $isProductionApprover ||
                         in_array($pos, $authorizedPositions) || 
                         $pos === 'Super Admin';
         
@@ -47,6 +50,26 @@ class ProductionController extends Controller
                     $query->where('division', 'like', '%Production%')
                         ->orWhereHas('divisions', function ($divisionQuery) {
                             $divisionQuery->where('division', 'like', '%Production%');
+                        });
+                })
+                ->latest()
+                ->get()
+            : collect();
+
+        $pendingTransfers = $isAuthorized
+            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'createdBy')
+                ->where('status', 'pending')
+                ->where(function ($query) {
+                    $query->where('approval_division', 'Production')
+                        ->orWhere(function ($legacyQuery) {
+                            $legacyQuery->whereNull('approval_division')
+                                ->whereHas('createdBy', function ($creatorQuery) {
+                                    $creatorQuery->where('division', 'like', '%Production%')
+                                        ->orWhere('position', 'like', '%Logistic%')
+                                        ->orWhereHas('divisions', function ($divisionQuery) {
+                                            $divisionQuery->where('division', 'like', '%Production%');
+                                        });
+                                });
                         });
                 })
                 ->latest()
@@ -100,6 +123,21 @@ class ProductionController extends Controller
                 'department' => $req->department,
                 'description' => $req->purpose,
                 'original' => $req
+            ];
+        }
+
+        foreach ($pendingTransfers as $transfer) {
+            $myApprovals[] = [
+                'type' => 'Stock Transfer',
+                'id' => $transfer->id,
+                'reference_no' => 'ST-' . str_pad($transfer->id, 5, '0', STR_PAD_LEFT),
+                'submitted_by' => $transfer->createdBy->name ?? 'N/A',
+                'submitted_date' => $transfer->created_at,
+                'amount' => $transfer->quantity . ' units',
+                'attachment' => null,
+                'status' => 'pending approval',
+                'description' => ($transfer->book->name ?? 'Unknown Book') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A'),
+                'original' => $transfer
             ];
         }
 
@@ -167,6 +205,7 @@ class ProductionController extends Controller
             'sidebar' => 'production',
             'salesOrders' => $salesOrders,
             'pendingCashAdvances' => $pendingCashAdvances,
+            'pendingTransfers' => $pendingTransfers,
             'pendingCctvRequests' => $pendingCctvRequests,
             'myApprovals' => collect($myApprovals)->sortByDesc('submitted_date'),
             'mySubmissions' => $mySubmissions->sortByDesc('submitted_date'),

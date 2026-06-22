@@ -256,7 +256,7 @@
 
     <div class="approval-stats">
         <div class="stat-card pending">
-            <h3 id="pendingCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingCctvRequests->count() }}</h3>
+            <h3 id="pendingCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingTransfers->count() + $pendingCctvRequests->count() }}</h3>
             <p>Pending Approvals</p>
         </div>
         <div class="stat-card urgent">
@@ -267,14 +267,15 @@
             @php
                 $recentSales = $salesOrders->where('created_at', '>=', now()->startOfDay())->count();
                 $recentCash = $pendingCashAdvances->where('created_at', '>=', now()->startOfDay())->count();
+                $recentTransfers = $pendingTransfers->where('created_at', '>=', now()->startOfDay())->count();
                 $recentCctv = $pendingCctvRequests->where('created_at', '>=', now()->startOfDay())->count();
-                $recentTotal = $recentSales + $recentCash + $recentCctv;
+                $recentTotal = $recentSales + $recentCash + $recentTransfers + $recentCctv;
             @endphp
             <h3 id="recentCount">{{ $recentTotal }}</h3>
             <p>Received Today</p>
         </div>
         <div class="stat-card total">
-            <h3 id="totalCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingCctvRequests->count() }}</h3>
+            <h3 id="totalCount">{{ $salesOrders->count() + $pendingCashAdvances->count() + $pendingTransfers->count() + $pendingCctvRequests->count() }}</h3>
             <p>Total Pending</p>
         </div>
     </div>
@@ -315,7 +316,7 @@
                                             @php
                                                 $typeClass = $approval['type'] === 'Sales Order' ? 'type-sales-order' : ($approval['type'] === 'CCTV' ? 'type-job-order' : 'badge-info');
                                             @endphp
-                                            <span class="document-type-badge {{ $typeClass }}" @if($approval['type'] === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @endif>{{ $approval['type'] }}</span>
+                                            <span class="document-type-badge {{ $typeClass }}" @if($approval['type'] === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @elseif($approval['type'] === 'Stock Transfer') style="background-color: #d4edda; color: #155724;" @endif>{{ $approval['type'] }}</span>
                                         </td>
                                         <td><strong>{{ $approval['reference_no'] }}</strong></td>
                                         <td>{{ $approval['submitted_by'] }}</td>
@@ -344,6 +345,13 @@
                                                     <input type="hidden" name="status" value="rejected">
                                                     <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times"></i> Reject</button>
                                                 </form>
+                                            @elseif($approval['type'] === 'Stock Transfer')
+                                                <button type="button" class="btn btn-success btn-sm" onclick="approveTransfer({{ $approval['id'] }})">
+                                                    <i class="las la-check"></i> Approve
+                                                </button>
+                                                <button type="button" class="btn btn-danger btn-sm" onclick="rejectTransfer({{ $approval['id'] }})">
+                                                    <i class="las la-times"></i> Reject
+                                                </button>
                                             @else
                                                 <button type="button" 
                                                         class="btn btn-primary btn-sm"
@@ -497,6 +505,7 @@
                         <button class="queue-btn filter-trigger active" onclick="filterQueue(this, '')">All Records</button>
                         <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Sales Order')">Sales Orders</button>
                         <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Cash Advance')">Cash Advances</button>
+                        <button class="queue-btn filter-trigger" onclick="filterQueue(this, 'Stock Transfer')">Stock Transfers</button>
                     </div>
 
                     <div class="table-responsive">
@@ -547,6 +556,25 @@
                                                 data-date="{{ $advance->date_needed->format('M d, Y') }}"
                                                 data-original="{{ json_encode($advance) }}">
                                             <i class="las la-eye"></i> Review
+                                        </button>
+                                    </td>
+                                </tr>
+                                @endforeach
+
+                                @foreach($pendingTransfers as $transfer)
+                                <tr data-type="Stock Transfer">
+                                    <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
+                                    <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                    <td>{{ $transfer->createdBy->name ?? 'N/A' }}</td>
+                                    <td>{{ $transfer->created_at->format('Y-m-d h:i A') }}</td>
+                                    <td>{{ $transfer->quantity }} units</td>
+                                    <td><span class="status-badge status-pending">Pending Approval</span></td>
+                                    <td>
+                                        <button type="button" class="btn btn-success btn-sm" onclick="approveTransfer({{ $transfer->id }})">
+                                            <i class="las la-check"></i> Approve
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm" onclick="rejectTransfer({{ $transfer->id }})">
+                                            <i class="las la-times"></i> Reject
                                         </button>
                                     </td>
                                 </tr>
@@ -848,6 +876,62 @@
             }
             $('#hidden_rejection_reason').val(reason);
             $('#ca-reject-form').submit();
+        }
+
+        function approveTransfer(transferId) {
+            if (!confirm('Approve this stock transfer?')) {
+                return;
+            }
+
+            fetch(`/stock-transfers/${transferId}/approve`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Stock transfer approved.');
+                    location.reload();
+                    return;
+                }
+
+                alert(data.message || 'Unable to approve stock transfer.');
+            })
+            .catch(() => alert('Unable to approve stock transfer.'));
+        }
+
+        function rejectTransfer(transferId) {
+            const reason = prompt('Reason for rejection:');
+
+            if (reason === null) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('rejection_reason', reason);
+
+            fetch(`/stock-transfers/${transferId}/reject`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Stock transfer rejected.');
+                    location.reload();
+                    return;
+                }
+
+                alert(data.message || 'Unable to reject stock transfer.');
+            })
+            .catch(() => alert('Unable to reject stock transfer.'));
         }
     </script>
     @endpush

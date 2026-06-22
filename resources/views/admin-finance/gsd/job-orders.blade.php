@@ -25,116 +25,14 @@
 
                 <div class="card-body">
                     <ul class="nav nav-tabs" id="jobTabs" role="tablist">
-                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#approvals">Job Order Approvals</a></li>
-                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#material">Material Request</a></li>
+                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#material">Material Request</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#service">Service Request</a></li>
                     </ul>
 
                     <div class="tab-content">
-                        <!-- Job Order Approvals Tab -->
-                        <div class="tab-pane fade show active" id="approvals">
-                            <div class="mt-4">
-                                <div class="table-responsive">
-                                    <table class="table table-hover table-bordered">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Reference No.</th>
-                                                <th>Type</th>
-                                                <th>Requested By</th>
-                                                <th>Date</th>
-                                                <th>Details</th>
-                                                <th>Approved By</th>
-                                                <th>Status</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @php
-                                                $approvalStatuses = ['pending approval', 'Pending Final Approval', 'forwarded to accounting'];
-                                                $allApprovals = [];
-                                                
-                                                // Combine material and service requests that need approval
-                                                foreach ($materialRequests as $mat) {
-                                                    if (in_array($mat->status, $approvalStatuses)) {
-                                                        $allApprovals[] = (object)[
-                                                            'type' => 'Material',
-                                                            'reference' => 'MAT-' . str_pad($mat->material_req_id, 4, '0', STR_PAD_LEFT),
-                                                            'requested_by' => $mat->requested_by,
-                                                            'date' => $mat->request_date,
-                                                            'details' => substr($mat->request_details, 0, 50),
-                                                            'approved_by' => $mat->approved_by_manager ? 'Manager' : '-',
-                                                            'status' => $mat->status,
-                                                            'id' => $mat->material_req_id,
-                                                            'model_type' => 'material'
-                                                        ];
-                                                    }
-                                                }
-                                                
-                                                foreach ($serviceRequests as $svc) {
-                                                    if (in_array($svc->status, $approvalStatuses)) {
-                                                        $allApprovals[] = (object)[
-                                                            'type' => 'Service',
-                                                            'reference' => 'SRV-' . str_pad($svc->service_req_id, 4, '0', STR_PAD_LEFT),
-                                                            'requested_by' => $svc->requestor_name,
-                                                            'date' => $svc->date,
-                                                            'details' => substr($svc->nature_of_request, 0, 50),
-                                                            'approved_by' => $svc->approved_by ? 'Manager' : '-',
-                                                            'status' => $svc->status,
-                                                            'id' => $svc->service_req_id,
-                                                            'model_type' => 'service'
-                                                        ];
-                                                    }
-                                                }
-                                            @endphp
-                                            
-                                            @forelse($allApprovals as $approval)
-                                            <tr>
-                                                <td><strong>{{ $approval->reference }}</strong></td>
-                                                <td>
-                                                    @if($approval->type === 'Material')
-                                                        <span class="badge bg-primary">Material</span>
-                                                    @else
-                                                        <span class="badge bg-info">Service</span>
-                                                    @endif
-                                                </td>
-                                                <td>{{ $approval->requested_by }}</td>
-                                                <td>{{ \Carbon\Carbon::parse($approval->date)->format('m/d/Y') }}</td>
-                                                <td>{{ $approval->details }}{{ strlen($approval->details) >= 50 ? '...' : '' }}</td>
-                                                <td>{{ $approval->approved_by }}</td>
-                                                <td>
-                                                    @php
-                                                        $statusClass = [
-                                                            'pending approval' => 'warning',
-                                                            'Pending Final Approval' => 'primary',
-                                                            'forwarded to accounting' => 'info'
-                                                        ][$approval->status] ?? 'secondary';
-                                                    @endphp
-                                                    <span class="badge bg-{{ $statusClass }}">{{ $approval->status }}</span>
-                                                </td>
-                                                <td>
-                                                    <a href="#" class="btn btn-sm btn-outline-primary" title="View">
-                                                        <i class="las la-eye"></i>
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                            @empty
-                                            <tr>
-                                                <td colspan="8" class="text-center text-muted py-4">No requests pending approval</td>
-                                            </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
                         <!-- Material Request Tab -->
-                        <div class="tab-pane fade" id="material">
-                            <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
-                                <div class="section-title mt-0 text-uppercase">Existing Material Requests</div>
-                                <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#createMaterialModal">
-                                    <i class="las la-plus me-1"></i> Create New Request
-                                </button>
-                            </div>
+                        <div class="tab-pane fade show active" id="material">
+                            <div class="section-title mt-0 text-uppercase">Existing Material Requests</div>
 
                             <div class="table-responsive">
                                 <table class="table table-hover" id="materialTable">
@@ -196,12 +94,7 @@
 
                         <!-- Service Request Tab -->
                         <div class="tab-pane fade" id="service">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <div class="section-title mt-0 text-uppercase">Existing Service Requests</div>
-                                <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#createServiceModal">
-                                    <i class="las la-plus me-1"></i> Create New Request
-                                </button>
-                            </div>
+                            <div class="section-title mt-0 text-uppercase">Existing Service Requests</div>
 
                             <div class="table-responsive">
                                 <table class="table table-hover" id="serviceTable">
@@ -335,80 +228,6 @@
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Close</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Material Request Modal -->
-    <div class="modal fade" id="createMaterialModal" tabindex="-1" aria-labelledby="createMaterialModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form id="createMaterialForm" action="{{ route('admin-finance.gsd.material-requests.store') }}" method="POST">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="createMaterialModalLabel">Create New Material Request</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-8 mb-3">
-                                <label class="form-label fw-bold">Requestor's Name:</label>
-                                <input type="text" name="requested_by" class="form-control" value="{{ old('requested_by') }}" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Date:</label>
-                                <input type="date" name="request_date" class="form-control" value="{{ old('request_date', date('Y-m-d')) }}" required>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <div class="alert alert-info py-2 px-3 small border-0 shadow-sm" style="background-color: #e3f2fd; color: #0d47a1;">
-                                    <i class="las la-info-circle me-1"></i>
-                                    <strong>Instructions:</strong> Please specify the item name, quantity, and purpose for each item requested. Use a new line for each item.
-                                </div>
-                                <label class="form-label fw-bold">Request Details:</label>
-                                <textarea name="request_details" class="form-control" rows="5" placeholder="e.g. Bond Paper (A4) - 5 reams - for office use&#10;2. Toner Cartridge (HP 85A) - 2 pcs - for printer in finance" required>{{ old('request_details') }}</textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">Save Material Request</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Service Request Modal -->
-    <div class="modal fade" id="createServiceModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form id="createServiceForm" action="{{ route('admin-finance.gsd.service-requests.store') }}" method="POST">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title fw-bold">Create Service Request</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-8 mb-3">
-                                <label class="form-label fw-bold">Requestor's Name:</label>
-                                <input type="text" name="requestor_name" class="form-control" placeholder="Enter name" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Date:</label>
-                                <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}" required>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label class="form-label fw-bold">Nature of Request:</label>
-                                <textarea name="nature_of_request" class="form-control" rows="5" placeholder="Specify the details of the service request..." required></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-0">
-                        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary px-4">Save Service Request</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>

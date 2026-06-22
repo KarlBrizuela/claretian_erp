@@ -12,7 +12,18 @@ class MisServiceRequest extends Model
 
     protected $primaryKey = 'service_req_id';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'user_id',
+        'module',
+        'requestor_name',
+        'date',
+        'nature_of_request',
+        'department',
+        'status',
+        'approved_by',
+        'completed_by',
+        'completed_at'
+    ];
 
     public function user()
     {

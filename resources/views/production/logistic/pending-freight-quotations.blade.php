@@ -103,10 +103,16 @@
                                                 </td>
                                                 <td><small>{{ $quotation->created_at->format('M d, Y') }}</small></td>
                                                 <td>
-                                                    <a href="{{ route('production.logistic.show-freight-quotation', $quotation->id) }}" 
-                                                       class="btn btn-sm btn-outline-primary">
-                                                        <i class="bi bi-eye me-1"></i>Review
-                                                    </a>
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <a href="{{ route('production.logistic.show-freight-quotation', $quotation->id) }}" 
+                                                           class="btn btn-outline-primary">
+                                                            <i class="bi bi-eye me-1"></i>Review
+                                                        </a>
+                                                        <a href="{{ route('production.logistic.show-freight-quotation', $quotation->id) }}#cargoItemsForm" 
+                                                           class="btn btn-outline-secondary">
+                                                            <i class="bi bi-pencil me-1"></i>Edit
+                                                        </a>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         @endforeach

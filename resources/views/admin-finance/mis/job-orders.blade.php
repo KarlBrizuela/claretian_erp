@@ -52,7 +52,6 @@
                     <div class="document-title mb-0">JOB ORDERS</div>
                     <div class="d-flex gap-2">
                         <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'all']) }}" class="btn btn-sm btn-{{ $currentStatus == 'all' ? 'primary' : 'outline-primary' }}">All</a>
-                        <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'approved']) }}" class="btn btn-sm btn-{{ $currentStatus == 'approved' ? 'success' : 'outline-success' }}">Approved</a>
                         <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'ongoing']) }}" class="btn btn-sm btn-{{ $currentStatus == 'ongoing' ? 'info' : 'outline-info' }}">Ongoing</a>
                         <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'on_hold']) }}" class="btn btn-sm btn-{{ $currentStatus == 'on_hold' ? 'warning' : 'outline-warning' }}">On Hold</a>
                         <a href="{{ route('admin-finance.mis.job-orders', ['status' => 'completed']) }}" class="btn btn-sm btn-{{ $currentStatus == 'completed' ? 'secondary' : 'outline-secondary' }}">Completed</a>
@@ -62,20 +61,15 @@
                 <ul class="nav nav-tabs" id="jobTabs" role="tablist">
                     <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#cctv">CCTV Review</a></li>
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#material">Material Request</a></li>
-                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#qb">QB Change</a></li>
-                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#undertime">Undertime</a></li>
+                    <!-- <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#qb">QB Change</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#undertime">Undertime</a></li> -->
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#service">Service Request</a></li>
                 </ul>
 
                 <div class="tab-content">
                     <!-- CCTV Review -->
                     <div class="tab-pane fade show active" id="cctv">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="section-title mt-0 text-uppercase">Existing CCTV Requests</div>
-                            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#createCctvModal">
-                                <i class="las la-plus me-1"></i> Create New Request
-                            </button>
-                        </div>
+                        <div class="section-title mt-0 text-uppercase">Existing CCTV Requests</div>
 
 
                 
@@ -100,16 +94,19 @@
                                         <td>{{ \Carbon\Carbon::parse($req->date_of_incident)->format('m/d/Y') }} {{ \Carbon\Carbon::parse($req->time_of_incident)->format('h:i A') }}</td>
                                         <td>
                                             @php
+                                                $jobStatus = $req->status === 'approved' ? 'on_hold' : $req->status;
                                                 $statusClass = [
                                                     'Pending HR approval' => 'warning',
                                                     'Pending Final Approval' => 'primary',
+                                                    'ongoing' => 'info',
+                                                    'on_hold' => 'warning',
                                                     'rejected' => 'danger',
                                                     'pending approval' => 'warning',
                                                     'completed' => 'success',
                                                     'to submit' => 'secondary'
-                                                ][$req->status] ?? 'secondary';
+                                                ][$jobStatus] ?? 'secondary';
                                             @endphp
-                                            <span class="badge bg-{{ $statusClass }}">{{ ucfirst($req->status) }}</span>
+                                            <span class="badge bg-{{ $statusClass }}">{{ ucwords(str_replace('_', ' ', $jobStatus)) }}</span>
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center gap-1">
@@ -122,7 +119,7 @@
                                                     data-purpose="{{ $req->purpose }}"
                                                     data-hardcopy="{{ $req->hardcopy }}"
                                                     data-viewing="{{ $req->viewing }}"
-                                                    data-status="{{ ucfirst($req->status) }}"
+                                                    data-status="{{ ucwords(str_replace('_', ' ', $jobStatus)) }}"
                                                     title="View Details">
                                                     <i class="las la-eye"></i>
                                                 </button>
@@ -160,12 +157,25 @@
                                                     <button type="submit" class="btn btn-success sharp shadow px-2" title="Submit Request" style="font-size: 0.7rem;">Submit</button>
                                                 </form>
                                                 @endif
+
+                                                @if(in_array($jobStatus, ['on_hold', 'ongoing', 'completed']))
+                                                <form action="{{ route('admin-finance.mis.job-orders.update-status', ['type' => 'cctv', 'id' => $req->cctv_req_id]) }}" method="POST" class="d-flex align-items-center gap-1 mb-0">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <select name="status" class="form-select form-select-sm" style="width: 120px;">
+                                                        <option value="on_hold" {{ $jobStatus === 'on_hold' ? 'selected' : '' }}>On Hold</option>
+                                                        <option value="ongoing" {{ $jobStatus === 'ongoing' ? 'selected' : '' }}>Ongoing</option>
+                                                        <option value="completed" {{ $jobStatus === 'completed' ? 'selected' : '' }}>Completed</option>
+                                                    </select>
+                                                    <button type="submit" class="btn btn-primary sharp shadow px-2" title="Update Status" style="font-size: 0.7rem;">Update</button>
+                                                </form>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="5" class="text-center">No requests found</td>
+                                        <td colspan="6" class="text-center">No requests found</td>
                                     </tr>
                                     @endforelse
                                 </tbody>
@@ -175,12 +185,7 @@
 
                     <!-- Material Request -->
                     <div class="tab-pane fade" id="material">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="section-title mt-0 text-uppercase">Existing Material Requests</div>
-                            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#createMaterialModal">
-                                <i class="las la-plus me-1"></i> Create New Request
-                            </button>
-                        </div>
+                        <div class="section-title mt-0 text-uppercase">Existing Material Requests</div>
 
 
                         
@@ -220,7 +225,7 @@
                                                     data-requested_by="{{ $req->requested_by }}"
                                                     data-request_date="{{ $req->created_at->format('m/d/Y') }}"
                                                     data-request_details="{{ $req->request_details }}"
-                                                    data-status="{{ ucfirst($req->status) }}"
+                                                    data-status="{{ ucwords(str_replace('_', ' ', $jobStatus)) }}"
                                                     title="View Details">
                                                     <i class="las la-eye"></i>
                                                 </button>
@@ -279,12 +284,7 @@
 
                     <!-- QB Change -->
                     <div class="tab-pane fade" id="qb">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="section-title mt-0 text-uppercase">QB Requests</div>
-                            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#createQbModal">
-                                <i class="las la-plus me-1"></i> Create New Request
-                            </button>
-                        </div>
+                        <div class="section-title mt-0 text-uppercase">QB Requests</div>
 
 
                         <div class="table-responsive">
@@ -304,9 +304,16 @@
                                         <td>{{ $req->customer_item_name }}</td>
                                         <td>
                                             @php
-                                                $statusClass = ['approved'=>'success','rejected'=>'danger','pending'=>'warning','completed'=>'info'][$req->status] ?? 'secondary';
+                                                $statusClass = [
+                                                    'approved' => 'success',
+                                                    'on_hold' => 'warning',
+                                                    'ongoing' => 'info',
+                                                    'rejected' => 'danger',
+                                                    'pending' => 'warning',
+                                                    'completed' => 'success',
+                                                ][$req->status] ?? 'secondary';
                                             @endphp
-                                            <span class="badge bg-{{ $statusClass }}">{{ ucfirst($req->status) }}</span>
+                                            <span class="badge bg-{{ $statusClass }}">{{ ucwords(str_replace('_', ' ', $req->status)) }}</span>
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center gap-1">
@@ -350,12 +357,7 @@
 
                     <!-- Undertime -->
                     <div class="tab-pane fade" id="undertime">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="section-title mt-0 text-uppercase">Undertime Requests</div>
-                            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#createUndertimeModal">
-                                <i class="las la-plus me-1"></i> Create New Request
-                            </button>
-                        </div>
+                        <div class="section-title mt-0 text-uppercase">Undertime Requests</div>
                         
                         <div class="table-responsive">
                             <table class="table table-hover">
@@ -376,9 +378,19 @@
                                         <td>{{ Str::limit($req->reason, 30) }}</td>
                                         <td>
                                             @php
-                                                $statusClass = ['approved'=>'success','rejected'=>'danger','pending'=>'warning','completed'=>'info'][$req->status] ?? 'secondary';
+                                                $jobStatus = $req->status === 'approved' ? 'on_hold' : $req->status;
+                                                $statusClass = [
+                                                    'Pending Final Approval' => 'primary',
+                                                    'approved' => 'success',
+                                                    'on_hold' => 'warning',
+                                                    'ongoing' => 'info',
+                                                    'rejected' => 'danger',
+                                                    'pending' => 'warning',
+                                                    'pending approval' => 'warning',
+                                                    'completed' => 'success',
+                                                ][$jobStatus] ?? 'secondary';
                                             @endphp
-                                            <span class="badge bg-{{ $statusClass }}">{{ ucfirst($req->status) }}</span>
+                                            <span class="badge bg-{{ $statusClass }}">{{ ucwords(str_replace('_', ' ', $jobStatus)) }}</span>
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center gap-1">
@@ -426,12 +438,7 @@
 
                     <!-- Service Request -->
                     <div class="tab-pane fade" id="service">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="section-title mt-0 text-uppercase">Existing Service Requests</div>
-                            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#createServiceModal">
-                                <i class="las la-plus me-1"></i> Create New Request
-                            </button>
-                        </div>
+                        <div class="section-title mt-0 text-uppercase">Existing Service Requests</div>
 
                         
                         <div class="table-responsive">
@@ -453,9 +460,18 @@
                                         <td>{{ Str::limit($req->nature_of_request, 40) }}</td>
                                         <td>
                                             @php
-                                                $statusClass = ['approved'=>'success','rejected'=>'danger','pending'=>'warning','completed'=>'info'][$req->status] ?? 'secondary';
+                                                $jobStatus = $req->status === 'approved' ? 'on_hold' : $req->status;
+                                                $statusClass = [
+                                                    'Pending Final Approval' => 'primary',
+                                                    'on_hold' => 'warning',
+                                                    'ongoing' => 'info',
+                                                    'rejected' => 'danger',
+                                                    'pending' => 'warning',
+                                                    'pending approval' => 'warning',
+                                                    'completed' => 'success',
+                                                ][$jobStatus] ?? 'secondary';
                                             @endphp
-                                            <span class="badge bg-{{ $statusClass }}">{{ ucfirst($req->status) }}</span>
+                                            <span class="badge bg-{{ $statusClass }}">{{ ucwords(str_replace('_', ' ', $jobStatus)) }}</span>
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center gap-1">
@@ -463,7 +479,7 @@
                                                     data-requestor_name="{{ $req->requestor_name }}"
                                                     data-date="{{ $req->date }}"
                                                     data-nature_of_request="{{ $req->nature_of_request }}"
-                                                    data-status="{{ ucfirst($req->status) }}"
+                                                    data-status="{{ ucwords(str_replace('_', ' ', $jobStatus)) }}"
                                                     title="View Details">
                                                     <i class="las la-eye"></i>
                                                 </button>
@@ -485,6 +501,18 @@
                                                         <i class="las la-trash"></i>
                                                     </button>
                                                 </form>
+                                                @if(in_array($jobStatus, ['on_hold', 'ongoing', 'completed']))
+                                                <form action="{{ route('admin-finance.mis.job-orders.update-status', ['type' => 'service', 'id' => $req->service_req_id]) }}" method="POST" class="d-flex align-items-center gap-1 mb-0">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <select name="status" class="form-select form-select-sm" style="width: 120px;">
+                                                        <option value="on_hold" {{ $jobStatus === 'on_hold' ? 'selected' : '' }}>On Hold</option>
+                                                        <option value="ongoing" {{ $jobStatus === 'ongoing' ? 'selected' : '' }}>Ongoing</option>
+                                                        <option value="completed" {{ $jobStatus === 'completed' ? 'selected' : '' }}>Completed</option>
+                                                    </select>
+                                                    <button type="submit" class="btn btn-primary sharp shadow px-2" title="Update Status" style="font-size: 0.7rem;">Update</button>
+                                                </form>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>
@@ -1273,111 +1301,6 @@
         });
     </script>
     @endpush
-    <!-- Create CCTV Modal -->
-    <div class="modal fade" id="createCctvModal" tabindex="-1" aria-labelledby="createCctvModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form id="createCctvForm" action="{{ route('admin-finance.mis.cctv-requests.store') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="createCctvModalLabel">Create New CCTV Request</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Requested by (Name):</label>
-                                <input type="text" name="requested_by" class="form-control" value="{{ old('requested_by') }}" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Time of Incident:</label>
-                                <input type="time" name="time_of_incident" class="form-control" value="{{ old('time_of_incident') }}" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Department:</label>
-                                <select name="department" class="form-control" required>
-                                    <option value="">Select Department</option>
-                                    <option value="Admin" {{ old('department') == 'Admin' ? 'selected' : '' }}>Admin</option>
-                                    <option value="Marketing" {{ old('department') == 'Marketing' ? 'selected' : '' }}>Marketing</option>
-                                    <option value="Production" {{ old('department') == 'Production' ? 'selected' : '' }}>Production</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Date of Incident:</label>
-                                <input type="date" name="date_of_incident" class="form-control" value="{{ old('date_of_incident') }}" required>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label class="form-label fw-bold d-block">Request Type:</label>
-                                <div class="d-flex gap-4 p-2 bg-light rounded border">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="hardcopy" id="hardcopy" value="1" {{ old('hardcopy') ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="hardcopy">Hardcopy (CD/USB)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="viewing" id="viewing" value="1" {{ old('viewing') ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="viewing">Viewing Only</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label class="form-label fw-bold">Purpose:</label>
-                                <textarea name="purpose" class="form-control" rows="3" required>{{ old('purpose') }}</textarea>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label class="form-label fw-bold">Attachment:</label>
-                                <input type="file" name="attachment" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
-                                <small class="text-muted">Accepted files: PDF, JPG, PNG, DOC, DOCX. Max 5MB.</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success" id="saveCctvBtn">Save CCTV Request</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Material Request Modal -->
-    <div class="modal fade" id="createMaterialModal" tabindex="-1" aria-labelledby="createMaterialModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form id="createMaterialForm" action="{{ route('admin-finance.mis.material-requests.store') }}" method="POST">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="createMaterialModalLabel">Create New Material Request</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-8 mb-3">
-                                <label class="form-label fw-bold">Requestor's Name:</label>
-                                <input type="text" name="requested_by" class="form-control" value="{{ old('requested_by') }}" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Date:</label>
-                                <input type="date" name="request_date" class="form-control" value="{{ old('request_date', date('Y-m-d')) }}" required>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <div class="alert alert-info py-2 px-3 small border-0 shadow-sm" style="background-color: #e3f2fd; color: #0d47a1;">
-                                    <i class="las la-info-circle me-1"></i>
-                                    <strong>Instructions:</strong> Please specify the item name, quantity, and purpose for each item requested. Use a new line for each item.
-                                </div>
-                                <label class="form-label fw-bold">Request Details:</label>
-                                <textarea name="request_details" class="form-control" rows="5" placeholder="e.g. Bond Paper (A4) - 5 reams - for office use&#10;2. Toner Cartridge (HP 85A) - 2 pcs - for printer in finance" required>{{ old('request_details') }}</textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">Save Material Request</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- View Material Modal -->
     <div class="modal fade" id="viewMaterialModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -1413,126 +1336,6 @@
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Close</button>
                 </div>
-            </div>
-        </div>
-    </div>
-    <!-- Create QB Request Modal -->
-    <div class="modal fade" id="createQbModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form action="{{ route('admin-finance.mis.qb-requests.store') }}" method="POST">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title">Create QB Request</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Customer/Item Name:</label>
-                            <input type="text" name="customer_item_name" class="form-control" required>
-                        </div>
-                        <div class="table-responsive mb-3">
-                            <table class="from-to-table" style="width: 100%">
-                                <thead>
-                                    <tr>
-                                        <th style="background: #ff0000; color: #fff; padding: 0.75rem;">FROM</th>
-                                        <th style="background: #ff0000; color: #fff; padding: 0.75rem;">TO</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @for($i=0; $i<4; $i++)
-                                    <tr>
-                                        <td><input type="text" name="items[{{$i}}][from]" class="form-control border-0"></td>
-                                        <td><input type="text" name="items[{{$i}}][to]" class="form-control border-0"></td>
-                                    </tr>
-                                    @endfor
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Request</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Undertime Request Modal -->
-    <div class="modal fade" id="createUndertimeModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form action="{{ route('admin-finance.mis.undertime-requests.store') }}" method="POST">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title">Create Undertime Request</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Employee Name:</label>
-                                <input type="text" name="employee_name" class="form-control" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Date:</label>
-                                <input type="date" name="date" class="form-control" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Time From:</label>
-                                <input type="time" name="time_from" class="form-control" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Time To:</label>
-                                <input type="time" name="time_to" class="form-control" required>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label class="form-label fw-bold">Reason:</label>
-                                <textarea name="reason" class="form-control" rows="3" required></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Request</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Service Request Modal -->
-    <div class="modal fade" id="createServiceModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form action="{{ route('admin-finance.mis.service-requests.store') }}" method="POST">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title fw-bold">Create Service Request</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-8 mb-3">
-                                <label class="form-label fw-bold">Requestor's Name:</label>
-                                <input type="text" name="requestor_name" class="form-control" placeholder="Enter name" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Date:</label>
-                                <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}" required>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label class="form-label fw-bold">Nature of Request:</label>
-                                <textarea name="nature_of_request" class="form-control" rows="5" placeholder="Specify the details of the service request..." required></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-0">
-                        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary px-4">Save Service Request</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>

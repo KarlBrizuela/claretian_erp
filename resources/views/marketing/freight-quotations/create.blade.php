@@ -98,6 +98,20 @@
                                 @error('service_mode')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
 
+                            <div class="mb-3">
+                                <label class="form-label">Freight Option:</label>
+                                <select class="form-control @error('freight_option') is-invalid @enderror" 
+                                        name="freight_option" id="freightOption">
+                                    <option value="">Select Freight Option</option>
+                                    <option value="freight_collect" {{ old('freight_option') === 'freight_collect' ? 'selected' : '' }}>Freight Collect</option>
+                                    <option value="freight_billing" {{ old('freight_option') === 'freight_billing' ? 'selected' : '' }}>Freight Billing</option>
+                                </select>
+                                @error('freight_option')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="alert alert-info py-2 mb-3" id="serviceFeeNotice" style="display: none;">
+                                <strong>Service Fee:</strong> â‚± 50.00
+                            </div>
+
                             <!-- Cargo Items Section -->
                             <!-- <h6 class="border-bottom pb-2 mb-3"><strong>Cargo Items</strong></h6>
 
@@ -160,6 +174,16 @@
                                             <td class="text-end fw-bold" id="soSubtotal">₱ 0.00</td>
                                             <td></td>
                                         </tr>
+                                        <tr id="serviceFeeRow" style="display: none;">
+                                            <td colspan="3" class="text-end"><strong>Service Fee:</strong></td>
+                                            <td class="text-end fw-bold">₱ 50.00</td>
+                                            <td></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                            <td class="text-end fw-bold" id="soTotal">â‚± 0.00</td>
+                                            <td></td>
+                                        </tr>
                                     </tfoot>
                                 </table>
                             </div>
@@ -200,19 +224,22 @@
             const tbody = document.getElementById('cargoItemsBody');
             const table = document.getElementById('cargoItemsTable');
 
-            addBtn.addEventListener('click', function() {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><input type="number" class="form-control form-control-sm" name="cargo_qty[]" min="1" value="1" required></td>
-                    <td><input type="text" class="form-control form-control-sm" name="cargo_package_type[]" placeholder="Box, Bag, Pallet, etc." required></td>
-                    <td><input type="text" class="form-control form-control-sm" name="cargo_dimensions[]" placeholder="e.g., 50cm x 40cm x 30cm" required></td>
-                    <td><button type="button" class="btn btn-sm btn-danger remove-row"><i class="bi bi-trash"></i></button></td>
-                `;
-                tbody.appendChild(row);
-                addRemoveListeners();
-            });
+            if (addBtn && tbody) {
+                addBtn.addEventListener('click', function() {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><input type="number" class="form-control form-control-sm" name="cargo_qty[]" min="1" value="1" required></td>
+                        <td><input type="text" class="form-control form-control-sm" name="cargo_package_type[]" placeholder="Box, Bag, Pallet, etc." required></td>
+                        <td><input type="text" class="form-control form-control-sm" name="cargo_dimensions[]" placeholder="e.g., 50cm x 40cm x 30cm" required></td>
+                        <td><button type="button" class="btn btn-sm btn-danger remove-row"><i class="bi bi-trash"></i></button></td>
+                    `;
+                    tbody.appendChild(row);
+                    addRemoveListeners();
+                });
+            }
 
             function addRemoveListeners() {
+                if (!tbody) return;
                 document.querySelectorAll('#cargoItemsBody .remove-row').forEach(btn => {
                     btn.addEventListener('click', function(e) {
                         e.preventDefault();
@@ -231,13 +258,40 @@
             const addSOBtn = document.getElementById('addSOItem');
             const soItemsBody = document.getElementById('soItemsBody');
             const productSource = document.getElementById('productSource');
+            const freightOption = document.getElementById('freightOption');
+            const serviceFeeNotice = document.getElementById('serviceFeeNotice');
+            const serviceFeeRow = document.getElementById('serviceFeeRow');
+            const soTotal = document.getElementById('soTotal');
+
+            // Freight Option Change Handler
+            if (freightOption) {
+                freightOption.addEventListener('change', function() {
+                    const isFreightCollect = this.value === 'freight_collect';
+                    if (serviceFeeRow) {
+                        serviceFeeRow.style.display = isFreightCollect ? 'table-row' : 'none';
+                    }
+                    calculateSOSubtotal();
+                });
+                
+                // Trigger on page load in case freight option has a value
+                const event = new Event('change');
+                freightOption.dispatchEvent(event);
+            }
 
             function calculateSOSubtotal() {
                 let total = 0;
                 document.querySelectorAll('.so-item-amount').forEach(el => {
                     total += parseFloat(el.textContent.replace('₱ ', '')) || 0;
                 });
+                
+                // Add service fee if freight collect is selected
+                const isFreightCollect = freightOption && freightOption.value === 'freight_collect';
+                const serviceFeeAmount = isFreightCollect ? 50 : 0;
+                
+                const finalTotal = total + serviceFeeAmount;
+                
                 document.getElementById('soSubtotal').textContent = '₱ ' + total.toFixed(2);
+                document.getElementById('soTotal').textContent = '₱ ' + finalTotal.toFixed(2);
             }
 
             function calculateRow(row) {

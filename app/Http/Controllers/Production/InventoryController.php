@@ -12,6 +12,7 @@ use App\Models\Site;
 use App\Models\StockTransfer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class InventoryController extends Controller
 {
@@ -66,10 +67,75 @@ class InventoryController extends Controller
 
         $totalMovements = InventoryTransaction::count();
 
+        $user = Auth::user();
+        $userApprovalDivision = StockTransfer::approvalDivisionForUser($user);
+        $isTransferApprover = $user && (
+            $user->isSuperAdmin()
+            || str_contains(strtolower($user->position ?? ''), 'manager')
+            || str_contains(strtolower($user->position ?? ''), 'supervisor')
+        );
+
         $pendingTransfers = StockTransfer::where('status', 'pending')
             ->with(['fromSite', 'toSite', 'book', 'createdBy'])
+            ->when(!$user?->isSuperAdmin(), function ($query) use ($user, $userApprovalDivision, $isTransferApprover) {
+                $query->where(function ($scope) use ($user, $userApprovalDivision, $isTransferApprover) {
+                    $scope->where('created_by', $user->id);
+
+                    if ($isTransferApprover) {
+                        $scope->orWhere('approval_division', $userApprovalDivision);
+                    }
+                });
+            })
             ->latest()
             ->get();
+
+        $stockTransferWorkflow = StockTransfer::with([
+                'fromSite',
+                'toSite',
+                'book',
+                'createdBy',
+                'approvedBy',
+                'accountingReviewedBy',
+                'logisticsAssignedTo',
+                'logisticsAssignedBy',
+                'completedBy',
+            ])
+            ->whereIn('status', [
+                'pending',
+                'accounting_review',
+                'logistics_assignment',
+                'logistics_assigned',
+                'completed',
+                'rejected',
+            ])
+            ->when(!$user?->isSuperAdmin(), function ($query) use ($user, $userApprovalDivision, $isTransferApprover) {
+                $query->where(function ($scope) use ($user, $userApprovalDivision, $isTransferApprover) {
+                    $scope->where('created_by', $user->id)
+                        ->orWhere('logistics_assigned_to', $user->id);
+
+                    if ($isTransferApprover) {
+                        $scope->orWhere('approval_division', $userApprovalDivision);
+                    }
+
+                    if ($this->isAccountingReviewer($user)) {
+                        $scope->orWhere('status', 'accounting_review');
+                    }
+
+                    if ($this->isLogisticsAssigner($user)) {
+                        $scope->orWhereIn('status', ['logistics_assignment', 'logistics_assigned']);
+                    }
+                });
+            })
+            ->latest()
+            ->get();
+
+        $logisticsUsers = User::where('position', 'like', '%Logistic%')
+            ->where('status', true)
+            ->orderBy('first_name')
+            ->get();
+
+        $isAccountingReviewer = $this->isAccountingReviewer($user);
+        $isLogisticsAssigner = $this->isLogisticsAssigner($user);
 
         return view('production.inventory.overview', compact(
             'totalBooks', 
@@ -82,8 +148,47 @@ class InventoryController extends Controller
             'totalMovements',
             'sites',
             'pendingTransfers',
-            'mainWarehouse'
+            'mainWarehouse',
+            'stockTransferWorkflow',
+            'logisticsUsers',
+            'isAccountingReviewer',
+            'isLogisticsAssigner'
         ));
+    }
+
+    private function isAccountingReviewer($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        $values = collect([$user->division, $user->department, $user->position])
+            ->filter()
+            ->map(fn ($value) => strtolower($value));
+
+        return $values->contains(fn ($value) => str_contains($value, 'accounting')
+            || str_contains($value, 'finance')
+            || str_contains($value, 'admin & finance'));
+    }
+
+    private function isLogisticsAssigner($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        $position = strtolower($user->position ?? '');
+
+        return str_contains($position, 'logistic')
+            && (str_contains($position, 'manager') || str_contains($position, 'supervisor') || str_contains($position, 'senior'));
     }
 
     public function addStock()

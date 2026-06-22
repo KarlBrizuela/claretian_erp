@@ -25,21 +25,57 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table id="packingTable" class="display" style="width: 100%">
-                            <thead>
-                                <tr>
-                                    <th>SO #</th>
-                                    <th>Customer</th>
-                                    <th>SI Signed</th>
-                                    <th>Total Items</th>
-                                    <th>Packed Items</th>
-                                    <th>Total Amount</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                    <!-- Tabs Navigation -->
+                    <ul class="nav nav-tabs" id="packingTabs" role="tablist" style="border-bottom: 2px solid #ddd; margin-bottom: 2rem;">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="packing-queue-tab" data-bs-toggle="tab" data-bs-target="#packing-queue-content" type="button" role="tab" aria-controls="packing-queue-content" aria-selected="true" style="font-weight: 600; color: #333;">
+                                <i class="fas fa-boxes" style="margin-right: 0.5rem;"></i>Packing Queue
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="ready-pickup-tab" data-bs-toggle="tab" data-bs-target="#ready-pickup-content" type="button" role="tab" aria-controls="ready-pickup-content" aria-selected="false" style="font-weight: 600; color: #666;">
+                                <i class="fas fa-truck" style="margin-right: 0.5rem;"></i>Ready for Pickup/Drop-off <span class="badge bg-success" style="margin-left: 0.5rem;">{{ count($readyForPickupOrders) }}</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Contents -->
+                    <div class="tab-content" id="packingTabContent">
+                        <!-- Packing Queue Tab -->
+                        <div class="tab-pane fade show active" id="packing-queue-content" role="tabpanel" aria-labelledby="packing-queue-tab">
+                            <!-- Bulk Action Toolbar -->
+                            <div id="bulkActionToolbar" style="display: none; background-color: #e8f4f8; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; border-left: 4px solid #007bff;">
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <span style="color: #333; font-weight: 500;">
+                                        <span id="selectedCount">0</span> order(s) selected
+                                    </span>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" id="setReadyPickupBtn" class="btn btn-primary" style="background-color: #28a745; border: none; padding: 0.5rem 1.5rem;">
+                                            <i class="fas fa-check" style="margin-right: 0.5rem;"></i>Set as Ready for Pickup/Drop-off
+                                        </button>
+                                        <button type="button" id="clearSelectionBtn" class="btn btn-secondary" style="padding: 0.5rem 1.5rem;">
+                                            Clear Selection
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table id="packingTable" class="display" style="width: 100%">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 30px;"><input type="checkbox" id="selectAllCheckbox" style="cursor: pointer;"></th>
+                                            <th>SO #</th>
+                                            <th>Customer</th>
+                                            <th>SI Signed</th>
+                                            <th>Total Items</th>
+                                            <th>Packed Items</th>
+                                            <th>Total Amount</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                                 @foreach($packingOrders as $order)
                                 @php
                                     $packingData = json_decode($order->packing_data ?? '{}', true);
@@ -56,8 +92,10 @@
                                         $statusClass = 'status-partial';
                                         $statusText = 'Partially Packed';
                                     }
+                                    $isFullyPacked = ($packedCount === $totalItems && $totalItems > 0);
                                 @endphp
-                                <tr>
+                                <tr class="packing-row" data-order-id="{{ $order->id }}">
+                                    <td><input type="checkbox" class="order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                     <td><strong>{{ $order->so_number }}</strong></td>
                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -90,6 +128,75 @@
                                 @endforeach
                             </tbody>
                         </table>
+                            </div>
+                        </div>
+
+                        <!-- Ready for Pickup Tab -->
+                        <div class="tab-pane fade" id="ready-pickup-content" role="tabpanel" aria-labelledby="ready-pickup-tab">
+                            <div class="table-responsive">
+                                <table id="readyForPickupTable" class="display" style="width: 100%">
+                                    <thead>
+                                        <tr>
+                                            <th>SO #</th>
+                                            <th>Customer</th>
+                                            <th>SI Signed</th>
+                                            <th>Total Items</th>
+                                            <th>Packed Items</th>
+                                            <th>Total Amount</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($readyForPickupOrders as $order)
+                                        @php
+                                            $packingData = json_decode($order->packing_data ?? '{}', true);
+                                            $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                            $totalItems = $order->items->count();
+                                            $statusClass = 'status-packed';
+                                            $statusText = 'Ready for Pickup/Drop-off';
+                                        @endphp
+                                        <tr>
+                                            <td><strong>{{ $order->so_number }}</strong></td>
+                                            <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                            <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                            <td>{{ $totalItems }}</td>
+                                            <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                            <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                            <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
+                                            <td>
+                                                <div class="d-flex gap-2">
+                                                    <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                            data-order-id="{{ $order->id }}"
+                                                            data-so-number="{{ $order->so_number }}"
+                                                            data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                            data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                            data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                            title="View Details"
+                                                            style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                        <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                            data-order-id="{{ $order->id }}"
+                                                            data-so-number="{{ $order->so_number }}"
+                                                            title="Mark as Packed"
+                                                            style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                        <i class="fas fa-check" style="font-size: 0.9rem;"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="8" class="text-center" style="padding: 2rem;">
+                                                <p style="color: #999;">No orders ready for pickup yet</p>
+                                            </td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -119,36 +226,56 @@
                     <label>Customer:</label>
                     <input type="text" id="detailCustomerName" readonly>
                 </div>
-            </div>
-            <div class="order-info-box">
-                <h5>Packing Information</h5>
                 <div class="form-group">
                     <label>SI Signed Date:</label>
                     <input type="text" id="siSignedDate" readonly>
                 </div>
                 <div class="form-group">
                     <label>Packing Status:</label>
-                    <select id="packingStatus" class="form-control">
+                    <select id="packingStatus">
                         <option value="not_started">Not Started</option>
                         <option value="in_progress">In Progress</option>
                         <option value="completed">Completed</option>
+                        <option value="ready_for_pickup">Ready for Pickup</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Prepared By:</label>
-                    <input type="text" id="preparedBy" value="{{ auth()->user()->name ?? 'N/A' }}" readonly>
+                    <label>Number of Boxes:</label>
+                    <input type="number" id="packingBoxesCount" placeholder="Enter number of boxes" min="0">
+                </div>
+            </div>
+            <div class="order-info-box">
+                <h5>Attachments - Packing Photos</h5>
+                <div class="form-group">
+                    <label>Upload Photo 1:</label>
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="file" id="packingPhoto1" accept="image/*" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <button type="button" id="cameraPhoto1Btn" class="btn" style="background: #007bff; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-camera"></i> Camera
+                        </button>
+                    </div>
+                    <div id="photo1Preview" style="display: none; margin-top: 0.5rem;">
+                        <img id="photo1Img" src="" alt="Photo 1" style="max-width: 100%; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Upload Photo 2:</label>
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="file" id="packingPhoto2" accept="image/*" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <button type="button" id="cameraPhoto2Btn" class="btn" style="background: #007bff; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-camera"></i> Camera
+                        </button>
+                    </div>
+                    <div id="photo2Preview" style="display: none; margin-top: 0.5rem;">
+                        <img id="photo2Img" src="" alt="Photo 2" style="max-width: 100%; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                    </div>
                 </div>
             </div>
         </div>
 
                 <!-- Packing Items Table -->
-                <div class="packing-scan-section">
-                    <div class="form-group">
-                        <label for="barcodeScannerInput">Barcode Scanner:</label>
-                        <input type="text" id="barcodeScannerInput" class="form-control" placeholder="Scan book barcode here" autocomplete="off">
-                    </div>
-                    <div id="barcodeScanMessage" class="barcode-scan-message">Ready to scan</div>
-                </div>
+                <div id="barcodeScanMessage" class="barcode-scan-message visually-hidden" aria-live="polite">Ready to scan</div>
 
                 <h5 style="margin-bottom: 1rem; margin-top: 1.5rem; font-weight: 600;">Items to Pack</h5>
                 <div class="table-wrapper-packing">
@@ -380,22 +507,22 @@
             background: #fff;
         }
 
-        .packing-scan-section {
-            background: #f8f9fa;
-            border-left: 4px solid #ffc107;
-            border-radius: 8px;
-            padding: 1rem 1.25rem;
-            margin-top: 1.5rem;
-        }
-
-        .packing-scan-section .form-group {
-            margin-bottom: 0.5rem;
-        }
-
         .barcode-scan-message {
             color: #555;
             font-size: 0.9rem;
             font-weight: 600;
+        }
+
+        .visually-hidden {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
         }
 
         .barcode-scan-message.success {
@@ -502,74 +629,133 @@
         let currentOrderId = null;
         let currentOrderItems = [];
         let barcodeScanTimer = null;
+        let scannerBuffer = '';
 
-        // Initialize DataTable
+        // Initialize DataTable and Event Listeners
         $(document).ready(function() {
             $('#packingTable').DataTable({
                 order: [[2, 'desc']],
                 pageLength: 25,
                 responsive: true
             });
-        });
 
-        // Mark as Packed Button Click
-        document.querySelectorAll('.mark-packed-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const orderId = this.dataset.orderId;
-                const soNumber = this.dataset.soNumber;
-                if (confirm(`Mark all items in ${soNumber} as packed?`)) {
-                    markOrderAsPacked(orderId, soNumber);
-                }
+            // Mark as Packed Button Click
+            document.querySelectorAll('.mark-packed-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const orderId = this.dataset.orderId;
+                    const soNumber = this.dataset.soNumber;
+                    if (confirm(`Mark all items in ${soNumber} as packed?`)) {
+                        markOrderAsPacked(orderId, soNumber);
+                    }
+                });
             });
-        });
 
-        // View Order Button Click
-        document.querySelectorAll('.view-order-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                currentOrderId = this.dataset.orderId;
-                loadPackingOrder(currentOrderId);
+            // View Order Button Click
+            document.querySelectorAll('.view-order-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    currentOrderId = this.dataset.orderId;
+                    console.log('Clicked view details for order:', currentOrderId);
+                    loadPackingOrder(currentOrderId);
+                });
             });
-        });
 
-        // Close Detail Modal
-        document.getElementById('closeDetailBtn').addEventListener('click', function() {
-            closePackingDetailsModal();
-        });
-
-        // Close modal button inside the modal
-        document.querySelectorAll('.close-modal-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                closePackingDetailsModal();
-            });
-        });
-
-        // Close modal when clicking outside
-        document.getElementById('orderDetailModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closePackingDetailsModal();
+            // Close Detail Modal
+            const closeDetailBtn = document.getElementById('closeDetailBtn');
+            if (closeDetailBtn) {
+                closeDetailBtn.addEventListener('click', function() {
+                    closePackingDetailsModal();
+                });
             }
+
+            // Close modal button inside the modal
+            document.querySelectorAll('.close-modal-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    closePackingDetailsModal();
+                });
+            });
+
+            // Close modal when clicking outside
+            const orderDetailModal = document.getElementById('orderDetailModal');
+            if (orderDetailModal) {
+                orderDetailModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closePackingDetailsModal();
+                    }
+                });
+            }
+
+            // Photo upload handlers
+            const packingPhoto1 = document.getElementById('packingPhoto1');
+            if (packingPhoto1) {
+                packingPhoto1.addEventListener('change', function(e) {
+                    handlePhotoUpload(e, 1);
+                });
+            }
+
+            const packingPhoto2 = document.getElementById('packingPhoto2');
+            if (packingPhoto2) {
+                packingPhoto2.addEventListener('change', function(e) {
+                    handlePhotoUpload(e, 2);
+                });
+            }
+
+            // Camera buttons
+            const cameraPhoto1Btn = document.getElementById('cameraPhoto1Btn');
+            if (cameraPhoto1Btn) {
+                cameraPhoto1Btn.addEventListener('click', function() {
+                    openCamera(1);
+                });
+            }
+
+            const cameraPhoto2Btn = document.getElementById('cameraPhoto2Btn');
+            if (cameraPhoto2Btn) {
+                cameraPhoto2Btn.addEventListener('click', function() {
+                    openCamera(2);
+                });
+            }
+
+            // Initialize bulk actions
+            initializeBulkActions();
         });
 
         function closePackingDetailsModal() {
             document.getElementById('orderDetailModal').style.display = 'none';
             currentOrderId = null;
             currentOrderItems = [];
-            document.getElementById('barcodeScannerInput').value = '';
+            scannerBuffer = '';
         }
 
-        const barcodeScannerInput = document.getElementById('barcodeScannerInput');
-        barcodeScannerInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                processPackingBarcode(this.value);
+        document.addEventListener('keydown', function(e) {
+            if (document.getElementById('orderDetailModal').style.display === 'none' || !currentOrderItems.length) {
+                return;
             }
-        });
 
-        barcodeScannerInput.addEventListener('input', function() {
+            const tagName = (e.target.tagName || '').toLowerCase();
+            const isEditable = tagName === 'input' || tagName === 'select' || tagName === 'textarea' || e.target.isContentEditable;
+
+            if (isEditable) {
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                if (scannerBuffer.trim()) {
+                    e.preventDefault();
+                    processPackingBarcode(scannerBuffer);
+                    scannerBuffer = '';
+                }
+                return;
+            }
+
+            if (e.key.length !== 1) {
+                return;
+            }
+
+            scannerBuffer += e.key;
             clearTimeout(barcodeScanTimer);
             barcodeScanTimer = setTimeout(() => {
-                if (this.value.trim().length >= 6) {
-                    processPackingBarcode(this.value);
+                if (scannerBuffer.trim().length >= 6) {
+                    processPackingBarcode(scannerBuffer);
+                    scannerBuffer = '';
                 }
             }, 250);
         });
@@ -577,10 +763,16 @@
         function markOrderAsPacked(orderId, soNumber) {
             // Fetch order data first
             fetch(`/production/logistic/packing/${orderId}/data`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP Error: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (!data.success) {
-                        alert('Error loading order data');
+                        console.error('Failed to load order:', data);
+                        alert('Error: ' + (data.message || 'Could not load order data'));
                         return;
                     }
 
@@ -602,6 +794,7 @@
                     const payload = {
                         order_id: orderId,
                         packing_status: 'completed',
+                        boxes_count: null,
                         items: packingItems,
                     };
 
@@ -624,38 +817,75 @@
                         }
                     })
                     .catch(error => {
-                        console.error('Error:', error);
-                        alert('Error marking as packed');
+                        console.error('Error saving packing:', error);
+                        alert('Error marking as packed: ' + error.message);
                     });
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error loading order data');
+                    console.error('Error loading order:', error);
+                    alert('Error loading order: ' + (error.message || 'Unknown error'));
                 });
         }
 
         function loadPackingOrder(orderId, isCompleted = false) {
             // Fetch order data
             fetch(`/production/logistic/packing/${orderId}/data`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (!data.success) {
-                        alert('Error loading order data');
+                        console.error('API returned error:', data);
+                        alert('Error: ' + (data.message || 'Failed to load order data'));
                         return;
                     }
 
                     const order = data.order;
                     currentOrderItems = order.items;
                     
+                    // Helper function to safely set input value
+                    const setInputValue = (id, value) => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.value = value || '';
+                        } else {
+                            console.warn(`Element with id "${id}" not found in DOM`);
+                        }
+                    };
+
                     // Populate order info
-                    document.getElementById('detailSONumber').value = order.so_number;
-                    document.getElementById('detailOrderDate').value = new Date(order.created_at).toLocaleDateString();
-                    document.getElementById('detailCustomerName').value = order.customer.customer_name;
-                    document.getElementById('siSignedDate').value = order.signed_at ? new Date(order.signed_at).toLocaleDateString() : 'N/A';
+                    setInputValue('detailSONumber', order.so_number);
+                    setInputValue('detailOrderDate', new Date(order.created_at).toLocaleDateString());
+                    setInputValue('detailCustomerName', order.customer?.customer_name || 'N/A');
+                    setInputValue('siSignedDate', order.signed_at ? new Date(order.signed_at).toLocaleDateString() : 'N/A');
 
                     // Get packing data from order
                     const packingData = order.packing_data ? JSON.parse(order.packing_data) : {};
-                    document.getElementById('packingStatus').value = packingData.status || 'not_started';
+                    setInputValue('packingStatus', packingData.status || 'not_started');
+                    setInputValue('packingBoxesCount', packingData.boxes_count || '');
+
+                    // Display saved attachments if available
+                    if (packingData.attachments) {
+                        if (packingData.attachments.photo_1) {
+                            const photo1Preview = document.getElementById('photo1Preview');
+                            const photo1Img = document.getElementById('photo1Img');
+                            if (photo1Preview && photo1Img) {
+                                photo1Img.src = '/storage/' + packingData.attachments.photo_1;
+                                photo1Preview.style.display = 'block';
+                            }
+                        }
+                        if (packingData.attachments.photo_2) {
+                            const photo2Preview = document.getElementById('photo2Preview');
+                            const photo2Img = document.getElementById('photo2Img');
+                            if (photo2Preview && photo2Img) {
+                                photo2Img.src = '/storage/' + packingData.attachments.photo_2;
+                                photo2Preview.style.display = 'block';
+                            }
+                        }
+                    }
 
                     // Populate items table
                     let html = '';
@@ -672,7 +902,7 @@
                         html += `
                             <tr id="packing_item_row_${index}">
                                 <td>${index + 1}</td>
-                                <td>${item.book.name}</td>
+                                <td>${item.book?.name || 'N/A'}</td>
                                 <td><input type="number" value="${item.quantity}" readonly style="width: 100%; border: none;"></td>
                                 <td>₱${parseFloat(item.price).toFixed(2)}</td>
                                 <td>₱${parseFloat(item.subtotal).toFixed(2)}</td>
@@ -690,44 +920,77 @@
                         `;
                     });
 
-                    document.getElementById('packingTableBody').innerHTML = html;
-                    document.getElementById('totalItems').value = totalItems;
+                    const packingTableBody = document.getElementById('packingTableBody');
+                    if (packingTableBody) {
+                        packingTableBody.innerHTML = html;
+                    }
+
+                    setInputValue('totalItems', totalItems);
                     updatePackingCount();
 
                     // Show detail modal
-                    document.getElementById('orderDetailModal').style.display = 'flex';
-                    document.getElementById('modalTitle').textContent = `Packing Details - ${order.so_number}`;
-                    document.getElementById('barcodeScannerInput').value = '';
+                    const orderDetailModal = document.getElementById('orderDetailModal');
+                    if (orderDetailModal) {
+                        orderDetailModal.style.display = 'flex';
+                    }
+                    
+                    const modalTitle = document.getElementById('modalTitle');
+                    if (modalTitle) {
+                        modalTitle.textContent = `Packing Details - ${order.so_number}`;
+                    }
+
+                    scannerBuffer = '';
                     setBarcodeScanMessage('Ready to scan', 'neutral');
                     refreshPackingRowColors();
-                    setTimeout(() => document.getElementById('barcodeScannerInput').focus(), 100);
                     
                     // Disable inputs if completed
                     if (isCompleted) {
-                        document.getElementById('packingStatus').disabled = true;
-                        document.getElementById('barcodeScannerInput').disabled = true;
+                        const packingStatusEl = document.getElementById('packingStatus');
+                        const packingBoxesCountEl = document.getElementById('packingBoxesCount');
+                        
+                        if (packingStatusEl) packingStatusEl.disabled = true;
+                        if (packingBoxesCountEl) packingBoxesCountEl.disabled = true;
+                        
                         for (let i = 0; i < totalItems; i++) {
-                            document.getElementById(`packed_qty_${i}`).disabled = true;
-                            document.getElementById(`packed_status_${i}`).disabled = true;
-                            document.getElementById(`packed_notes_${i}`).disabled = true;
-                            document.getElementById(`packed_date_${i}`).disabled = true;
+                            const qtyEl = document.getElementById(`packed_qty_${i}`);
+                            const statusEl = document.getElementById(`packed_status_${i}`);
+                            const notesEl = document.getElementById(`packed_notes_${i}`);
+                            const dateEl = document.getElementById(`packed_date_${i}`);
+                            
+                            if (qtyEl) qtyEl.disabled = true;
+                            if (statusEl) statusEl.disabled = true;
+                            if (notesEl) notesEl.disabled = true;
+                            if (dateEl) dateEl.disabled = true;
                         }
-                        document.getElementById('savePackingBtn').style.display = 'none';
+                        
+                        const saveBtn = document.getElementById('savePackingBtn');
+                        if (saveBtn) saveBtn.style.display = 'none';
                     } else {
-                        document.getElementById('packingStatus').disabled = false;
-                        document.getElementById('barcodeScannerInput').disabled = false;
+                        const packingStatusEl = document.getElementById('packingStatus');
+                        const packingBoxesCountEl = document.getElementById('packingBoxesCount');
+                        
+                        if (packingStatusEl) packingStatusEl.disabled = false;
+                        if (packingBoxesCountEl) packingBoxesCountEl.disabled = false;
+                        
                         for (let i = 0; i < totalItems; i++) {
-                            document.getElementById(`packed_qty_${i}`).disabled = false;
-                            document.getElementById(`packed_status_${i}`).disabled = false;
-                            document.getElementById(`packed_notes_${i}`).disabled = false;
-                            document.getElementById(`packed_date_${i}`).disabled = false;
+                            const qtyEl = document.getElementById(`packed_qty_${i}`);
+                            const statusEl = document.getElementById(`packed_status_${i}`);
+                            const notesEl = document.getElementById(`packed_notes_${i}`);
+                            const dateEl = document.getElementById(`packed_date_${i}`);
+                            
+                            if (qtyEl) qtyEl.disabled = false;
+                            if (statusEl) statusEl.disabled = false;
+                            if (notesEl) notesEl.disabled = false;
+                            if (dateEl) dateEl.disabled = false;
                         }
-                        document.getElementById('savePackingBtn').style.display = 'block';
+                        
+                        const saveBtn = document.getElementById('savePackingBtn');
+                        if (saveBtn) saveBtn.style.display = 'block';
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error loading order data');
+                    console.error('Error loading order:', error);
+                    alert('Error loading order data: ' + (error.message || 'Unknown error. Please check browser console and server logs.'));
                 });
         }
 
@@ -754,13 +1017,6 @@
 
         function handlePackingStatusChange() {
             updatePackingCount();
-            focusBarcodeScanner();
-        }
-
-        function focusBarcodeScanner() {
-            if (!barcodeScannerInput.disabled && document.getElementById('orderDetailModal').style.display !== 'none') {
-                setTimeout(() => barcodeScannerInput.focus(), 50);
-            }
         }
 
         function normalizeBarcode(value) {
@@ -787,8 +1043,6 @@
             }
 
             const matchedIndex = currentOrderItems.findIndex(item => getItemBarcodes(item).includes(barcode));
-            barcodeScannerInput.value = '';
-            barcodeScannerInput.focus();
 
             if (matchedIndex === -1) {
                 setBarcodeScanMessage(`Barcode not found in this order: ${rawBarcode.trim()}`, 'error');
@@ -860,35 +1114,393 @@
                 });
             }
 
-            const payload = {
-                order_id: currentOrderId,
-                packing_status: document.getElementById('packingStatus').value,
-                items: packingItems,
+            // Get photo attachments
+            const photo1Input = document.getElementById('packingPhoto1');
+            const photo2Input = document.getElementById('packingPhoto2');
+
+            // Function to convert file to base64
+            const fileToBase64 = (file) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = error => reject(error);
+                    reader.readAsDataURL(file);
+                });
             };
 
-            fetch('/production/logistic/packing/save', {
+            // Process attachments
+            Promise.all([
+                photo1Input && photo1Input.files.length > 0 ? fileToBase64(photo1Input.files[0]) : Promise.resolve(null),
+                photo2Input && photo2Input.files.length > 0 ? fileToBase64(photo2Input.files[0]) : Promise.resolve(null)
+            ])
+            .then(([photo1Base64, photo2Base64]) => {
+                const payload = {
+                    order_id: currentOrderId,
+                    packing_status: document.getElementById('packingStatus').value,
+                    boxes_count: document.getElementById('packingBoxesCount').value,
+                    items: packingItems,
+                    attachments: {
+                        photo_1: photo1Base64,
+                        photo_2: photo2Base64
+                    }
+                };
+
+                fetch('/production/logistic/packing/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Packing data saved successfully');
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data.message || 'Failed to save packing data'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error saving packing data: ' + error.message);
+                });
+            })
+            .catch(error => {
+                console.error('Error converting files:', error);
+                alert('Error processing photo attachments: ' + error.message);
+            });
+        }
+
+        // Bulk Action Handling
+        let selectedOrderIds = new Set();
+
+        function initializeBulkActions() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const orderCheckboxes = document.querySelectorAll('.order-checkbox');
+            const setReadyPickupBtn = document.getElementById('setReadyPickupBtn');
+            const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+            // Select All functionality
+            selectAllCheckbox.addEventListener('change', function() {
+                const isChecked = this.checked;
+                orderCheckboxes.forEach(cb => {
+                    if (!cb.disabled) {
+                        cb.checked = isChecked;
+                        const orderId = cb.dataset.orderId;
+                        if (isChecked) {
+                            selectedOrderIds.add(orderId);
+                        } else {
+                            selectedOrderIds.delete(orderId);
+                        }
+                    }
+                });
+                updateBulkActionToolbar();
+            });
+
+            // Individual checkbox handling
+            orderCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const orderId = this.dataset.orderId;
+                    if (this.checked) {
+                        selectedOrderIds.add(orderId);
+                    } else {
+                        selectedOrderIds.delete(orderId);
+                    }
+                    updateSelectAllCheckbox();
+                    updateBulkActionToolbar();
+                });
+            });
+
+            // Set as Ready for Pickup button
+            if (setReadyPickupBtn) {
+                setReadyPickupBtn.addEventListener('click', function() {
+                    if (selectedOrderIds.size === 0) {
+                        alert('Please select at least one fully packed order');
+                        return;
+                    }
+                    
+                    if (confirm(`Set ${selectedOrderIds.size} order(s) as ready for pickup/drop-off?`)) {
+                        setOrdersAsReadyForPickup();
+                    }
+                });
+            }
+
+            // Clear Selection button
+            if (clearSelectionBtn) {
+                clearSelectionBtn.addEventListener('click', function() {
+                    selectedOrderIds.clear();
+                    selectAllCheckbox.checked = false;
+                    orderCheckboxes.forEach(cb => cb.checked = false);
+                    updateBulkActionToolbar();
+                });
+            }
+        }
+
+        function updateBulkActionToolbar() {
+            const toolbar = document.getElementById('bulkActionToolbar');
+            const selectedCount = document.getElementById('selectedCount');
+            
+            selectedCount.textContent = selectedOrderIds.size;
+            
+            if (selectedOrderIds.size > 0) {
+                toolbar.style.display = 'flex';
+            } else {
+                toolbar.style.display = 'none';
+            }
+        }
+
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const orderCheckboxes = document.querySelectorAll('.order-checkbox:not(:disabled)');
+            const checkedCheckboxes = document.querySelectorAll('.order-checkbox:not(:disabled):checked');
+
+            if (orderCheckboxes.length === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (checkedCheckboxes.length === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (checkedCheckboxes.length === orderCheckboxes.length) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+
+        function setOrdersAsReadyForPickup() {
+            const orderIds = Array.from(selectedOrderIds);
+            
+            fetch('{{ route("production.logistic.packing.set-ready-for-pickup") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ order_ids: orderIds })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Packing data saved successfully');
-                    window.location.reload();
+                    alert(data.message);
+                    location.reload();
                 } else {
-                    alert('Error: ' + (data.message || 'Failed to save packing data'));
+                    alert('Error: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error saving packing data');
+                alert('An error occurred while setting orders as ready for pickup');
             });
         }
 
+        function handlePhotoUpload(e, photoNumber) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select a valid image file');
+                return;
+            }
+
+            // Create FileReader to display preview
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                displayPhotoPreview(event.target.result, photoNumber);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function displayPhotoPreview(imageSrc, photoNumber) {
+            const previewDiv = document.getElementById(`photo${photoNumber}Preview`);
+            const previewImg = document.getElementById(`photo${photoNumber}Img`);
+            
+            previewImg.src = imageSrc;
+            previewDiv.style.display = 'block';
+        }
+
+        function openCamera(photoNumber) {
+            // Check if getUserMedia is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('Camera access is not supported on this device or browser');
+                return;
+            }
+
+            // Create a temporary video element for camera capture
+            const videoId = `tempVideoCamera${photoNumber}`;
+            const existingVideo = document.getElementById(videoId);
+            if (existingVideo) {
+                existingVideo.remove();
+            }
+
+            const video = document.createElement('video');
+            video.id = videoId;
+            video.autoplay = true;
+            video.playsinline = true;
+            video.style.cssText = 'display:none;';
+            document.body.appendChild(video);
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    video.srcObject = stream;
+                    
+                    // Create a modal for camera capture
+                    createCameraModal(video, stream, photoNumber);
+                })
+                .catch(error => {
+                    console.error('Error accessing camera:', error);
+                    alert('Unable to access camera: ' + error.message);
+                    video.remove();
+                });
+        }
+
+        function createCameraModal(video, stream, photoNumber) {
+            const modal = document.createElement('div');
+            modal.id = `cameraModal${photoNumber}`;
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+
+            const canvas = document.createElement('canvas');
+            canvas.id = `cameraCanvas${photoNumber}`;
+            canvas.style.cssText = 'display:none;';
+            
+            const videoContainer = document.createElement('div');
+            videoContainer.style.cssText = `
+                width: 90vw;
+                max-width: 600px;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            `;
+
+            const cameraVideo = document.createElement('video');
+            cameraVideo.srcObject = stream;
+            cameraVideo.autoplay = true;
+            cameraVideo.playsinline = true;
+            cameraVideo.style.cssText = `
+                width: 100%;
+                height: auto;
+                display: block;
+                transform: scaleX(-1);
+            `;
+
+            videoContainer.appendChild(cameraVideo);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex;
+                gap: 1rem;
+                justify-content: center;
+                margin-top: 2rem;
+            `;
+
+            const captureBtn = document.createElement('button');
+            captureBtn.textContent = '📷 Capture Photo';
+            captureBtn.style.cssText = `
+                background: #28a745;
+                color: white;
+                border: none;
+                padding: 0.75rem 2rem;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 1rem;
+            `;
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = '✕ Cancel';
+            cancelBtn.style.cssText = `
+                background: #6c757d;
+                color: white;
+                border: none;
+                padding: 0.75rem 2rem;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 1rem;
+            `;
+
+            captureBtn.addEventListener('click', function() {
+                capturePhoto(cameraVideo, canvas, photoNumber, modal, stream);
+            });
+
+            cancelBtn.addEventListener('click', function() {
+                closeCameraModal(modal, stream);
+            });
+
+            buttonContainer.appendChild(captureBtn);
+            buttonContainer.appendChild(cancelBtn);
+
+            modal.appendChild(videoContainer);
+            modal.appendChild(buttonContainer);
+            modal.appendChild(canvas);
+
+            document.body.appendChild(modal);
+
+            // Handle escape key to close modal
+            const escapeHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeCameraModal(modal, stream);
+                    document.removeEventListener('keydown', escapeHandler);
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
+        }
+
+        function capturePhoto(video, canvas, photoNumber, modal, stream) {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Flip the image horizontally (mirror effect)
+            context.scale(-1, 1);
+            context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+
+            // Convert to blob and set to file input
+            canvas.toBlob(blob => {
+                const file = new File([blob], `packing_photo_${photoNumber}_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                
+                // Set the file to the input
+                const fileInput = document.getElementById(`packingPhoto${photoNumber}`);
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+
+                // Trigger change event to show preview
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+
+                // Close modal and stop stream
+                closeCameraModal(modal, stream);
+            }, 'image/jpeg', 0.9);
+        }
+
+        function closeCameraModal(modal, stream) {
+            // Stop all tracks in the stream
+            stream.getTracks().forEach(track => track.stop());
+
+            // Remove modal and video element
+            modal.remove();
+            const videoId = modal.querySelector('video') ? `tempVideoCamera${modal.id.replace('cameraModal', '')}` : null;
+            if (videoId) {
+                const tempVideo = document.getElementById(videoId);
+                if (tempVideo) tempVideo.remove();
+            }
+        }
 
     </script>
     @endpush

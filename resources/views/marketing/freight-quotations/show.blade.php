@@ -81,6 +81,12 @@
                                         <p class="mb-0">{{ $quotation->service_mode }}</p>
                                     </div>
                                 </div>
+                                <div class="col-md-3">
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block mb-1"><strong>Freight Option</strong></small>
+                                        <p class="mb-0">{{ $quotation->freight_option ? ucwords(str_replace('_', ' ', $quotation->freight_option)) : 'N/A' }}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

@@ -65,6 +65,7 @@ class SalesOrder extends Model
         'picked_by',
         'freight_charges',
         'freight_notes',
+        'freight_option',
     ];
 
     public function customer()
@@ -155,5 +156,21 @@ class SalesOrder extends Model
         }
         
         return \Carbon\Carbon::parse($baseDate)->addDays($days);
+    }
+
+    public function getFinalTotalAttribute()
+    {
+        $itemsSubtotal = $this->relationLoaded('items')
+            ? $this->items->sum('subtotal')
+            : $this->items()->sum('subtotal');
+
+        if ($itemsSubtotal <= 0 && $this->total_amount !== null) {
+            return (float) $this->total_amount;
+        }
+
+        $freightCharges = (float) ($this->freight_charges ?? 0);
+        $serviceFee = $this->freight_option === 'freight_collect' ? 50.00 : 0;
+
+        return $itemsSubtotal + $freightCharges + $serviceFee;
     }
 }
