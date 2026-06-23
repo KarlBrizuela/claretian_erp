@@ -46,33 +46,315 @@
                         <textarea class="form-control" readonly>{{ $order->shipping_address ?: ($order->customer->shipping_address ?? $order->customer->billing_address ?? '') }}</textarea>
                     </div>
 
-                    <!-- Items Table -->
-                    <div class="table-responsive">
-                        <table class="receipt-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 80px;">QUANTITY</th>
-                                    <th>DESCRIPTION</th>
-                                    <th style="width: 120px; text-align: right;">UNIT PRICE</th>
-                                    <th style="width: 120px; text-align: right;">AMOUNT</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($order->items as $item)
+                    <!-- Terms -->
+                    @if($order->terms)
+                        <div class="form-group">
+                            <label class="fw-bold">Terms:</label>
+                            <textarea class="form-control" readonly style="min-height: 60px;">{{ $order->terms }}</textarea>
+                        </div>
+                    @endif
+
+                    <!-- Items Table for Area Consignment (Item Selection) -->
+                    @if($order->type === 'area_consignment' && $order->status === 'pending_dr_prep')
+                        <div style="background: #e7f3ff; border: 2px solid #0d6efd; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+                            <h5 style="color: #0d6efd; margin-bottom: 0;">Area Consignment - Select Items to Purchase</h5>
+                            <p style="color: #666; font-size: 0.9rem; margin-bottom: 0;">Select the quantity you want to purchase for each item below. Items not selected will be returned.</p>
+                        </div>
+
+                        <form id="areaConsignmentForm" method="POST" action="{{ route('production.logistic.link-consignment-to-si', $order->id) }}">
+                            @csrf
+                            <div class="table-responsive">
+                                <table class="receipt-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 80px;">SENT QTY</th>
+                                            <th>PRODUCT NAME</th>
+                                            <th style="width: 120px; text-align: right;">UNIT PRICE</th>
+                                            <th style="width: 120px;">SELECT QTY</th>
+                                            <th style="width: 120px; text-align: right;">SUBTOTAL</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($order->items as $index => $item)
+                                            <tr class="consignment-item" data-item-id="{{ $item->id }}" data-unit-price="{{ $item->price }}">
+                                                <td style="text-align: center;">{{ $item->quantity }}</td>
+                                                <td>{{ $item->book->name ?? 'Unknown Item' }}</td>
+                                                <td style="text-align: right;">₱{{ number_format($item->price, 2) }}</td>
+                                                <td>
+                                                    <input type="number" 
+                                                           class="form-control selected-qty" 
+                                                           name="items[{{ $item->id }}][selected_qty]" 
+                                                           min="0" 
+                                                           max="{{ $item->quantity }}" 
+                                                           value="0"
+                                                           style="text-align: center;">
+                                                </td>
+                                                <td style="text-align: right; font-weight: 600;">
+                                                    <span class="item-subtotal">₱0.00</span>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="5" class="text-center">No items found</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style="background: #f8f9fa; font-weight: 600;">
+                                            <td colspan="4" style="text-align: right; padding: 0.75rem;">
+                                                <strong>TOTAL PURCHASE AMOUNT:</strong>
+                                            </td>
+                                            <td style="text-align: right; font-weight: 700; padding: 0.75rem;">
+                                                <span id="consignmentTotal">₱0.00</span>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            <!-- Hidden inputs to pass item selections -->
+                            <input type="hidden" name="order_id" value="{{ $order->id }}">
+
+                            <div class="form-actions" style="margin-top: 1.5rem;">
+                                <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-light">
+                                    <i class="las la-arrow-left"></i> Cancel
+                                </a>
+                                <button type="button" class="btn btn-info" id="saveSelectionsBtn" style="display: none;">
+                                    <i class="las la-save"></i> Save Selections
+                                </button>
+                                <button type="submit" class="btn btn-primary" id="linkToSIBtn">
+                                    <i class="las la-link"></i> Link to Sales Invoice
+                                </button>
+                            </div>
+                        </form>
+
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const form = document.getElementById('areaConsignmentForm');
+                            const items = document.querySelectorAll('.consignment-item');
+                            const saveBtn = document.getElementById('saveSelectionsBtn');
+                            const orderId = '{{ $order->id }}';
+                            const storageKey = `consignment_selections_${orderId}`;
+                            
+                            // Service fee if freight_collect is selected
+                            const serviceFee = {{ $order->freight_option === 'freight_collect' ? 50 : 0 }};
+
+                            // Load saved selections from localStorage
+                            function loadSavedSelections() {
+                                const saved = localStorage.getItem(storageKey);
+                                if (saved) {
+                                    try {
+                                        const selections = JSON.parse(saved);
+                                        document.querySelectorAll('.selected-qty').forEach(input => {
+                                            const itemId = input.closest('.consignment-item').dataset.itemId;
+                                            if (selections[itemId]) {
+                                                input.value = selections[itemId];
+                                            }
+                                        });
+                                        updateTotals();
+                                    } catch (e) {
+                                        console.log('Error loading saved selections');
+                                    }
+                                }
+                            }
+
+                            // Save selections to localStorage
+                            function saveSelectionsToStorage() {
+                                const selections = {};
+                                document.querySelectorAll('.consignment-item').forEach(row => {
+                                    const itemId = row.dataset.itemId;
+                                    const qty = parseInt(row.querySelector('.selected-qty').value) || 0;
+                                    selections[itemId] = qty;
+                                });
+                                localStorage.setItem(storageKey, JSON.stringify(selections));
+                            }
+
+                            // Clear saved selections
+                            function clearSavedSelections() {
+                                localStorage.removeItem(storageKey);
+                            }
+
+                            function updateTotals() {
+                                let grandTotal = 0;
+                                let hasSelections = false;
+                                items.forEach(row => {
+                                    const selectedQtyInput = row.querySelector('.selected-qty');
+                                    const unitPrice = parseFloat(row.dataset.unitPrice);
+                                    const selectedQty = parseInt(selectedQtyInput.value) || 0;
+                                    const subtotal = selectedQty * unitPrice;
+                                    
+                                    if (selectedQty > 0) hasSelections = true;
+                                    row.querySelector('.item-subtotal').textContent = '₱' + subtotal.toFixed(2);
+                                    grandTotal += subtotal;
+                                });
+                                
+                                // Add service fee to grand total
+                                const totalWithFee = grandTotal + serviceFee;
+                                document.getElementById('consignmentTotal').textContent = '₱' + totalWithFee.toFixed(2);
+                                
+                                // Show Save button only when items are selected
+                                saveBtn.style.display = hasSelections ? 'inline-block' : 'none';
+                            }
+
+                            // Update totals when quantities change
+                            document.querySelectorAll('.selected-qty').forEach(input => {
+                                input.addEventListener('change', function() {
+                                    updateTotals();
+                                    saveSelectionsToStorage(); // Auto-save on each change
+                                });
+                                input.addEventListener('input', updateTotals);
+                            });
+
+                            // Save Selections button handler
+                            saveBtn.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                let totalSelected = 0;
+                                let selectedCount = 0;
+                                
+                                document.querySelectorAll('.selected-qty').forEach(input => {
+                                    const qty = parseInt(input.value) || 0;
+                                    if (qty > 0) {
+                                        totalSelected += qty;
+                                        selectedCount++;
+                                    }
+                                });
+                                
+                                if (selectedCount === 0) {
+                                    alert('Please select at least 1 item');
+                                    return;
+                                }
+                                
+                                // Save to storage
+                                saveSelectionsToStorage();
+                                
+                                // Show success message
+                                const message = `✓ Saved! ${selectedCount} item(s) selected (${totalSelected} pcs total)`;
+                                alert(message);
+                            });
+
+                            // Form submission validation
+                            form.addEventListener('submit', function(e) {
+                                let totalSelected = 0;
+                                document.querySelectorAll('.selected-qty').forEach(input => {
+                                    totalSelected += parseInt(input.value) || 0;
+                                });
+
+                                if (totalSelected === 0) {
+                                    e.preventDefault();
+                                    alert('Please select at least 1 item to purchase');
+                                    return false;
+                                }
+
+                                // Clear saved selections after successful submission
+                                clearSavedSelections();
+                            });
+
+                            // Load saved selections on page load
+                            loadSavedSelections();
+
+                            // Handle received-by and prepared-by fields for print
+                            const receivedByInput = document.getElementById('receivedBy');
+                            const receivedByDisplay = document.getElementById('receivedByDisplay');
+                            const preparedByInput = document.getElementById('preparedBy');
+                            
+                            function updateReceivedByDisplay() {
+                                if (receivedByInput && receivedByDisplay) {
+                                    const value = receivedByInput.value;
+                                    receivedByDisplay.textContent = value;
+                                }
+                            }
+                            
+                            if (receivedByInput && receivedByDisplay) {
+                                receivedByInput.addEventListener('input', function() {
+                                    updateReceivedByDisplay();
+                                });
+                                receivedByInput.addEventListener('change', function() {
+                                    updateReceivedByDisplay();
+                                });
+                                // Initialize display
+                                updateReceivedByDisplay();
+                            }
+
+                            if (preparedByInput) {
+                                preparedByInput.addEventListener('input', function() {
+                                    this.setAttribute('data-print-value', this.value);
+                                });
+                                preparedByInput.setAttribute('data-print-value', preparedByInput.value || '');
+                            }
+
+                            // Hide logo and show received-by display before print
+                            window.addEventListener('beforeprint', function() {
+                                const logo = document.querySelector('.company-logo');
+                                if (logo) {
+                                    logo.style.display = 'none';
+                                    logo.style.visibility = 'hidden';
+                                    logo.style.opacity = '0';
+                                    logo.style.position = 'fixed';
+                                    logo.style.left = '-9999px';
+                                    logo.style.top = '-9999px';
+                                }
+                                
+                                // Show received-by display in print
+                                if (receivedByDisplay) {
+                                    receivedByDisplay.style.display = 'block';
+                                    updateReceivedByDisplay();
+                                }
+                                if (receivedByInput) {
+                                    receivedByInput.style.display = 'none';
+                                }
+                            });
+
+                            // Restore after print
+                            window.addEventListener('afterprint', function() {
+                                const logo = document.querySelector('.company-logo');
+                                if (logo) {
+                                    logo.style.display = '';
+                                    logo.style.visibility = '';
+                                    logo.style.opacity = '';
+                                    logo.style.position = '';
+                                    logo.style.left = '';
+                                    logo.style.top = '';
+                                }
+                                
+                                // Restore received-by input
+                                if (receivedByDisplay) {
+                                    receivedByDisplay.style.display = 'none';
+                                }
+                                if (receivedByInput) {
+                                    receivedByInput.style.display = 'block';
+                                }
+                            });
+                        });
+</script>
+                    @else
+                        <!-- Regular Delivery Receipt Items Table -->
+                        <div class="table-responsive">
+                            <table class="receipt-table">
+                                <thead>
                                     <tr>
-                                        <td>{{ $item->quantity }}</td>
-                                        <td>{{ $item->book->name ?? 'Unknown Item' }}</td>
-                                        <td style="text-align: right;">₱{{ number_format($item->unit_price, 2) }}</td>
-                                        <td style="text-align: right;">₱{{ number_format($item->quantity * $item->unit_price, 2) }}</td>
+                                        <th style="width: 80px;">QUANTITY</th>
+                                        <th>DESCRIPTION</th>
+                                        <th style="width: 120px; text-align: right;">UNIT PRICE</th>
+                                        <th style="width: 120px; text-align: right;">AMOUNT</th>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-center">No items found</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @forelse($order->items as $item)
+                                        <tr>
+                                            <td>{{ $item->quantity }}</td>
+                                            <td>{{ $item->book->name ?? 'Unknown Item' }}</td>
+                                            <td style="text-align: right;">₱{{ number_format($item->unit_price, 2) }}</td>
+                                            <td style="text-align: right;">₱{{ number_format($item->quantity * $item->unit_price, 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center">No items found</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
 
                     <!-- Total Amount -->
                     <div style="text-align: right; margin-bottom: 1.5rem; font-size: 1.1rem; font-weight: 600;">
@@ -129,7 +411,10 @@
                     </div>
                     <div class="signature-box">
                         <label>Received by:</label>
-                        <input type="text" id="receivedBy" placeholder="Enter name">
+                        <div class="signature-input-wrapper">
+                            <input type="text" id="receivedBy" class="received-by-input" placeholder="Enter name" style="width: 100%; display: block;">
+                            <span class="signature-value-display" id="receivedByDisplay"></span>
+                        </div>
                         <div style="text-align: center; padding-top: 2rem;">
                             <div style="border-top: 1px solid #333; width: 200px; margin: 0 auto; padding-top: 0.5rem;">SIGNATURE</div>
                         </div>
@@ -225,6 +510,11 @@
             font-size: 2rem;
             font-weight: bold;
             flex-shrink: 0;
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            opacity: 0;
+            visibility: hidden;
         }
 
         .form-header .company-details {
@@ -324,6 +614,13 @@
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 1.5rem;
+            table-layout: fixed;
+            min-width: 800px;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .receipt-table thead {
@@ -390,6 +687,16 @@
             margin-bottom: 2rem;
         }
 
+        .signature-input-wrapper {
+            display: block;
+            position: relative;
+            min-height: 40px;
+        }
+
+        .signature-value-display {
+            display: none;
+        }
+
         .form-actions {
             display: flex;
             justify-content: flex-end;
@@ -452,15 +759,268 @@
         }
 
         @media print {
+            * {
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            /* Hide UI elements and buttons */
             .sidebar,
             .header,
             .form-actions,
-            .btn-add-row {
-                display: none;
+            .btn-add-row,
+            .btn-remove-row,
+            #saveSelectionsBtn,
+            #linkToSIBtn,
+            .modal,
+            button,
+            .btn {
+                display: none !important;
             }
 
+            /* Hide only the blue info box for area consignment */
+            div[style*="background: #e7f3ff"] {
+                display: none !important;
+            }
+
+            /* Make form inputs transparent but visible */
+            .form-info-item input,
+            .form-group input,
+            .form-group textarea,
+            .signature-box input {
+                border: none !important;
+                padding: 0 !important;
+                background: transparent !important;
+                outline: none !important;
+                color: #000 !important;
+            }
+
+            /* Show the table and make input fields look like text */
+            .receipt-table {
+                width: 100%;
+                page-break-inside: avoid;
+                display: table !important;
+            }
+
+            .receipt-table thead {
+                display: table-header-group;
+                page-break-inside: avoid;
+            }
+
+            .receipt-table tbody {
+                display: table-row-group;
+            }
+
+            .receipt-table tr {
+                display: table-row;
+                page-break-inside: avoid;
+            }
+
+            .receipt-table th,
+            .receipt-table td {
+                display: table-cell;
+                border: 1px solid #333 !important;
+                padding: 0.5rem !important;
+            }
+
+            .receipt-table th {
+                background: #ff0000 !important;
+                color: #fff !important;
+                font-weight: bold !important;
+            }
+
+            .receipt-table td {
+                background: #fff !important;
+            }
+
+            /* Show table inputs as text */
+            .receipt-table input[type="number"],
+            .receipt-table input[type="text"] {
+                border: none !important;
+                padding: 0 !important;
+                background: transparent !important;
+                outline: none !important;
+                color: #000 !important;
+                font-family: inherit;
+                width: auto;
+                text-align: inherit;
+            }
+
+            /* Clean up receipt form */
             .receipt-form {
-                box-shadow: none;
+                box-shadow: none !important;
+                padding: 1.5rem !important;
+                max-width: 100%;
+                margin: 0 !important;
+                border: none !important;
+            }
+
+            .form-header {
+                margin-bottom: 1.5rem;
+                padding-bottom: 1rem;
+                border-bottom: 2px solid #000;
+                text-align: center;
+            }
+
+            /* Hide company logo in print */
+            .form-header .company-info {
+                display: block !important;
+                width: 100% !important;
+                text-align: center !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: center !important;
+                gap: 0 !important;
+                flex: none !important;
+            }
+
+            .form-header .company-logo {
+                display: none !important;
+                visibility: hidden !important;
+                position: fixed !important;
+                left: -9999px !important;
+                top: -9999px !important;
+                width: 0 !important;
+                height: 0 !important;
+                border: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                opacity: 0 !important;
+                overflow: hidden !important;
+                clip: rect(0, 0, 0, 0) !important;
+                z-index: -9999 !important;
+            }
+
+            .form-header .company-details {
+                width: 100%;
+                flex: none;
+            }
+
+            .form-header .company-name {
+                font-size: 1.1rem !important;
+                margin-bottom: 0.1rem !important;
+            }
+
+            .form-header .company-address,
+            .form-header .company-contact {
+                font-size: 0.8rem !important;
+                margin: 0 !important;
+            }
+
+            .form-info-row {
+                background: transparent !important;
+                border: none !important;
+                padding: 0.25rem 0 !important;
+                margin-bottom: 0.25rem !important;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 1rem;
+            }
+
+            .form-info-item {
+                display: block;
+                margin-bottom: 0;
+            }
+
+            .form-info-item label {
+                display: block;
+                font-weight: bold;
+                margin-bottom: 0.25rem;
+                min-width: auto;
+            }
+
+            .form-group {
+                background: transparent !important;
+                border: none !important;
+                padding: 0.5rem 0 !important;
+                margin-bottom: 0.5rem !important;
+            }
+
+            .form-group label {
+                font-weight: bold;
+            }
+
+            /* Signature section */
+            .signature-section {
+                page-break-inside: avoid;
+                margin-top: 2rem;
+                border-top: 2px solid #000;
+                padding-top: 1.5rem;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2rem;
+            }
+
+            .signature-box {
+                page-break-inside: avoid;
+            }
+
+            .signature-box label {
+                font-weight: bold;
+                display: block;
+                margin-bottom: 0.5rem;
+            }
+
+            .signature-box input {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                min-height: 40px;
+                margin-bottom: 1rem;
+                color: #000 !important;
+                font-size: 0.95rem;
+                display: none !important;
+                width: 100% !important;
+                -webkit-appearance: none;
+                appearance: none;
+                font-family: inherit;
+            }
+
+            .signature-input-wrapper {
+                display: block;
+                min-height: 40px;
+                margin-bottom: 1rem;
+                position: relative;
+            }
+
+            .signature-value-display {
+                display: block !important;
+                color: #000 !important;
+                font-size: 0.95rem !important;
+                font-family: inherit !important;
+                min-height: 20px !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                white-space: pre-wrap !important;
+            }
+
+            .signature-box div[style*="border-top"] {
+                border-top: 1px solid #000 !important;
+                text-align: center;
+                padding-top: 0.5rem;
+                font-size: 0.8rem;
+                font-weight: bold;
+            }
+
+            /* Page layout */
+            body,
+            html {
+                margin: 0;
+                padding: 0;
+            }
+
+            .row,
+            .col-xl-12 {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .card {
+                margin: 0 !important;
+                padding: 1.5rem !important;
+                border: none !important;
+                box-shadow: none !important;
             }
         }
     </style>

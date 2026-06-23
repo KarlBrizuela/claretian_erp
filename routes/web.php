@@ -80,6 +80,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/packing/{id}/data', [App\Http\Controllers\Production\LogisticController::class, 'getPackingOrderData'])->name('packing-order-data');
       Route::post('/packing/save', [App\Http\Controllers\Production\LogisticController::class, 'savePackingData'])->name('packing.save');
       Route::post('/packing/set-ready-for-pickup', [App\Http\Controllers\Production\LogisticController::class, 'setReadyForPickup'])->name('packing.set-ready-for-pickup');
+      Route::post('/packing/mark-as-gathered', [App\Http\Controllers\Production\LogisticController::class, 'markPackedOrdersAsGathered'])->name('packing.mark-as-gathered');
 
       // Delivery & Fleet management
       Route::get('/delivery-scheduling', [App\Http\Controllers\Production\LogisticController::class, 'deliveryScheduling'])->name('delivery-scheduling');
@@ -94,6 +95,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/delivery-receipt/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('delivery-receipt');
       Route::post('/mark-as-dr-prepared/{id}', [App\Http\Controllers\Production\LogisticController::class, 'markAsDRPrepared'])->name('mark-as-dr-prepared');
       Route::post('/approve-dr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'approveDR'])->name('approve-dr');
+      Route::post('/link-consignment-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'linkConsignmentToSI'])->name('link-consignment-to-si');
 
       // Purchase Orders
       Route::get('/purchase-order-list', [App\Http\Controllers\Production\LogisticController::class, 'purchaseOrderList'])->name('purchase-order-list');

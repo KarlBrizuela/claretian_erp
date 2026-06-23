@@ -176,12 +176,12 @@
                                                             style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
                                                         <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
                                                     </button>
-                                                    <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                    <button type="button" class="btn btn-success shadow mark-gathered-btn"
                                                             data-order-id="{{ $order->id }}"
                                                             data-so-number="{{ $order->so_number }}"
-                                                            title="Mark as Packed"
-                                                            style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                        <i class="fas fa-check" style="font-size: 0.9rem;"></i>
+                                                            title="Mark as Gathered (Ready for Delivery)"
+                                                            style="background: #007bff; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                        <i class="fas fa-box-open" style="font-size: 0.9rem;"></i>
                                                     </button>
                                                 </div>
                                             </td>
@@ -630,6 +630,10 @@
         let currentOrderItems = [];
         let barcodeScanTimer = null;
         let scannerBuffer = '';
+        
+        // Check if we have a preload order from picklist
+        const preloadOrderId = {{ $preloadOrderId ? $preloadOrderId : 'null' }};
+        console.log('Packing Management - Preload Order ID:', preloadOrderId);
 
         // Initialize DataTable and Event Listeners
         $(document).ready(function() {
@@ -639,6 +643,13 @@
                 responsive: true
             });
 
+            // If preloadOrderId is set, auto-load that order
+            if (preloadOrderId) {
+                console.log('Auto-loading preload order:', preloadOrderId);
+                currentOrderId = preloadOrderId;
+                loadPackingOrder(preloadOrderId);
+            }
+
             // Mark as Packed Button Click
             document.querySelectorAll('.mark-packed-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -646,6 +657,17 @@
                     const soNumber = this.dataset.soNumber;
                     if (confirm(`Mark all items in ${soNumber} as packed?`)) {
                         markOrderAsPacked(orderId, soNumber);
+                    }
+                });
+            });
+
+            // Mark as Gathered Button Click (Ready for Pickup tab)
+            document.querySelectorAll('.mark-gathered-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const orderId = this.dataset.orderId;
+                    const soNumber = this.dataset.soNumber;
+                    if (confirm(`Mark ${soNumber} as gathered? It will move to Delivery Scheduling.`)) {
+                        markOrderAsGathered(orderId, soNumber);
                     }
                 });
             });
@@ -825,6 +847,32 @@
                     console.error('Error loading order:', error);
                     alert('Error loading order: ' + (error.message || 'Unknown error'));
                 });
+        }
+
+        function markOrderAsGathered(orderId, soNumber) {
+            fetch('/production/logistic/packing/mark-as-gathered', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                },
+                body: JSON.stringify({
+                    order_id: orderId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✓ ${soNumber} marked as gathered and moved to Delivery Scheduling!`);
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to mark as gathered'));
+                }
+            })
+            .catch(error => {
+                console.error('Error marking as gathered:', error);
+                alert('Error: ' + error.message);
+            });
         }
 
         function loadPackingOrder(orderId, isCompleted = false) {

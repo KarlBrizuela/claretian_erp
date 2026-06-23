@@ -134,6 +134,14 @@
 
                     <div class="form-actions d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
                         <button type="button" class="btn btn-light" onclick="window.history.back()">Cancel</button>
+                        
+                        {{-- Direct Invoice Ecom: Show "Linked to Picklist" button --}}
+                        @if($order->type === 'ecom_direct')
+                            <a href="{{ route('production.logistic.pick-list-management', ['so_id' => $order->id]) }}" class="btn btn-info">
+                                <i class="las la-link me-1"></i>Linked to Picklist
+                            </a>
+                        @endif
+                        
                         <button type="submit" class="btn btn-primary">
                             <i class="las la-save me-2"></i>Finalize & Submit for Manager Approval
                         </button>

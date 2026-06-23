@@ -1153,9 +1153,17 @@ public function checkVoucher()
 
   public function salesInvoice()
   {
+    // Get SalesOrders pending SI prep/approval
     $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-      ->whereIn('status', ['pending_si_prep', 'pending_si_approval'])
+      ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created'])
       ->whereNull('signed_by_af_manager')
+      ->latest()
+      ->get();
+
+    // Get SalesInvoices from area consignment
+    $areaConsignmentSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder')
+      ->where('transaction_type', 'area_consignment_si')
+      ->whereIn('status', ['draft', 'pending_approval'])
       ->latest()
       ->get();
 
@@ -1163,7 +1171,8 @@ public function checkVoucher()
       'title' => 'Sales Invoice Management',
       'role' => 'Finance Manager',
       'sidebar' => 'admin-finance',
-      'orders' => $orders
+      'orders' => $orders,
+      'areaConsignmentSIs' => $areaConsignmentSIs
     ]);
   }
 
@@ -1773,6 +1782,20 @@ public function checkVoucher()
     
     \Log::info('Processing approval for SO #' . $order->so_number . ' with ' . $order->items->count() . ' items');
     
+    // For area consignment, route to DR preparation instead of picking
+    if ($order->type === 'area_consignment') {
+      $order->update([
+        'status' => 'pending_dr_prep',
+        'approved_by_acct' => auth()->id(),
+        'acct_approved_at' => now()
+      ]);
+
+      \Log::info('Area Consignment SO #' . $order->so_number . ' routed to Delivery Receipt preparation');
+
+      return redirect()->route('admin-finance.approval-queue')->with('success', 'Area Consignment Sales Order #' . $order->so_number . ' has been approved and sent to Delivery Receipts for item selection.');
+    }
+    
+    // Normal flow for other transaction types
     $order->update([
       'status' => 'picking',
       'approved_by_acct' => auth()->id(),

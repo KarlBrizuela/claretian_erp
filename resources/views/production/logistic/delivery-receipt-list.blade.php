@@ -1,57 +1,197 @@
 <x-app-layout :title="'Delivery Receipts'" :sidebar="'production'">
+    @push('styles')
+    <style>
+        .nav-tabs .nav-link {
+            color: #333;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 1rem;
+        }
+        .nav-tabs .nav-link:hover {
+            border-bottom-color: #ff0000;
+        }
+        .nav-tabs .nav-link.active {
+            background: transparent;
+            color: #ff0000;
+            border-bottom-color: #ff0000;
+        }
+
+        .table-status-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-in-transit { background: #cce5ff; color: #004085; }
+
+        .filter-section {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .status-filter-dropdown {
+            min-width: 180px;
+        }
+    </style>
+    @endpush
+
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header border-0 d-block d-sm-flex">
+                <ul class="nav nav-tabs border-bottom px-4 pt-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending-pane" type="button" role="tab" aria-controls="pending-pane" aria-selected="true">
+                            <i class="fas fa-hourglass-half me-2"></i>Pending DR Prep ({{ count($orders) }})
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="card-header border-0 d-block d-sm-flex px-4 pt-3 pb-0">
                     <div>
-                        <h4 class="fs-24 mb-0 text-black">Delivery Receipts</h4>
+                        <h4 class="fs-20 mb-0 text-black">Delivery Receipts Management</h4>
                     </div>
-                    <a href="{{ route('production.logistic.delivery-receipt') }}" class="btn btn-primary rounded d-flex align-items-center" style="gap: 0.5rem; padding: 0.5rem 1rem; height: 38px; min-height: 38px; line-height: 1.5; box-sizing: border-box; border: none; background: #ff0000; color: #ffffff; font-weight: 500;">
-                        <i class="las la-plus" style="font-size: 1rem; line-height: 1; margin: 0; padding: 0; background: transparent; border: none; box-shadow: none;"></i>
-                        <span style="font-size: 0.875rem; white-space: nowrap;">Create New Receipt</span>
+                    <a href="{{ route('production.logistic.delivery-receipt') }}" class="btn btn-primary rounded d-flex align-items-center ms-auto" style="gap: 0.5rem; background: #ff0000; border: none;">
+                        <i class="las la-plus"></i>
+                        <span>Create New Receipt</span>
                     </a>
                 </div>
-                <div class="card-body">
-                    <div class="dataTables_wrapper">
+
+                <div class="tab-content p-4">
+                    <!-- Pending DR Prep Tab -->
+                    <div class="tab-pane fade show active" id="pending-pane" role="tabpanel" aria-labelledby="pending-tab">
+                        <!-- Filter Section -->
+                        <div class="filter-section">
+                            <div class="search-box">
+                                <input type="text" id="searchInput" class="form-control" placeholder="Search by SO # or Customer...">
+                            </div>
+                            <select id="statusFilter" class="form-control status-filter-dropdown">
+                                <option value="all">All Status</option>
+                                <option value="pending_dr_prep">Pending Prep</option>
+                                <option value="pending_dr_approval">Pending Approval</option>
+                                <option value="ready_for_delivery">Ready for Delivery</option>
+                            </select>
+                        </div>
                         <div class="table-responsive">
-                            <table id="deliveryReceiptsTable" class="display" style="width: 100%">
-                                <thead>
+                            <table class="table table-hover" id="drTable">
+                                <thead class="table-light">
                                     <tr>
-                                        <th>DR Number</th>
-                                        <th>Sales Order</th>
+                                        <th>SO Number</th>
                                         <th>Customer</th>
-                                        <th>Delivery Date</th>
                                         <th>Total Amount</th>
+                                        <th>Payment Terms</th>
+                                        <th>Remaining Date</th>
                                         <th>Status</th>
                                         <th>Prepared By</th>
-                                        <th>Received By</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse($orders as $order)
-                                    <tr>
-                                        <td><strong>DR-{{ $order->so_number }}</strong></td>
-                                        <td>{{ $order->so_number }}</td>
+                                    <tr data-so-number="{{ $order->so_number }}" data-customer="{{ $order->customer->customer_name ?? '' }}" data-status="{{ $order->status }}">
+                                        <td><strong>{{ $order->so_number }}</strong></td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
-                                        <td>{{ $order->dr_prepared_at ? \Carbon\Carbon::parse($order->dr_prepared_at)->format('Y-m-d') : 'Pending' }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td>
-                                            @if($order->status === 'pending_dr_prep')
-                                                <span class="status-badge status-pending">Pending Prep</span>
-                                            @elseif($order->status === 'pending_dr_approval')
-                                                <span class="status-badge status-in-transit">Pending Approval</span>
-                                            @elseif($order->status === 'ready_for_delivery')
-                                                <span class="status-badge status-delivered">Ready for Delivery</span>
+                                            @php
+                                                $termsDisplay = match($order->terms) {
+                                                    'cash' => 'Cash',
+                                                    'cod' => 'COD',
+                                                    '7_days' => '7 Days',
+                                                    '15_days' => '15 Days',
+                                                    '30_days' => '30 Days',
+                                                    '60_days' => '60 Days',
+                                                    '90_days' => '90 Days',
+                                                    default => $order->terms
+                                                };
+                                            @endphp
+                                            <span class="badge bg-info">{{ $termsDisplay }}</span>
+                                        </td>
+                                        <td>
+                                            @php
+                                                // Handle terms stored as '90 days', '30 days', etc.
+                                                $termsMap = [
+                                                    'cash' => 0, 
+                                                    'cod' => 0, 
+                                                    '7_days' => 7, 
+                                                    '7 days' => 7,
+                                                    '7days' => 7,
+                                                    '15_days' => 15, 
+                                                    '15 days' => 15,
+                                                    '15days' => 15,
+                                                    '30_days' => 30, 
+                                                    '30 days' => 30,
+                                                    '30days' => 30,
+                                                    '60_days' => 60, 
+                                                    '60 days' => 60,
+                                                    '60days' => 60,
+                                                    '90_days' => 90, 
+                                                    '90 days' => 90,
+                                                    '90days' => 90,
+                                                    '90' => 90,
+                                                    '30' => 30,
+                                                    '7' => 7,
+                                                    '15' => 15,
+                                                    '60' => 60
+                                                ];
+                                                
+                                                $termValue = strtolower(trim($order->terms ?? ''));
+                                                $daysFromTerms = $termsMap[$termValue] ?? 0;
+                                                
+                                                // Only show calculation if payment terms are set (not cash/cod)
+                                                if ($daysFromTerms > 0) {
+                                                    // Get the reference date
+                                                    $baseDateTime = $order->dr_prepared_at ?? $order->created_at;
+                                                    $baseDate = \Carbon\Carbon::parse($baseDateTime);
+                                                    
+                                                    // Add days to get due date
+                                                    $dueDate = $baseDate->copy()->addDays($daysFromTerms);
+                                                    
+                                                    // Get today at start of day
+                                                    $today = \Carbon\Carbon::today();
+                                                    
+                                                    // Calculate remaining days
+                                                    $interval = $today->diff($dueDate);
+                                                    $daysRemaining = (int)$interval->format('%r%a');
+                                                } else {
+                                                    $daysRemaining = null;
+                                                    $dueDate = null;
+                                                }
+                                            @endphp
+                                            @if($daysRemaining !== null)
+                                                <span class="@if($daysRemaining < 0) text-danger fw-bold @elseif($daysRemaining < 7) text-warning @else text-success @endif">
+                                                    {{ $dueDate->format('M d, Y') }}
+                                                    <br><small>{{ $daysRemaining < 0 ? abs($daysRemaining) . ' days overdue' : $daysRemaining . ' days' }}</small>
+                                                </span>
                                             @else
-                                                <span class="status-badge status-draft">{{ $order->status }}</span>
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($order->status === 'pending_dr_prep')
+                                                <span class="table-status-badge status-pending">Pending Prep</span>
+                                            @elseif($order->status === 'pending_dr_approval')
+                                                <span class="table-status-badge status-in-transit">Pending Approval</span>
+                                            @elseif($order->status === 'ready_for_delivery')
+                                                <span class="table-status-badge status-completed">Ready for Delivery</span>
                                             @endif
                                         </td>
                                         <td>{{ $order->preparedBy->name ?? 'System' }}</td>
-                                        <td>-</td>
                                         <td>
-                                            <div class="workflow-actions">
-                                                <a href="{{ route('production.logistic.delivery-receipt', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Details">
+                                            <div class="d-flex gap-1">
+                                                <a href="{{ route('production.logistic.delivery-receipt', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View/Create DR">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 
@@ -72,30 +212,16 @@
                                                         </button>
                                                     </form>
                                                 @endif
-
-                                                @if($order->status === 'ready_for_delivery' && !$order->dr_prepared_at)
-                                                    <form action="{{ route('production.logistic.approve-dr', $order->id) }}" method="POST" style="display:inline;">
-                                                        @csrf
-                                                        <button type="submit" class="btn btn-info shadow btn-xs sharp" title="Finalize DR (Record Approval Time)">
-                                                            <i class="fas fa-check-double"></i>
-                                                        </button>
-                                                    </form>
-                                                @endif
-
-                                                    <a href="javascript:void(0);" class="btn btn-info shadow btn-xs sharp" title="Print DR" onclick="window.print()">
-                                                        <i class="las la-print"></i>
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        @empty
-                                        <tr>
-                                            <td colspan="9" class="text-center">No delivery receipts found.</td>
-                                        </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">No pending DR preparations.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -103,61 +229,64 @@
         </div>
     </div>
 
-    @push('styles')
-    <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
-    <link href="{{ asset('vendor/bootstrap-select/dist/css/bootstrap-select.min.css') }}" rel="stylesheet">
-    <style>
-        .dataTables_wrapper {
-            font-size: 14px;
-        }
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-            display: inline-block;
-        }
-        .status-draft {
-            background-color: #e9ecef;
-            color: #495057;
-        }
-        .status-in-progress {
-            background-color: #cce5ff;
-            color: #004085;
-        }
-        .status-completed {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .status-delivered {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .status-in-transit {
-            background-color: #cce5ff;
-            color: #004085;
-        }
-        .status-pending {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-        .workflow-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-        }
-    </style>
-    @endpush
-
     @push('scripts')
-    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
-        $(document).ready(function() {
-            $('#deliveryReceiptsTable').DataTable({
-                order: [[3, 'desc']], // Sort by date descending
-                pageLength: 25,
-                responsive: true
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            const statusFilter = document.getElementById('statusFilter');
+            const tableRows = document.querySelectorAll('#drTable tbody tr');
+
+            // Search functionality
+            searchInput.addEventListener('keyup', function() {
+                filterTable();
             });
+
+            // Status filter functionality
+            statusFilter.addEventListener('change', function() {
+                filterTable();
+            });
+
+            function filterTable() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const currentStatusFilter = statusFilter.value;
+
+                tableRows.forEach(row => {
+                    const soNumber = row.dataset.soNumber.toLowerCase();
+                    const customer = row.dataset.customer.toLowerCase();
+                    const status = row.dataset.status;
+
+                    // Check search term match
+                    const searchMatch = soNumber.includes(searchTerm) || customer.includes(searchTerm);
+
+                    // Check status match
+                    const statusMatch = currentStatusFilter === 'all' || status === currentStatusFilter;
+
+                    // Show row if both conditions match
+                    if (searchMatch && statusMatch) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // Check if there are any visible rows
+                const visibleRows = Array.from(tableRows).filter(row => row.style.display !== 'none');
+                const tbody = document.querySelector('#drTable tbody');
+                const emptyMessage = tbody.querySelector('.empty-message');
+
+                if (visibleRows.length === 0) {
+                    if (!emptyMessage) {
+                        const newRow = document.createElement('tr');
+                        newRow.className = 'empty-message';
+                        newRow.innerHTML = '<td colspan="8" class="text-center text-muted py-4">No records found.</td>';
+                        tbody.appendChild(newRow);
+                    }
+                } else {
+                    if (emptyMessage) {
+                        emptyMessage.remove();
+                    }
+                }
+            }
         });
     </script>
     @endpush

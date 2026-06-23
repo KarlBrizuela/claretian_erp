@@ -1095,7 +1095,7 @@ class MarketingController extends Controller
             'items.*.unit' => 'nullable|string',
             'billing_address' => 'nullable|string',
             'terms' => 'nullable|string',
-            'pick_list' => 'required|file|max:10240',
+            'pick_list' => 'nullable|file|max:10240',
             'shipping_label' => 'nullable|file|max:10240',
         ]);
 
@@ -1121,14 +1121,13 @@ class MarketingController extends Controller
         $nextNum = $lastInvoice ? (intval(substr($lastInvoice->so_number, -4)) + 1) : 1;
         $invoiceNumber = 'DI-ECOM-' . date('Y') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
 
-        // Store attachments
-        $pickListPath = $request->file('pick_list')->store('direct_invoices/pick_lists', 'public');
+        // Store attachments (optional)
+        $pickListPath = $request->hasFile('pick_list') ? $request->file('pick_list')->store('direct_invoices/pick_lists', 'public') : null;
         // $shippingLabelPath = $request->file('shipping_label')->store('direct_invoices/shipping_labels', 'public');
 
-        // E-com always goes to Marketing Manager/Supervisor for approval
-        $user = auth()->user();
-        $isManagerOrSupervisor = str_contains($user->position, 'Manager') || str_contains($user->position, 'Supervisor') || $user->position === 'Super Admin';
-        $initialStatus = $isManagerOrSupervisor ? 'picking' : 'pending_mkt_approval';
+        // E-com direct invoices always require approval before proceeding to Sales Invoice
+        // They bypass the regular picking workflow
+        $initialStatus = 'pending_mkt_approval';
 
         $so = \App\Models\SalesOrder::create([
             'customer_id' => $request->customer_id,
@@ -1138,8 +1137,6 @@ class MarketingController extends Controller
             'platform_order_id' => $request->platform_order_id,
             'status' => $initialStatus,
             'prepared_by' => auth()->id(),
-            'approved_by_mkt' => $isManagerOrSupervisor ? auth()->id() : null,
-            'mkt_approved_at' => $isManagerOrSupervisor ? now() : null,
             'billing_address' => $request->billing_address,
             'shipping_address' => $request->billing_address,
             'terms' => $request->terms,
@@ -1189,11 +1186,7 @@ class MarketingController extends Controller
 
         $so->update(['total_amount' => $totalAmount]);
 
-        $statusMsg = $initialStatus === 'picking'
-            ? 'Invoice created and auto-approved! Routed to Logistics for picking.'
-            : 'Invoice created and submitted for Marketing approval.';
-
-        return redirect()->route('marketing.direct-invoice.ecom')->with('success', $statusMsg . ' Invoice #' . $invoiceNumber);
+        return redirect()->route('marketing.direct-invoice.ecom')->with('success', 'Direct Invoice #' . $invoiceNumber . ' created and submitted for Marketing approval.');
     }
 
     public function approveDirectInvoiceEcom(Request $request, $id)
@@ -1211,13 +1204,15 @@ class MarketingController extends Controller
             return redirect()->back()->with('error', 'Only Managers or Supervisors can approve invoices.');
         }
 
+        // Direct Invoice Ecom workflow: After approval, route to Sales Invoice (Accounting)
         $order->update([
-            'status' => 'picking',
+            'status' => 'pending_si_prep',
             'approved_by_mkt' => auth()->id(),
             'mkt_approved_at' => now(),
         ]);
 
-        return redirect()->back()->with('success', 'Invoice #' . $order->so_number . ' approved! Routed to Logistics for picking.');
+        return redirect()->route('admin-finance.accounting.sales-invoice')
+            ->with('success', 'Invoice #' . $order->so_number . ' approved! It now appears in the Sales Invoice list for preparation.');
     }
 
     public function acknowledgementReceipt()
@@ -1276,10 +1271,27 @@ class MarketingController extends Controller
 
     public function deliveryReceipt()
     {
+        // Get sales orders that need delivery receipt
+        $salesOrders = \App\Models\SalesOrder::with('customer', 'items.product')
+            ->whereIn('status', ['gathered', 'pending_si_prep', 'pending_si_approval', 'ready_for_delivery'])
+            ->latest()
+            ->get();
+        
+        // Get all customers
+        $customers = \App\Models\Customer::orderBy('customer_name')->get();
+
+        // Get existing delivery receipts with related data
+        $deliveryReceipts = \App\Models\DeliveryReceipt::with('salesOrder', 'salesInvoice', 'customer', 'items', 'preparedByUser')
+            ->latest()
+            ->get();
+
         return view('marketing.delivery-receipt', [
             'title' => 'Delivery Receipt',
             'role' => 'Marketing Manager',
-            'sidebar' => 'marketing'
+            'sidebar' => 'marketing',
+            'salesOrders' => $salesOrders,
+            'customers' => $customers,
+            'deliveryReceipts' => $deliveryReceipts
         ]);
     }
 

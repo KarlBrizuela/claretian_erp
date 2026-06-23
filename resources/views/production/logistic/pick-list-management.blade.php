@@ -143,9 +143,19 @@
                                                     data-customer="{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}"
                                                     data-date="{{ $pickList->created_at->format('Y-m-d') }}"
                                                     data-items='{{ $pickListItemsJson }}'
+                                                    data-ecom-platform="{{ $pickList->salesOrder->ecom_platform ?? '' }}"
                                                     style="background: #ff0000; border: none;">
                                                 <i class="las la-eye me-1"></i> View Items
                                             </button>
+                                            @if($pickList->salesOrder->ecom_platform)
+                                            <button type="button" class="btn btn-sm link-to-pack-btn"
+                                                    data-order-id="{{ $pickList->salesOrder->id }}"
+                                                    data-so-number="{{ $pickList->salesOrder->so_number }}"
+                                                    title="Link to Pack Management"
+                                                    style="background: #0d6efd; color: #fff; border: none; margin-left: 0.25rem;">
+                                                <i class="las la-dolly"></i>
+                                            </button>
+                                            @endif
                                         </td>
                                     </tr>
                                     @endforeach
@@ -202,6 +212,10 @@
                             </div>
                         </div>
 
+                        <!-- Hidden fields for pack management link -->
+                        <input type="hidden" id="ecomPlatform">
+                        <input type="hidden" id="pickListIdHidden">
+
                         <!-- Pick List Items Table -->
                         <h5 style="margin-bottom: 1rem; font-weight: 600;">Pick List Items</h5>
                         <table class="pick-list-table">
@@ -245,6 +259,11 @@
                                 <div class="form-group">
                                     <button type="button" class="btn btn-secondary-custom" style="width: 100%; margin-bottom: 0.5rem;" onclick="printPickList()">
                                         <i class="las la-print"></i> Print Pick List
+                                    </button>
+                                </div>
+                                <div class="form-group" id="packManagementLinkGroup" style="display: none;">
+                                    <button type="button" class="btn btn-info" style="width: 100%; margin-bottom: 0.5rem; background: #0d6efd; color: #fff; border: none; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;" id="linkToPackBtn" onclick="linkToPackManagement()">
+                                        <i class="las la-dolly me-1"></i> Link to Pack Management
                                     </button>
                                 </div>
                                 <div class="form-group">
@@ -581,6 +600,34 @@
 
     @push('scripts')
     <script>
+        // Prepare preloadOrder data if available from query parameter
+        @if($preloadOrder)
+        @php
+            $preloadOrderItems = $preloadOrder->items->map(function($item) {
+                return [
+                    'product' => $item->book->name ?? 'Unknown',
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'subtotal' => $item->subtotal,
+                    'unit' => $item->unit,
+                    'picked_qty' => 0,
+                    'status' => 'pending',
+                    'notes' => '',
+                ];
+            })->toArray();
+        @endphp
+        const preloadOrderData = {
+            orderId: {{ $preloadOrder->id }},
+            soNumber: '{{ $preloadOrder->so_number }}',
+            customer: '{{ $preloadOrder->customer->customer_name ?? "N/A" }}',
+            date: '{{ $preloadOrder->created_at->format("Y-m-d") }}',
+            items: @json($preloadOrderItems)
+        };
+        console.log('Preload order data available:', preloadOrderData);
+        @else
+        const preloadOrderData = null;
+        @endif
+        
         console.log('Pick List Management page loaded');
         console.log('Pending orders count: {{ $pendingOrders->count() }}');
         console.log('Completed pick lists count: {{ $completedPickLists->count() }}');
@@ -609,8 +656,10 @@
                         const customer = this.dataset.customer;
                         const date = this.dataset.date;
                         const itemsJson = this.dataset.items;
+                        const ecomPlatform = this.dataset.ecomPlatform || '';
+                        const pickListId = this.dataset.pickListId || '';
                         
-                        console.log('Processing order:', { soNumber, orderId, customer, date });
+                        console.log('Processing order:', { soNumber, orderId, customer, date, ecomPlatform });
                         
                         // Parse items from data attribute
                         const items = JSON.parse(itemsJson);
@@ -625,6 +674,20 @@
                         // Store order data for saving
                         detailPanel.dataset.orderId = orderId;
                         detailPanel.dataset.soNumber = soNumber;
+                        
+                        // Store ecom platform and pick list ID
+                        document.getElementById('ecomPlatform').value = ecomPlatform;
+                        document.getElementById('pickListIdHidden').value = pickListId;
+                        
+                        // Show/hide pack management link button based on ecom_platform
+                        const packMgmtGroup = document.getElementById('packManagementLinkGroup');
+                        if (ecomPlatform) {
+                            packMgmtGroup.style.display = 'block';
+                            console.log('Pack management link enabled for ecom platform:', ecomPlatform);
+                        } else {
+                            packMgmtGroup.style.display = 'none';
+                            console.log('Pack management link hidden - not an ecom order');
+                        }
 
                         // Fill items table
                         pickListBody.innerHTML = '';
@@ -687,6 +750,90 @@
                 closeDetailBtn.addEventListener('click', function() {
                     detailPanel.style.display = 'none';
                 });
+            }
+
+            // Link to Pack Management - Quick action button in main table
+            document.querySelectorAll('.link-to-pack-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const orderId = this.dataset.orderId;
+                    const soNumber = this.dataset.soNumber;
+                    
+                    console.log('Quick link to pack management clicked for:', { orderId, soNumber });
+                    
+                    // Redirect directly to packing management
+                    window.location.href = `/production/logistic/packing-management?order_id=${orderId}`;
+                });
+            });
+
+            // Auto-load preloadOrder if available
+            if (preloadOrderData) {
+                console.log('Auto-loading preload order:', preloadOrderData.soNumber);
+                try {
+                    const orderData = preloadOrderData;
+                    
+                    // Fill details
+                    document.getElementById('detailSONumber').value = orderData.soNumber;
+                    document.getElementById('detailOrderDate').value = orderData.date;
+                    document.getElementById('detailCustomerName').value = orderData.customer;
+                    document.getElementById('pickListNumber').value = 'PL-' + orderData.soNumber;
+
+                    // Store order data for saving
+                    detailPanel.dataset.orderId = orderData.orderId;
+                    detailPanel.dataset.soNumber = orderData.soNumber;
+
+                    // Fill items table
+                    pickListBody.innerHTML = '';
+                    orderData.items.forEach((item, idx) => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${idx + 1}</td>
+                            <td class="fw-bold">${item.product}</td>
+                            <td style="text-align:center;">${item.quantity} ${item.unit || 'pcs'}</td>
+                            <td style="text-align:right;">₱${parseFloat(item.price).toFixed(2)}</td>
+                            <td style="text-align:right;">₱${parseFloat(item.subtotal).toFixed(2)}</td>
+                            <td><input type="number" class="picked-qty" value="${item.picked_qty || 0}" min="0" max="${item.quantity}" style="text-align:center;"></td>
+                            <td>
+                                <select class="status-select form-control" style="border:none;">
+                                    <option value="pending" ${(item.status === 'pending') ? 'selected' : ''}>Pending</option>
+                                    <option value="picked" ${(item.status === 'picked') ? 'selected' : ''}>Picked</option>
+                                    <option value="short" ${(item.status === 'short') ? 'selected' : ''}>Short</option>
+                                </select>
+                            </td>
+                            <td><input type="text" class="notes-input" placeholder="Notes" value="${item.notes || ''}" style="border:none;"></td>
+                        `;
+                        pickListBody.appendChild(tr);
+                    });
+
+                    document.getElementById('totalItems').value = orderData.items.length;
+                    document.getElementById('itemsPicked').value = 0;
+
+                    // Add real-time update handler for picked quantity changes
+                    const updateItemsPicked = () => {
+                        const rows = document.querySelectorAll('#pickListTableBody tr');
+                        let total = 0;
+                        rows.forEach(row => {
+                            const pickedQtyInput = row.querySelector('.picked-qty');
+                            total += parseFloat(pickedQtyInput.value) || 0;
+                        });
+                        document.getElementById('itemsPicked').value = total;
+                    };
+
+                    // Attach event listeners to all picked quantity inputs
+                    document.querySelectorAll('#pickListTableBody .picked-qty').forEach(input => {
+                        input.addEventListener('input', updateItemsPicked);
+                    });
+
+                    // Show panel and scroll to it
+                    detailPanel.style.display = 'block';
+                    setTimeout(() => {
+                        detailPanel.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+
+                    console.log('Preload order auto-loaded successfully');
+                } catch (error) {
+                    console.error('Error auto-loading preload order:', error);
+                }
             }
         });
 
@@ -836,6 +983,126 @@
             setTimeout(() => {
                 window.print();
             }, 50);
+        }
+
+        // Function to link to pack management
+        function linkToPackManagement() {
+            console.log('Link to pack management clicked');
+            
+            const detailPanel = document.getElementById('orderDetailPanel');
+            const orderId = detailPanel.dataset.orderId;
+            const soNumber = detailPanel.dataset.soNumber;
+            const ecomPlatform = document.getElementById('ecomPlatform').value;
+            
+            console.log('Pack management link data:', { orderId, soNumber, ecomPlatform });
+            
+            // Validate that we have an ecom order
+            if (!ecomPlatform) {
+                alert('This feature is only available for E-Com orders (Direct Invoice).');
+                return;
+            }
+            
+            // First, save the picked items
+            const rows = document.querySelectorAll('#pickListTableBody tr');
+            const pickedItems = [];
+            let totalPicked = 0;
+            let hasInvalidData = false;
+
+            rows.forEach((row, idx) => {
+                const pickedQtyInput = row.querySelector('.picked-qty');
+                const statusSelect = row.querySelector('.status-select');
+                const notesInput = row.querySelector('.notes-input');
+                
+                const pickedQty = parseFloat(pickedQtyInput.value) || 0;
+                const status = statusSelect.value;
+                const notes = notesInput.value;
+                const product = row.cells[1].innerText;
+
+                // Validate: if status is 'picked', picked_qty should be > 0
+                if (status === 'picked' && pickedQty === 0) {
+                    alert(`Item "${product}" is marked as "Picked" but has 0 quantity. Please enter a quantity or change status.`);
+                    hasInvalidData = true;
+                    return;
+                }
+
+                pickedItems.push({
+                    product: product,
+                    picked_qty: pickedQty,
+                    status: status,
+                    notes: notes,
+                    item_index: idx
+                });
+
+                totalPicked += pickedQty;
+            });
+
+            if (hasInvalidData) {
+                return;
+            }
+
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                            document.querySelector('input[name="_token"]')?.value;
+            
+            if (!csrfToken) {
+                alert('Security token not found. Please refresh the page.');
+                return;
+            }
+
+            // Show loading state
+            const linkBtn = document.getElementById('linkToPackBtn');
+            const originalText = linkBtn.innerHTML;
+            linkBtn.disabled = true;
+            linkBtn.innerHTML = '<i class="las la-spinner la-spin"></i> Saving & Linking...';
+
+            // Save picked items first
+            console.log('Saving picked items before linking to pack management...');
+            
+            fetch('/production/logistic/pick-list/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    order_id: orderId,
+                    so_number: soNumber,
+                    picked_items: pickedItems
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Items saved successfully:', data);
+                
+                if (data.success) {
+                    // Now navigate to pack management
+                    console.log('Navigating to pack management for order:', orderId);
+                    
+                    // Redirect to pack management with the order ID
+                    // This will show the order in the packing queue ready for packing
+                    const packMgmtUrl = `/production/logistic/packing-management?order_id=${orderId}&platform=${ecomPlatform}`;
+                    console.log('Redirect URL:', packMgmtUrl);
+                    
+                    // Show success feedback
+                    linkBtn.style.background = '#28a745';
+                    linkBtn.innerHTML = '<i class="las la-check-circle"></i> Linked!';
+                    
+                    // Redirect after brief delay
+                    setTimeout(() => {
+                        window.location.href = packMgmtUrl;
+                    }, 1500);
+                } else {
+                    linkBtn.disabled = false;
+                    linkBtn.innerHTML = originalText;
+                    alert('Error: ' + (data.message || 'Failed to save picked items'));
+                }
+            })
+            .catch(error => {
+                linkBtn.disabled = false;
+                linkBtn.innerHTML = originalText;
+                console.error('Error linking to pack management:', error);
+                alert('Error: ' + error.message);
+            });
         }
 
         // Handle Recreate Pick List button click

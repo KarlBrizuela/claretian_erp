@@ -39,12 +39,20 @@ class LogisticController extends Controller
 
         // If pickListId is provided, preload that pick list
         $preloadPickListId = $request->input('pickListId');
+        
+        // If so_id is provided (from ecom direct invoice workflow), preload that order
+        $preloadOrderId = $request->input('so_id');
+        $preloadOrder = null;
+        if ($preloadOrderId) {
+            $preloadOrder = \App\Models\SalesOrder::with('customer', 'items.book')->find($preloadOrderId);
+        }
 
         return view('production.logistic.pick-list-management', [
             'pickLists' => $pickLists,
             'completedPickLists' => $completedPickLists,
             'pendingOrders' => $pendingOrders,
             'preloadPickListId' => $preloadPickListId,
+            'preloadOrder' => $preloadOrder,
         ]);
     }
 
@@ -534,6 +542,7 @@ class LogisticController extends Controller
 
     public function deliveryReceiptList()
     {
+        // Get sales orders pending DR prep/approval
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
             ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval', 'ready_for_delivery'])
             ->latest()
@@ -548,16 +557,85 @@ class LogisticController extends Controller
 
     public function deliveryReceipt($id = null)
     {
+        $deliveryReceipt = null;
         $order = null;
+        
         if ($id) {
-            $order = \App\Models\SalesOrder::with('customer', 'items.book', 'preparedBy')->findOrFail($id);
+            // Check if it's a delivery receipt ID
+            $deliveryReceipt = \App\Models\DeliveryReceipt::with('salesOrder', 'customer', 'items', 'preparedByUser')->find($id);
+            
+            // If not found, treat as sales order ID
+            if (!$deliveryReceipt) {
+                $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
+            }
         }
 
+        // Get all sales orders for dropdown
+        $salesOrders = \App\Models\SalesOrder::with('customer', 'items.product')
+            ->whereIn('status', ['gathered', 'pending_si_prep', 'pending_si_approval', 'ready_for_delivery'])
+            ->latest()
+            ->get();
+        
+        // Get all customers
+        $customers = \App\Models\Customer::orderBy('customer_name')->get();
+
         return view('production.logistic.delivery-receipt', [
+            'deliveryReceipt' => $deliveryReceipt,
             'order' => $order,
+            'salesOrders' => $salesOrders,
+            'customers' => $customers,
             'title' => 'Delivery Receipt',
             'sidebar' => 'production'
         ]);
+    }
+
+    public function storeDeliveryReceipt(Request $request, $id = null)
+    {
+        $validated = $request->validate([
+            'dr_number' => 'required|unique:delivery_receipts,dr_number' . ($id ? ',' . $id : ''),
+            'so_id' => 'required|exists:sales_orders,id',
+            'customer_id' => 'required|exists:customers,customer_id',
+            'delivery_address' => 'nullable|string',
+            'delivery_date' => 'required|date',
+            'status' => 'required|in:pending,completed,in-transit',
+            'items' => 'required|array',
+        ]);
+
+        try {
+            if ($id) {
+                $dr = \App\Models\DeliveryReceipt::findOrFail($id);
+                $dr->update($validated);
+                $dr->items()->delete();
+            } else {
+                $so = \App\Models\SalesOrder::findOrFail($validated['so_id']);
+                $validated['so_number'] = $so->so_number;
+                $validated['prepared_by'] = auth()->id();
+                $validated['prepared_at'] = now();
+                $dr = \App\Models\DeliveryReceipt::create($validated);
+            }
+
+            // Create/update items if provided
+            if (!empty($validated['items'])) {
+                foreach ($validated['items'] as $item) {
+                    \App\Models\DeliveryReceiptItem::create([
+                        'dr_id' => $dr->id,
+                        'product_name' => $item['product_name'] ?? null,
+                        'quantity' => $item['quantity'] ?? 0,
+                        'unit_price' => $item['unit_price'] ?? 0,
+                        'amount' => ($item['quantity'] ?? 0) * ($item['unit_price'] ?? 0),
+                    ]);
+                }
+            }
+
+            // Calculate total amount
+            $dr->total_amount = $dr->items()->sum('amount');
+            $dr->save();
+
+            return redirect()->route('production.logistic.delivery-receipt-list')
+                ->with('success', 'Delivery Receipt #' . $dr->dr_number . ' saved successfully.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error saving delivery receipt: ' . $e->getMessage());
+        }
     }
 
     public function markAsDRPrepared($id)
@@ -754,9 +832,11 @@ class LogisticController extends Controller
                 }
             }
 
-            // Update order status to picking to indicate it's in the pick process
+            // Update order status - ecom_direct goes to ready_for_delivery for packing
+            // Other types go to picking
+            $newStatus = $order->type === 'ecom_direct' ? 'ready_for_delivery' : 'picking';
             $order->update([
-                'status' => 'picking',
+                'status' => $newStatus,
                 'picked_at' => now(),
                 'picked_by' => auth()->id()
             ]);
@@ -788,32 +868,63 @@ class LogisticController extends Controller
         }
     }
 
-    public function packingManagement()
+    public function packingManagement(Request $request)
     {
-        // Get orders ready for packing (SI signed = status 'ready_for_delivery')
-        // Show only orders that: have NO packing data OR packing status is NOT 'ready_for_pickup'
+        // Get orders ready for packing
+        // For ecom_direct: show all that have status 'ready_for_delivery'
+        // For other types: show status 'ready_for_delivery' with specific packing data conditions
         $packingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
-            ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
             ->where(function($query) {
-                // Only show orders where packing is NOT ready for pickup
-                $query->whereNull('packing_data')
-                      ->orWhere('packing_data->status', '<>', 'ready_for_pickup');
+                // Include ecom_direct OR (other types with specific conditions)
+                $query->where('type', 'ecom_direct')
+                      ->orWhere(function($q) {
+                          $q->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
+                            ->where(function($innerQ) {
+                                $innerQ->whereNull('packing_data')
+                                        ->orWhere(function($innerQ2) {
+                                            $innerQ2->where('packing_data->status', '<>', 'ready_for_pickup')
+                                                    ->where('packing_data->status', '<>', 'gathered');
+                                        });
+                            });
+                      });
             })
             ->orderBy('signed_at', 'desc')
             ->get();
 
-        // Get orders ready for pickup (only those marked as 'ready_for_pickup')
+        // Get orders ready for pickup (only those marked as 'ready_for_pickup' but NOT gathered)
         $readyForPickupOrders = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
             ->whereNotNull('packing_data')
             ->where('packing_data->status', '=', 'ready_for_pickup')
+            ->where(function($query) {
+                // Exclude orders that have been marked as gathered
+                $query->whereNull('packing_data->gathered_at')
+                      ->orWhere('packing_data->gathered_at', '=', null);
+            })
             ->orderBy('updated_at', 'desc')
             ->get();
+
+        // Check if an order_id was passed to preload a specific order
+        $preloadOrderId = $request->input('order_id');
+        $preloadOrder = null;
+        if ($preloadOrderId) {
+            try {
+                $preloadOrder = \App\Models\SalesOrder::with('customer', 'items.book')->findOrFail($preloadOrderId);
+                \Log::info('Preloading order for packing management', [
+                    'order_id' => $preloadOrderId,
+                    'so_number' => $preloadOrder->so_number
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('Could not preload order', ['order_id' => $preloadOrderId, 'error' => $e->getMessage()]);
+            }
+        }
 
         return view('production.logistic.packing-management', [
             'packingOrders' => $packingOrders,
             'readyForPickupOrders' => $readyForPickupOrders,
+            'preloadOrder' => $preloadOrder,
+            'preloadOrderId' => $preloadOrderId,
             'title' => 'Packing Management',
             'role' => 'Warehouse Staff',
             'sidebar' => 'production'
@@ -867,6 +978,8 @@ class LogisticController extends Controller
             $attachments = $request->input('attachments', []);
 
             $order = \App\Models\SalesOrder::findOrFail($orderId);
+            $existingPackingData = json_decode($order->packing_data ?? '{}', true) ?: [];
+            $attachmentData = $existingPackingData['attachments'] ?? [];
 
             // Build packing data structure
             $packingData = [
@@ -889,8 +1002,6 @@ class LogisticController extends Controller
 
             // Handle photo attachments
             if (!empty($attachments)) {
-                $attachmentData = [];
-
                 // Process Photo 1
                 if (!empty($attachments['photo_1'])) {
                     $attachmentData['photo_1'] = $this->saveBase64Image($attachments['photo_1'], $order->so_number, 'photo_1');
@@ -900,7 +1011,9 @@ class LogisticController extends Controller
                 if (!empty($attachments['photo_2'])) {
                     $attachmentData['photo_2'] = $this->saveBase64Image($attachments['photo_2'], $order->so_number, 'photo_2');
                 }
+            }
 
+            if (!empty($attachmentData)) {
                 $packingData['attachments'] = $attachmentData;
             }
 
@@ -1024,6 +1137,55 @@ class LogisticController extends Controller
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error setting ready for pickup: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function markPackedOrdersAsGathered(Request $request)
+    {
+        try {
+            $orderId = $request->input('order_id');
+            
+            if (!$orderId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order ID is required'
+                ], 400);
+            }
+
+            $order = \App\Models\SalesOrder::findOrFail($orderId);
+            
+            // Update packing data status to gathered
+            $packingData = json_decode($order->packing_data ?? '{}', true);
+            $packingData['status'] = 'gathered';
+            $packingData['gathered_at'] = now()->toDateTimeString();
+            $packingData['gathered_by'] = auth()->user()->name;
+
+            $order->update([
+                'packing_data' => json_encode($packingData)
+            ]);
+
+            // Log activity
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Packed order marked as gathered',
+                'description' => 'SO ' . $order->so_number . ' marked as gathered and ready for delivery scheduling',
+                'reference_type' => 'SalesOrder',
+                'reference_id' => $order->id,
+                'details' => json_encode([
+                    'so_number' => $order->so_number,
+                    'marked_by' => auth()->user()->name,
+                    'action' => 'moved to delivery scheduling'
+                ])
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order marked as gathered and ready for delivery scheduling'
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error marking as gathered: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
@@ -1343,6 +1505,125 @@ class LogisticController extends Controller
             \Illuminate\Support\Facades\Log::error('Error updating cargo items: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Error updating cargo items: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Link Area Consignment to Sales Invoice
+     * Creates SI from selected items in DR
+     */
+    public function linkConsignmentToSI(Request $request, $orderId)
+    {
+        try {
+            // Get the Sales Order with all relationships
+            $order = \App\Models\SalesOrder::with(['items.book', 'customer'])
+                ->findOrFail($orderId);
+
+            // Validate that this is an area consignment order
+            if ($order->type !== 'area_consignment') {
+                return redirect()->back()
+                    ->with('error', 'This order is not an Area Consignment type.');
+            }
+
+            // Get selected items and quantities
+            $selectedItems = $request->input('items', []);
+            
+            if (empty($selectedItems)) {
+                return redirect()->back()
+                    ->with('error', 'Please select at least one item.');
+            }
+
+            // Calculate totals for SI
+            $totalAmount = 0;
+            $siItems = [];
+            
+            foreach ($selectedItems as $itemId => $itemData) {
+                $selectedQty = intval($itemData['selected_qty'] ?? 0);
+                
+                if ($selectedQty <= 0) {
+                    continue;
+                }
+
+                $soItem = $order->items()->find($itemId);
+                if (!$soItem) {
+                    continue;
+                }
+
+                $itemAmount = $selectedQty * $soItem->price;
+                $totalAmount += $itemAmount;
+
+                $siItems[] = [
+                    'so_item_id' => $itemId,
+                    'book_id' => $soItem->book_id,
+                    'quantity' => $selectedQty,
+                    'unit_price' => $soItem->price,
+                    'amount' => $itemAmount
+                ];
+            }
+
+            if (empty($siItems)) {
+                return redirect()->back()
+                    ->with('error', 'No items selected. Please select at least one item.');
+            }
+
+            // Create Sales Invoice
+            $si = new \App\Models\SalesInvoice();
+            $si->so_id = $order->id;
+            $si->so_number = $order->so_number;
+            $si->si_number = 'SI-' . $order->so_number . '-' . time();
+            $si->customer_id = $order->customer_id;
+            $si->customer_name = $order->customer->customer_name ?? '';
+            $si->transaction_type = 'area_consignment_si';
+            $si->total_amount = $totalAmount;
+            $si->status = 'draft';
+            $si->created_by = auth()->id();
+            $si->created_at = now();
+            $si->save();
+
+            // Create SI Items
+            foreach ($siItems as $item) {
+                \App\Models\SalesInvoiceItem::create([
+                    'si_id' => $si->id,
+                    'so_item_id' => $item['so_item_id'],
+                    'book_id' => $item['book_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'amount' => $item['amount'],
+                    'created_at' => now()
+                ]);
+            }
+
+            // Update Sales Order status and store consignment data
+            $order->update([
+                'status' => 'si_created',
+                'consignment_data' => json_encode([
+                    'si_id' => $si->id,
+                    'si_number' => $si->si_number,
+                    'selected_items' => $selectedItems,
+                    'selected_at' => now(),
+                    'selected_by' => auth()->id()
+                ])
+            ]);
+
+            // Log activity
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Area Consignment SI Created',
+                'description' => "Sales Invoice {$si->si_number} created from Area Consignment SO {$order->so_number}. Total: ₱" . number_format($totalAmount, 2),
+                'affected_model' => 'SalesOrder',
+                'affected_model_id' => $order->id,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->header('User-Agent')
+            ]);
+
+            return redirect()
+                ->route('admin-finance.accounting.sales-invoice')
+                ->with('success', "Sales Invoice {$si->si_number} created successfully with " . count($siItems) . " item(s). Total: ₱" . number_format($totalAmount, 2));
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error linking consignment to SI: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Error creating Sales Invoice: ' . $e->getMessage());
         }
     }
 }

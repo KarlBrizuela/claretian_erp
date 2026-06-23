@@ -35,6 +35,9 @@
                                                 if ($order->status === 'pending_si_prep') {
                                                     $statusClass = 'warning';
                                                     $displayStatus = 'Gathered (Pending SI Prep)';
+                                                } elseif ($order->status === 'si_created') {
+                                                    $statusClass = 'info';
+                                                    $displayStatus = 'SI Created (Pending Signature)';
                                                 } elseif ($order->status === 'pending_si_approval') {
                                                     $statusClass = 'info';
                                                     $displayStatus = 'SI Prepared (Pending Approval)';
@@ -78,6 +81,65 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Area Consignment Sales Invoices Section -->
+                @if($areaConsignmentSIs->count() > 0)
+                <div class="card mt-4">
+                    <div class="card-header border-0 pb-0">
+                        <h4 class="fs-20 mb-0">Area Consignment Sales Invoices</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-responsive-md">
+                                <thead>
+                                    <tr>
+                                        <th>SI Number</th>
+                                        <th>SO Number</th>
+                                        <th>Customer</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Created Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($areaConsignmentSIs as $si)
+                                    <tr>
+                                        <td><strong>#{{ $si->si_number }}</strong></td>
+                                        <td>#{{ $si->so_number }}</td>
+                                        <td>{{ $si->customer_name ?? ($si->customer->customer_name ?? 'N/A') }}</td>
+                                        <td>₱{{ number_format($si->total_amount, 2) }}</td>
+                                        <td>
+                                            @php
+                                                $statusClass = 'secondary';
+                                                $displayStatus = ucfirst($si->status);
+                                                
+                                                if ($si->status === 'draft') {
+                                                    $statusClass = 'warning';
+                                                } elseif ($si->status === 'pending_approval') {
+                                                    $statusClass = 'info';
+                                                } elseif ($si->status === 'approved') {
+                                                    $statusClass = 'success';
+                                                }
+                                            @endphp
+                                            <span class="badge badge-{{ $statusClass }}">{{ $displayStatus }}</span>
+                                        </td>
+                                        <td>{{ $si->created_at->format('M d, Y') }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <a href="{{ route('admin-finance.accounting.sales-invoice.print', $si->so_id) }}" class="btn btn-info btn-sm" target="_blank">
+                                                    <i class="fas fa-print"></i> Print
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
     </div>

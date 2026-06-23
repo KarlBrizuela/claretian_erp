@@ -214,9 +214,9 @@
                         <h5><i class="las la-paperclip me-2"></i>Required Attachments</h5>
                         <div class="row mt-3">
                             <div class="col-12 mb-3">
-                                <label class="form-label fw-bold">Pick List *</label>
+                                <label class="form-label fw-bold">Pick List</label>
                                 <div class="upload-box" id="plUploadBox">
-                                    <input type="file" name="pick_list" id="plFile" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.csv" required>
+                                    <input type="file" name="pick_list" id="plFile" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.csv">
                                     <span class="upload-icon"><i class="las la-clipboard-list"></i></span>
                                     <span class="upload-label" id="plLabel">Click or drag Pick List file here</span>
                                 </div>
@@ -336,7 +336,7 @@
                                         }
                                     @endphp
                                     @if($canApprove)
-                                        <form action="{{ route('marketing.direct-invoice.ecom.approve', $inv->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Approve this invoice? It will be routed to Logistics for picking.')">
+                                        <form action="{{ route('marketing.direct-invoice.ecom.approve', $inv->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Approve this invoice? It will be routed to Sales Invoice (Accounting) for preparation.')">
                                             @csrf
                                             <button type="submit" class="btn btn-sm btn-success">
                                                 <i class="las la-check me-1"></i>Approve

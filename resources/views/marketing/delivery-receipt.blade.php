@@ -33,7 +33,7 @@
         }
         .form-header .company-details { flex: 1; }
         .form-header .company-name { font-size: 1.25rem; font-weight: 700; color: #333; margin-bottom: 0.25rem; text-transform: uppercase; }
-        .form-header .document-title { text-align: center; font-size: 1.75rem; font-weight: 700; color: #333; margin-top: 1rem; letter-spacing: 1px; }
+        .document-title { text-align: center; font-size: 1.75rem; font-weight: 700; color: #333; margin-top: 1rem; letter-spacing: 1px; }
         
         .form-info-row {
             display: flex;
@@ -82,12 +82,77 @@
             padding-top: 1.5rem;
             border-top: 2px solid #e0e0e0;
         }
+
+        .nav-tabs .nav-link {
+            color: #333;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 1rem;
+        }
+        .nav-tabs .nav-link:hover {
+            border-bottom-color: #ff0000;
+        }
+        .nav-tabs .nav-link.active {
+            background: transparent;
+            color: #ff0000;
+            border-bottom-color: #ff0000;
+        }
+
+        .table-status-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-in-transit { background: #cce5ff; color: #004085; }
+
+        .dr-view-table {
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .dr-view-table thead {
+            background: #f8f9fa;
+        }
+        .dr-view-table th {
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+            padding: 1rem;
+        }
+        .dr-view-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #eee;
+        }
     </style>
     @endpush
 
     <div class="row">
         <div class="col-xl-12">
-            <div class="card receipt-form">
+            <div class="card">
+                <!-- Navigation Tabs -->
+                <ul class="nav nav-tabs border-bottom px-4 pt-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="create-tab" data-bs-toggle="tab" data-bs-target="#create-pane" type="button" role="tab" aria-controls="create-pane" aria-selected="true">
+                            <i class="fas fa-plus me-2"></i>Create New DR
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="view-tab" data-bs-toggle="tab" data-bs-target="#view-pane" type="button" role="tab" aria-controls="view-pane" aria-selected="false">
+                            <i class="fas fa-list me-2"></i>View All DRs ({{ count($deliveryReceipts) }})
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content p-4">
+                    <!-- Create Tab -->
+                    <div class="tab-pane fade show active" id="create-pane" role="tabpanel" aria-labelledby="create-tab">
+                        <div class="receipt-form">
                 <div class="form-header">
                     <div class="company-info">
                         <div class="company-logo">C</div>
@@ -114,7 +179,11 @@
                         <label>Sales Order:</label>
                         <select class="form-control" id="salesOrder" onchange="loadSalesOrderDetails(this.value)">
                             <option value="">Select Sales Order</option>
-                            <option value="1">SO-2026-001</option>
+                            @foreach($salesOrders as $order)
+                            <option value="{{ $order->id }}" data-so-number="{{ $order->so_number }}" data-customer-id="{{ $order->customer_id }}" data-customer-name="{{ $order->customer->customer_name ?? 'N/A' }}" data-address="{{ $order->shipping_address ?? $order->customer->customer_address ?? '' }}" data-items="{{ json_encode($order->items->map(function($item) { return ['quantity' => $item->quantity, 'description' => $item->product->product_name ?? 'N/A', 'unit_price' => $item->unit_price, 'amount' => $item->quantity * $item->unit_price]; })) }}">
+                                #{{ $order->so_number }} - {{ $order->customer->customer_name ?? 'N/A' }}
+                            </option>
+                            @endforeach
                         </select>
                     </div>
                 </div>
@@ -123,13 +192,15 @@
                     <label class="fw-bold">Delivered To:</label>
                     <select class="form-control" id="recipient">
                         <option value="">Select Customer</option>
-                        <option value="1">National Book Store</option>
+                        @foreach($customers as $customer)
+                        <option value="{{ $customer->customer_id }}" data-address="{{ $customer->customer_address ?? '' }}">{{ $customer->customer_name }}</option>
+                        @endforeach
                     </select>
                 </div>
 
                 <div class="mb-3">
                     <label class="fw-bold">Delivery Address:</label>
-                    <textarea class="form-control" rows="2" placeholder="Enter delivery address"></textarea>
+                    <textarea class="form-control" rows="2" id="deliveryAddress" placeholder="Enter delivery address"></textarea>
                 </div>
 
                 <button type="button" class="btn btn-danger btn-sm mb-3" onclick="addRow()">+ Add Row</button>
@@ -160,7 +231,7 @@
                 <div class="signature-section">
                     <div class="signature-box">
                         <label>Prepared by:</label>
-                        <input type="text" value="Johndoe">
+                        <input type="text" value="{{ auth()->user()->name ?? 'N/A' }}" readonly>
                         <div class="signature-line">SIGNATURE</div>
                     </div>
                     <div class="signature-box">
@@ -170,10 +241,131 @@
                     </div>
                 </div>
 
-                <div class="form-actions">
-                    <button type="button" class="btn btn-light" onclick="window.print()">Print</button>
-                    <button type="button" class="btn btn-primary" onclick="alert('Saved')">Save</button>
-                    <button type="button" class="btn btn-success" onclick="alert('Submitted')">Submit</button>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-light" onclick="window.print()">Print</button>
+                                <button type="button" class="btn btn-primary" onclick="alert('Saved')">Save</button>
+                                <button type="button" class="btn btn-success" onclick="alert('Submitted')">Submit</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- View Tab -->
+                    <div class="tab-pane fade" id="view-pane" role="tabpanel" aria-labelledby="view-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover dr-view-table">
+                                <thead>
+                                    <tr>
+                                        <th>DR Number</th>
+                                        <th>Sales Order</th>
+                                        <th>Sales Invoice</th>
+                                        <th>Customer</th>
+                                        <th>Delivery Date</th>
+                                        <th>Remaining Date</th>
+                                        <th>Total Amount</th>
+                                        <th>Status</th>
+                                        <th>Prepared By</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($deliveryReceipts as $dr)
+                                    <tr>
+                                        <td><strong>#{{ $dr->dr_number }}</strong></td>
+                                        <td>
+                                            @if($dr->salesOrder)
+                                                <a href="{{ route('marketing.sales-orders.detail', $dr->salesOrder->id) }}" class="text-primary">
+                                                    {{ $dr->so_number }}
+                                                </a>
+                                            @else
+                                                {{ $dr->so_number ?? 'N/A' }}
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($dr->salesInvoice)
+                                                <a href="{{ route('admin-finance.accounting.sales-invoice.print', $dr->si_id) }}" class="text-primary" target="_blank">
+                                                    {{ $dr->si_number }}
+                                                </a>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $dr->customer_name ?? ($dr->customer->customer_name ?? 'N/A') }}</td>
+                                        <td>
+                                            @if($dr->delivery_date)
+                                                {{ \Carbon\Carbon::parse($dr->delivery_date)->format('M d, Y') }}
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($dr->salesOrder && $dr->delivery_date)
+                                                @php
+                                                    $terms = $dr->salesOrder->terms;
+                                                    $daysFromTerms = 0;
+                                                    if ($terms) {
+                                                        $termsMap = [
+                                                            'cash' => 0,
+                                                            'cod' => 0,
+                                                            '7_days' => 7,
+                                                            '15_days' => 15,
+                                                            '30_days' => 30,
+                                                            '60_days' => 60,
+                                                            '90_days' => 90,
+                                                        ];
+                                                        $daysFromTerms = $termsMap[$terms] ?? 0;
+                                                    }
+                                                    $remainingDate = \Carbon\Carbon::parse($dr->delivery_date)->addDays($daysFromTerms);
+                                                    $today = \Carbon\Carbon::today();
+                                                    $daysRemaining = $remainingDate->diffInDays($today, false);
+                                                @endphp
+                                                <span class="@if($daysRemaining < 0) text-danger fw-bold @elseif($daysRemaining < 7) text-warning @else text-success @endif">
+                                                    {{ $remainingDate->format('M d, Y') }}
+                                                    <br>
+                                                    @if($daysRemaining < 0)
+                                                        <small class="text-danger">{{ abs($daysRemaining) }} days overdue</small>
+                                                    @else
+                                                        <small>{{ $daysRemaining }} days remaining</small>
+                                                    @endif
+                                                </span>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td>₱{{ number_format($dr->total_amount, 2) }}</td>
+                                        <td>
+                                            @php
+                                                $badgeClass = match($dr->status) {
+                                                    'pending' => 'status-pending',
+                                                    'completed' => 'status-completed',
+                                                    'in-transit' => 'status-in-transit',
+                                                    default => 'secondary'
+                                                };
+                                            @endphp
+                                            <span class="table-status-badge {{ $badgeClass }}">
+                                                {{ ucfirst($dr->status) }}
+                                            </span>
+                                        </td>
+                                        <td>{{ $dr->preparedByUser->name ?? 'N/A' }}</td>
+                                        <td>
+                                            <div class="d-flex gap-1">
+                                                <a href="javascript:void(0);" class="btn btn-primary shadow btn-xs sharp" title="View DR" onclick="viewDR({{ $dr->id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="javascript:void(0);" class="btn btn-info shadow btn-xs sharp" title="Print DR">
+                                                    <i class="fas fa-print"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="10" class="text-center text-muted py-4">No delivery receipts yet. Create one from the "Create New DR" tab.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -191,7 +383,84 @@
                     row.querySelector('.amount-input').value = (qty * price).toFixed(2);
                 }
             });
+
+            // Handle recipient (customer) dropdown change
+            document.getElementById('recipient').addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const address = selectedOption.getAttribute('data-address') || '';
+                document.getElementById('deliveryAddress').value = address;
+            });
         });
+
+        function loadSalesOrderDetails(soId) {
+            if (!soId) {
+                // Clear everything if no SO selected
+                document.getElementById('recipient').value = '';
+                document.getElementById('deliveryAddress').value = '';
+                clearReceiptTable();
+                return;
+            }
+
+            const selectElement = document.getElementById('salesOrder');
+            const selectedOption = selectElement.options[selectElement.selectedIndex];
+            
+            // Get data from the selected option
+            const soNumber = selectedOption.getAttribute('data-so-number');
+            const customerId = selectedOption.getAttribute('data-customer-id');
+            const customerName = selectedOption.getAttribute('data-customer-name');
+            const address = selectedOption.getAttribute('data-address');
+            const itemsJson = selectedOption.getAttribute('data-items');
+            
+            // Set customer
+            document.getElementById('recipient').value = customerId;
+            document.getElementById('deliveryAddress').value = address || '';
+            
+            // Clear and populate table with SO items
+            clearReceiptTable();
+            if (itemsJson) {
+                try {
+                    const items = JSON.parse(itemsJson);
+                    items.forEach((item, index) => {
+                        if (index === 0) {
+                            // Use existing row for first item
+                            const firstRow = document.getElementById('receiptTableBody').rows[0];
+                            firstRow.querySelector('.qty-input').value = item.quantity;
+                            firstRow.querySelector('input[placeholder="Product description"]').value = item.description;
+                            firstRow.querySelector('.price-input').value = parseFloat(item.unit_price).toFixed(2);
+                            firstRow.querySelector('.amount-input').value = parseFloat(item.amount).toFixed(2);
+                        } else {
+                            // Add new rows for additional items
+                            addRowWithData(item.quantity, item.description, item.unit_price, item.amount);
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error parsing items:', e);
+                }
+            }
+        }
+
+        function addRowWithData(qty, description, price, amount) {
+            const tbody = document.getElementById('receiptTableBody');
+            const newRow = tbody.rows[0].cloneNode(true);
+            newRow.querySelector('.qty-input').value = qty;
+            newRow.querySelector('input[placeholder="Product description"]').value = description;
+            newRow.querySelector('.price-input').value = parseFloat(price).toFixed(2);
+            newRow.querySelector('.amount-input').value = parseFloat(amount).toFixed(2);
+            tbody.appendChild(newRow);
+        }
+
+        function clearReceiptTable() {
+            const tbody = document.getElementById('receiptTableBody');
+            while (tbody.rows.length > 1) {
+                tbody.deleteRow(1);
+            }
+            // Clear first row
+            const firstRow = tbody.rows[0];
+            firstRow.querySelector('.qty-input').value = '0';
+            firstRow.querySelector('input[placeholder="Product description"]').value = '';
+            firstRow.querySelector('.price-input').value = '0.00';
+            firstRow.querySelector('.amount-input').value = '0.00';
+        }
 
         function addRow() {
             const tbody = document.getElementById('receiptTableBody');
@@ -202,6 +471,10 @@
 
         function removeRow(btn) {
             if (document.getElementById('receiptTableBody').rows.length > 1) btn.closest('tr').remove();
+        }
+
+        function viewDR(drId) {
+            alert('DR ID: ' + drId + ' - View functionality to be implemented');
         }
     </script>
     @endpush

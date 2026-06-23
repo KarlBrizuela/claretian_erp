@@ -107,6 +107,7 @@
                                                     }
                                                 }
                                                 if ($order->status == 'pending_si_prep') $displayStatus = 'Gathered (In SI Prep)';
+                                                if ($order->status == 'si_created') $displayStatus = 'SI Created';
                                                 if ($order->status == 'pending_dr_prep') $displayStatus = 'SI Signed (In DR Prep)';
                                                 if ($order->status == 'pending_mkt_approval') $displayStatus = 'Pending Marketing Approval';
                                                 if ($order->status == 'pending_prod_approval') $displayStatus = 'Pending Production Approval';

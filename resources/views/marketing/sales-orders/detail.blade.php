@@ -184,7 +184,8 @@
                     <tfoot>
                         @php
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
-                            $grandTotal = $order->total_amount + $serviceFee;
+                            // total_amount already includes service fee, so use it directly
+                            $grandTotal = $order->total_amount;
                         @endphp
                         @if($serviceFee > 0)
                         <tr>
