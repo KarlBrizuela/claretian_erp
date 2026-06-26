@@ -20,7 +20,11 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Department</label>
-                            <input type="text" class="form-control" value="{{ auth()->user()->department }}" readonly disabled>
+                            <select name="department" class="form-control" required>
+                                <option value="Direct" {{ old('department', auth()->user()->department) === 'Direct' ? 'selected' : '' }}>Direct</option>
+                                <option value="MIS" {{ old('department', auth()->user()->department) === 'MIS' ? 'selected' : '' }}>MIS</option>
+                                <option value="GSD" {{ old('department', auth()->user()->department) === 'GSD' ? 'selected' : '' }}>GSD</option>
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Position</label>

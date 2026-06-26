@@ -27,32 +27,30 @@ class EmployeeCashAdvanceController extends Controller
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string',
             'date_needed' => 'required|date|after_or_equal:today',
+            'department' => 'required|in:Direct,MIS,GSD',
         ]);
 
         $user = Auth::user();
+        $dept = $request->department;
 
-        // Map division to standard source categories
-        $divisionMap = [
-            'Admin & Finance Division' => 'Admin',
-            'Marketing Division' => 'Marketing',
-            'Production Division' => 'Production',
-        ];
-        $deptSource = $divisionMap[$user->division] ?? 'Admin';
+        // Route status
+        if ($dept === 'Direct') {
+            $status = 'pending_supervisor_approval';
+        } else {
+            $status = 'forwarded to accounting';
+        }
 
-        EmployeeCashAdvance::create([
+        \App\Models\Admin\MIS\MaterialReq::create([
             'user_id' => $user->id,
-            'employee_name' => $user->name,
-            'employee_number' => $user->employee_number ?? 'N/A',
-            'department' => $user->department ?? 'N/A',
-            'department_source' => $deptSource,
-            'position' => $user->position ?? 'N/A',
+            'module' => $dept,
+            'requested_by' => $user->name,
+            'request_date' => $request->date_needed,
+            'request_details' => $request->purpose,
             'amount' => $request->amount,
-            'purpose' => $request->purpose,
-            'date_needed' => $request->date_needed,
-            'status' => 'pending_supervisor_approval',
+            'status' => $status,
         ]);
 
-        return redirect()->back()->with('success', 'Cash advance request submitted successfully for approval.');
+        return redirect()->back()->with('success', 'Request submitted successfully.');
     }
 
     /**

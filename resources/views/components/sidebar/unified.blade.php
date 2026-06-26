@@ -174,6 +174,8 @@
             <a href="{{ route('admin-finance.check-voucher') }}" class="modern-nav-subitem">Check Voucher</a>
             <a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem">Petty Cash Voucher</a>
             <a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem">Freight Voucher</a>
+            <a href="{{ route('admin-finance.accounting.payment-requests') }}" class="modern-nav-subitem">Payment Requests</a>
+            <a href="{{ route('admin-finance.accounting.eford-payouts') }}" class="modern-nav-subitem">E-FORD Payouts</a>
         </div>
     </div>
     @endif

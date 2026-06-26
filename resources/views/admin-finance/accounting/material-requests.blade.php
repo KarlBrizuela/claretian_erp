@@ -37,21 +37,40 @@
                 <div class="document-title mb-4">MATERIAL REQUESTS (INCOMING)</div>
 
                 <div class="card-body p-0">
-                    <!-- Tabs -->
-                    <ul class="nav nav-tabs" role="tablist">
-                        <li class="nav-item">
-                            <a class="nav-link {{ !request()->hasAny(['date_range', 'department', 'status', 'requested_by']) ? 'active' : '' }}" data-bs-toggle="tab" href="#pending-action" role="tab">Pending Action</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#processing" role="tab">Processing</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#completed" role="tab">Completed</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->hasAny(['date_range', 'department', 'status', 'requested_by', 'min_amount', 'max_amount']) ? 'active' : '' }}" data-bs-toggle="tab" href="#all-requests" role="tab">All Requests</a>
-                        </li>
-                    </ul>
+                    <!-- STATUS-BASED TABS -->
+                    <div class="mb-3">
+                        <h6 class="text-muted ms-3 mt-3" style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">By Status</h6>
+                        <ul class="nav nav-tabs" role="tablist" id="statusTabs">
+                            <li class="nav-item">
+                                <a class="nav-link {{ !request()->hasAny(['date_range', 'department', 'status', 'requested_by']) ? 'active' : '' }}" data-bs-toggle="tab" href="#pending-action" role="tab">Pending Action</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#processing" role="tab">Processing</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#completed" role="tab">Completed</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->hasAny(['date_range', 'department', 'status', 'requested_by', 'min_amount', 'max_amount']) ? 'active' : '' }}" data-bs-toggle="tab" href="#all-requests" role="tab">All Requests</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- DEPARTMENT-BASED TABS -->
+                    <div class="mb-3">
+                        <h6 class="text-muted ms-3 mt-3" style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">By Department</h6>
+                        <ul class="nav nav-tabs" role="tablist" id="departmentTabs">
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#direct" role="tab">Direct <span class="badge bg-info ms-2">{{ count($directRequests) }}</span></a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#gsd" role="tab">GSD <span class="badge bg-info ms-2">{{ count($gsdRequests) }}</span></a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#mis" role="tab">MIS <span class="badge bg-info ms-2">{{ count($misRequests) }}</span></a>
+                            </li>
+                        </ul>
+                    </div>
 
                     <div class="tab-content pt-4">
                         <!-- Pending Action Tab -->
@@ -108,7 +127,7 @@
                                                            data-manager="{{ $req->manager->name ?? 'N/A' }}"
                                                            data-manager-date="{{ $req->manager_approved_at ? \Carbon\Carbon::parse($req->manager_approved_at)->format('M d, Y') : 'N/A' }}"
                                                            data-director="{{ $req->director->name ?? 'N/A' }}"
-                                                           data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}"
+                                                           data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}" data-amount="{{ $req->amount ? 'PhP ' . number_format($req->amount, 2) : '—' }}"
                                                         ><i class="las la-eye"></i></a>
                                                         <a href="#" class="btn btn-success shadow sharp" title="Process"><i class="las la-file-invoice"></i></a>
                                                     </div>
@@ -164,7 +183,7 @@
                                                            data-manager="{{ $req->manager->name ?? 'N/A' }}"
                                                            data-manager-date="{{ $req->manager_approved_at ? \Carbon\Carbon::parse($req->manager_approved_at)->format('M d, Y') : 'N/A' }}"
                                                            data-director="{{ $req->director->name ?? 'N/A' }}"
-                                                           data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}"
+                                                           data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}" data-amount="{{ $req->amount ? 'PhP ' . number_format($req->amount, 2) : '—' }}"
                                                         ><i class="las la-eye"></i></a>
                                                         <a href="#" class="btn btn-info shadow sharp" title="Create CV"><i class="las la-file-invoice-dollar"></i></a>
                                                     </div>
@@ -221,13 +240,196 @@
                                                        data-manager="{{ $req->manager->name ?? 'N/A' }}"
                                                        data-manager-date="{{ $req->manager_approved_at ? \Carbon\Carbon::parse($req->manager_approved_at)->format('M d, Y') : 'N/A' }}"
                                                        data-director="{{ $req->director->name ?? 'N/A' }}"
-                                                       data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}"
+                                                       data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}" data-amount="{{ $req->amount ? 'PhP ' . number_format($req->amount, 2) : '—' }}"
                                                     ><i class="las la-eye"></i></a>
                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
                                                 <td colspan="7" class="text-center py-4 text-muted">No completed requests found.</td>
+                                            </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Direct Tab -->
+                        <div class="tab-pane fade" id="direct" role="tabpanel">
+                            <div class="px-2">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Request #</th>
+                                                <th>Requested By</th>
+                                                <th>Date</th>
+                                                <th>Status</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($directRequests as $req)
+                                            <tr>
+                                                <td class="fw-bold text-primary">#MAT-{{ str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT) }}</td>
+                                                <td>{{ $req->user->name ?? $req->requested_by }}</td>
+                                                <td>{{ $req->created_at->format('M d, Y') }}</td>
+                                                <td>
+                                                    @if($req->status === 'forwarded to accounting')
+                                                        <span class="badge light badge-pending">Pending</span>
+                                                    @elseif($req->status === 'received')
+                                                        <span class="badge light badge-completed">Completed</span>
+                                                    @elseif($req->status === 'processing')
+                                                        <span class="badge light badge-processing">Processing</span>
+                                                    @else
+                                                        <span class="badge light bg-secondary">{{ $req->status }}</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <a href="#" class="btn btn-primary shadow sharp btn-view-mr" title="View"
+                                                       data-bs-toggle="modal" 
+                                                       data-bs-target="#viewMaterialRequestModal"
+                                                       data-id="{{ $req->material_req_id }}"
+                                                       data-reference="#MAT-{{ str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT) }}"
+                                                       data-requested-by="{{ $req->user->name ?? $req->requested_by }}"
+                                                       data-department="{{ $req->user->department ?? 'N/A' }}"
+                                                       data-date="{{ $req->created_at->format('M d, Y') }}"
+                                                       data-details="{{ $req->request_details }}"
+                                                       data-status="{{ ucfirst($req->status) }}"
+                                                       data-status-badge="{{ $req->status === 'received' ? 'success' : ($req->status === 'forwarded to accounting' ? 'info' : 'processing') }}"
+                                                       data-manager="{{ $req->manager->name ?? 'N/A' }}"
+                                                       data-manager-date="{{ $req->manager_approved_at ? \Carbon\Carbon::parse($req->manager_approved_at)->format('M d, Y') : 'N/A' }}"
+                                                       data-director="{{ $req->director->name ?? 'N/A' }}"
+                                                       data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}" data-amount="{{ $req->amount ? 'PhP ' . number_format($req->amount, 2) : '—' }}"
+                                                    ><i class="las la-eye"></i></a>
+                                                </td>
+                                            </tr>
+                                            @empty
+                                            <tr>
+                                                <td colspan="5" class="text-center py-4 text-muted">No Direct requests found.</td>
+                                            </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GSD Tab -->
+                        <div class="tab-pane fade" id="gsd" role="tabpanel">
+                            <div class="px-2">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Request #</th>
+                                                <th>Requested By</th>
+                                                <th>Date</th>
+                                                <th>Status</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($gsdRequests as $req)
+                                            <tr>
+                                                <td class="fw-bold text-primary">#MAT-{{ str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT) }}</td>
+                                                <td>{{ $req->user->name ?? $req->requested_by }}</td>
+                                                <td>{{ $req->created_at->format('M d, Y') }}</td>
+                                                <td>
+                                                    @if($req->status === 'forwarded to accounting')
+                                                        <span class="badge light badge-pending">Pending</span>
+                                                    @elseif($req->status === 'received')
+                                                        <span class="badge light badge-completed">Completed</span>
+                                                    @elseif($req->status === 'processing')
+                                                        <span class="badge light badge-processing">Processing</span>
+                                                    @else
+                                                        <span class="badge light bg-secondary">{{ $req->status }}</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <a href="#" class="btn btn-primary shadow sharp btn-view-mr" title="View"
+                                                       data-bs-toggle="modal" 
+                                                       data-bs-target="#viewMaterialRequestModal"
+                                                       data-id="{{ $req->material_req_id }}"
+                                                       data-reference="#MAT-{{ str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT) }}"
+                                                       data-requested-by="{{ $req->user->name ?? $req->requested_by }}"
+                                                       data-department="{{ $req->user->department ?? 'N/A' }}"
+                                                       data-date="{{ $req->created_at->format('M d, Y') }}"
+                                                       data-details="{{ $req->request_details }}"
+                                                       data-status="{{ ucfirst($req->status) }}"
+                                                       data-status-badge="{{ $req->status === 'received' ? 'success' : ($req->status === 'forwarded to accounting' ? 'info' : 'processing') }}"
+                                                       data-manager="{{ $req->manager->name ?? 'N/A' }}"
+                                                       data-manager-date="{{ $req->manager_approved_at ? \Carbon\Carbon::parse($req->manager_approved_at)->format('M d, Y') : 'N/A' }}"
+                                                       data-director="{{ $req->director->name ?? 'N/A' }}"
+                                                       data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}" data-amount="{{ $req->amount ? 'PhP ' . number_format($req->amount, 2) : '—' }}"
+                                                    ><i class="las la-eye"></i></a>
+                                                </td>
+                                            </tr>
+                                            @empty
+                                            <tr>
+                                                <td colspan="5" class="text-center py-4 text-muted">No GSD requests found.</td>
+                                            </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MIS Tab -->
+                        <div class="tab-pane fade" id="mis" role="tabpanel">
+                            <div class="px-2">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Request #</th>
+                                                <th>Requested By</th>
+                                                <th>Date</th>
+                                                <th>Status</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($misRequests as $req)
+                                            <tr>
+                                                <td class="fw-bold text-primary">#MAT-{{ str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT) }}</td>
+                                                <td>{{ $req->user->name ?? $req->requested_by }}</td>
+                                                <td>{{ $req->created_at->format('M d, Y') }}</td>
+                                                <td>
+                                                    @if($req->status === 'forwarded to accounting')
+                                                        <span class="badge light badge-pending">Pending</span>
+                                                    @elseif($req->status === 'received')
+                                                        <span class="badge light badge-completed">Completed</span>
+                                                    @elseif($req->status === 'processing')
+                                                        <span class="badge light badge-processing">Processing</span>
+                                                    @else
+                                                        <span class="badge light bg-secondary">{{ $req->status }}</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <a href="#" class="btn btn-primary shadow sharp btn-view-mr" title="View"
+                                                       data-bs-toggle="modal" 
+                                                       data-bs-target="#viewMaterialRequestModal"
+                                                       data-id="{{ $req->material_req_id }}"
+                                                       data-reference="#MAT-{{ str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT) }}"
+                                                       data-requested-by="{{ $req->user->name ?? $req->requested_by }}"
+                                                       data-department="{{ $req->user->department ?? 'N/A' }}"
+                                                       data-date="{{ $req->created_at->format('M d, Y') }}"
+                                                       data-details="{{ $req->request_details }}"
+                                                       data-status="{{ ucfirst($req->status) }}"
+                                                       data-status-badge="{{ $req->status === 'received' ? 'success' : ($req->status === 'forwarded to accounting' ? 'info' : 'processing') }}"
+                                                       data-manager="{{ $req->manager->name ?? 'N/A' }}"
+                                                       data-manager-date="{{ $req->manager_approved_at ? \Carbon\Carbon::parse($req->manager_approved_at)->format('M d, Y') : 'N/A' }}"
+                                                       data-director="{{ $req->director->name ?? 'N/A' }}"
+                                                       data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}" data-amount="{{ $req->amount ? 'PhP ' . number_format($req->amount, 2) : '—' }}"
+                                                    ><i class="las la-eye"></i></a>
+                                                </td>
+                                            </tr>
+                                            @empty
+                                            <tr>
+                                                <td colspan="5" class="text-center py-4 text-muted">No MIS requests found.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
@@ -343,7 +545,7 @@
                                                        data-manager="{{ $req->manager->name ?? 'N/A' }}"
                                                        data-manager-date="{{ $req->manager_approved_at ? \Carbon\Carbon::parse($req->manager_approved_at)->format('M d, Y') : 'N/A' }}"
                                                        data-director="{{ $req->director->name ?? 'N/A' }}"
-                                                       data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}"
+                                                       data-director-date="{{ $req->director_approved_at ? \Carbon\Carbon::parse($req->director_approved_at)->format('M d, Y') : 'N/A' }}" data-amount="{{ $req->amount ? 'PhP ' . number_format($req->amount, 2) : '—' }}"
                                                 ><i class="las la-eye"></i></a></td>
                                             </tr>
                                             @empty
@@ -477,6 +679,7 @@
                 const managerDate = button.data('manager-date');
                 const director = button.data('director');
                 const directorDate = button.data('director-date');
+                const amount = button.data('amount');
 
                 // Update modal content
                 $('#modalRefNo').text(reference);
@@ -488,6 +691,7 @@
                 $('#modalManagerDate').text(managerDate);
                 $('#modalDirector').text(director);
                 $('#modalDirectorDate').text(directorDate);
+                $('#modalAmount').text(amount);
                 
                 // Update badge
                 $('#modalStatusBadge').html(`<span class="badge light badge-${statusBadge}">${status}</span>`);

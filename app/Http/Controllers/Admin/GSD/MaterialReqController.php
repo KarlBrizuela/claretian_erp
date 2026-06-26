@@ -20,21 +20,22 @@ class MaterialReqController extends Controller
             'requested_by' => 'required|string|max:255',
             'request_date' => 'required|date',
             'request_details' => 'required|string',
+            'amount' => 'nullable|numeric|min:0',
         ]);
 
-        // Default status for GSD material requests - starts as 'to submit'
+        // Default status for GSD material requests - starts as 'forwarded to accounting'
         $validated['user_id'] = auth()->id();
         $validated['module'] = 'GSD';
-        $validated['status'] = 'to submit';
+        $validated['status'] = 'forwarded to accounting';
 
         MaterialReq::create($validated);
 
-        return redirect()->back()->with('success', 'Material Request created successfully. Submit for approval to add to approval queue.');
+        return redirect()->back()->with('success', 'Material Request created and forwarded to Accounting successfully.');
     }
 
     /**
      * Submit the specified material request for approval.
-     * Transitions status from 'to submit' to 'pending approval'
+     * Transitions status from 'to submit' to 'forwarded to accounting'
      *
      * @param  int  $id
      * @return \Illuminate\Http\Response
@@ -47,9 +48,9 @@ class MaterialReqController extends Controller
             return redirect()->back()->with('warning', 'Only requests in "to submit" status can be submitted.');
         }
         
-        $materialRequest->update(['status' => 'pending approval']);
+        $materialRequest->update(['status' => 'forwarded to accounting']);
         
-        return redirect()->back()->with('success', 'Material Request submitted for approval.');
+        return redirect()->back()->with('success', 'Material Request submitted and forwarded to Accounting successfully.');
     }
 
     /**
@@ -67,7 +68,8 @@ class MaterialReqController extends Controller
             'requested_by' => 'sometimes|required|string|max:255',
             'request_date' => 'sometimes|required|date',
             'request_details' => 'sometimes|required|string',
-            'status' => 'sometimes|required|in:to submit,pending approval,Pending Final Approval,forwarded to accounting,received,rejected',
+            'amount' => 'sometimes|nullable|numeric|min:0',
+            'status' => 'sometimes|required|in:to submit,pending approval,Pending Final Approval,forwarded to accounting,received,rejected,pending_supervisor_approval,pending_admin_approval,pending_director_approval',
         ]);
 
         $materialRequest->update($validated);

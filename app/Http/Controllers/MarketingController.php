@@ -87,6 +87,15 @@ class MarketingController extends Controller
                 ->get()
             : collect();
 
+        $pendingMaterials = $isAuthorized
+            ? \App\Models\Admin\MIS\MaterialReq::with('user')
+                ->where('status', 'pending_supervisor_approval')
+                ->get()
+                ->filter(function ($request) use ($user) {
+                    return $request->canBeApprovedBy($user);
+                })
+            : collect();
+
         // 3. Pending Stock Transfers (Marketing Manager approves Marketing-origin requests)
         $pendingTransfers = $isAuthorized
             ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'createdBy')
@@ -157,10 +166,31 @@ class MarketingController extends Controller
                 'original' => $ca
             ]);
         }
+
+        $materialSubmissions = \App\Models\Admin\MIS\MaterialReq::where('user_id', auth()->id())
+            ->latest()
+            ->get();
+
+        foreach ($materialSubmissions as $req) {
+            $mySubmissions->push((object)[
+                'type' => 'Material',
+                'id' => $req->material_req_id,
+                'reference_no' => 'MAT-' . str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT),
+                'submitted_date' => $req->created_at,
+                'prep_name' => auth()->user()->name,
+                'amount' => $req->amount,
+                'status' => $req->status,
+                'original' => $req
+            ]);
+        }
         $mySubmissions = $mySubmissions->sortByDesc('submitted_date');
 
         // 3. My Approved Requests (Requests this manager has already approved)
         $caApproved = EmployeeCashAdvance::where('approved_by_manager', auth()->id())
+            ->latest()
+            ->get();
+        
+        $materialApproved = \App\Models\Admin\MIS\MaterialReq::where('approved_by_manager', auth()->id())
             ->latest()
             ->get();
         
@@ -178,6 +208,19 @@ class MarketingController extends Controller
             ]);
         }
 
+        foreach ($materialApproved as $req) {
+            $myApprovedRequests->push((object)[
+                'type' => 'Material',
+                'id' => $req->material_req_id,
+                'reference_no' => 'MAT-' . str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT),
+                'submitted_by' => $req->user->name ?? $req->requested_by,
+                'submitted_date' => $req->created_at,
+                'amount' => $req->amount,
+                'status' => $req->status,
+                'original' => $req
+            ]);
+        }
+
         return view('marketing.approval-queue', [
             'title' => 'Approval Queue',
             'role' => 'Marketing Manager',
@@ -186,6 +229,7 @@ class MarketingController extends Controller
             'pendingCashAdvances' => $pendingCashAdvances,
             'pendingTransfers' => $pendingTransfers,
             'pendingCctvRequests' => $pendingCctvRequests,
+            'pendingMaterials' => $pendingMaterials,
             'mySubmissions' => $mySubmissions,
             'myApprovedRequests' => $myApprovedRequests->sortByDesc('submitted_date')
         ]);
@@ -196,15 +240,20 @@ class MarketingController extends Controller
         $cashAdvances = \App\Models\EmployeeCashAdvance::where('user_id', auth()->id())
             ->latest()
             ->get();
+        $materialRequests = \App\Models\Admin\MIS\MaterialReq::where('user_id', auth()->id())
+            ->latest()
+            ->get();
         $cctvRequests = \App\Models\Admin\MIS\CCTVReq::where('user_id', auth()->id())
             ->latest()
             ->get();
+
+        $mergedRequests = $cashAdvances->concat($materialRequests)->sortByDesc('created_at');
 
         return view('marketing.my-requests.index', [
             'title' => '',
             'role' => auth()->user()->position,
             'sidebar' => 'marketing',
-            'cashAdvances' => $cashAdvances,
+            'cashAdvances' => $mergedRequests,
             'cctvRequests' => $cctvRequests,
         ]);
     }

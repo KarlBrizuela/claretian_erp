@@ -60,7 +60,6 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>Date Requested</th>
-                                            <th>Type</th>
                                             <th>Amount</th>
                                             <th>Purpose</th>
                                             <th>Status</th>
@@ -69,14 +68,47 @@
                                     </thead>
                                     <tbody>
                                         @forelse($cashAdvances as $advance)
+                                        @php
+                                            $isMaterial = isset($advance->material_req_id);
+                                            $refId = $isMaterial ? $advance->material_req_id : $advance->id;
+                                            $refPrefix = $isMaterial ? 'MAT' : 'CA';
+                                            $amountVal = $advance->amount ? 'PhP ' . number_format($advance->amount, 2) : '—';
+                                            $purposeVal = $advance->purpose ?? $advance->request_details;
+                                            
+                                            $statusColors = [
+                                                'pending_supervisor_approval' => 'warning',
+                                                'pending_admin_approval' => 'info',
+                                                'pending_director_approval' => 'primary',
+                                                'approved' => 'success',
+                                                'rejected' => 'danger',
+                                                'to submit' => 'secondary',
+                                                'pending approval' => 'warning',
+                                                'Pending Final Approval' => 'primary',
+                                                'forwarded to accounting' => 'info',
+                                                'received' => 'success',
+                                            ];
+                                            $color = $statusColors[$advance->status] ?? 'secondary';
+                                            $deptVal = $isMaterial ? $advance->module : $advance->department;
+                                            $displayStatus = $advance->status;
+                                            if ($advance->status === 'forwarded to accounting') {
+                                                if ($deptVal === 'MIS') {
+                                                    $displayStatus = 'Forwarded To MIS';
+                                                } elseif ($deptVal === 'GSD') {
+                                                    $displayStatus = 'Forwarded To GSD';
+                                                } else {
+                                                    $displayStatus = 'Forwarded To Accounting';
+                                                }
+                                            } else {
+                                                $displayStatus = ucwords(str_replace('_', ' ', $advance->status));
+                                            }
+                                        @endphp
                                         <tr>
                                             <td>{{ $advance->created_at->format('M d, Y') }}</td>
-                                            <td><span class="badge badge-info">{{ $advance->request_type }}</span></td>
-                                            <td>PhP {{ number_format($advance->amount, 2) }}</td>
-                                            <td>{{ Str::limit($advance->purpose, 50) }}</td>
+                                            <td>{{ $amountVal }}</td>
+                                            <td>{{ Str::limit($purposeVal, 50) }}</td>
                                             <td>
-                                                <span class="badge badge-sm light @if($advance->status == 'pending approval') badge-warning @elseif($advance->status == 'approved' || $advance->status == 'received') badge-success @elseif($advance->status == 'rejected') badge-danger @else badge-primary @endif">
-                                                    {{ ucfirst($advance->status) }}
+                                                <span class="badge badge-{{ $color }}">
+                                                    {{ $displayStatus }}
                                                 </span>
                                             </td>
                                             <td>
@@ -84,13 +116,13 @@
                                                         class="btn btn-info btn-xs sharp shadow view-details-btn" 
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#requestDetailsModal"
-                                                        data-id="{{ $advance->id }}"
-                                                        data-type="Cash Advance"
-                                                        data-reference="CA-{{ str_pad($advance->id, 4, '0', STR_PAD_LEFT) }}"
+                                                        data-id="{{ $refId }}"
+                                                        data-type="{{ $isMaterial ? 'Material' : 'Cash Advance' }}"
+                                                        data-reference="{{ $refPrefix }}-{{ str_pad($refId, 4, '0', STR_PAD_LEFT) }}"
                                                         data-date="{{ $advance->created_at->format('M d, Y') }}"
                                                         data-status="{{ $advance->status }}"
-                                                        data-amount="PhP {{ number_format($advance->amount, 2) }}"
-                                                        data-description="{{ $advance->purpose }}"
+                                                        data-amount="{{ $amountVal }}"
+                                                        data-description="{{ $purposeVal }}"
                                                         data-original="{{ json_encode($advance) }}"
                                                         title="View Details">
                                                     <i class="las la-eye"></i>
@@ -252,8 +284,7 @@
                 }
 
                 let descriptionHtml = ``;
-                
-                if (type === 'Cash Advance') {
+                                if (type === 'Cash Advance') {
                     descriptionHtml = `
                         <table class="table table-sm mb-2">
                             <tbody>
@@ -269,6 +300,24 @@
                         </table>
                         <div class="mt-2">
                             <label class="fw-bold mb-1 d-block small">Purpose / Justification:</label>
+                            <div class="p-2 border rounded bg-white">${description}</div>
+                        </div>`;
+                } else if (type === 'Material') {
+                    descriptionHtml = `
+                        <table class="table table-sm mb-2">
+                            <tbody>
+                                <tr>
+                                    <th class="bg-light py-1" style="width: 30%;">Department</th>
+                                    <td class="py-1">${original.module || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light py-1" style="width: 30%;">Requested Amount</th>
+                                    <td class="fw-bold text-primary py-1">${amount}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="mt-2">
+                            <label class="fw-bold mb-1 d-block small">Request Details:</label>
                             <div class="p-2 border rounded bg-white">${description}</div>
                         </div>`;
                 } else if (type === 'CCTV') {

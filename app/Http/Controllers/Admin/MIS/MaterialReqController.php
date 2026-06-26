@@ -20,15 +20,17 @@ class MaterialReqController extends Controller
             'requested_by' => 'required|string|max:255',
             'request_date' => 'required|date',
             'request_details' => 'required|string',
+            'amount' => 'nullable|numeric|min:0',
         ]);
 
-        // Default status
+        // Default status and module for MIS material requests
         $validated['user_id'] = auth()->id();
-        $validated['status'] = 'to submit';
+        $validated['module'] = 'MIS';
+        $validated['status'] = 'forwarded to accounting';
 
         MaterialReq::create($validated);
 
-        return redirect()->back()->with('success', 'Material Request submitted successfully');
+        return redirect()->back()->with('success', 'Material Request created and forwarded to Accounting successfully');
     }
 
     public function update(Request $request, $id)
@@ -37,10 +39,11 @@ class MaterialReqController extends Controller
         $user = auth()->user();
         
         $request->validate([
-            'status' => 'required|in:to submit,pending approval,Pending Final Approval,forwarded to accounting,received,rejected',
+            'status' => 'required|in:to submit,pending approval,Pending Final Approval,forwarded to accounting,received,rejected,pending_supervisor_approval,pending_admin_approval,pending_director_approval',
             'requested_by' => 'sometimes|required|string|max:255',
             'request_date' => 'sometimes|required|date',
             'request_details' => 'sometimes|required|string',
+            'amount' => 'sometimes|nullable|numeric|min:0',
             'rejection_reason' => 'nullable|string',
         ]);
 
@@ -90,6 +93,7 @@ class MaterialReqController extends Controller
         if ($request->has('requested_by')) $materialRequest->requested_by = $request->requested_by;
         if ($request->has('request_date')) $materialRequest->request_date = $request->request_date;
         if ($request->has('request_details')) $materialRequest->request_details = $request->request_details;
+        if ($request->has('amount')) $materialRequest->amount = $request->amount;
 
         $materialRequest->save();
 

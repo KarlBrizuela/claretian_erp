@@ -25,6 +25,11 @@ Route::middleware(['auth'])->group(function () {
   Route::post('/profile/change-password', [App\Http\Controllers\ProfileController::class, 'changePassword'])->name('profile.change-password');
   Route::post('/profile/test-email', [App\Http\Controllers\ProfileController::class, 'testEmail'])->name('profile.test-email');
 
+  // Payment Requests Common Routes
+  Route::get('/payment-requests/{id}', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'show'])->name('payment-requests.show');
+  Route::post('/payment-requests/{id}/approve', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'approve'])->name('payment-requests.approve');
+  Route::post('/payment-requests/{id}/reject', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'reject'])->name('payment-requests.reject');
+
   // Universal Storage Fallback (Fix for servers without symlink support)
   Route::get('/storage/{path}', [FileController::class, 'serve'])->where('path', '.*');
 
@@ -136,7 +141,10 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/auto-debit', [App\Http\Controllers\Production\FORDController::class, 'autoDebit'])->name('auto-debit');
       Route::get('/client-payment-posting', [App\Http\Controllers\Production\FORDController::class, 'clientPaymentPosting'])->name('client-payment-posting');
       Route::get('/eford-payout', [App\Http\Controllers\Production\FORDController::class, 'eFordPayout'])->name('eford-payout');
+      Route::post('/eford-payout', [App\Http\Controllers\Production\FORDController::class, 'storeEfordPayout'])->name('eford-payout.store');
+      Route::get('/eford-payout/customers/{id}/unpaid-invoices', [App\Http\Controllers\Production\FORDController::class, 'getUnpaidInvoices'])->name('eford-payout.unpaid-invoices');
       Route::get('/payment-request', [App\Http\Controllers\Production\FORDController::class, 'paymentRequest'])->name('payment-request');
+      Route::post('/payment-request', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'store'])->name('payment-request.store');
       Route::get('/purchase-order', [App\Http\Controllers\Production\FORDController::class, 'purchaseOrder'])->name('purchase-order');
       Route::get('/request-for-quotation', [App\Http\Controllers\Production\FORDController::class, 'requestForQuotation'])->name('request-for-quotation');
       Route::get('/sales-order', [App\Http\Controllers\Production\FORDController::class, 'salesOrder'])->name('sales-order');
@@ -342,6 +350,16 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/expense-management', [App\Http\Controllers\AdminFinanceController::class, 'expenseManagement'])->name('admin-finance.accounting.expense-management');
       Route::get('/cash-advance/create', [App\Http\Controllers\AdminFinanceController::class, 'createCashAdvance'])->name('admin-finance.accounting.cash-advance.create');
       
+      // Payment Requests Processing
+      Route::get('/payment-requests', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'index'])->name('admin-finance.accounting.payment-requests');
+      Route::post('/payment-requests/{id}/schedule', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'schedule'])->name('admin-finance.accounting.payment-requests.schedule');
+      Route::post('/payment-requests/{id}/pay', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'markAsPaid'])->name('admin-finance.accounting.payment-requests.pay');
+
+      // E-FORD Payouts Processing
+      Route::get('/eford-payouts', [App\Http\Controllers\Production\FORDController::class, 'accountingIndex'])->name('admin-finance.accounting.eford-payouts');
+      Route::get('/eford-payouts/{id}', [App\Http\Controllers\Production\FORDController::class, 'accountingShow'])->name('admin-finance.accounting.eford-payouts.show');
+      Route::get('/eford-payouts/{id}/download/{index}', [App\Http\Controllers\Production\FORDController::class, 'downloadAttachment'])->name('admin-finance.accounting.eford-payouts.download');
+
       // General Journal Entry
       Route::prefix('journal')->name('accounting.journal.')->group(function () {
           Route::get('/', [App\Http\Controllers\Accounting\JournalEntryController::class, 'index'])->name('index');

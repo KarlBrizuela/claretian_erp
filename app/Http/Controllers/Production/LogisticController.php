@@ -58,11 +58,36 @@ class LogisticController extends Controller
 
     public function pickListList()
     {
-        // Get active pick lists (not completed)
+        // Get active pick lists (not completed) - EXCLUDING e-commerce direct
         $pickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
+            ->whereHas('salesOrder', function($query) {
+                $query->where('type', '!=', 'ecom_direct');
+            })
             ->where('status', '!=', 'completed')
             ->latest()
             ->get();
+
+        // Get e-commerce pick lists (type='ecom_direct'), organized by platform
+        $ecomPickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
+            ->whereHas('salesOrder', function($query) {
+                $query->where('type', 'ecom_direct');
+            })
+            ->where('status', '!=', 'completed')
+            ->latest()
+            ->get();
+
+        // Organize e-com pick lists by platform
+        $ecomByPlatform = [
+            'lazada' => $ecomPickLists->filter(function($item) {
+                return $item->salesOrder->ecom_platform === 'lazada';
+            })->values(),
+            'shopee' => $ecomPickLists->filter(function($item) {
+                return $item->salesOrder->ecom_platform === 'shopee';
+            })->values(),
+            'tiktok' => $ecomPickLists->filter(function($item) {
+                return $item->salesOrder->ecom_platform === 'tiktok';
+            })->values(),
+        ];
 
         // Get pending Sales Orders ready for picking (status = 'picking' and no active pick list yet)
         $pendingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
@@ -83,6 +108,7 @@ class LogisticController extends Controller
             'role' => 'Logistics Staff',
             'sidebar' => 'production',
             'pickLists' => $pickLists,
+            'ecomByPlatform' => $ecomByPlatform,
             'pendingOrders' => $pendingOrders
         ]);
     }
@@ -870,31 +896,51 @@ class LogisticController extends Controller
 
     public function packingManagement(Request $request)
     {
-        // Get orders ready for packing
-        // For ecom_direct: show all that have status 'ready_for_delivery'
-        // For other types: show status 'ready_for_delivery' with specific packing data conditions
+        // Get orders ready for packing - EXCLUDING ecom_direct
         $packingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
+            ->where('type', '!=', 'ecom_direct')
             ->where(function($query) {
-                // Include ecom_direct OR (other types with specific conditions)
-                $query->where('type', 'ecom_direct')
-                      ->orWhere(function($q) {
-                          $q->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
-                            ->where(function($innerQ) {
-                                $innerQ->whereNull('packing_data')
-                                        ->orWhere(function($innerQ2) {
-                                            $innerQ2->where('packing_data->status', '<>', 'ready_for_pickup')
-                                                    ->where('packing_data->status', '<>', 'gathered');
-                                        });
-                            });
+                $query->whereNull('packing_data')
+                      ->orWhere(function($innerQ) {
+                          $innerQ->where('packing_data->status', '<>', 'ready_for_pickup')
+                                  ->where('packing_data->status', '<>', 'gathered');
                       });
             })
             ->orderBy('signed_at', 'desc')
             ->get();
 
+        // Get e-commerce direct orders ready for packing
+        $ecomPackingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+            ->where('status', 'ready_for_delivery')
+            ->where('type', 'ecom_direct')
+            ->where(function($query) {
+                $query->whereNull('packing_data')
+                      ->orWhere(function($innerQ) {
+                          $innerQ->where('packing_data->status', '<>', 'ready_for_pickup')
+                                  ->where('packing_data->status', '<>', 'gathered');
+                      });
+            })
+            ->orderBy('signed_at', 'desc')
+            ->get();
+
+        // Organize e-com packing orders by platform
+        $ecomByPlatform = [
+            'lazada' => $ecomPackingOrders->filter(function($item) {
+                return $item->ecom_platform === 'lazada';
+            })->values(),
+            'shopee' => $ecomPackingOrders->filter(function($item) {
+                return $item->ecom_platform === 'shopee';
+            })->values(),
+            'tiktok' => $ecomPackingOrders->filter(function($item) {
+                return $item->ecom_platform === 'tiktok';
+            })->values(),
+        ];
+
         // Get orders ready for pickup (only those marked as 'ready_for_pickup' but NOT gathered)
         $readyForPickupOrders = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
+            ->where('type', '!=', 'ecom_direct')
             ->whereNotNull('packing_data')
             ->where('packing_data->status', '=', 'ready_for_pickup')
             ->where(function($query) {
@@ -922,6 +968,7 @@ class LogisticController extends Controller
 
         return view('production.logistic.packing-management', [
             'packingOrders' => $packingOrders,
+            'ecomByPlatform' => $ecomByPlatform,
             'readyForPickupOrders' => $readyForPickupOrders,
             'preloadOrder' => $preloadOrder,
             'preloadOrderId' => $preloadOrderId,

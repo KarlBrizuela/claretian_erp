@@ -260,9 +260,9 @@ class AdminFinanceController extends Controller
       if (empty($userDept)) return true;
       if (empty($dept)) return false;
       if (\Illuminate\Support\Str::contains($dept, $userDept) || \Illuminate\Support\Str::contains($userDept, $dept)) return true;
-      // for Admin & Finance, include related departments
+      // for Admin & Finance, include related departments and Payment Requests
       if (\Illuminate\Support\Str::contains($userDept, 'admin') || \Illuminate\Support\Str::contains($userDept, 'finance')) {
-        if (\Illuminate\Support\Str::contains($dept, 'admin') || \Illuminate\Support\Str::contains($dept, 'finance') || \Illuminate\Support\Str::contains($dept, 'credit') || \Illuminate\Support\Str::contains($dept, 'account')) return true;
+        if (\Illuminate\Support\Str::contains($dept, 'admin') || \Illuminate\Support\Str::contains($dept, 'finance') || \Illuminate\Support\Str::contains($dept, 'credit') || \Illuminate\Support\Str::contains($dept, 'account') || ($it['type'] ?? '') === 'Payment Request') return true;
       }
       return false;
     });
@@ -381,31 +381,28 @@ class AdminFinanceController extends Controller
         return $request->canBeApprovedBy($user);
       });
 
-    // --- Material Requests (MIS) ---
-    $materialQuery = MaterialReq::query()->where('module', '!=', 'GSD');
-    if (in_array($pos, ['Manager', 'MIS Supervisor'])) {
-      $materialQuery->where('status', 'pending approval');
-    } elseif ($pos === 'Director') {
-      $materialQuery->where('status', 'Pending Final Approval');
-    } elseif ($pos === 'Super Admin') {
-      $materialQuery->whereIn('status', ['pending approval', 'Pending Final Approval', 'forwarded to accounting', 'received']);
+    // --- Material Requests (only non-MIS/GSD) ---
+    // Exclude MIS and GSD modules entirely from the unified approval queue
+    $materialQuery = MaterialReq::with('user')->whereNotIn('module', ['GSD', 'MIS']);
+    if ($pos === 'Super Admin') {
+      $materialQuery->whereIn('status', [
+        'pending approval', 'Pending Final Approval', 'forwarded to accounting', 'received',
+        'pending_supervisor_approval', 'pending_admin_approval', 'pending_director_approval'
+      ]);
     } else {
-      $materialQuery->whereRaw('1 = 0');
+      $materialQuery->whereIn('status', [
+        'pending approval', 'Pending Final Approval',
+        'pending_supervisor_approval', 'pending_admin_approval', 'pending_director_approval'
+      ]);
     }
     $materialRequests = $materialQuery->orderBy('created_at', 'desc')->get();
-
-    // --- GSD Material Requests ---
-    $gsdMaterialQuery = MaterialReq::query()->where('module', 'GSD');
-    if (in_array($pos, ['Manager', 'MIS Supervisor'])) {
-      $gsdMaterialQuery->where('status', 'pending approval');
-    } elseif ($pos === 'Director') {
-      $gsdMaterialQuery->where('status', 'Pending Final Approval');
-    } elseif ($pos === 'Super Admin') {
-      $gsdMaterialQuery->whereIn('status', ['pending approval', 'Pending Final Approval', 'forwarded to accounting', 'received']);
-    } else {
-      $gsdMaterialQuery->whereRaw('1 = 0');
+    if ($pos !== 'Super Admin') {
+      $materialRequests = $materialRequests->filter(function ($request) use ($user) {
+        return $request->canBeApprovedBy($user);
+      });
     }
-    $gsdMaterialRequests = $gsdMaterialQuery->orderBy('created_at', 'desc')->get();
+
+    // GSD material requests intentionally excluded from approval queue.
 
     // --- QB Requests ---
     $qbQuery = MisQbRequest::with(['user', 'items']);
@@ -515,6 +512,36 @@ class AdminFinanceController extends Controller
         return $transfer->canBeReviewedByAccounting($user);
       });
 
+    // --- Payment Requests ---
+    $paymentRequestQuery = \App\Models\PaymentRequest::with(['requester', 'items']);
+    if ($pos === 'Director') {
+        $paymentRequestQuery->where('status', 'pending_director_approval');
+    } elseif ($pos === 'Super Admin') {
+        $paymentRequestQuery->whereIn('status', ['pending_director_approval', 'pending_admin_finance_approval']);
+    } else {
+        $isAFManager = str_contains($pos, 'Manager') && 
+                       (str_contains($user->division, 'Admin') || str_contains($user->division, 'Finance') || str_contains($user->department, 'Admin') || str_contains($user->department, 'Finance'));
+        $isAdmin = str_contains($pos, 'Admin') || $pos === 'A&F Manager' || $isAFManager;
+        $isFinance = str_contains($pos, 'Finance') || str_contains($pos, 'Accounting') || $pos === 'A&F Manager' || $isAFManager;
+        
+        if ($isAdmin && $isFinance) {
+            $paymentRequestQuery->where('status', 'pending_admin_finance_approval')
+                                ->where(function($q) {
+                                    $q->whereNull('admin_approved_by')
+                                      ->orWhereNull('finance_approved_by');
+                                });
+        } elseif ($isAdmin) {
+            $paymentRequestQuery->where('status', 'pending_admin_finance_approval')
+                                ->whereNull('admin_approved_by');
+        } elseif ($isFinance) {
+            $paymentRequestQuery->where('status', 'pending_admin_finance_approval')
+                                ->whereNull('finance_approved_by');
+        } else {
+            $paymentRequestQuery->whereRaw('1 = 0');
+        }
+    }
+    $pendingPaymentRequests = $paymentRequestQuery->orderBy('created_at', 'desc')->get();
+
     // Combine into a unified approval queue for the bottom card
     $pendingApprovals = [];
     foreach ($cctvRequests as $req) {
@@ -542,23 +569,11 @@ class AdminFinanceController extends Controller
         'full_description' => $req->request_details,
         'department' => 'N/A',
         'status' => $req->status,
+        'amount' => is_numeric($req->amount) ? (float)$req->amount : (float)0,
         'original' => $req
       ];
     }
-    foreach ($gsdMaterialRequests as $req) {
-      $pendingApprovals[] = [
-        'type' => 'GSD Material',
-        'id' => $req->material_req_id,
-        'reference_no' => 'GSD-MAT-' . str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT),
-        'submitted_by' => $req->requested_by,
-        'submitted_date' => \Carbon\Carbon::parse($req->request_date)->format('M. d, Y'),
-        'description' => \Illuminate\Support\Str::limit($req->request_details, 50),
-        'full_description' => $req->request_details,
-        'department' => 'GSD',
-        'status' => $req->status,
-        'original' => $req
-      ];
-    }
+    // GSD material requests intentionally excluded from the approval queue.
     foreach ($cashAdvanceRequests as $req) {
       $pendingApprovals[] = [
         'type' => 'Cash Advance',
@@ -680,6 +695,23 @@ class AdminFinanceController extends Controller
       ];
     }
 
+    foreach ($pendingPaymentRequests as $req) {
+      $pendingApprovals[] = [
+        'type' => 'Payment Request',
+        'id' => $req->id,
+        'reference_no' => 'PR-' . str_pad($req->id, 5, '0', STR_PAD_LEFT),
+        'submitted_by' => $req->requester->name ?? 'N/A',
+        'submitted_date' => $req->created_at->format('M. d, Y'),
+        'description' => 'Payment request to: ' . $req->payment_to . ' for: ' . ($req->payment_for ?? 'N/A'),
+        'full_description' => 'Payment request to ' . $req->payment_to . ' for ' . ($req->payment_for ?? 'N/A') . '. PO#: ' . ($req->po_number ?? 'N/A'),
+        'department' => 'FORD / Production',
+        'status' => $req->status,
+        'amount' => (float)$req->total_amount,
+        'url' => route('payment-requests.show', $req->id),
+        'original' => $req
+      ];
+    }
+
     // Sort by submitted date descending
     usort($pendingApprovals, function ($a, $b) {
       return strtotime($b['submitted_date']) - strtotime($a['submitted_date']);
@@ -693,15 +725,20 @@ class AdminFinanceController extends Controller
     $cashAdvances = \App\Models\EmployeeCashAdvance::where('user_id', auth()->id())
       ->latest()
       ->get();
+    $materialRequests = MaterialReq::where('user_id', auth()->id())
+      ->latest()
+      ->get();
     $cctvRequests = CCTVReq::where('user_id', auth()->id())
       ->latest()
       ->get();
+
+    $mergedRequests = $cashAdvances->concat($materialRequests)->sortByDesc('created_at');
 
     return view('admin-finance.my-requests.index', [
       'title' => '',
       'role' => auth()->user()->position,
       'sidebar' => 'admin-finance',
-      'cashAdvances' => $cashAdvances,
+      'cashAdvances' => $mergedRequests,
       'cctvRequests' => $cctvRequests,
     ]);
   }
@@ -767,7 +804,7 @@ class AdminFinanceController extends Controller
         'full_description' => $req['full_description'] ?? $req['description'],
         'department' => $req['department'],
         'status' => $req['status'],
-        'url' => '#',
+        'url' => $req['url'] ?? '#',
         'attachment' => $attachment,
         'original' => $req['original']
       ];
@@ -914,6 +951,21 @@ class AdminFinanceController extends Controller
       ];
     }
 
+    $myPaymentRequests = \App\Models\PaymentRequest::where('requester_id', auth()->id())->latest()->get();
+    foreach ($myPaymentRequests as $req) {
+      $mySubmissions[] = [
+        'type' => 'Payment Request',
+        'id' => $req->id,
+        'reference_no' => 'PR-' . str_pad($req->id, 5, '0', STR_PAD_LEFT),
+        'submitted_date' => $req->created_at,
+        'detail' => 'PhP ' . number_format($req->total_amount, 2) . ' - ' . $req->payment_to,
+        'status' => $req->status,
+        'url' => route('payment-requests.show', $req->id),
+        'attachment' => $req->attachment_path,
+        'original' => $req
+      ];
+    }
+
     // Sort all submissions by date
     usort($mySubmissions, function ($a, $b) {
       return $b['submitted_date'] <=> $a['submitted_date'];
@@ -953,6 +1005,7 @@ class AdminFinanceController extends Controller
     // Fetch Material approved by user
     $materialApproved = MaterialReq::where(function($q) use ($userId) {
         $q->where('approved_by_manager', $userId)
+          ->orWhere('approved_by_admin', $userId)
           ->orWhere('approved_by_director', $userId);
     })->get();
     foreach ($materialApproved as $req) {
@@ -1344,6 +1397,7 @@ public function checkVoucher()
 
   public function materialRequestsIncoming(Request $request)
   {
+    $allowedStatuses = ['forwarded to accounting', 'processing', 'received'];
     $query = MaterialReq::with(['user', 'manager', 'director']);
 
     // Apply Filters for "All Requests" tab and general view
@@ -1352,6 +1406,8 @@ public function checkVoucher()
         if ($status === 'pending') $status = 'forwarded to accounting';
         elseif ($status === 'completed') $status = 'received';
         $query->where('status', $status);
+    } else {
+        $query->whereIn('status', $allowedStatuses);
     }
 
     if ($request->filled('department')) {
@@ -1387,9 +1443,44 @@ public function checkVoucher()
     // OR just keep them as they were if the user expects them to always show "Pending Action" regardless of global filters.
     // Usually, global filters apply to the main view.
     
-    $pendingRequests = MaterialReq::with(['user', 'manager', 'director'])->where('status', 'forwarded to accounting')->latest()->get();
+    // Exclude MIS and GSD module requests from the accounting approver queue
+    $pendingRequests = MaterialReq::with(['user', 'manager', 'director'])
+      ->where('status', 'forwarded to accounting')
+      ->whereNotIn('module', ['MIS', 'GSD'])
+      ->latest()->get();
     $processingRequests = MaterialReq::with(['user', 'manager', 'director'])->where('status', 'processing')->latest()->get();
     $completedRequests = MaterialReq::with(['user', 'manager', 'director'])->where('status', 'received')->latest()->get();
+
+    // Get requests by department/division
+    $directRequests = MaterialReq::with(['user', 'manager', 'director'])
+        ->whereIn('status', $allowedStatuses)
+        ->where(function($q) {
+            $q->where('module', 'Direct')
+              ->orWhereHas('user', function($sq) {
+                  $sq->where('department', 'like', '%direct%');
+              });
+        })
+        ->latest()->get();
+
+    $gsdRequests = MaterialReq::with(['user', 'manager', 'director'])
+        ->whereIn('status', $allowedStatuses)
+        ->where(function($q) {
+            $q->where('module', 'GSD')
+              ->orWhereHas('user', function($sq) {
+                  $sq->where('department', 'like', '%gsd%');
+              });
+        })
+        ->latest()->get();
+
+    $misRequests = MaterialReq::with(['user', 'manager', 'director'])
+        ->whereIn('status', $allowedStatuses)
+        ->where(function($q) {
+            $q->where('module', 'MIS')
+              ->orWhereHas('user', function($sq) {
+                  $sq->where('department', 'like', '%mis%');
+              });
+        })
+        ->latest()->get();
 
     return view('admin-finance.accounting.material-requests', [
       'title' => 'Material Requests',
@@ -1398,7 +1489,10 @@ public function checkVoucher()
       'pendingRequests' => $pendingRequests,
       'processingRequests' => $processingRequests,
       'completedRequests' => $completedRequests,
-      'allRequests' => $allRequests
+      'allRequests' => $allRequests,
+      'directRequests' => $directRequests,
+      'gsdRequests' => $gsdRequests,
+      'misRequests' => $misRequests
     ]);
   }
 
@@ -1860,7 +1954,7 @@ public function checkVoucher()
     }
     
     if ($status === 'all') {
-        $statuses = ['to submit', 'pending approval', 'Pending HR approval', 'Pending Final Approval', 'approved', 'ongoing', 'on_hold', 'completed'];
+        $statuses = ['to submit', 'pending approval', 'Pending HR approval', 'Pending Final Approval', 'approved', 'ongoing', 'on_hold', 'completed', 'forwarded to accounting', 'processing', 'received'];
     } elseif ($status === 'on_hold') {
         $statuses = ['on_hold', 'approved'];
     } else {
@@ -1873,7 +1967,15 @@ public function checkVoucher()
       $cctvQuery->where('status', '!=', 'Pending Final Approval');
     }
     $cctvRequests = $cctvQuery->whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
-    $materialRequests = MaterialReq::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
+    $materialRequests = MaterialReq::where(function($q) {
+        $q->where('module', 'MIS')
+          ->orWhereHas('user', function($sq) {
+              $sq->where('department', 'like', '%mis%');
+          });
+    })
+    ->whereIn('status', $statuses)
+    ->orderBy('created_at', 'desc')
+    ->get();
     $qbRequests = MisQbRequest::with('items')->whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
     $undertimeRequests = MisUndertimeRequest::whereIn('status', $statuses)->orderBy('created_at', 'desc')->get();
     
@@ -1963,15 +2065,21 @@ public function checkVoucher()
     $status = $request->query('status', 'all');
     
     if ($status === 'all') {
-        $statuses = ['to submit', 'pending approval', 'Pending HR approval', 'Pending Final Approval', 'approved', 'ongoing', 'on_hold', 'completed'];
+        $statuses = ['to submit', 'pending approval', 'Pending HR approval', 'Pending Final Approval', 'approved', 'ongoing', 'on_hold', 'completed', 'forwarded to accounting', 'processing', 'received'];
     } else {
         $statuses = [$status];
     }
     
     // Material Requests - apply status filter
-    $materialRequests = MaterialReq::whereIn('status', $statuses)
-        ->orderBy('created_at', 'desc')
-        ->get();
+    $materialRequests = MaterialReq::where(function($q) {
+        $q->where('module', 'GSD')
+          ->orWhereHas('user', function($sq) {
+              $sq->where('department', 'like', '%gsd%');
+          });
+    })
+    ->whereIn('status', $statuses)
+    ->orderBy('created_at', 'desc')
+    ->get();
     
     // Service Requests - Filter by GSD department
     $serviceRequests = MisServiceRequest::where(function ($query) {

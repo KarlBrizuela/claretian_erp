@@ -116,6 +116,7 @@
         .type-expense { background-color: #fff3cd; color: #856404; }
         .type-job-order { background-color: #f8d7da; color: #721c24; }
         .type-stock-transfer { background-color: #d4edda; color: #155724; }
+        .type-payment-request { background-color: #e0cffc; color: #5a3791; }
 
         .btn-xs {
             padding: 0.35rem 0.65rem;
@@ -442,6 +443,7 @@
                                             @php
                                                 $typeClass = 'type-sales-order';
                                                 if($item['type'] === 'Stock Transfer') $typeClass = 'type-stock-transfer';
+                                                elseif($item['type'] === 'Payment Request') $typeClass = 'type-payment-request';
                                                 elseif($item['type'] !== 'Sales Order') $typeClass = 'type-job-order';
                                             @endphp
                                             <span class="document-type-badge {{ $typeClass }}">{{ $item['type'] }}</span>
@@ -475,7 +477,7 @@
                                             </span>
                                         </td>
                                         <td>
-                                            @if($item['type'] === 'Sales Order')
+                                            @if($item['type'] === 'Sales Order' || $item['type'] === 'Payment Request')
                                                 @if($item['status'] === 'Pending AR')
                                                     <a href="{{ route('admin-finance.accounting.ar.prepare', $item['id']) }}" class="btn btn-success btn-sm"><i class="las la-file-invoice"></i> Issue AR</a>
                                                 @else
@@ -530,6 +532,7 @@
                                             @php
                                                 $typeClass = 'type-sales-order';
                                                 if($submission['type'] === 'Stock Transfer') $typeClass = 'type-stock-transfer';
+                                                elseif($submission['type'] === 'Payment Request') $typeClass = 'type-payment-request';
                                                 elseif($submission['type'] !== 'Sales Order') $typeClass = 'type-job-order';
                                             @endphp
                                             <span class="document-type-badge {{ $typeClass }}">{{ $submission['type'] }}</span>
@@ -558,7 +561,7 @@
                                             <span class="status-badge {{ $badgeClass }}">{{ ucwords(str_replace('_', ' ', $status)) }}</span>
                                         </td>
                                         <td>
-                                            @if($submission['type'] === 'Sales Order')
+                                            @if($submission['type'] === 'Sales Order' || $submission['type'] === 'Payment Request')
                                                 <a href="{{ $submission['url'] }}" class="btn btn-primary btn-sm"><i class="las la-eye"></i> View</a>
                                             @else
                                                 <button type="button" 
@@ -577,7 +580,7 @@
                                                     data-original="{{ json_encode($submission['original']) }}"
                                                     data-view-only="true">
                                                     <i class="las la-eye"></i> View
-                                                </button>
+                                                 </button>
                                             @endif
                                         </td>
                                     </tr>
@@ -609,6 +612,7 @@
                                             @php
                                                 $typeClass = 'type-sales-order';
                                                 if($approved['type'] === 'Stock Transfer') $typeClass = 'type-stock-transfer';
+                                                elseif($approved['type'] === 'Payment Request') $typeClass = 'type-payment-request';
                                                 elseif($approved['type'] !== 'Sales Order') $typeClass = 'type-job-order';
                                             @endphp
                                             <span class="document-type-badge {{ $typeClass }}">{{ $approved['type'] }}</span>
@@ -647,7 +651,7 @@
                                             <span class="status-badge {{ $badgeClass }}">{{ ucwords(str_replace('_', ' ', $status)) }}</span>
                                         </td>
                                         <td>
-                                            @if($approved['type'] === 'Sales Order')
+                                            @if($approved['type'] === 'Sales Order' || $approved['type'] === 'Payment Request')
                                                 <a href="{{ $approved['url'] }}" class="btn btn-primary btn-xs"><i class="las la-eye"></i> View</a>
                                             @else
                                                 <button type="button" 

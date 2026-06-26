@@ -312,15 +312,28 @@
                                 <tbody>
                                     @foreach($myApprovals as $approval)
                                     <tr>
-                                        <td>
-                                            @php
-                                                $typeClass = $approval['type'] === 'Sales Order' ? 'type-sales-order' : ($approval['type'] === 'CCTV' ? 'type-job-order' : 'badge-info');
-                                            @endphp
-                                            <span class="document-type-badge {{ $typeClass }}" @if($approval['type'] === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @elseif($approval['type'] === 'Stock Transfer') style="background-color: #d4edda; color: #155724;" @endif>{{ $approval['type'] }}</span>
+                                            <td>
+                                                @php
+                                                    $typeClass = $approval['type'] === 'Sales Order' ? 'type-sales-order' : ($approval['type'] === 'CCTV' ? 'type-job-order' : 'badge-info');
+                                                @endphp
+                                                <span class="document-type-badge {{ $typeClass }}" @if($approval['type'] === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @elseif($approval['type'] === 'Stock Transfer') style="background-color: #d4edda; color: #155724;" @endif>{{ $approval['type'] }}</span>
+                                                
                                         </td>
                                         <td><strong>{{ $approval['reference_no'] }}</strong></td>
                                         <td>{{ $approval['submitted_by'] }}</td>
-                                        <td>{{ $approval['submitted_date']->format('Y-m-d h:i A') }}</td>
+                                        @php
+                                            $submittedDate = $approval['submitted_date'] ?? null;
+                                            if ($submittedDate instanceof \Carbon\Carbon) {
+                                                $dateDisplay = $submittedDate->format('Y-m-d h:i A');
+                                            } elseif (is_string($submittedDate) && $submittedDate) {
+                                                $dateDisplay = $submittedDate;
+                                            } elseif (!empty($approval['original']->created_at)) {
+                                                $dateDisplay = \Carbon\Carbon::parse($approval['original']->created_at)->format('Y-m-d h:i A');
+                                            } else {
+                                                $dateDisplay = '';
+                                            }
+                                        @endphp
+                                        <td>{{ $dateDisplay }}</td>
                                         <td>{{ $approval['amount'] }}</td>
                                         <td>
                                             @php
@@ -357,11 +370,13 @@
                                                         class="btn btn-primary btn-sm"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#cashAdvanceModal"
+                                                        data-type="{{ $approval['type'] }}"
+                                                        data-module="{{ isset($approval['original']->module) ? $approval['original']->module : '' }}"
                                                         data-id="{{ $approval['id'] }}"
                                                         data-name="{{ $approval['submitted_by'] }}"
                                                         data-amount="{{ $approval['amount'] }}"
                                                         data-purpose="{{ $approval['original']->purpose }}"
-                                                        data-date="{{ $approval['original']->date_needed->format('M d, Y') }}"
+                                                        data-date="{{ isset($approval['original']->date_needed) && $approval['original']->date_needed ? \Carbon\Carbon::parse($approval['original']->date_needed)->format('M d, Y') : '' }}"
                                                         data-original="{{ json_encode($approval['original']) }}">
                                                     <i class="las la-eye"></i> Review
                                                 </button>
@@ -391,9 +406,11 @@
                                 <tbody>
                                     @foreach($mySubmissions as $submission)
                                     <tr>
-                                        <td><span class="document-type-badge {{ $submission->type === 'Sales Order' ? 'type-sales-order' : 'badge-info' }}" @if($submission->type === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @endif>{{ $submission->type }}</span></td>
+                                            <td><span class="document-type-badge {{ $submission->type === 'Sales Order' ? 'type-sales-order' : 'badge-info' }}" @if($submission->type === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @endif>{{ $submission->type }}</span>
+                                                
+                                            </td>
                                         <td><strong>{{ $submission->reference_no }}</strong></td>
-                                        <td>{{ $submission->submitted_date->format('Y-m-d h:i A') }}</td>
+                                        <td>{{ (isset($submission->submitted_date) && $submission->submitted_date instanceof \Carbon\Carbon) ? $submission->submitted_date->format('Y-m-d h:i A') : (is_string($submission->submitted_date) ? $submission->submitted_date : '') }}</td>
                                         <td>{{ $submission->amount }}</td>
                                         <td>
                                             @php
@@ -415,7 +432,7 @@
                                                     data-name="{{ $submission->prep_name }}"
                                                     data-amount="{{ $submission->amount }}"
                                                     data-purpose="{{ $submission->original->purpose ?? '' }}"
-                                                    data-date="{{ $submission->original->date_needed ? \Carbon\Carbon::parse($submission->original->date_needed)->format('M d, Y') : '' }}"
+                                                    data-date="{{ isset($submission->original->date_needed) && $submission->original->date_needed ? \Carbon\Carbon::parse($submission->original->date_needed)->format('M d, Y') : '' }}"
                                                     data-status="{{ $submission->status }}"
                                                     data-original="{{ json_encode($submission->original) }}"
                                                     data-view-only="true">
@@ -448,10 +465,12 @@
                                 <tbody>
                                     @foreach($myApprovedRequests as $approved)
                                     <tr>
-                                        <td><span class="document-type-badge badge-info" style="background-color: #e3f2fd; color: #0d47a1;">{{ $approved->type }}</span></td>
+                                            <td><span class="document-type-badge badge-info" style="background-color: #e3f2fd; color: #0d47a1;">{{ $approved->type }}</span>
+                                            
+                                            </td>
                                         <td><strong>{{ $approved->reference_no }}</strong></td>
                                         <td>{{ $approved->submitted_by }}</td>
-                                        <td>{{ $approved->submitted_date->format('Y-m-d h:i A') }}</td>
+                                        <td>{{ (isset($approved->submitted_date) && $approved->submitted_date instanceof \Carbon\Carbon) ? $approved->submitted_date->format('Y-m-d h:i A') : (is_string($approved->submitted_date) ? $approved->submitted_date : '') }}</td>
                                         <td>
                                             <div class="d-flex flex-column">
                                                 <span class="fw-bold text-dark">{{ $approved->amount }}</span>
@@ -477,7 +496,7 @@
                                                     data-name="{{ $approved->submitted_by }}"
                                                     data-amount="{{ $approved->amount }}"
                                                     data-purpose="{{ $approved->original->purpose }}"
-                                                    data-date="{{ $approved->original->date_needed->format('M d, Y') }}"
+                                                    data-date="{{ isset($approved->original->date_needed) && $approved->original->date_needed ? \Carbon\Carbon::parse($approved->original->date_needed)->format('M d, Y') : '' }}"
                                                     data-status="{{ $approved->status }}">
                                                 <i class="las la-eye"></i> View
                                             </button>
@@ -843,8 +862,24 @@
                 const config = statusConfig[status] || { badge: 'secondary', text: status.replace('_', ' ') };
                 modal.find('#ca-modal-status').html(`<span class="status-badge status-${config.badge === 'warning' ? 'pending' : (config.badge === 'danger' ? 'danger' : 'success')}">${config.text}</span>`);
 
-                // Update Form Actions
-                var actionUrl = '/employee/cash-advance/' + id;
+                // Update Form Actions based on type/module
+                var triggerType = button.attr('data-type') || '';
+                var triggerModule = button.attr('data-module') || (original.module || '');
+                var actionUrl = '/employee/cash-advance/' + id; // default for cash advances
+
+                if (triggerType === 'Material') {
+                    // Material requests live under admin-finance MIS or GSD controllers depending on module
+                    if (triggerModule === 'GSD') {
+                        actionUrl = '/admin-finance/gsd/material-requests/' + id;
+                    } else {
+                        actionUrl = '/admin-finance/mis/material-requests/' + id;
+                    }
+                } else if (triggerType === 'CCTV') {
+                    actionUrl = '/my-requests/cctv-requests/' + id;
+                } else if (triggerType === 'Cash Advance') {
+                    actionUrl = '/employee/cash-advance/' + id;
+                }
+
                 modal.find('#ca-approve-form').attr('action', actionUrl);
                 modal.find('#ca-reject-form').attr('action', actionUrl);
                 

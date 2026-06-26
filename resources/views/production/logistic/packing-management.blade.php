@@ -33,6 +33,11 @@
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-direct-content" type="button" role="tab" aria-controls="ecom-direct-content" aria-selected="false" style="font-weight: 600; color: #666;">
+                                <i class="fas fa-shopping-bag" style="margin-right: 0.5rem;"></i>E-Commerce Direct <span class="badge bg-info" style="margin-left: 0.5rem;">{{ $ecomByPlatform['lazada']->count() + $ecomByPlatform['shopee']->count() + $ecomByPlatform['tiktok']->count() }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                             <button class="nav-link" id="ready-pickup-tab" data-bs-toggle="tab" data-bs-target="#ready-pickup-content" type="button" role="tab" aria-controls="ready-pickup-content" aria-selected="false" style="font-weight: 600; color: #666;">
                                 <i class="fas fa-truck" style="margin-right: 0.5rem;"></i>Ready for Pickup/Drop-off <span class="badge bg-success" style="margin-left: 0.5rem;">{{ count($readyForPickupOrders) }}</span>
                             </button>
@@ -128,6 +133,250 @@
                                 @endforeach
                             </tbody>
                         </table>
+                            </div>
+                        </div>
+
+                        <!-- E-Commerce Direct Tab -->
+                        <div class="tab-pane fade" id="ecom-direct-content" role="tabpanel" aria-labelledby="ecom-tab">
+                            <!-- Platform Sub-tabs -->
+                            <ul class="nav nav-tabs mb-3" id="ecomTabs" role="tablist" style="border-bottom: 2px solid #dee2e6;">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="lazada-ecom-tab" data-bs-toggle="tab" data-bs-target="#lazada-ecom-content" type="button" role="tab" aria-controls="lazada-ecom-content" aria-selected="true">
+                                        <i class="las la-shopping-bag me-2"></i>Lazada <span class="badge bg-primary ms-2">{{ $ecomByPlatform['lazada']->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="shopee-ecom-tab" data-bs-toggle="tab" data-bs-target="#shopee-ecom-content" type="button" role="tab" aria-controls="shopee-ecom-content" aria-selected="false">
+                                        <i class="las la-shopping-bag me-2"></i>Shopee <span class="badge bg-danger ms-2">{{ $ecomByPlatform['shopee']->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="tiktok-ecom-tab" data-bs-toggle="tab" data-bs-target="#tiktok-ecom-content" type="button" role="tab" aria-controls="tiktok-ecom-content" aria-selected="false">
+                                        <i class="las la-music me-2"></i>TikTok <span class="badge bg-dark ms-2">{{ $ecomByPlatform['tiktok']->count() }}</span>
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <!-- Platform Sub-tabs Content -->
+                            <div class="tab-content" id="ecomTabsContent">
+                                <!-- Lazada Tab -->
+                                <div class="tab-pane fade show active" id="lazada-ecom-content" role="tabpanel" aria-labelledby="lazada-ecom-tab">
+                                    <div class="table-responsive">
+                                        <table id="lazadaPackingTable" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ecom-select-all-checkbox" data-platform="lazada" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($ecomByPlatform['lazada'] as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    
+                                                    if($packedCount === 0) {
+                                                        $statusClass = 'status-ready';
+                                                        $statusText = 'Ready for Packing';
+                                                    } elseif($packedCount === $totalItems && $totalItems > 0) {
+                                                        $statusClass = 'status-packed';
+                                                        $statusText = 'Fully Packed';
+                                                    } else {
+                                                        $statusClass = 'status-partial';
+                                                        $statusText = 'Partially Packed';
+                                                    }
+                                                    $isFullyPacked = ($packedCount === $totalItems && $totalItems > 0);
+                                                @endphp
+                                                <tr class="packing-row" data-order-id="{{ $order->id }}">
+                                                    <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Packed"
+                                                                    style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-check" style="font-size: 0.9rem;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Shopee Tab -->
+                                <div class="tab-pane fade" id="shopee-ecom-content" role="tabpanel" aria-labelledby="shopee-ecom-tab">
+                                    <div class="table-responsive">
+                                        <table id="shopeePackingTable" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ecom-select-all-checkbox" data-platform="shopee" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($ecomByPlatform['shopee'] as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    
+                                                    if($packedCount === 0) {
+                                                        $statusClass = 'status-ready';
+                                                        $statusText = 'Ready for Packing';
+                                                    } elseif($packedCount === $totalItems && $totalItems > 0) {
+                                                        $statusClass = 'status-packed';
+                                                        $statusText = 'Fully Packed';
+                                                    } else {
+                                                        $statusClass = 'status-partial';
+                                                        $statusText = 'Partially Packed';
+                                                    }
+                                                    $isFullyPacked = ($packedCount === $totalItems && $totalItems > 0);
+                                                @endphp
+                                                <tr class="packing-row" data-order-id="{{ $order->id }}">
+                                                    <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Packed"
+                                                                    style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-check" style="font-size: 0.9rem;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- TikTok Tab -->
+                                <div class="tab-pane fade" id="tiktok-ecom-content" role="tabpanel" aria-labelledby="tiktok-ecom-tab">
+                                    <div class="table-responsive">
+                                        <table id="tiktokPackingTable" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ecom-select-all-checkbox" data-platform="tiktok" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($ecomByPlatform['tiktok'] as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    
+                                                    if($packedCount === 0) {
+                                                        $statusClass = 'status-ready';
+                                                        $statusText = 'Ready for Packing';
+                                                    } elseif($packedCount === $totalItems && $totalItems > 0) {
+                                                        $statusClass = 'status-packed';
+                                                        $statusText = 'Fully Packed';
+                                                    } else {
+                                                        $statusClass = 'status-partial';
+                                                        $statusText = 'Partially Packed';
+                                                    }
+                                                    $isFullyPacked = ($packedCount === $totalItems && $totalItems > 0);
+                                                @endphp
+                                                <tr class="packing-row" data-order-id="{{ $order->id }}">
+                                                    <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Packed"
+                                                                    style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-check" style="font-size: 0.9rem;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -244,7 +493,7 @@
                     <input type="number" id="packingBoxesCount" placeholder="Enter number of boxes" min="0">
                 </div>
             </div>
-            <div class="order-info-box">
+            <div class="order-info-box" id="attachmentsSection" style="display: none;">
                 <h5>Attachments - Packing Photos</h5>
                 <div class="form-group">
                     <label>Upload Photo 1:</label>
@@ -643,6 +892,31 @@
                 responsive: true
             });
 
+            // Initialize E-Com Packing Tables
+            $('#lazadaPackingTable').DataTable({
+                order: [[2, 'desc']],
+                pageLength: 25,
+                responsive: true
+            });
+
+            $('#shopeePackingTable').DataTable({
+                order: [[2, 'desc']],
+                pageLength: 25,
+                responsive: true
+            });
+
+            $('#tiktokPackingTable').DataTable({
+                order: [[2, 'desc']],
+                pageLength: 25,
+                responsive: true
+            });
+
+            $('#readyForPickupTable').DataTable({
+                order: [[2, 'desc']],
+                pageLength: 25,
+                responsive: true
+            });
+
             // If preloadOrderId is set, auto-load that order
             if (preloadOrderId) {
                 console.log('Auto-loading preload order:', preloadOrderId);
@@ -914,6 +1188,16 @@
                     const packingData = order.packing_data ? JSON.parse(order.packing_data) : {};
                     setInputValue('packingStatus', packingData.status || 'not_started');
                     setInputValue('packingBoxesCount', packingData.boxes_count || '');
+
+                    // Show/hide attachments section based on order type
+                    const attachmentsSection = document.getElementById('attachmentsSection');
+                    if (attachmentsSection) {
+                        if (order.type === 'ecom_direct') {
+                            attachmentsSection.style.display = 'block';
+                        } else {
+                            attachmentsSection.style.display = 'none';
+                        }
+                    }
 
                     // Display saved attachments if available
                     if (packingData.attachments) {
