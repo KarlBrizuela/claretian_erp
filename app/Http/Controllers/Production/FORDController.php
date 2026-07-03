@@ -211,7 +211,10 @@ class FORDController extends Controller
 
     public function requestForQuotation()
     {
-        return view('production.ford.request-for-quotation');
+        $books = \App\Models\Book::orderBy('name', 'asc')->get();
+        return view('production.ford.request-for-quotation', [
+            'books' => $books
+        ]);
     }
 
     public function salesOrder()
@@ -221,11 +224,14 @@ class FORDController extends Controller
             ->latest()
             ->get();
 
+        $customers = \App\Models\Customer::orderBy('customer_name')->get();
+
         return view('production.ford.sales-order', [
             'title' => 'Foreign Sales Orders',
             'role' => 'FORD Staff',
             'sidebar' => 'production',
-            'orders' => $orders
+            'orders' => $orders,
+            'customers' => $customers
         ]);
     }
 

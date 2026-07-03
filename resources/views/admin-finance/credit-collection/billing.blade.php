@@ -282,6 +282,7 @@
                                                                         <a href="{{ route('admin-finance.credit-collection.jv-requests.show', $jv->id) }}" class="btn btn-info btn-sm me-1 shadow text-white"><i class="las la-eye"></i> View</a>
                                                                         <form action="{{ route('admin-finance.credit-collection.jv-requests.approve', $jv->id) }}" method="POST">
                                                                             @csrf
+                                                                            @method('PUT')
                                                                             <button type="submit" class="btn btn-success btn-sm shadow"><i class="las la-check"></i> Approve</button>
                                                                         </form>
                                                                     </div>
@@ -426,7 +427,10 @@
                                                                     <td class="fw-bold">₱ {{ number_format($soa->total_amount, 2) }}</td>
                                                                     <td><span class="badge badge-warning light">Pending JV</span></td>
                                                                     <td class="text-center">
-                                                                        <button class="btn btn-primary px-3 shadow btnCreateJV" data-report-id="{{ $soa->id }}">
+                                                                        <button class="btn btn-primary px-3 shadow btnCreateJV" 
+                                                                            data-report-id="{{ $soa->soa_number }}"
+                                                                            data-customer-name="{{ $soa->customer->customer_name ?? $soa->customer->company_name ?? 'Unknown' }}"
+                                                                            data-customer-id="{{ $soa->customer_id }}">
                                                                             <i class="las la-file-invoice me-1"></i> Create JV Request
                                                                         </button>
                                                                     </td>
@@ -706,7 +710,10 @@
                                                                     <td class="fw-bold">₱ {{ number_format($fb->amount, 2) }}</td>
                                                                     <td><span class="badge badge-warning light">Pending JV</span></td>
                                                                     <td class="text-center">
-                                                                        <button class="btn btn-primary px-3 shadow btnCreateJV" data-report-id="{{ $fb->id }}">
+                                                                        <button class="btn btn-primary px-3 shadow btnCreateJV" 
+                                                                            data-report-id="{{ $fb->bill_number }}"
+                                                                            data-customer-name="{{ $fb->customer->customer_name ?? $fb->customer->company_name ?? 'Unknown' }}"
+                                                                            data-customer-id="{{ $fb->customer_id }}">
                                                                             <i class="las la-file-invoice me-1"></i> Create JV Request
                                                                         </button>
                                                                     </td>
@@ -913,11 +920,15 @@
                     </div>
 
                     <div class="row mb-3">
-                        <div class="col-md-8">
+                        <div class="col-md-5">
                             <label class="form-label fw-bold small text-muted text-uppercase">Description</label>
                             <input type="text" class="form-control bg-light" id="jvDescription" readonly value="Summary Report SR-2026-003">
                         </div>
                         <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Customer</label>
+                            <input type="text" class="form-control bg-light fw-bold text-dark" id="jvCustomerName" readonly value="">
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label fw-bold small text-muted text-uppercase">Total Amount</label>
                             <input type="text" class="form-control bg-light fw-bold text-primary" id="jvAmount" readonly value="₱ 0.00">
                         </div>
@@ -1174,94 +1185,96 @@
 
             // Handle "Generate Report" Confirmation
             const btnConfirmGenerateReport = document.getElementById('btnConfirmGenerateReport');
-            if (btnConfirmGenerateReport) {
-                btnConfirmGenerateReport.addEventListener('click', function() {
-                    const section = this.getAttribute('data-target-section');
-                    const isFB = section === 'fb';
-                    
-                    const itemSelector = isFB ? '.fb-check-item' : '.check-item';
-                    const compiledBodyId = isFB ? 'fb-compiled' : 'compiledReportsBody'; // Need to add ID to FB compiled body
-                    const compiledBadge = document.querySelector(isFB ? '#freight-billing .nav-link.active .badge' : '.counter-compiled'); // Badge selection needs care
-                    
-                    const reportId = (isFB ? 'FR-' : 'SR-') + '2026-' + Math.floor(100+Math.random()*900);
-                    const reportDate = document.getElementById('reportDate').value;
-                    const totalAmount = document.getElementById('modalTotalAmount').textContent;
-                    const count = document.getElementById('modalSelectedCount').textContent;
-
-                    // Remove selected rows
-                    document.querySelectorAll(`${itemSelector}:checked`).forEach(cb => {
-                        cb.closest('tr').remove();
-                    });
-
-                    // Add to Compiled Table
-                    const compiledTableBody = isFB ? document.querySelector('#fb-compiled tbody') : document.getElementById('compiledReportsBody');
-                    const newRow = `
-                        <tr>
-                            <td class="fw-bold text-primary">${reportId}</td>
-                            <td>${new Date(reportDate).toLocaleDateString('en-US', {month: 'short', day: '2-digit', year: 'numeric'})}</td>
-                            <td>${count} items</td>
-                            <td class="fw-bold">${totalAmount}</td>
-                            <td><span class="badge badge-warning light">Pending JV</span></td>
-                            <td class="text-center">
-                                <button class="btn btn-primary px-3 shadow btnCreateJV" data-report-id="${reportId}">
-                                    <i class="las la-file-invoice me-1"></i> Create JV Request
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-
-                    if (compiledTableBody.querySelector('.no-result-msg')) {
-                        compiledTableBody.innerHTML = newRow;
-                    } else {
-                        compiledTableBody.innerHTML = newRow + compiledTableBody.innerHTML;
-                    }
-
-                    // Update Badge (Find the badge in the correct tab link)
-                    const tabLink = isFB ? document.querySelector('a[href="#fb-compiled"]') : document.querySelector('a[href="#compiled"]');
-                    const badge = tabLink.querySelector('.badge');
-                    if(badge) {
-                        const currentCount = parseInt(badge.textContent) || 0;
-                        badge.textContent = currentCount + 1;
-                    }
-
-                    bootstrap.Modal.getInstance(document.getElementById('summaryReportModal')).hide();
-                    
-                    // Switch to Compiled Tab
-                    bootstrap.Tab.getInstance(tabLink) ? bootstrap.Tab.getInstance(tabLink).show() : new bootstrap.Tab(tabLink).show();
-                    
-                    // Check if Approved is now empty
-                    const approvedBody = isFB ? document.querySelector('#fb-approved tbody') : document.querySelector('#approved tbody');
-                    if (approvedBody.querySelectorAll('tr:not(.no-result-msg)').length === 0) {
-                        approvedBody.innerHTML = '<tr class="no-result-msg"><td colspan="10" class="text-center py-4 bg-light text-muted">No items found</td></tr>';
-                    }
-
-                    updateReportButtonState();
-                    updateSelectionUI(section);
-                });
-            }
 
             // Handle "Create JV Request" button click (delegated)
+            const btnSubmitJV = document.getElementById('btnSubmitJV');
+
             document.addEventListener('click', function(e) {
                 if (e.target.closest('.btnCreateJV')) {
                     const btn = e.target.closest('.btnCreateJV');
                     const row = btn.closest('tr');
                     const reportId = btn.getAttribute('data-report-id');
+                    const customerName = btn.getAttribute('data-customer-name');
+                    const customerId = btn.getAttribute('data-customer-id');
                     const amount = row.cells[3].textContent.trim();
                     const date = row.cells[1].textContent.trim();
-                    const isFB = reportId.startsWith('FR');
+                    const isFB = reportId.startsWith('F') || reportId.startsWith('FR');
                     
                     // Auto-populate JV Modal
                     document.getElementById('jvNumber').value = 'JV-' + (11000 + Math.floor(Math.random() * 999));
                     document.getElementById('jvDescription').value = `${isFB ? 'Freight' : 'Summary'} Report ${reportId}`;
+                    document.getElementById('jvCustomerName').value = customerName;
                     document.getElementById('jvAmount').value = amount;
                     document.getElementById('jvReason').value = `To record ${isFB ? 'freight revenue' : 'accounts receivable'} for period ending ${date}. Total: ${amount}`;
                     
-                    btnSubmitJV.setAttribute('data-target-report', reportId);
+                    if (btnSubmitJV) {
+                        btnSubmitJV.setAttribute('data-target-report', reportId);
+                        btnSubmitJV.setAttribute('data-customer-name', customerName);
+                        btnSubmitJV.setAttribute('data-customer-id', customerId);
+                        btnSubmitJV.setAttribute('data-amount', amount.replace(/[₱,\s]/g, ''));
+                    }
                     
                     const jvModal = new bootstrap.Modal(document.getElementById('jvRequestModal'));
                     jvModal.show();
                 }
             });
+
+            if (btnSubmitJV) {
+                btnSubmitJV.addEventListener('click', function() {
+                    const reportId = this.getAttribute('data-target-report');
+                    const customerName = this.getAttribute('data-customer-name') || 'Unknown Customer';
+                    const customerId = this.getAttribute('data-customer-id');
+                    const amount = parseFloat(this.getAttribute('data-amount')) || 0;
+                    
+                    const reason = document.getElementById('jvReason').value;
+                    const remarks = document.getElementById('jvRemarks').value;
+                    const isFB = reportId.startsWith('F') || reportId.startsWith('FR');
+
+                    const payload = {
+                        reason: reason,
+                        remarks: remarks,
+                        category: isFB ? 'Freight Bill' : 'Account Statement',
+                        items: [
+                            {
+                                type: isFB ? 'FB' : 'SOA',
+                                reference_no: reportId,
+                                customer_name: customerName,
+                                customer_id: customerId,
+                                amount: amount,
+                                remarks: remarks || 'QB Entry'
+                            }
+                        ]
+                    };
+
+                    fetch('{{ route("admin-finance.credit-collection.jv-requests.store") }}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(response => {
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                            return;
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data && data.success) {
+                            window.location.href = '{{ route("admin-finance.credit-collection.billing", ["tab" => "jv"]) }}';
+                        } else if (data && data.error) {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        window.location.href = '{{ route("admin-finance.credit-collection.billing", ["tab" => "jv"]) }}';
+                    });
+                });
+            }
 
             // --- AJAX Common Handler ---
             function updateStatus(id, status, type) {
@@ -1323,7 +1336,7 @@
             });
 
             // --- Compile Logic ---
-            function compileItems(ids, type) {
+            function compileItems(ids, type, date) {
                 const url = type === 'soa' 
                     ? `{{ route('admin-finance.credit-collection.billing.compile') }}`
                     : `{{ route('admin-finance.credit-collection.freight-billing.compile') }}`;
@@ -1335,7 +1348,7 @@
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ ids: ids })
+                    body: JSON.stringify({ ids: ids, date: date })
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -1353,7 +1366,8 @@
                     
                     const checkedIds = Array.from(document.querySelectorAll(`${itemSelector}:checked`)).map(cb => cb.value);
                     if (checkedIds.length > 0) {
-                        compileItems(checkedIds, isFB ? 'fb' : 'soa');
+                        const date = document.getElementById('reportDate').value;
+                        compileItems(checkedIds, isFB ? 'fb' : 'soa', date);
                     }
                 });
             }

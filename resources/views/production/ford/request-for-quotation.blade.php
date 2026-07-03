@@ -45,9 +45,14 @@
                         </div>
 
                         <!-- Items Table -->
-                        <button type="button" class="btn-add-row" onclick="addRow()">
-                            <i class="las la-plus"></i> Add Row
-                        </button>
+                        <div class="d-flex gap-2 mb-3">
+                            <button type="button" class="btn-add-row mb-0" onclick="addRow()">
+                                <i class="las la-plus"></i> Add Row
+                            </button>
+                            <button type="button" class="btn btn-primary" id="addBookItemBtn" style="height: 38px; min-height: 38px; border: none; background: #007bff; color: #fff; font-weight: 600; border-radius: 4px; padding: 0 1rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                <i class="las la-book"></i> Add Item
+                            </button>
+                        </div>
 
                         <table class="form-table" id="itemsTable">
                             <thead>
@@ -69,6 +74,20 @@
                                 </tr>
                             </tbody>
                         </table>
+
+                        <!-- Hidden Book Options for JS -->
+                        <select id="bookSource" class="d-none">
+                            <option value="" disabled selected>Select Book...</option>
+                            @if(isset($books))
+                                @foreach($books as $book)
+                                    <option value="{{ $book->id }}" 
+                                            data-price="{{ $book->price }}" 
+                                            data-name="{{ $book->name }}">
+                                            {{ $book->name }}
+                                    </option>
+                                @endforeach
+                            @endif
+                        </select>
 
                         <!-- Form Actions -->
                         <div class="form-actions">
@@ -596,6 +615,67 @@
                 <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">Remove</button></td>
             `;
             tbody.appendChild(newRow);
+        }
+
+        function addBookItemRow() {
+            rowCounter++;
+            const tbody = document.getElementById('itemsTableBody');
+            const newRow = document.createElement('tr');
+            
+            // Get book options
+            const bookSource = document.getElementById('bookSource');
+            const optionsHtml = bookSource ? bookSource.innerHTML : '<option value="" disabled>No books available</option>';
+            
+            newRow.innerHTML = `
+                <td><input type="number" name="quantity[]" placeholder="Qty" min="0" oninput="calculateRowTotal(this)" value="1"></td>
+                <td>
+                    <select class="form-control selectpicker select-book-item" name="book_id[]" data-live-search="true" onchange="onBookSelected(this)" required style="width: 100%;">
+                        ${optionsHtml}
+                    </select>
+                    <input type="hidden" name="description[]" class="book-description-input">
+                </td>
+                <td><input type="number" name="unit_price[]" placeholder="Unit Price" min="0" step="0.01" oninput="calculateRowTotal(this)"></td>
+                <td><input type="number" name="amount[]" placeholder="Amount" readonly></td>
+                <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">Remove</button></td>
+            `;
+            tbody.appendChild(newRow);
+            
+            // Initialize selectpicker if jQuery and bootstrap-select are available
+            if (typeof jQuery !== 'undefined' && typeof jQuery.fn.selectpicker === 'function') {
+                jQuery(newRow).find('.selectpicker').selectpicker('render');
+            }
+        }
+
+        function onBookSelected(selectEl) {
+            const option = selectEl.options[selectEl.selectedIndex];
+            if (option) {
+                const price = option.getAttribute('data-price') || 0;
+                const name = option.getAttribute('data-name') || '';
+                
+                const row = selectEl.closest('tr');
+                const priceInput = row.querySelector('input[name="unit_price[]"]');
+                const descInput = row.querySelector('.book-description-input');
+                
+                if (priceInput) priceInput.value = price;
+                if (descInput) descInput.value = name;
+                
+                if (priceInput) {
+                    calculateRowTotal(priceInput);
+                }
+            }
+        }
+
+        function setupAddBookBtn() {
+            const btn = document.getElementById('addBookItemBtn');
+            if (btn) {
+                btn.addEventListener('click', addBookItemRow);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupAddBookBtn);
+        } else {
+            setupAddBookBtn();
         }
 
         function removeRow(button) {

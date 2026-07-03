@@ -7,6 +7,25 @@
                         <h4 class="fs-20 mb-0">Sales Invoice Management</h4>
                     </div>
                     <div class="card-body">
+                        <!-- Filters -->
+                        <div class="row mb-4 align-items-end">
+                            <div class="col-md-4 mb-2 mb-md-0">
+                                <label for="siSearchInput" class="form-label fw-bold text-dark"><i class="fas fa-search me-1 text-primary"></i> Search</label>
+                                <input type="text" id="siSearchInput" class="form-control form-control-sm" placeholder="Search by SO #, Customer, Type, Status...">
+                            </div>
+                            <div class="col-md-3 mb-2 mb-md-0">
+                                <label for="siStartDate" class="form-label fw-bold text-dark"><i class="fas fa-calendar-alt me-1 text-primary"></i> Start Date</label>
+                                <input type="date" id="siStartDate" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-3 mb-2 mb-md-0">
+                                <label for="siEndDate" class="form-label fw-bold text-dark"><i class="fas fa-calendar-alt me-1 text-primary"></i> End Date</label>
+                                <input type="date" id="siEndDate" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-2">
+                                <button id="clearFiltersBtn" class="btn btn-light btn-sm w-100" style="border: 1px solid #ddd; height: 36px;"><i class="fas fa-undo me-1"></i> Reset</button>
+                            </div>
+                        </div>
+
                         <div class="table-responsive">
                             <table class="table table-responsive-md">
                                 <thead>
@@ -22,7 +41,7 @@
                                 </thead>
                                 <tbody>
                                     @forelse($orders as $order)
-                                    <tr>
+                                    <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}">
                                         <td><strong>#{{ $order->so_number }}</strong></td>
                                         <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                         <td><span class="badge badge-outline-dark">{{ ucfirst($order->type) }}</span></td>
@@ -104,7 +123,7 @@
                                 </thead>
                                 <tbody>
                                     @foreach($areaConsignmentSIs as $si)
-                                    <tr>
+                                    <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}">
                                         <td><strong>#{{ $si->si_number }}</strong></td>
                                         <td>#{{ $si->so_number }}</td>
                                         <td>{{ $si->customer_name ?? ($si->customer->customer_name ?? 'N/A') }}</td>
@@ -143,4 +162,78 @@
             </div>
         </div>
     </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('siSearchInput');
+        const startDateInput = document.getElementById('siStartDate');
+        const endDateInput = document.getElementById('siEndDate');
+        const clearBtn = document.getElementById('clearFiltersBtn');
+
+        function filterRows() {
+            const query = searchInput.value.toLowerCase().trim();
+
+            document.querySelectorAll('.si-row').forEach(row => {
+                let matchesSearch = true;
+                let matchesDate = true;
+
+                // Search query match
+                if (query) {
+                    const text = row.innerText.toLowerCase();
+                    matchesSearch = text.includes(query);
+                }
+
+                // Date range match (string-based YYYY-MM-DD comparison is timezone independent)
+                const rowDateStr = row.getAttribute('data-date');
+                if (rowDateStr) {
+                    if (startDateInput.value && rowDateStr < startDateInput.value) {
+                        matchesDate = false;
+                    }
+                    if (endDateInput.value && rowDateStr > endDateInput.value) {
+                        matchesDate = false;
+                    }
+                }
+
+                if (matchesSearch && matchesDate) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Check if there are no visible rows in either table, show placeholder if empty
+            const tables = document.querySelectorAll('table');
+            tables.forEach(table => {
+                const tbody = table.querySelector('tbody');
+                if (!tbody) return;
+                const rows = tbody.querySelectorAll('.si-row');
+                const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none');
+                
+                let noResultRow = tbody.querySelector('.no-results-row');
+                if (visibleRows.length === 0 && rows.length > 0) {
+                    if (!noResultRow) {
+                        noResultRow = document.createElement('tr');
+                        noResultRow.className = 'no-results-row';
+                        const colCount = table.querySelectorAll('thead th').length;
+                        noResultRow.innerHTML = `<td colspan="${colCount}" class="text-center py-4 text-muted">No matching results found.</td>`;
+                        tbody.appendChild(noResultRow);
+                    }
+                } else if (noResultRow) {
+                    noResultRow.remove();
+                }
+            });
+        }
+
+        searchInput.addEventListener('input', filterRows);
+        startDateInput.addEventListener('change', filterRows);
+        endDateInput.addEventListener('change', filterRows);
+
+        clearBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            startDateInput.value = '';
+            endDateInput.value = '';
+            filterRows();
+        });
+    });
+    </script>
 </x-app-layout>

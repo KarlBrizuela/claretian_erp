@@ -473,6 +473,13 @@
                                     </div>
                                 </div>
                                 <div class="form-row-custom">
+                                    <label>DOLLAR PRICE</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="text" class="form-control" id="formDollarPrice" readonly placeholder="Auto-calculated">
+                                    </div>
+                                </div>
+                                <div class="form-row-custom">
                                     <label>POS STATUS</label>
                                     <div class="form-check custom-checkbox check-xs mb-0">
                                         <input type="checkbox" class="form-check-input" name="is_active" id="bookActive" value="1" checked>
@@ -688,6 +695,37 @@
         const bookForm = document.getElementById('addBookForm');
         let isFixingErrors = false;
 
+        // Auto-calculate Dollar SRP based on Peso Selling Price
+        function calculateDollarPrice() {
+            const pesoInput = bookForm.querySelector('input[name="price"]');
+            const dollarInput = document.getElementById('formDollarPrice');
+            if (pesoInput && dollarInput) {
+                const pesoValue = parseFloat(pesoInput.value) || 0;
+                if (pesoValue <= 0) {
+                    dollarInput.value = '';
+                    return;
+                }
+                // Formula: Peso Price / 40 + 10%
+                const dollarBase = pesoValue / 40;
+                const dollarSRP = dollarBase * 1.10;
+                
+                // Round up to nearest .25 increment (.00, .25, .50, .75)
+                const roundedDollar = Math.ceil(dollarSRP * 4) / 4;
+                
+                dollarInput.value = roundedDollar.toFixed(2);
+            }
+        }
+
+        const pesoInputEl = bookForm.querySelector('input[name="price"]');
+        if (pesoInputEl) {
+            pesoInputEl.addEventListener('input', calculateDollarPrice);
+        }
+
+        bookForm.addEventListener('reset', function() {
+            const dollarInput = document.getElementById('formDollarPrice');
+            if (dollarInput) dollarInput.value = '';
+        });
+
         function previewBookImage(input) {
             const preview = document.getElementById('book_image_preview');
             if (input.files && input.files[0]) {
@@ -735,6 +773,7 @@
             bookForm.querySelector('[name="weight"]').value = data.weight || '';
             bookForm.querySelector('[name="cost"]').value = data.cost;
             bookForm.querySelector('[name="price"]').value = data.price;
+            calculateDollarPrice();
             bookForm.querySelector('[name="cogs_account"]').value = data.cogs_account || '';
             bookForm.querySelector('[name="reorder_point"]').value = data.reorder_point;
             bookForm.querySelector('[name="max_stock"]').value = data.max_stock;

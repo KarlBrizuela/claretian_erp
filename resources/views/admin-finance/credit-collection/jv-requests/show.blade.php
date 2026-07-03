@@ -19,6 +19,7 @@
                 @if($request->status == 'pending_accounting' && (strpos($pos, 'Manager') !== false || $pos == 'Super Admin'))
                 <form action="{{ route('admin-finance.credit-collection.jv-requests.approve', $request->id) }}" method="POST">
                     @csrf
+                    @method('PUT')
                     <button type="submit" class="btn btn-primary btn-sm shadow">
                         <i class="las la-check-circle me-1"></i> Approve Compilation (Accounting)
                     </button>
@@ -36,6 +37,7 @@
                 @if($request->status == 'pending_manager_approval' && (strpos($pos, 'Manager') !== false || $pos == 'Super Admin'))
                 <form action="{{ route('admin-finance.credit-collection.jv-requests.manager-approve', $request->id) }}" method="POST" class="d-inline">
                     @csrf
+                    @method('PUT')
                     <button type="submit" class="btn btn-primary btn-sm shadow">
                         <i class="las la-signature me-1"></i> Final Manager Approval
                     </button>

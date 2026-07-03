@@ -66,10 +66,11 @@ class ProductionController extends Controller
             : collect();
 
         $pendingTransfers = $isAuthorized
-            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'createdBy')
-                ->where('status', 'pending')
-                ->where(function ($query) {
-                    $query->where('approval_division', 'Production')
+            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'createdBy', 'logisticsAssignedTo')
+                ->whereIn('status', ['pending', 'logistics_assignment', 'logistics_assigned'])
+                ->where(function ($query) use ($user) {
+                    $query->where('created_by', $user->id)
+                        ->orWhere('approval_division', 'Production')
                         ->orWhere(function ($legacyQuery) {
                             $legacyQuery->whereNull('approval_division')
                                 ->whereHas('createdBy', function ($creatorQuery) {
@@ -269,7 +270,12 @@ class ProductionController extends Controller
             'pendingMaterials' => $pendingMaterials,
             'myApprovals' => collect($myApprovals)->sortByDesc('submitted_date'),
             'mySubmissions' => $mySubmissions->sortByDesc('submitted_date'),
-            'myApprovedRequests' => $myApprovedRequests->sortByDesc('submitted_date')
+            'myApprovedRequests' => $myApprovedRequests->sortByDesc('submitted_date'),
+            'logisticsUsers' => \App\Models\User::where('position', 'like', '%Logistic%')
+                ->where('status', true)
+                ->orderBy('first_name')
+                ->get(),
+            'isLogisticsAssigner' => ($user && ($user->isSuperAdmin() || (str_contains(strtolower($user->position ?? ''), 'logistic') && (str_contains(strtolower($user->position ?? ''), 'manager') || str_contains(strtolower($user->position ?? ''), 'supervisor') || str_contains(strtolower($user->position ?? ''), 'senior')))))
         ]);
     }
 

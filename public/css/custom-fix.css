@@ -399,6 +399,24 @@
 	margin-top: 0.15rem;
 }
 
+/* Keep Confirm Add Book button text always black (no hover color change) */
+#confirmAddBookBtn,
+#confirmAddBookBtn:hover,
+#confirmAddBookBtn:focus {
+	color: #000 !important;
+	-webkit-text-fill-color: #000 !important;
+	text-shadow: none !important;
+	opacity: 1 !important;
+	box-shadow: none !important;
+}
+
+/* Ensure background stays the intended green on hover/focus */
+#confirmAddBookBtn:hover,
+#confirmAddBookBtn:focus {
+	background-color: #68CF29 !important;
+	border-color: #68CF29 !important;
+}
+
 /* Active group styling */
 .modern-nav-group.active .modern-nav-item {
 	background: rgba(255, 0, 0, 0.1) !important;

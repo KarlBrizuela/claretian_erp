@@ -686,8 +686,9 @@ class MarketingController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         
-        // All SO types now proceed to Accounting approval after Marketing Manager approval
-        $nextStatus = 'pending_acct_approval';
+        // E-com direct orders go directly to pending_si_prep (Sales Invoice Prep)
+        // All other SO types proceed to Accounting approval after Marketing Manager approval
+        $nextStatus = $order->type === 'ecom_direct' ? 'pending_si_prep' : 'pending_acct_approval';
         
         $order->update([
             'status' => $nextStatus,
@@ -695,7 +696,14 @@ class MarketingController extends Controller
             'mkt_approved_at' => now()
         ]);
 
-        return redirect()->route('marketing.approval-queue')->with('success', 'Sales Order #' . $order->so_number . ' has been approved by Marketing. Awaiting Accounting approval.');
+        $successMsg = 'Sales Order #' . $order->so_number . ' has been approved by Marketing.';
+        if ($order->type === 'ecom_direct') {
+            $successMsg .= ' It now appears in the Sales Invoice list for preparation.';
+        } else {
+            $successMsg .= ' Awaiting Accounting approval.';
+        }
+
+        return redirect()->route('marketing.approval-queue')->with('success', $successMsg);
     }
 
     public function proceedToFinalSalesOrder(Request $request, $id)

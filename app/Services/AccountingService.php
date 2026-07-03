@@ -445,25 +445,38 @@ class AccountingService
 
             // Debit: Accounts Receivable (total)
             $arAccount = ChartOfAccount::where('code', '1200')->first();
+            if (!$arAccount) {
+                $arAccount = ChartOfAccount::where('name', 'like', '%Receivable%')->first()
+                    ?? ChartOfAccount::where('type', 'Asset')->first();
+            }
+
             $salesAccount = ChartOfAccount::where('code', '4000')->first();
+            if (!$salesAccount) {
+                $salesAccount = ChartOfAccount::where('name', 'like', '%Sales%')->first()
+                    ?? ChartOfAccount::where('type', 'Income')->first();
+            }
 
-            JournalEntryItem::create([
-                'journal_entry_id' => $entry->id,
-                'chart_of_account_id' => $arAccount->id,
-                'debit' => $total,
-                'credit' => 0,
-                'memo' => "JV Request #" . $jv->jv_number,
-            ]);
-
-            // Credit: create per-item credit lines (defaulting to Sales account)
-            foreach ($jv->items as $item) {
+            if ($arAccount) {
                 JournalEntryItem::create([
                     'journal_entry_id' => $entry->id,
-                    'chart_of_account_id' => $salesAccount->id,
-                    'debit' => 0,
-                    'credit' => $item->amount,
-                    'memo' => $item->remarks ?? ($item->reference_no ?? 'JV Item'),
+                    'chart_of_account_id' => $arAccount->id,
+                    'debit' => $total,
+                    'credit' => 0,
+                    'memo' => "JV Request #" . $jv->jv_number,
                 ]);
+            }
+
+            // Credit: create per-item credit lines (defaulting to Sales account)
+            if ($salesAccount) {
+                foreach ($jv->items as $item) {
+                    JournalEntryItem::create([
+                        'journal_entry_id' => $entry->id,
+                        'chart_of_account_id' => $salesAccount->id,
+                        'debit' => 0,
+                        'credit' => $item->amount,
+                        'memo' => $item->remarks ?? ($item->reference_no ?? 'JV Item'),
+                    ]);
+                }
             }
 
             return $entry;

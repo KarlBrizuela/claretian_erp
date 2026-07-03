@@ -26,6 +26,11 @@
                                     <label>Customer:</label>
                                     <select name="customer" id="formCustomer" class="form-control" required onchange="loadCustomerDetails(this.value)">
                                         <option value="">Select Customer</option>
+                                        @foreach($customers as $customer)
+                                            <option value="{{ $customer->customer_name }}" data-address="{{ $customer->billing_address ?? $customer->shipping_address ?? '' }}">
+                                                {{ $customer->customer_name }}
+                                            </option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -560,33 +565,71 @@
     <script>
         let rowCounter = 1;
 
-        // Mock customer data for demonstration
-        const customerData = {
-            '1': { name: 'Customer A', address: '123 Main St, City, Country' },
-            '2': { name: 'Customer B', address: '456 Oak Ave, Town, Country' },
-            '3': { name: 'Customer C', address: '789 Pine Rd, Village, Country' }
-        };
 
-        // Populate customer dropdown on load
-        document.addEventListener('DOMContentLoaded', function() {
+
+        // DOMContentLoaded/Immediate initialization
+        function initializeSalesOrder() {
+            // Set default date to today
+            const dateObj = new Date();
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const formDate = document.getElementById('formDate');
+            if (formDate && !formDate.value) {
+                formDate.value = `${year}-${month}-${day}`;
+            }
+
+            // Generate SO number with FORD prefix
+            const formSONumber = document.getElementById('formSONumber');
+            if (formSONumber && !formSONumber.value) {
+                const randomNum = Math.floor(1000 + Math.random() * 9000);
+                formSONumber.value = `FORD-SO-${year}${month}${day}-${randomNum}`;
+            }
+
+            // Auto-fill address on selection
             const customerSelect = document.getElementById('formCustomer');
-            if (customerSelect) {
-                for (const [id, data] of Object.entries(customerData)) {
-                    const option = document.createElement('option');
-                    option.value = data.name;
-                    option.textContent = data.name;
-                    option.dataset.address = data.address;
-                    customerSelect.appendChild(option);
+            const addressTextarea = document.getElementById('formAddress');
+            
+            function updateAddress() {
+                if (customerSelect && addressTextarea) {
+                    const selectedOption = customerSelect.options[customerSelect.selectedIndex];
+                    const address = selectedOption ? selectedOption.getAttribute('data-address') : '';
+                    addressTextarea.value = address || '';
                 }
             }
-        });
+
+            if (customerSelect) {
+                customerSelect.addEventListener('change', updateAddress);
+                // Trigger once in case a customer is already selected
+                updateAddress();
+            }
+
+            // jQuery fallback listener for bootstrap-select custom dropdown changes
+            setTimeout(function() {
+                if (typeof jQuery !== 'undefined') {
+                    jQuery('#formCustomer').on('change', function() {
+                        const selectedOption = jQuery(this).find('option:selected');
+                        const address = selectedOption.attr('data-address') || '';
+                        jQuery('#formAddress').val(address);
+                    });
+                }
+            }, 500);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeSalesOrder);
+        } else {
+            initializeSalesOrder();
+        }
 
         // Load customer details when selected
         function loadCustomerDetails(customerName) {
             const select = document.getElementById('formCustomer');
-            const selectedOption = select.options[select.selectedIndex];
-            const address = selectedOption ? selectedOption.dataset.address : '';
-            document.getElementById('formAddress').value = address || '';
+            if (select && select.selectedIndex >= 0) {
+                const selectedOption = select.options[select.selectedIndex];
+                const address = selectedOption ? selectedOption.getAttribute('data-address') : '';
+                document.getElementById('formAddress').value = address || '';
+            }
         }
 
         function formatDate(dateString) {
@@ -693,12 +736,10 @@
             document.getElementById('reportRefNumber').textContent = document.getElementById('formRefNumber').value || '_________________';
 
             // Generate table
-            const tbody = document.getElementById('itemsTableBody');
             const reportTbody = document.getElementById('reportItemsTableBody');
             reportTbody.innerHTML = '';
             
             let totalAmount = 0;
-            const rows = tbody.querySelectorAll('tr');
             
             rows.forEach(row => {
                 const qty = row.querySelector('input[name="quantity[]"]').value || '';

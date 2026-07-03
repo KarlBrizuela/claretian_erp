@@ -299,16 +299,17 @@
                         <div class="table-responsive">
                             <table id="myApprovalsTable" class="display table table-bordered" style="width: 100%">
                                 <thead>
-                                    <tr>
-                                        <th>Type</th>
-                                        <th>Ref #</th>
-                                        <th>User</th>
-                                        <th>Date</th>
-                                        <th>Amount</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Ref #</th>
+                                    <th>User</th>
+                                    <th>Assigned Logistics</th>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
                                 <tbody>
                                     @foreach($myApprovals as $approval)
                                     <tr>
@@ -585,16 +586,57 @@
                                     <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
                                     <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                     <td>{{ $transfer->createdBy->name ?? 'N/A' }}</td>
+                                    <td>{{ $transfer->logisticsAssignedTo->name ?? 'Not assigned' }}</td>
                                     <td>{{ $transfer->created_at->format('Y-m-d h:i A') }}</td>
                                     <td>{{ $transfer->quantity }} units</td>
-                                    <td><span class="status-badge status-pending">Pending Approval</span></td>
                                     <td>
-                                        <button type="button" class="btn btn-success btn-sm" onclick="approveTransfer({{ $transfer->id }})">
-                                            <i class="las la-check"></i> Approve
-                                        </button>
-                                        <button type="button" class="btn btn-danger btn-sm" onclick="rejectTransfer({{ $transfer->id }})">
-                                            <i class="las la-times"></i> Reject
-                                        </button>
+                                        @if($transfer->status === 'pending')
+                                            <span class="status-badge status-pending">Pending Approval</span>
+                                        @elseif($transfer->status === 'accounting_review')
+                                            <span class="status-badge status-info">Accounting Review</span>
+                                        @elseif($transfer->status === 'logistics_assignment')
+                                            <span class="status-badge status-info">For Logistics Assignment</span>
+                                        @elseif($transfer->status === 'logistics_assigned')
+                                            <span class="status-badge status-success">Assigned to Logistics</span>
+                                        @elseif($transfer->status === 'completed')
+                                            <span class="status-badge status-success">Completed</span>
+                                        @else
+                                            <span class="status-badge status-danger">{{ ucfirst($transfer->status) }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($transfer->status === 'pending' && $transfer->canBeApprovedBy(auth()->user()))
+                                            <button type="button" class="btn btn-success btn-sm" onclick="approveTransfer({{ $transfer->id }})">
+                                                <i class="las la-check"></i> Approve
+                                            </button>
+                                            <button type="button" class="btn btn-danger btn-sm" onclick="rejectTransfer({{ $transfer->id }})">
+                                                <i class="las la-times"></i> Reject
+                                            </button>
+                                        @elseif($transfer->status === 'accounting_review' && ($isAccountingReviewer ?? false))
+                                            <button class="btn btn-info btn-sm" onclick="accountingApproveTransfer({{ $transfer->id }})">
+                                                <i class="las la-file-invoice"></i> Accounting Approve
+                                            </button>
+                                        @elseif($transfer->status === 'logistics_assigned' && $transfer->canBeCompletedBy(auth()->user()))
+                                            <button class="btn btn-success btn-sm" onclick="completeLogisticsTransfer({{ $transfer->id }})">
+                                                <i class="las la-check-double"></i> Mark Completed
+                                            </button>
+                                        @elseif(in_array($transfer->status, ['logistics_assignment', 'logistics_assigned']) && ($isLogisticsAssigner ?? false))
+                                            <div class="d-flex gap-1">
+                                                <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
+                                                    <option value="">Select staff</option>
+                                                    @foreach($logisticsUsers ?? [] as $logisticsUser)
+                                                        <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
+                                                            {{ $logisticsUser->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                <button class="btn btn-primary btn-sm" onclick="assignLogisticsTransfer({{ $transfer->id }})">
+                                                    Assign
+                                                </button>
+                                            </div>
+                                        @else
+                                            <span class="text-muted small">No action available</span>
+                                        @endif
                                     </td>
                                 </tr>
                                 @endforeach
@@ -967,6 +1009,64 @@
                 alert(data.message || 'Unable to reject stock transfer.');
             })
             .catch(() => alert('Unable to reject stock transfer.'));
+        }
+        
+        function assignLogisticsTransfer(transferId) {
+            const select = document.getElementById(`assignLogistics${transferId}`);
+            const logisticsUserId = select ? select.value : '';
+
+            if (!logisticsUserId) {
+                alert('Please select a logistics staff.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('logistics_assigned_to', logisticsUserId);
+
+            fetch(`/stock-transfers/${transferId}/assign-logistics`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message || 'Transfer assigned!');
+                    location.reload();
+                    return;
+                }
+
+                alert(data.message || 'Error assigning transfer.');
+            })
+            .catch(() => alert('Error assigning transfer.'));
+        }
+
+        function completeLogisticsTransfer(transferId) {
+            if (!confirm('Mark this stock transfer as completed? This will move the stock now.')) {
+                return;
+            }
+
+            fetch(`/stock-transfers/${transferId}/complete`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message || 'Transfer completed!');
+                    location.reload();
+                    return;
+                }
+
+                alert(data.message || 'Error completing transfer.');
+            })
+            .catch(() => alert('Error completing transfer.'));
         }
     </script>
     @endpush

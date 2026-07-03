@@ -159,9 +159,11 @@ class LogisticController extends Controller
             
             $order = \App\Models\SalesOrder::findOrFail($orderId);
             
-            // Move to "pending_si_prep" status for Sales Invoice Preparation
+            // For ecom_direct, move to "ready_for_delivery" (packing management).
+            // For other orders, move to "pending_si_prep" status for Sales Invoice Preparation.
+            $newStatus = $order->type === 'ecom_direct' ? 'ready_for_delivery' : 'pending_si_prep';
             $order->update([
-                'status' => 'pending_si_prep',
+                'status' => $newStatus,
                 'gathered_at' => now(),
                 'gathered_by' => auth()->id()
             ]);
@@ -185,16 +187,18 @@ class LogisticController extends Controller
                 'details' => json_encode(['gathered_at' => now()])
             ]);
 
+            $targetQueue = $order->type === 'ecom_direct' ? 'Packing Management' : 'Sales Invoice';
+
             // If AJAX request, return JSON
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Order marked as gathered and moved to Sales Invoice Preparation'
+                    'message' => 'Order marked as gathered and moved to ' . $targetQueue
                 ]);
             }
 
             // Otherwise redirect
-            return redirect()->back()->with('success', 'Order #' . $order->so_number . ' marked as gathered and moved to Sales Invoice.');
+            return redirect()->back()->with('success', 'Order #' . $order->so_number . ' marked as gathered and moved to ' . $targetQueue . '.');
 
         } catch (\Exception $e) {
             if ($request->expectsJson()) {
@@ -858,9 +862,9 @@ class LogisticController extends Controller
                 }
             }
 
-            // Update order status - ecom_direct goes to ready_for_delivery for packing
-            // Other types go to picking
-            $newStatus = $order->type === 'ecom_direct' ? 'ready_for_delivery' : 'picking';
+            // Update order status - keep it as picking for all types
+            // E-com direct invoices will move to ready_for_delivery when marked as gathered
+            $newStatus = 'picking';
             $order->update([
                 'status' => $newStatus,
                 'picked_at' => now(),

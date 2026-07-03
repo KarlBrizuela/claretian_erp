@@ -316,7 +316,7 @@
                                         <td><span class="document-type-badge type-sales-order">Sales Order</span></td>
                                         <td><strong>{{ $order->so_number }}</strong></td>
                                         <td>{{ $order->preparedBy->name ?? 'N/A' }}</td>
-                                        <td>{{ $order->created_at->format('Y-m-d h:i A') }}</td>
+                                        <td>{{ optional($order->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td>
                                             @if($order->attachment)
@@ -337,7 +337,7 @@
                                         <td><span class="document-type-badge badge-info" style="background-color: #e3f2fd; color: #0d47a1;">Cash Advance</span></td>
                                         <td><strong>CA-{{ str_pad($advance->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                         <td>{{ $advance->user->name ?? $advance->employee_name }}</td>
-                                        <td>{{ $advance->created_at->format('Y-m-d h:i A') }}</td>
+                                        <td>{{ optional($advance->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>₱{{ number_format($advance->amount, 2) }}</td>
                                         <td><span class="text-muted">None</span></td>
                                         <td><span class="status-badge status-pending">Pending Manager</span></td>
@@ -350,7 +350,7 @@
                                                     data-name="{{ $advance->user->name ?? $advance->employee_name }}"
                                                     data-amount="₱{{ number_format($advance->amount, 2) }}"
                                                     data-purpose="{{ $advance->purpose }}"
-                                                    data-date-needed="{{ $advance->date_needed->format('M d, Y') }}">
+                                                    data-date-needed="{{ optional($advance->date_needed)->format('M d, Y') }}">
                                                 <i class="las la-eye"></i> Review
                                             </button>
                                         </td>
@@ -362,7 +362,7 @@
                                         <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
                                         <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                         <td>{{ $transfer->fromSite->name ?? 'N/A' }}</td>
-                                        <td>{{ $transfer->created_at->format('Y-m-d h:i A') }}</td>
+                                        <td>{{ optional($transfer->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>{{ $transfer->quantity }} units</td>
                                         <td><span class="text-muted">None</span></td>
                                         <td><span class="status-badge status-pending">Pending Approval</span></td>
@@ -387,7 +387,7 @@
                                         <td><span class="document-type-badge type-job-order">CCTV</span></td>
                                         <td><strong>CCTV-{{ str_pad($req->cctv_req_id, 4, '0', STR_PAD_LEFT) }}</strong></td>
                                         <td>{{ $req->user->name ?? $req->requested_by }}</td>
-                                        <td>{{ $req->created_at->format('Y-m-d h:i A') }}</td>
+                                        <td>{{ optional($req->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>N/A</td>
                                         <td>
                                             @if($req->attachment)
@@ -442,7 +442,17 @@
                                             <span class="document-type-badge {{ $typeClass }}">{{ $submission->type }}</span>
                                         </td>
                                         <td><strong>{{ $submission->reference_no }}</strong></td>
-                                        <td>{{ $submission->submitted_date->format('Y-m-d h:i A') }}</td>
+                                        <td>
+                                            @php
+                                                if (isset($submission->submitted_date) && $submission->submitted_date instanceof \Carbon\Carbon) {
+                                                    echo $submission->submitted_date->format('Y-m-d h:i A');
+                                                } elseif (is_string($submission->submitted_date) && $submission->submitted_date) {
+                                                    echo $submission->submitted_date;
+                                                } else {
+                                                    echo '';
+                                                }
+                                            @endphp
+                                        </td>
                                         <td>₱{{ number_format($submission->amount, 2) }}</td>
                                         <td>
                                             @php
@@ -465,7 +475,7 @@
                                                 data-name="{{ auth()->user()->name }}"
                                                 data-amount="₱{{ number_format($submission->amount, 2) }}"
                                                 data-purpose="{{ $submission->original->purpose }}"
-                                                data-date-needed="{{ $submission->original->date_needed->format('M d, Y') }}"
+                                                data-date-needed="{{ optional($submission->original->date_needed)->format('M d, Y') }}"
                                                 data-original="{{ json_encode($submission->original) }}"
                                                 data-view-only="true">
                                                 <i class="las la-eye"></i> View
@@ -500,7 +510,17 @@
                                         <td><span class="document-type-badge badge-info" style="background-color: #e3f2fd; color: #0d47a1;">{{ $approved->type }}</span></td>
                                         <td><strong>{{ $approved->reference_no }}</strong></td>
                                         <td>{{ $approved->submitted_by }}</td>
-                                        <td>{{ $approved->submitted_date->format('Y-m-d h:i A') }}</td>
+                                        <td>
+                                            @php
+                                                if (isset($approved->submitted_date) && $approved->submitted_date instanceof \Carbon\Carbon) {
+                                                    echo $approved->submitted_date->format('Y-m-d h:i A');
+                                                } elseif (is_string($approved->submitted_date) && $approved->submitted_date) {
+                                                    echo $approved->submitted_date;
+                                                } else {
+                                                    echo '';
+                                                }
+                                            @endphp
+                                        </td>
                                         <td>
                                             <div class="d-flex flex-column">
                                                 <span class="fw-bold text-dark">₱{{ number_format($approved->amount, 2) }}</span>
@@ -525,7 +545,7 @@
                                                 data-name="{{ $approved->submitted_by }}" 
                                                 data-amount="₱{{ number_format($approved->amount, 2) }}" 
                                                 data-purpose="{{ $approved->original->purpose }}" 
-                                                data-date-needed="{{ $approved->original->date_needed->format('M d, Y') }}" 
+                                                data-date-needed="{{ optional($approved->original->date_needed)->format('M d, Y') }}"
                                                 data-status="{{ $approved->status }}" 
                                                 data-reference="{{ $approved->reference_no }}">
                                                 <i class="las la-eye"></i> View

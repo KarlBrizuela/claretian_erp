@@ -753,7 +753,10 @@ class AdminFinanceController extends Controller
 
     // 1. Sales Orders awaiting current user's approval (Finance Manager)
     $salesOrdersForMe = \App\Models\SalesOrder::with('customer', 'preparedBy')
-        ->whereIn('status', ['pending_acct_approval', 'pending_si_approval', 'pending_dr_approval'])
+        ->where(function($query) {
+            $query->whereIn('status', ['pending_acct_approval', 'pending_si_approval', 'pending_dr_approval'])
+                  ->where('type', '!=', 'ecom_direct');
+        })
         ->orWhere(function($q) {
             $q->where('type', 'complimentary')
               ->where('status', 'picking')
@@ -1244,8 +1247,52 @@ public function checkVoucher()
   public function storeSalesInvoice(Request $request, $id)
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
+    $isEcomDirect = $order->type === 'ecom_direct';
 
-        $order->update([
+    if ($isEcomDirect) {
+      $order->update([
+        'status' => 'picking',
+        'si_prepared_by' => auth()->id(),
+        'si_prepared_at' => now(),
+        'signed_by_af_manager' => auth()->id(),
+        'signed_at' => now(),
+        'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared and auto-signed by ' . auth()->user()->name
+      ]);
+
+      // --- ACCOUNTING INTEGRATION ---
+      $this->accounting->postSalesOrderEntry($order);
+
+      // Automatically create a pick list for E-Com Direct Invoice
+      try {
+        $order->load('items');
+        if ($order->items && $order->items->count() > 0) {
+          $pickList = \App\Models\PickList::create([
+            'sales_order_id' => $order->id,
+            'pick_list_number' => 'PL-' . $order->so_number . '-' . date('YmdHis'),
+            'status' => 'in_progress',
+            'prepared_by' => auth()->id(),
+          ]);
+
+          foreach ($order->items as $item) {
+            \App\Models\PickListItem::create([
+              'pick_list_id' => $pickList->id,
+              'sales_order_item_id' => $item->id,
+              'requested_qty' => $item->quantity,
+              'picked_qty' => 0,
+              'status' => 'pending'
+            ]);
+          }
+          \Log::info('Automatically created pick list for E-com direct invoice on SI store: ' . $pickList->pick_list_number);
+        }
+      } catch (\Exception $e) {
+        \Log::error('Failed to automatically create pick list for E-com direct invoice on SI store: ' . $e->getMessage());
+      }
+
+      return redirect()->route('admin-finance.accounting.sales-invoice')->with('success', 'Sales Invoice for #' . $order->so_number . ' has been prepared and finalized. Routed to pick list.');
+    }
+
+    // Normal flow
+    $order->update([
       'status' => 'pending_si_approval',
       'si_prepared_by' => auth()->id(),
       'si_prepared_at' => now(),
@@ -1269,8 +1316,11 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
+    $isEcomDirect = $order->type === 'ecom_direct';
+    $newStatus = $isEcomDirect ? 'picking' : 'ready_for_delivery';
+
     $order->update([
-      'status' => 'ready_for_delivery',
+      'status' => $newStatus,
       'signed_by_af_manager' => auth()->id(),
       'signed_at' => now()
     ]);
@@ -1278,7 +1328,39 @@ public function checkVoucher()
     // --- ACCOUNTING INTEGRATION ---
     $this->accounting->postSalesOrderEntry($order);
 
-    return redirect()->back()->with('success', 'Sales Invoice for #' . $order->so_number . ' has been signed by Admin & Finance Manager.');
+    if ($isEcomDirect) {
+      // Automatically create a pick list for E-Com Direct Invoice after signing SI
+      try {
+        $order->load('items');
+        if ($order->items && $order->items->count() > 0) {
+          $pickList = \App\Models\PickList::create([
+            'sales_order_id' => $order->id,
+            'pick_list_number' => 'PL-' . $order->so_number . '-' . date('YmdHis'),
+            'status' => 'in_progress',
+            'prepared_by' => auth()->id(),
+          ]);
+
+          foreach ($order->items as $item) {
+            \App\Models\PickListItem::create([
+              'pick_list_id' => $pickList->id,
+              'sales_order_item_id' => $item->id,
+              'requested_qty' => $item->quantity,
+              'picked_qty' => 0,
+              'status' => 'pending'
+            ]);
+          }
+          \Log::info('Automatically created pick list for E-com direct invoice: ' . $pickList->pick_list_number);
+        }
+      } catch (\Exception $e) {
+        \Log::error('Failed to automatically create pick list for E-com direct invoice: ' . $e->getMessage());
+      }
+    }
+
+    $successMsg = 'Sales Invoice for #' . $order->so_number . ' has been signed by Admin & Finance Manager.';
+    if ($isEcomDirect) {
+      $successMsg .= ' Routed to pick list.';
+    }
+    return redirect()->back()->with('success', $successMsg);
   }
 
   public function printSalesInvoice($id)
@@ -1548,6 +1630,7 @@ public function checkVoucher()
   public function billing()
   {
       $unpaidOrders = \App\Models\SalesOrder::with('customer')
+          ->whereNull('statement_of_account_id')
           ->where('payment_status', 'unpaid')
           ->whereIn('status', ['completed', 'ready_for_delivery', 'verified'])
           ->latest()
@@ -1702,14 +1785,23 @@ public function checkVoucher()
   public function compileStatements(Request $request)
   {
       $ids = $request->input('ids');
-      \App\Models\StatementOfAccount::whereIn('id', $ids)->update(['status' => 'compiled']);
+      $date = $request->input('date') ? \Carbon\Carbon::parse($request->input('date'))->startOfDay() : now();
+      \App\Models\StatementOfAccount::whereIn('id', $ids)->update([
+          'status' => 'compiled',
+          'created_at' => $date
+      ]);
       return response()->json(['success' => true]);
   }
 
   public function compileFreightBills(Request $request)
   {
       $ids = $request->input('ids');
-      \App\Models\FreightBill::whereIn('id', $ids)->update(['status' => 'compiled']);
+      $date = $request->input('date') ? \Carbon\Carbon::parse($request->input('date'))->startOfDay() : now();
+      \App\Models\FreightBill::whereIn('id', $ids)->update([
+          'status' => 'compiled',
+          'bill_date' => $date,
+          'created_at' => $date
+      ]);
       return response()->json(['success' => true]);
   }
 
@@ -1873,6 +1965,10 @@ public function checkVoucher()
   public function approveSalesOrder(Request $request, $id)
   {
     $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
+
+    if ($order->type === 'ecom_direct') {
+      return redirect()->back()->with('error', 'E-com direct invoices do not require accounting approval.');
+    }
     
     \Log::info('Processing approval for SO #' . $order->so_number . ' with ' . $order->items->count() . ' items');
     
@@ -2313,26 +2409,39 @@ public function checkVoucher()
           'manager_approved_at' => now(),
       ]);
 
-      $entry = \App\Models\JournalEntry::create([
-          'entry_no' => 'JV-' . $jvRequest->jv_number,
-          'entry_type' => 'JV',
-          'date' => $jvRequest->date,
-          'reference' => 'JV #' . $jvRequest->jv_number,
-          'memo' => $jvRequest->reason ?? 'Journal Voucher Request Approval',
-          'currency' => 'PHP',
-          'exchange_rate' => 1.0,
-          'created_by' => auth()->id(),
-          'status' => 'posted'
-      ]);
+      $entryNo = 'JV-' . $jvRequest->jv_number;
+      $entry = \App\Models\JournalEntry::where('entry_no', $entryNo)->first();
 
-      foreach ($jvRequest->items as $item) {
-          \App\Models\JournalEntryItem::create([
-              'journal_entry_id' => $entry->id,
-              'account_id' => 1,
-              'description' => $item->customer_name . ' - ' . $item->reference_no,
-              'debit' => $item->amount,
-              'credit' => 0,
+      if (!$entry) {
+          $entry = \App\Models\JournalEntry::create([
+              'entry_no' => $entryNo,
+              'entry_type' => 'JV',
+              'date' => $jvRequest->date,
+              'reference' => 'JV #' . $jvRequest->jv_number,
+              'memo' => $jvRequest->reason ?? 'Journal Voucher Request Approval',
+              'currency' => 'PHP',
+              'exchange_rate' => 1.0,
+              'created_by' => auth()->id(),
+              'status' => 'posted'
           ]);
+
+          $arAccount = \App\Models\ChartOfAccount::where('code', '1200')->first();
+          if (!$arAccount) {
+              $arAccount = \App\Models\ChartOfAccount::where('name', 'like', '%Receivable%')->first()
+                  ?? \App\Models\ChartOfAccount::where('type', 'Asset')->first();
+          }
+
+          if ($arAccount) {
+              foreach ($jvRequest->items as $item) {
+                  \App\Models\JournalEntryItem::create([
+                      'journal_entry_id' => $entry->id,
+                      'chart_of_account_id' => $arAccount->id,
+                      'memo' => $item->customer_name . ' - ' . $item->reference_no,
+                      'debit' => $item->amount,
+                      'credit' => 0,
+                  ]);
+              }
+          }
       }
 
       return redirect()->route('admin-finance.credit-collection.billing')->with('success', 'JV Request approved and posted to General Journal.');

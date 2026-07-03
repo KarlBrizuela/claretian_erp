@@ -784,20 +784,19 @@
                                 <button type="button" class="btn-close" id="closeAddBookForm"></button>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-6">
+                                <div class="col-md-7">
                                     <label class="form-label font-w600">Select Book *</label>
                                     <select id="bookSelect" class="form-control">
                                         <option value="">-- Select a Book --</option>
                                     </select>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-5">
                                     <label class="form-label font-w600">Quantity *</label>
                                     <input type="number" id="bookQuantity" class="form-control" placeholder="Enter quantity" min="1" disabled>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label font-w600">&nbsp;</label>
-                                    <button type="button" class="btn btn-success form-control" id="confirmAddBookBtn">
-                                        <i class="las la-check me-1"></i>Add
+                                <div class="col-12">
+                                    <button type="button" id="confirmAddBookBtn" class="btn btn-success" style="display: block !important; width: 100% !important; max-width: 100% !important; min-width: 150px !important; padding: 0.75rem 1rem !important; font-size: 0.95rem !important; line-height: 1.2 !important; background-color: #68CF29 !important; border-color: #68CF29 !important; color: #000 !important; -webkit-text-fill-color: #000 !important; text-shadow: none !important; box-shadow: none !important; position: relative !important; z-index: 10000 !important;">
+                                        ADD BOOK
                                     </button>
                                 </div>
                                 <div class="col-12">
