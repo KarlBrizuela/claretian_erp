@@ -15,7 +15,11 @@
                     <div class="document-title">SALES ORDER</div>
                 </div>
 
-                @php $isEdit = isset($order); @endphp
+                @php
+                    $isEdit = isset($order);
+                    $selectedType = old('type', $isEdit ? $order->type : 'paid');
+                    $selectedAreaSalesStaffId = old('area_sales_staff_id', $isEdit ? $order->area_sales_staff_id : null);
+                @endphp
                 <form id="soForm" action="{{ $isEdit ? route('marketing.sales-orders.update', $order->id) : route('marketing.sales-orders.store') }}" method="POST" enctype="multipart/form-data" class="form-section">
                     @csrf
                     @if($isEdit)
@@ -28,16 +32,17 @@
                             <h5>Customer Information</h5>
                             <div class="form-group">
                                 <label>Customer:</label>
-                                <select class="form-control" name="customer_id" id="customerSelect" required>
+                                <select class="form-control selectpicker" data-live-search="true" data-live-search-placeholder="Search customer..." name="customer_id" id="customerSelect" {{ $selectedType === 'area_sales_consignment' ? '' : 'required' }}>
                                     <option value="" selected disabled>Select Customer...</option>
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->customer_id }}" 
                                             data-address="{{ $customer->shipping_address ?? $customer->billing_address ?? 'No address found' }}"
-                                            {{ ($isEdit && $order->customer_id == $customer->customer_id) ? 'selected' : '' }}>
+                                            {{ old('customer_id', $isEdit ? $order->customer_id : null) == $customer->customer_id ? 'selected' : '' }}>
                                             {{ $customer->customer_name }} ({{ $customer->company_name }})
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('customer_id')<small class="text-danger">{{ $message }}</small>@enderror
                             </div>
                             <!-- Added Address Field -->
                             <div class="form-group">
@@ -47,16 +52,29 @@
                             
                             <div class="form-group">
                                 <label>Transaction Type:</label>
-                                <select class="form-control" name="type" required>
-                                    <option value="paid" {{ ($isEdit && $order->type == 'paid') ? 'selected' : '' }}>Paid Transaction</option>
-                                    <option value="charge" {{ ($isEdit && $order->type == 'charge') ? 'selected' : '' }}>Charge Transaction</option>
-                                    <option value="area_consignment" {{ ($isEdit && $order->type == 'area_consignment') ? 'selected' : '' }}>Area Consignment</option>
-                                    <option value="direct_consignment" {{ ($isEdit && $order->type == 'direct_consignment') ? 'selected' : '' }}>Direct Consignment</option>
-                                    <option value="foreign" {{ ($isEdit && $order->type == 'foreign') ? 'selected' : '' }}>Foreign Order</option>
-                                    <option value="complimentary" {{ ($isEdit && $order->type == 'complimentary') ? 'selected' : '' }}>Complimentary</option>
-                                    <option value="cod" {{ ($isEdit && $order->type == 'cod') ? 'selected' : '' }}>Due on Receipt(COD)</option>
-                                    <option value="evaluation" {{ ($isEdit && $order->type == 'evaluation') ? 'selected' : '' }}>Evaluation</option>
+                                <select class="form-control" name="type" id="transactionType" required>
+                                    <option value="paid" {{ $selectedType == 'paid' ? 'selected' : '' }}>Paid Transaction</option>
+                                    <option value="charge" {{ $selectedType == 'charge' ? 'selected' : '' }}>Charge Transaction</option>
+                                    <option value="area_consignment" {{ $selectedType == 'area_consignment' ? 'selected' : '' }}>Area Consignment</option>
+                                    <option value="area_sales_consignment" {{ $selectedType == 'area_sales_consignment' ? 'selected' : '' }}>Area Sales Consignment</option>
+                                    <option value="direct_consignment" {{ $selectedType == 'direct_consignment' ? 'selected' : '' }}>Direct Consignment</option>
+                                    <option value="foreign" {{ $selectedType == 'foreign' ? 'selected' : '' }}>Foreign Order</option>
+                                    <option value="complimentary" {{ $selectedType == 'complimentary' ? 'selected' : '' }}>Complimentary</option>
+                                    <option value="cod" {{ $selectedType == 'cod' ? 'selected' : '' }}>Due on Receipt(COD)</option>
+                                    <option value="evaluation" {{ $selectedType == 'evaluation' ? 'selected' : '' }}>Evaluation</option>
                                 </select>
+                            </div>
+                            <div class="form-group" id="areaSalesStaffGroup" style="{{ $selectedType === 'area_sales_consignment' ? '' : 'display: none;' }}">
+                                <label>Area Sales Staff:</label>
+                                <select class="form-control selectpicker" data-live-search="true" data-live-search-placeholder="Search staff..." name="area_sales_staff_id" id="areaSalesStaffSelect" {{ $selectedType === 'area_sales_consignment' ? 'required' : '' }}>
+                                    <option value="" selected disabled>Select Area Sales Staff...</option>
+                                    @foreach($areaSalesStaff ?? [] as $staff)
+                                        <option value="{{ $staff->id }}" {{ (string) $selectedAreaSalesStaffId === (string) $staff->id ? 'selected' : '' }}>
+                                            {{ $staff->name }}{{ $staff->position ? ' - '.$staff->position : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('area_sales_staff_id')<small class="text-danger">{{ $message }}</small>@enderror
                             </div>
                             <div class="form-group">
                                 <label>Remarks:</label>
@@ -195,11 +213,12 @@
     <select id="productSource" class="d-none">
         <option value="" disabled selected>Select Product...</option>
         @foreach($products as $product)
-            <option value="{{ $product->id }}" 
+                <option value="{{ $product->id }}" 
                     data-price="{{ $product->price }}" 
-                    data-isbn="{{ $product->isbn ?? $product->barcode ?? $product->sku ?? '' }}">
-                    {{ $product->name }}
-            </option>
+                    data-isbn="{{ $product->isbn ?? $product->barcode ?? $product->sku ?? '' }}"
+                    data-stock="{{ $product->stock ?? 0 }}">
+                    {{ $product->name }} (Stock: {{ $product->stock ?? 0 }})
+                </option>
         @endforeach
     </select>
 
@@ -293,7 +312,47 @@
             const productSource = document.getElementById('productSource');
             const grandTotalEl = document.getElementById('grandTotal');
             const customerSelect = document.getElementById('customerSelect');
+            const transactionType = document.getElementById('transactionType');
+            const areaSalesStaffGroup = document.getElementById('areaSalesStaffGroup');
+            const areaSalesStaffSelect = document.getElementById('areaSalesStaffSelect');
+            // Initialize bootstrap-select on customer dropdown (enable live search)
+            if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
+                $(customerSelect).selectpicker();
+                $(areaSalesStaffSelect).selectpicker();
+            }
             const billingAddress = document.getElementById('billingAddress');
+
+            function refreshSelectpicker(select) {
+                if (select && typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
+                    $(select).selectpicker('refresh');
+                }
+            }
+
+            function toggleAreaSalesConsignmentFields() {
+                const isAreaSalesConsignment = transactionType?.value === 'area_sales_consignment';
+
+                if (areaSalesStaffGroup) {
+                    areaSalesStaffGroup.style.display = isAreaSalesConsignment ? '' : 'none';
+                }
+
+                if (areaSalesStaffSelect) {
+                    areaSalesStaffSelect.required = isAreaSalesConsignment;
+                    if (!isAreaSalesConsignment) {
+                        areaSalesStaffSelect.value = '';
+                    }
+                    refreshSelectpicker(areaSalesStaffSelect);
+                }
+
+                if (customerSelect) {
+                    customerSelect.required = !isAreaSalesConsignment;
+                    refreshSelectpicker(customerSelect);
+                }
+            }
+
+            if (transactionType) {
+                transactionType.addEventListener('change', toggleAreaSalesConsignmentFields);
+                toggleAreaSalesConsignmentFields();
+            }
 
             // Freight Option Handler
             const freightOptionSelect = document.querySelector('select[name="freight_option"]');
@@ -416,7 +475,8 @@
                         </select>
                     </td>
                     <td>
-                         <input type="text" class="isbn-input" name="items[new_${uniqueId}][isbn]" value="${isbnVal}" readonly style="width: 100%; border: none; background: transparent;">
+                        <input type="text" class="isbn-input" name="items[new_${uniqueId}][isbn]" value="${isbnVal}" readonly style="width: 100%; border: none; background: transparent;">
+                        <div class="availability small text-muted mt-1">Stock: -</div>
                     </td>
                     <td>
                          <input type="text" class="area-input" name="items[new_${uniqueId}][area]" value="${data ? (data.area || '') : ''}" placeholder="Area..." style="width: 100%; border: none; background: transparent; height: 38px;">
@@ -444,7 +504,12 @@
                 select.addEventListener('change', function() {
                     const option = this.options[this.selectedIndex];
                     priceInput.value = option.dataset.price;
-                    isbnInput.value = option.dataset.isbn; 
+                    isbnInput.value = option.dataset.isbn;
+                    const availabilityEl = tr.querySelector('.availability');
+                    if (availabilityEl) {
+                        const stock = option.dataset.stock !== undefined ? option.dataset.stock : '0';
+                        availabilityEl.textContent = 'Stock: ' + stock;
+                    }
                     calculateRow(tr);
                 });
 
@@ -457,6 +522,11 @@
                 });
 
                 itemsBody.appendChild(tr);
+
+                // If a product was pre-selected, trigger change to populate price/isbn/stock
+                if (productId) {
+                    select.dispatchEvent(new Event('change'));
+                }
 
                 // Initialize bootstrap-select for the new row
                 if ($.fn.selectpicker) {

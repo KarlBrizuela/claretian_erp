@@ -69,6 +69,7 @@
     {{-- Marketing Sections --}}
     @if($hasCust)
     <a href="{{ route('marketing.customers') }}" class="modern-nav-item"><div class="modern-nav-icon"><i class="las la-users"></i></div><span class="modern-nav-label">Customer Management</span></a>
+    <a href="{{ route('marketing.companies') }}" class="modern-nav-item"><div class="modern-nav-icon"><i class="las la-building"></i></div><span class="modern-nav-label">Company Management</span></a>
     @endif
     
     @if($hasAreaS)
@@ -176,6 +177,8 @@
             <a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem">Freight Voucher</a>
             <a href="{{ route('admin-finance.accounting.payment-requests') }}" class="modern-nav-subitem">Payment Requests</a>
             <a href="{{ route('admin-finance.accounting.eford-payouts') }}" class="modern-nav-subitem">E-FORD Payouts</a>
+            <a href="{{ route('admin-finance.accounting.office-supplies.index') }}" class="modern-nav-subitem">Office Supplies</a>
+            <a href="{{ route('admin-finance.accounting.expenses.index') }}" class="modern-nav-subitem">Expenses</a>
         </div>
     </div>
     @endif

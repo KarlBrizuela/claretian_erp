@@ -159,9 +159,9 @@ class LogisticController extends Controller
             
             $order = \App\Models\SalesOrder::findOrFail($orderId);
             
-            // For ecom_direct, move to "ready_for_delivery" (packing management).
+            // For ecom_direct and area_consignment, move to "ready_for_delivery" (packing management).
             // For other orders, move to "pending_si_prep" status for Sales Invoice Preparation.
-            $newStatus = $order->type === 'ecom_direct' ? 'ready_for_delivery' : 'pending_si_prep';
+            $newStatus = in_array($order->type, ['ecom_direct', 'area_consignment']) ? 'ready_for_delivery' : 'pending_si_prep';
             $order->update([
                 'status' => $newStatus,
                 'gathered_at' => now(),
@@ -187,7 +187,7 @@ class LogisticController extends Controller
                 'details' => json_encode(['gathered_at' => now()])
             ]);
 
-            $targetQueue = $order->type === 'ecom_direct' ? 'Packing Management' : 'Sales Invoice';
+            $targetQueue = in_array($order->type, ['ecom_direct', 'area_consignment']) ? 'Packing Management' : 'Sales Invoice';
 
             // If AJAX request, return JSON
             if ($request->expectsJson()) {
@@ -722,12 +722,155 @@ class LogisticController extends Controller
         }
 
         return view('production.logistic.view-delivery-form', [
-            'order' => $order,
-            'title' => $documentType,
+            'order'        => $order,
+            'title'        => $documentType,
             'documentType' => $documentType,
-            'role' => 'Driver',
-            'sidebar' => 'production'
+            'role'         => 'Driver',
+            'sidebar'      => 'production'
         ]);
+    }
+
+    /**
+     * Acknowledgement Receipt — lists Area Sales Consignment SOs for logistics import.
+     */
+    public function acknowledgementReceipt()
+    {
+        $orders = \App\Models\SalesOrder::with(['areaSalesStaff', 'items.book', 'customer', 'preparedBy'])
+            ->where('type', 'area_sales_consignment')
+            ->latest()
+            ->get();
+
+        return view('production.logistic.acknowledgement-receipt', [
+            'title'   => 'Acknowledgement Receipt',
+            'role'    => auth()->user()->position,
+            'sidebar' => 'production',
+            'orders'  => $orders,
+        ]);
+    }
+
+    /**
+     * Import / record pick quantities from the acknowledgement receipt.
+     */
+    public function importAcknowledgementReceipt(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'order_id'   => 'required|exists:sales_orders,id',
+            'pick_items' => 'required|array',
+            'pick_items.*.item_id' => 'required|exists:sales_order_items,id',
+            'pick_items.*.pick_qty' => 'required|integer|min:0',
+        ]);
+
+        $order = \App\Models\SalesOrder::where('type', 'area_sales_consignment')
+            ->findOrFail($request->order_id);
+
+        foreach ($request->pick_items as $entry) {
+            \App\Models\SalesOrderItem::where('id', $entry['item_id'])
+                ->where('sales_order_id', $order->id)
+                ->update(['customer_selected_qty' => $entry['pick_qty']]);
+        }
+
+        return redirect()
+            ->route('production.logistic.acknowledgement-receipt')
+            ->with('success', 'Pick quantities saved for SO ' . $order->so_number . '.');
+    }
+
+    /**
+     * Import Pick Quantities + Customer Name from the exported Excel file (SO_*.xlsx).
+     * Excel structure (from exportSingleSalesOrder):
+     *   Row 1  : Banner "AREA SALES CONSIGNMENT — SO-XXXX"
+     *   Row 2  : Sales Order #  | <so_number>           ← B2
+     *   Row 3  : Order Date     | date
+     *   Row 4  : Area Sales Staff | name
+     *   Row 5  : Status         | status
+     *   Row 6  : Total Amount   | amount
+     *   Row 7  : Customer Name  | [staff fills this in] ← B7
+     *   Row 8  : blank
+     *   Row 9  : Column headers (#, Book Title, Unit, Order Qty, Unit Price, Subtotal, Pick Qty)
+     *   Row 10+: Item rows — column G = Pick Qty
+     */
+    public function importAcknowledgementReceiptFromExcel(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|mimes:xlsx,xls',
+            'order_id'   => 'required|exists:sales_orders,id',
+        ]);
+
+        try {
+            $file        = $request->file('excel_file');
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $sheet       = $spreadsheet->getActiveSheet();
+
+            // ── Verify SO number matches the row's order ─────────────
+            $soNumberFromFile = trim((string) $sheet->getCell('B2')->getValue());
+
+            $order = \App\Models\SalesOrder::with('items')
+                ->where('id', $request->order_id)
+                ->where('type', 'area_sales_consignment')
+                ->findOrFail($request->order_id);
+
+            if (!empty($soNumberFromFile) && $soNumberFromFile !== $order->so_number) {
+                return back()->withErrors([
+                    'excel_file' => "The uploaded Excel is for SO \"{$soNumberFromFile}\" but this import button is for SO \"{$order->so_number}\". Please upload the correct file.",
+                ]);
+            }
+
+            // ── Read Customer Name from B7 ───────────────────────────
+            $customerName = trim((string) $sheet->getCell('B7')->getValue());
+
+            if (!empty($customerName)) {
+                // Try to find customer by name (case-insensitive)
+                $customer = \App\Models\Customer::whereRaw('LOWER(customer_name) = ?', [strtolower($customerName)])->first();
+
+                if (!$customer) {
+                    // Create new customer on the fly if not found
+                    $customer = \App\Models\Customer::create([
+                        'customer_name'  => $customerName,
+                        'company_name'   => 'Individual',
+                        'account_number' => 'CUST-' . strtoupper(uniqid()),
+                        'manual_status'  => 'good',
+                    ]);
+                }
+
+                $order->update(['customer_id' => $customer->customer_id]);
+            }
+
+            // ── Read Pick Qty from column G, starting row 10 ─────────
+            // (Meta = rows 2-7, blank = row 8, header = row 9, data = row 10+)
+            $dataStartRow = 10;
+            $pickQtyCol   = 'G';
+
+            $items    = $order->items->values(); // re-index
+            $updated  = 0;
+            $rowIndex = $dataStartRow;
+
+            foreach ($items as $item) {
+                $cellValue = $sheet->getCell("{$pickQtyCol}{$rowIndex}")->getValue();
+
+                if (!is_null($cellValue) && $cellValue !== '') {
+                    $pickQty = (int) $cellValue;
+                    $pickQty = max(0, min($pickQty, (int) $item->quantity));
+                    $item->update(['customer_selected_qty' => $pickQty]);
+                    $updated++;
+                }
+
+                $rowIndex++;
+            }
+
+            $msg = "Excel imported for SO {$order->so_number}. {$updated} item(s) Pick Qty saved.";
+            if (!empty($customerName)) {
+                $customer = \App\Models\Customer::whereRaw('LOWER(customer_name) = ?', [strtolower($customerName)])->first();
+                if ($customer) {
+                    $msg .= " Customer linked: {$customerName}.";
+                }
+            }
+
+            return redirect()
+                ->route('production.logistic.acknowledgement-receipt')
+                ->with('success', $msg);
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['excel_file' => 'Failed to read Excel file: ' . $e->getMessage()]);
+        }
     }
 
     /**

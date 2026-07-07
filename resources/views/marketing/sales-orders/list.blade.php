@@ -143,6 +143,13 @@
                                                     </button>
                                                 </form>
                                             @endif
+
+                                            <!-- Export Excel Button — Area Sales Consignment only -->
+                                            @if($order->type === 'area_sales_consignment')
+                                                <a href="{{ route('marketing.sales-orders.export-single', $order->id) }}" class="btn btn-success shadow btn-xs sharp" title="Export to Excel">
+                                                    <i class="fas fa-file-excel"></i>
+                                                </a>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

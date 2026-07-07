@@ -101,23 +101,32 @@
                                                 </td>
                                                 <td><small>{{ $quotation->created_at->format('M d, Y') }}</small></td>
                                                 <td>
-                                                    <div class="btn-group btn-group-sm" role="group">
+                                                    <div class="d-flex gap-1 align-items-center">
                                                         <a href="{{ route('marketing.freight-quotations.show', $quotation->id) }}" 
-                                                           class="btn btn-outline-primary">
+                                                           class="btn btn-sm btn-outline-primary">
                                                             <i class="bi bi-eye me-1"></i>View
                                                         </a>
                                                         @if($quotation->workflow_status === 'approved' && !$quotation->sales_order_id)
                                                             <form method="POST" action="{{ route('marketing.freight-quotations.create-so-directly', $quotation->id) }}" style="display: inline;">
                                                                 @csrf
-                                                                <button type="submit" class="btn btn-success" title="Create Sales Order from this quotation">
+                                                                <button type="submit" class="btn btn-sm btn-success" title="Create Sales Order from this quotation">
                                                                     <i class="bi bi-plus-circle me-1"></i>Create SO
                                                                 </button>
                                                             </form>
                                                         @elseif($quotation->sales_order_id)
                                                             <a href="{{ route('marketing.sales-orders.show', $quotation->sales_order_id) }}" 
-                                                               class="btn btn-info" title="View linked Sales Order">
+                                                               class="btn btn-sm btn-info" title="View linked Sales Order">
                                                                 <i class="bi bi-box-arrow-up-right me-1"></i>View SO
                                                             </a>
+                                                        @endif
+                                                        @if(!$quotation->sales_order_id)
+                                                            <form method="POST" action="{{ route('marketing.freight-quotations.destroy', $quotation->id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this freight quotation?');">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Quotation">
+                                                                    <i class="bi bi-trash me-1"></i>Delete
+                                                                </button>
+                                                            </form>
                                                         @endif
                                                     </div>
                                                 </td>

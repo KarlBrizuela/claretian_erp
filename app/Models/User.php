@@ -206,6 +206,8 @@ class User extends Authenticatable
                 'admin_finance.accounting.material_requests',
                 'admin_finance.accounting.cash_advance_liquidation',
                 'admin_finance.accounting.cod_collections',
+                'admin_finance.accounting.office_supplies',
+                'admin_finance.accounting.expenses',
             ],
             'admin_finance.finance' => [
                 'admin_finance.petty_cash_voucher',
@@ -324,6 +326,8 @@ class User extends Authenticatable
             'admin_finance.accounting.material_requests' => 'admin-finance.accounting.material-requests.incoming',
             'admin_finance.accounting.cash_advance_liquidation' => 'admin-finance.accounting.expense-management',
             'admin_finance.accounting.cod_collections' => 'cashier.collections.index',
+            'admin_finance.accounting.office_supplies' => 'admin-finance.accounting.office-supplies.index',
+            'admin_finance.accounting.expenses' => 'admin-finance.accounting.expenses.index',
             'admin_finance.petty_cash_voucher' => 'admin-finance.petty-cash.index',
             'admin_finance.freight_voucher' => 'admin-finance.freight-voucher.index',
             'admin_finance.credit_collection' => 'admin-finance.credit-collection.billing',

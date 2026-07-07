@@ -190,12 +190,15 @@
 
                 <div class="mb-3">
                     <label class="fw-bold">Delivered To:</label>
-                    <select class="form-control" id="recipient">
-                        <option value="">Select Customer</option>
-                        @foreach($customers as $customer)
-                        <option value="{{ $customer->customer_id }}" data-address="{{ $customer->customer_address ?? '' }}">{{ $customer->customer_name }}</option>
-                        @endforeach
-                    </select>
+                    <div class="d-flex align-items-center gap-2">
+                        <select class="form-control" id="recipient">
+                            <option value="">Select Customer</option>
+                            @foreach($customers as $customer)
+                            <option value="{{ $customer->customer_id }}" data-address="{{ $customer->shipping_address ?? $customer->customer_address ?? '' }}" data-is-bad="{{ $customer->is_bad_client ? '1' : '0' }}">{{ $customer->customer_name }}</option>
+                            @endforeach
+                        </select>
+                        <span id="recipientStatus" class="badge bg-secondary" style="min-width:90px; text-align:center;">&nbsp;</span>
+                    </div>
                 </div>
 
                 <div class="mb-3">
@@ -289,7 +292,16 @@
                                                 <span class="text-muted">—</span>
                                             @endif
                                         </td>
-                                        <td>{{ $dr->customer_name ?? ($dr->customer->customer_name ?? 'N/A') }}</td>
+                                        <td>
+                                            {{ $dr->customer_name ?? ($dr->customer->customer_name ?? 'N/A') }}
+                                            @if($dr->customer)
+                                                @if($dr->customer->is_bad_client)
+                                                    <span class="badge bg-danger ms-2">Bad Client</span>
+                                                @else
+                                                    <span class="badge bg-success ms-2">Good Client</span>
+                                                @endif
+                                            @endif
+                                        </td>
                                         <td>
                                             @if($dr->delivery_date)
                                                 {{ \Carbon\Carbon::parse($dr->delivery_date)->format('M d, Y') }}
@@ -384,11 +396,27 @@
                 }
             });
 
-            // Handle recipient (customer) dropdown change
+            // Handle recipient (customer) dropdown change and show Good/Bad badge
             document.getElementById('recipient').addEventListener('change', function() {
                 const selectedOption = this.options[this.selectedIndex];
-                const address = selectedOption.getAttribute('data-address') || '';
+                const address = selectedOption ? (selectedOption.getAttribute('data-address') || '') : '';
                 document.getElementById('deliveryAddress').value = address;
+
+                const statusEl = document.getElementById('recipientStatus');
+                if (!selectedOption || !selectedOption.value) {
+                    statusEl.className = 'badge bg-secondary';
+                    statusEl.textContent = '';
+                    return;
+                }
+
+                const isBad = selectedOption.getAttribute('data-is-bad') === '1';
+                if (isBad) {
+                    statusEl.className = 'badge bg-danger';
+                    statusEl.textContent = 'Bad Client';
+                } else {
+                    statusEl.className = 'badge bg-success';
+                    statusEl.textContent = 'Good Client';
+                }
             });
         });
 
@@ -414,6 +442,8 @@
             // Set customer
             document.getElementById('recipient').value = customerId;
             document.getElementById('deliveryAddress').value = address || '';
+            // Update recipient status badge
+            document.getElementById('recipient').dispatchEvent(new Event('change'));
             
             // Clear and populate table with SO items
             clearReceiptTable();

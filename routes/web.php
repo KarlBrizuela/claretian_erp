@@ -6,6 +6,7 @@ use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\MarketingController;
 use App\Http\Controllers\Marketing\SupplierController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\Production\InventoryController;
 use App\Http\Controllers\Production\SiteController;
 use App\Http\Controllers\FileController;
@@ -127,6 +128,11 @@ Route::middleware(['auth'])->group(function () {
       
       // Delivery Form View
       Route::get('/delivery-form/{id}', [App\Http\Controllers\Production\LogisticController::class, 'viewDeliveryForm'])->name('view-delivery-form');
+
+      // Acknowledgement Receipt (Area Sales Consignment import)
+      Route::get('/acknowledgement-receipt', [App\Http\Controllers\Production\LogisticController::class, 'acknowledgementReceipt'])->name('acknowledgement-receipt');
+      Route::post('/acknowledgement-receipt/import', [App\Http\Controllers\Production\LogisticController::class, 'importAcknowledgementReceipt'])->name('acknowledgement-receipt.import');
+      Route::post('/acknowledgement-receipt/import-excel', [App\Http\Controllers\Production\LogisticController::class, 'importAcknowledgementReceiptFromExcel'])->name('acknowledgement-receipt.import-excel');
     });
 
     // Production DTO Management
@@ -190,6 +196,16 @@ Route::middleware(['auth'])->group(function () {
     ]);
     Route::get('/marketing/customers/{customer}/history', [CustomerController::class, 'getTransactionHistory'])->name('marketing.customers.history');
     Route::post('/marketing/customers/{customer}/manual-status', [CustomerController::class, 'updateManualStatus'])->name('marketing.customers.update-status');
+
+    Route::resource('marketing/companies', CompanyController::class)->names([
+        'index' => 'marketing.companies',
+        'create' => 'marketing.companies.create',
+        'store' => 'marketing.companies.store',
+        'show' => 'marketing.companies.show',
+        'edit' => 'marketing.companies.edit',
+        'update' => 'marketing.companies.update',
+        'destroy' => 'marketing.companies.destroy',
+    ]);
     Route::get('/marketing/approval-queue', [MarketingController::class, 'approvalQueue'])->name('marketing.approval-queue');
     Route::get('/marketing/my-requests', [MarketingController::class, 'myRequests'])->name('marketing.my-requests');
     
@@ -224,6 +240,8 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Area Sales
+    Route::get('/marketing/sales-orders/export', [MarketingController::class, 'exportSalesOrders'])->name('marketing.sales-orders.export');
+    Route::get('/marketing/sales-orders/{id}/export-excel', [MarketingController::class, 'exportSingleSalesOrder'])->name('marketing.sales-orders.export-single');
     Route::get('/marketing/sales-orders/list', [MarketingController::class, 'salesOrdersList'])->name('marketing.sales-orders.list');
     Route::get('/marketing/sales-orders/create', [MarketingController::class, 'createSalesOrder'])->name('marketing.sales-orders.create');
     Route::post('/marketing/sales-orders/store', [MarketingController::class, 'storeSalesOrder'])->name('marketing.sales-orders.store');
@@ -254,6 +272,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{freightQuotation}/proceed-to-so', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'proceedToSalesOrder'])->name('proceed-to-so');
         Route::post('/{freightQuotation}/create-so', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'createSalesOrderFromQuotation'])->name('create-so');
         Route::get('/{freightQuotation}/logistics-response', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'viewLogisticsResponse'])->name('logistics-response');
+        Route::delete('/{freightQuotation}', [App\Http\Controllers\Marketing\FreightQuotationController::class, 'destroy'])->name('destroy');
     });
     
     Route::get('/marketing/sales-orders/{id}', [MarketingController::class, 'salesOrderDetail'])->name('marketing.sales-orders.show');
@@ -280,8 +299,10 @@ Route::middleware(['auth'])->group(function () {
 
     // NBS PO Import
     Route::get('/marketing/nbs-import', [App\Http\Controllers\Marketing\NBSImportController::class, 'index'])->name('marketing.nbs-import.index');
+    Route::get('/marketing/nbs-import/template', [App\Http\Controllers\Marketing\NBSImportController::class, 'downloadTemplate'])->name('marketing.nbs-import.template');
     Route::post('/marketing/nbs-import/process', [App\Http\Controllers\Marketing\NBSImportController::class, 'process'])->name('marketing.nbs-import.process');
     Route::get('/marketing/nbs-consignment-receipt/{id}', [App\Http\Controllers\Marketing\NBSImportController::class, 'viewReceipt'])->name('marketing.nbs-consignment-receipt');
+    Route::get('/marketing/companies/{company}/branches', [App\Http\Controllers\CompanyController::class, 'getBranches'])->name('marketing.companies.branches');
 
     // POS Order Processing
     Route::post('/marketing/pos/process-order', [App\Http\Controllers\POSController::class, 'processOrder'])->name('marketing.pos.process-order');
@@ -359,6 +380,23 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/eford-payouts', [App\Http\Controllers\Production\FORDController::class, 'accountingIndex'])->name('admin-finance.accounting.eford-payouts');
       Route::get('/eford-payouts/{id}', [App\Http\Controllers\Production\FORDController::class, 'accountingShow'])->name('admin-finance.accounting.eford-payouts.show');
       Route::get('/eford-payouts/{id}/download/{index}', [App\Http\Controllers\Production\FORDController::class, 'downloadAttachment'])->name('admin-finance.accounting.eford-payouts.download');
+
+      // Office Supplies
+      Route::prefix('office-supplies')->name('admin-finance.accounting.office-supplies.')->group(function () {
+          Route::get('/', [App\Http\Controllers\Accounting\OfficeSupplyController::class, 'index'])->name('index');
+          Route::post('/', [App\Http\Controllers\Accounting\OfficeSupplyController::class, 'store'])->name('store');
+          Route::put('/{id}', [App\Http\Controllers\Accounting\OfficeSupplyController::class, 'update'])->name('update');
+          Route::delete('/{id}', [App\Http\Controllers\Accounting\OfficeSupplyController::class, 'destroy'])->name('destroy');
+          Route::post('/{id}/add-stock', [App\Http\Controllers\Accounting\OfficeSupplyController::class, 'addStock'])->name('add-stock');
+      });
+
+      // Expenses
+      Route::prefix('expenses')->name('admin-finance.accounting.expenses.')->group(function () {
+          Route::get('/', [App\Http\Controllers\Accounting\ExpenseController::class, 'index'])->name('index');
+          Route::post('/', [App\Http\Controllers\Accounting\ExpenseController::class, 'store'])->name('store');
+          Route::put('/{id}', [App\Http\Controllers\Accounting\ExpenseController::class, 'update'])->name('update');
+          Route::delete('/{id}', [App\Http\Controllers\Accounting\ExpenseController::class, 'destroy'])->name('destroy');
+      });
 
       // General Journal Entry
       Route::prefix('journal')->name('accounting.journal.')->group(function () {

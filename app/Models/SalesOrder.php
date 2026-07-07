@@ -9,6 +9,7 @@ class SalesOrder extends Model
 {
     protected $fillable = [
         'customer_id',
+        'area_sales_staff_id',
         'so_number',
         'type',
         'transaction_type', // COD, Credit, Prepaid, Check, Other
@@ -71,6 +72,11 @@ class SalesOrder extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+    }
+
+    public function areaSalesStaff()
+    {
+        return $this->belongsTo(User::class, 'area_sales_staff_id');
     }
 
     public function items()

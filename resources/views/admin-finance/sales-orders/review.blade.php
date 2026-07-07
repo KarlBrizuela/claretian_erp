@@ -42,7 +42,16 @@
                         <table class="table table-sm table-borderless">
                             <tr>
                                 <td class="fw-bold text-dark" style="width: 140px;">Customer Name:</td>
-                                <td class="fw-bold text-black">{{ $order->customer->customer_name ?? 'Unknown Customer' }}</td>
+                                <td class="fw-bold text-black">
+                                    {{ $order->customer->customer_name ?? 'Unknown Customer' }}
+                                    @if($order->customer)
+                                        @if($order->customer->is_bad_client)
+                                            <span class="badge bg-danger ms-2">Bad Client</span>
+                                        @else
+                                            <span class="badge bg-success ms-2">Good Client</span>
+                                        @endif
+                                    @endif
+                                </td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Company:</td>

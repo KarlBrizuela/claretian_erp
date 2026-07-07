@@ -496,12 +496,226 @@ class MarketingController extends Controller
             'orders' => $orders
         ]);
     }
+    public function exportSalesOrders()
+    {
+        $orders = \App\Models\SalesOrder::with(['customer', 'items', 'preparedBy'])
+                    ->latest()
+                    ->get();
 
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Sales Orders');
+
+        // Headers
+        $headers = ['A1' => 'Order Number', 'B1' => 'Customer', 'C1' => 'Order Date',
+                    'D1' => 'Platform / Source', 'E1' => 'Total Amount', 'F1' => 'Items Count',
+                    'G1' => 'Status', 'H1' => 'Prepared By', 'I1' => 'Pick Qty'];
+        foreach ($headers as $cell => $label) {
+            $sheet->setCellValue($cell, $label);
+        }
+        $sheet->getStyle('A1:I1')->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['argb' => 'FFCC0000']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                                              'color'       => ['argb' => 'FF999999']]],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(20);
+
+        $row = 2;
+        foreach ($orders as $order) {
+            $typeDisplay = str_replace('_', ' ', $order->type);
+            if ($order->type === 'calculator_pos') $typeDisplay = 'Direct POS';
+            if ($order->type === 'ecom_direct')    $typeDisplay = 'ECOM POS';
+            $typeDisplay = strtoupper($typeDisplay);
+
+            $displayStatus = str_replace('_', ' ', $order->status);
+            if ($order->status === 'draft') {
+                $displayStatus = ($order->freight_charges && $order->freight_charges > 0)
+                    ? 'Draft (Freight Approved)' : 'Draft (Pending Freight)';
+            }
+            if ($order->status === 'pending_si_prep')       $displayStatus = 'Gathered (In SI Prep)';
+            if ($order->status === 'si_created')            $displayStatus = 'SI Created';
+            if ($order->status === 'pending_dr_prep')       $displayStatus = 'SI Signed (In DR Prep)';
+            if ($order->status === 'pending_mkt_approval')  $displayStatus = 'Pending Marketing Approval';
+            if ($order->status === 'pending_prod_approval') $displayStatus = 'Pending Production Approval';
+            $displayStatus = ucwords($displayStatus);
+
+            $sheet->setCellValue("A{$row}", $order->so_number);
+            $sheet->setCellValue("B{$row}", $order->customer->customer_name ?? 'Unknown Customer');
+            $sheet->setCellValue("C{$row}", $order->created_at->format('Y-m-d'));
+            $sheet->setCellValue("D{$row}", $typeDisplay);
+            $sheet->setCellValue("E{$row}", (float) $order->total_amount);
+            $sheet->setCellValue("F{$row}", $order->items->count());
+            $sheet->setCellValue("G{$row}", $displayStatus);
+            $sheet->setCellValue("H{$row}", optional($order->preparedBy)->name ?? '');
+            $sheet->setCellValue("I{$row}", '');
+
+            if ($row % 2 === 0) {
+                $sheet->getStyle("A{$row}:I{$row}")->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFF5F5F5');
+            }
+            $sheet->getStyle("E{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $row++;
+        }
+
+        foreach (range('A', 'I') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+        $sheet->freezePane('A2');
+
+        $filename = 'Sales_Orders_' . now()->format('Y-m-d_His') . '.xlsx';
+        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control'       => 'max-age=0',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    public function exportSingleSalesOrder($id)
+    {
+        $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'areaSalesStaff'])
+                    ->where('type', 'area_sales_consignment')
+                    ->findOrFail($id);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('SO ' . $order->so_number);
+
+        // Order header banner (row 1)
+        $sheet->mergeCells('A1:G1');
+        $sheet->setCellValue('A1', 'AREA SALES CONSIGNMENT — ' . $order->so_number);
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['argb' => 'FFCC0000']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(24);
+
+        // Order meta info rows 2-7
+        $meta = [
+            ['Sales Order #',    $order->so_number],
+            ['Order Date',       $order->created_at->format('Y-m-d')],
+            ['Area Sales Staff', optional($order->areaSalesStaff)->name ?? '—'],
+            ['Status',           ucwords(str_replace('_', ' ', $order->status))],
+            ['Total Amount',     '₱' . number_format($order->total_amount, 2)],
+            ['Customer Name',    $order->customer?->customer_name ?? ''],  // blank if no customer — staff fills this in
+        ];
+        $metaRow = 2;
+        foreach ($meta as [$label, $value]) {
+            $sheet->setCellValue("A{$metaRow}", $label);
+            $sheet->setCellValue("B{$metaRow}", $value);
+            $sheet->getStyle("A{$metaRow}")->getFont()->setBold(true);
+            $metaRow++;
+        }
+
+        // Highlight the Customer Name row (B7) in light blue so staff knows to fill it
+        $sheet->getStyle("A7:B7")->applyFromArray([
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                       'startColor' => ['argb' => 'FFD6EAF8']],
+            'font' => ['color' => ['argb' => 'FF1A5276'], 'bold' => true],
+        ]);
+        // Add placeholder hint in B7 if empty
+        if (empty($order->customer?->customer_name)) {
+            $sheet->getComment('B7')->getText()->createTextRun('Fill in the customer name here before importing back.');
+        }
+
+        // Items table header
+        $tableStart = $metaRow + 1;
+        $colHeaders = ['#', 'Book Title / Product', 'Unit', 'Order Qty', 'Unit Price', 'Subtotal', 'Pick Qty'];
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+        foreach ($cols as $i => $col) {
+            $sheet->setCellValue("{$col}{$tableStart}", $colHeaders[$i]);
+        }
+        // Style columns A-F (dark header)
+        $sheet->getStyle("A{$tableStart}:F{$tableStart}")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['argb' => 'FF333333']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                                              'color'       => ['argb' => 'FFAAAAAA']]],
+        ]);
+        // Style column G - Pick Qty header (orange bg, dark bold text)
+        $sheet->getStyle("G{$tableStart}")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['argb' => 'FF7B3F00']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['argb' => 'FFFFA500']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                                              'color'       => ['argb' => 'FFAAAAAA']]],
+        ]);
+        $sheet->getRowDimension($tableStart)->setRowHeight(20);
+
+        // Item data rows
+        $dataRow = $tableStart + 1;
+        $seq = 1;
+        foreach ($order->items as $item) {
+            $sheet->setCellValue("A{$dataRow}", $seq++);
+            $sheet->setCellValue("B{$dataRow}", optional($item->book)->name ?? 'Unknown Product');
+            $sheet->setCellValue("C{$dataRow}", $item->unit ?? 'pcs');
+            $sheet->setCellValue("D{$dataRow}", (int) $item->quantity);
+            $sheet->setCellValue("E{$dataRow}", (float) $item->price);
+            $sheet->setCellValue("F{$dataRow}", (float) $item->subtotal);
+            $sheet->setCellValue("G{$dataRow}", ''); // Pick Qty — blank for manual entry
+
+            $sheet->getStyle("E{$dataRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("F{$dataRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+
+            if ($dataRow % 2 === 0) {
+                $sheet->getStyle("A{$dataRow}:G{$dataRow}")->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFF9F9F9');
+            }
+            $sheet->getStyle("A{$dataRow}:G{$dataRow}")->getBorders()
+                ->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+                ->getColor()->setARGB('FFDDDDDD');
+
+            $dataRow++;
+        }
+
+        // Highlight Pick Qty data cells — light orange background, dark orange text
+        $sheet->getStyle("G" . ($tableStart + 1) . ":G" . ($dataRow - 1))->applyFromArray([
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['argb' => 'FFFFF0D9']],
+            'font'      => ['color' => ['argb' => 'FF7B3F00'], 'italic' => true],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        // Column widths
+        $sheet->getColumnDimension('A')->setWidth(5);
+        $sheet->getColumnDimension('B')->setWidth(40);
+        $sheet->getColumnDimension('C')->setWidth(8);
+        $sheet->getColumnDimension('D')->setWidth(12);
+        $sheet->getColumnDimension('E')->setWidth(14);
+        $sheet->getColumnDimension('F')->setWidth(14);
+        $sheet->getColumnDimension('G')->setWidth(12);
+        $sheet->freezePane("A" . ($tableStart + 1));
+
+        // Download
+        $filename = 'SO_' . $order->so_number . '_' . now()->format('Ymd') . '.xlsx';
+        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control'       => 'max-age=0',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
     public function salesOrderDetail($id = null)
     {
         $order = null;
         if ($id) {
-            $order = \App\Models\SalesOrder::with('customer', 'items.book', 'preparedBy')->findOrFail($id);
+            $order = \App\Models\SalesOrder::with('customer', 'items.book', 'preparedBy', 'areaSalesStaff')->findOrFail($id);
         }
 
         return view('marketing.sales-orders.detail', [

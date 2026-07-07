@@ -72,31 +72,41 @@
                             <tr>
                                 <td class="fw-bold text-dark" style="width: 140px;">Customer Name:</td>
                                 <td class="fw-bold text-black">
-                                    {{ $order->customer->customer_name ?? 'Unknown Customer' }}
-                                    @if($order->customer->isBadClient)
-                                        <span class="badge bg-danger ms-2">BAD CLIENT</span>
-                                    @else
-                                        <span class="badge bg-success ms-2">GOOD CLIENT</span>
+                                    {{ $order->customer?->customer_name ?? 'Unknown Customer' }}
+                                    @if($order->customer)
+                                        @if($order->customer->isBadClient)
+                                            <span class="badge bg-danger ms-2">BAD CLIENT</span>
+                                        @else
+                                            <span class="badge bg-success ms-2">GOOD CLIENT</span>
+                                        @endif
                                     @endif
                                 </td>
                             </tr>
+                            @if($order->type === 'area_sales_consignment')
+                            <tr>
+                                <td class="fw-bold text-dark" style="width: 140px;">Area Sales Staff:</td>
+                                <td class="fw-bold text-black">
+                                    <span class="badge" style="background:#1a7a3e; font-size:12px;">{{ $order->areaSalesStaff?->name ?? '—' }}</span>
+                                </td>
+                            </tr>
+                            @endif
                             <tr>
                                 <td class="fw-bold text-dark">Company:</td>
-                                <td class="fw-bold text-black">{{ $order->customer->company_name ?? 'N/A' }}</td>
+                                <td class="fw-bold text-black">{{ $order->customer?->company_name ?? 'N/A' }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Account No:</td>
-                                <td class="text-black">{{ $order->customer->account_number ?? 'N/A' }}</td>
+                                <td class="text-black">{{ $order->customer?->account_number ?? 'N/A' }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Address:</td>
                                 <td class="text-black">
-                                    <textarea class="form-control form-control-sm" id="orderAddress" style="min-height: 60px;" placeholder="Address...">{{ $order->shipping_address ?: ($order->customer->shipping_address ?: $order->customer->billing_address ?? '') }}</textarea>
+                                    <textarea class="form-control form-control-sm" id="orderAddress" style="min-height: 60px;" placeholder="Address...">{{ $order->shipping_address ?: ($order->customer?->shipping_address ?: ($order->customer?->billing_address ?? '')) }}</textarea>
                                 </td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Contact:</td>
-                                <td class="text-black">{{ $order->customer->main_phone ?? $order->customer->mobile ?? 'N/A' }}</td>
+                                <td class="text-black">{{ $order->customer?->main_phone ?? $order->customer?->mobile ?? 'N/A' }}</td>
                             </tr>
                         </table>
                     </div>
@@ -329,19 +339,24 @@
                                     <tr>
                                         <td class="fw-bold text-muted" style="width: 80px; vertical-align: top;">Customer:</td>
                                         <td class="fw-bold" style="font-size: 11pt; color: #333;">
-                                            {{ $order->customer->customer_name ?? '' }}
-                                            @if($order->customer->isBadClient)
-                                                <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 8pt; margin-left: 8px; display: inline-block;">BAD CLIENT</span>
-                                            @else
-                                                <span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 8pt; margin-left: 8px; display: inline-block;">GOOD CLIENT</span>
+                                            {{ $order->customer?->customer_name ?? '' }}
+                                            @if($order->customer)
+                                                @if($order->customer->isBadClient)
+                                                    <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 8pt; margin-left: 8px; display: inline-block;">BAD CLIENT</span>
+                                                @else
+                                                    <span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 8pt; margin-left: 8px; display: inline-block;">GOOD CLIENT</span>
+                                                @endif
+                                            @endif
+                                            @if($order->type === 'area_sales_consignment')
+                                                <br><span style="font-size: 9pt; color: #555; font-weight: normal;">Area Sales Staff: <strong>{{ $order->areaSalesStaff?->name ?? '—' }}</strong></span>
                                             @endif
                                             <br>
-                                            <span class="fw-normal">{{ $order->customer->company_name ?? '' }}</span>
+                                            <span class="fw-normal">{{ $order->customer?->company_name ?? '' }}</span>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold text-muted" style="vertical-align: top; padding-top: 10px;">Address:</td>
-                                        <td style="padding-top: 10px; color: #444;"><span id="printAddress">{{ $order->shipping_address ?: ($order->customer->shipping_address ?: $order->customer->billing_address) }}</span></td>
+                                        <td style="padding-top: 10px; color: #444;"><span id="printAddress">{{ $order->shipping_address ?: ($order->customer?->shipping_address ?: ($order->customer?->billing_address ?? '')) }}</span></td>
                                     </tr>
                                 </table>
                             </div>

@@ -7,7 +7,7 @@
     $hasMIS = $user->hasPermission('admin_finance.mis') || $user->hasPermission('admin_finance.mis.job_orders');
     $hasGSD = $user->hasPermission('admin_finance.gsd') || $user->hasAnyPermission(['admin_finance.gsd.asset_management', 'admin_finance.gsd.job_orders']);
     $hasCreditCollection = $user->hasPermission('admin_finance.credit_collection') || $user->hasAnyPermission(['admin_finance.credit_collection.billing', 'admin_finance.credit_collection.reports', 'admin_finance.credit_collection.invoice']);
-    $hasAccounting = $user->hasPermission('admin_finance.accounting') || $user->hasAnyPermission(['admin_finance.accounting.general_journal', 'admin_finance.accounting.sales_invoice', 'admin_finance.accounting.check_voucher', 'admin_finance.accounting.materials_requisition', 'admin_finance.accounting.material_requests', 'admin_finance.accounting.cash_advance_liquidation', 'admin_finance.accounting.cod_collections']);
+    $hasAccounting = $user->hasPermission('admin_finance.accounting') || $user->hasAnyPermission(['admin_finance.accounting.general_journal', 'admin_finance.accounting.sales_invoice', 'admin_finance.accounting.check_voucher', 'admin_finance.accounting.materials_requisition', 'admin_finance.accounting.material_requests', 'admin_finance.accounting.cash_advance_liquidation', 'admin_finance.accounting.cod_collections', 'admin_finance.accounting.office_supplies', 'admin_finance.accounting.expenses']);
     $hasPettyCashVoucher = $user->hasPermission('admin_finance.petty_cash_voucher');
     $hasHR = $user->hasPermission('admin_finance.hr') || $user->hasPermission('admin_finance.hr.job_orders');
     $hasApprovalQueue = $user->hasPermission('admin_finance.approval_queue');
@@ -79,6 +79,12 @@
 			@if($user->hasPermission('admin_finance.accounting'))
 			<a href="{{ route('admin-finance.accounting.payment-requests') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.payment-requests') ? 'active' : '' }}">Payment Requests</a>
 			<a href="{{ route('admin-finance.accounting.eford-payouts') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.eford-payouts*') ? 'active' : '' }}">E-FORD Payouts</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting.office_supplies') || $user->hasPermission('admin_finance.accounting'))
+			<a href="{{ route('admin-finance.accounting.office-supplies.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.office-supplies.*') ? 'active' : '' }}">Office Supplies</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting.expenses') || $user->hasPermission('admin_finance.accounting'))
+			<a href="{{ route('admin-finance.accounting.expenses.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expenses.*') ? 'active' : '' }}">Expenses</a>
 			@endif
 		</div>
 	</div>

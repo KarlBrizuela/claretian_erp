@@ -55,6 +55,16 @@
 	</a>
 	@endif
 
+	<!-- Company Management -->
+	@if($hasCustomers)
+	<a href="{{ route('marketing.companies') }}" class="modern-nav-item {{ request()->routeIs('marketing.companies') ? 'active' : '' }}" data-page="company-management">
+		<div class="modern-nav-icon">
+			<i class="las la-building"></i>
+		</div>
+		<span class="modern-nav-label">Company Management</span>
+	</a>
+	@endif
+
 	<!-- Area Sales -->
 	@if($hasAreaSales)
 	<div class="modern-nav-group {{ request()->is('marketing/sales-orders*', 'marketing/sales-order*', 'marketing/direct-invoice*', 'marketing/acknowledgement-receipt*', 'marketing/credit-memo*', 'marketing/proof-of-payment*', 'marketing/freight-quotations*') ? 'active' : '' }}">

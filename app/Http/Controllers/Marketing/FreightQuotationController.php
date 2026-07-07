@@ -461,4 +461,24 @@ class FreightQuotationController extends Controller
             'quotation' => $freightQuotation->load(['respondedBy']),
         ]);
     }
+
+    /**
+     * Remove the specified freight quotation from storage.
+     */
+    public function destroy(FreightQuotation $freightQuotation)
+    {
+        try {
+            if ($freightQuotation->sales_order_id) {
+                return redirect()->back()->with('error', 'Cannot delete a freight quotation linked to a Sales Order.');
+            }
+
+            $freightQuotation->delete();
+
+            return redirect()->route('marketing.freight-quotations.list')
+                ->with('success', 'Freight Quotation deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Error deleting freight quotation: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'An error occurred while deleting the freight quotation.');
+        }
+    }
 }

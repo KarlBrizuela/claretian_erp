@@ -1972,19 +1972,7 @@ public function checkVoucher()
     
     \Log::info('Processing approval for SO #' . $order->so_number . ' with ' . $order->items->count() . ' items');
     
-    // For area consignment, route to DR preparation instead of picking
-    if ($order->type === 'area_consignment') {
-      $order->update([
-        'status' => 'pending_dr_prep',
-        'approved_by_acct' => auth()->id(),
-        'acct_approved_at' => now()
-      ]);
 
-      \Log::info('Area Consignment SO #' . $order->so_number . ' routed to Delivery Receipt preparation');
-
-      return redirect()->route('admin-finance.approval-queue')->with('success', 'Area Consignment Sales Order #' . $order->so_number . ' has been approved and sent to Delivery Receipts for item selection.');
-    }
-    
     // Normal flow for other transaction types
     $order->update([
       'status' => 'picking',

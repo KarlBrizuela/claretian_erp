@@ -55,7 +55,7 @@
                     @endif
 
                     <!-- Items Table for Area Consignment (Item Selection) -->
-                    @if($order->type === 'area_consignment' && $order->status === 'pending_dr_prep')
+                    @if($order->type === 'area_consignment' && in_array($order->status, ['pending_dr_prep', 'ready_for_delivery']))
                         <div style="background: #e7f3ff; border: 2px solid #0d6efd; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
                             <h5 style="color: #0d6efd; margin-bottom: 0;">Area Consignment - Select Items to Purchase</h5>
                             <p style="color: #666; font-size: 0.9rem; margin-bottom: 0;">Select the quantity you want to purchase for each item below. Items not selected will be returned.</p>

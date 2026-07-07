@@ -5,7 +5,7 @@
     // Check permissions for specific modules
     $hasDashboard = $user->hasPermission('production.dashboard');
     $hasInventory = $user->hasPermission('production.inventory') || $user->hasAnyPermission(['production.inventory.overview', 'production.inventory.add_stock', 'production.inventory.received']);
-    $hasLogistics = $user->hasPermission('production.logistic') || $user->hasAnyPermission(['production.logistic.pick_lists', 'production.logistic.packing', 'production.logistic.delivery_scheduling', 'production.logistic.delivery_receipts', 'production.logistic.driver_dashboard', 'production.logistic.delivery_tracking', 'production.logistic.purchase_orders', 'production.logistic.receiving_reports', 'production.logistic.freight_quotation_review', 'production.logistic.rider_collections']);
+    $hasLogistics = $user->hasPermission('production.logistic') || $user->hasAnyPermission(['production.logistic.pick_lists', 'production.logistic.packing', 'production.logistic.delivery_scheduling', 'production.logistic.delivery_receipts', 'production.logistic.driver_dashboard', 'production.logistic.delivery_tracking', 'production.logistic.purchase_orders', 'production.logistic.receiving_reports', 'production.logistic.freight_quotation_review', 'production.logistic.rider_collections', 'production.logistic.acknowledgement_receipt']);
     $hasDTO = $user->hasPermission('production.dto') || $user->hasPermission('production.dto.job_request_form');
     $hasFORD = $user->hasPermission('production.ford') || $user->hasAnyPermission(['production.ford.auto_debit', 'production.ford.client_payment_posting', 'production.ford.eford_payout', 'production.ford.payment_request', 'production.ford.purchase_order', 'production.ford.request_for_quotation', 'production.ford.sales_order', 'production.ford.transmittal']);
     $hasPrinting = $user->hasPermission('production.printing') || $user->hasPermission('production.printing.request_payment_to_printer');
@@ -109,6 +109,11 @@
 			@endif
 			@if($user->hasPermission('production.logistic.rider_collections'))
 			<a href="{{ route('rider.collections.index') }}" class="modern-nav-subitem {{ request()->routeIs('rider.collections.*') ? 'active' : '' }}">Rider Collections</a>
+			@endif
+			@if($user->hasPermission('production.logistic.acknowledgement_receipt'))
+			<a href="{{ route('production.logistic.acknowledgement-receipt') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.acknowledgement-receipt') ? 'active' : '' }}">
+				<i class="las la-file-import me-1"></i>Acknowledgement Receipt
+			</a>
 			@endif
 		</div>
 	</div>
