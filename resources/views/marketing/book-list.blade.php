@@ -212,9 +212,30 @@
     <div class="row">
         <div class="col-xl-12 col-xxl-12">
             <div class="card">
-                <div class="card-header border-0 d-block d-sm-flex">
-                    <h4 class="card-title">Book List (Master)</h4>
-                    <div class="d-flex align-items-center mt-3 mt-sm-0 gap-2">
+                <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div>
+                        <h4 class="card-title mb-0">Book List (Master)</h4>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
+                        <!-- Search Form -->
+                        <form action="{{ route('marketing.products') }}" method="GET" class="d-flex align-items-center gap-2">
+                            <div style="width: 250px; height: 38px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa; padding: 0 12px; box-sizing: border-box;">
+                                <span class="las la-search text-muted me-2" style="font-size: 1.1rem; line-height: 1;"></span>
+                                <input type="text" name="search" class="form-control" 
+                                       placeholder="Search books..." value="{{ request('search') }}" 
+                                       style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.85rem; color: #333; outline: none !important; box-shadow: none !important;">
+                                @if(request('search'))
+                                    <a href="{{ route('marketing.products') }}" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
+                                        <span class="las la-times-circle" style="color: #999; font-size: 1.25rem; cursor: pointer;"></span>
+                                    </a>
+                                @endif
+                            </div>
+                            <button type="submit" class="btn btn-danger text-white rounded d-inline-flex align-items-center justify-content-center gap-2" style="height: 38px; padding: 0 1.2rem; border: none; font-size: 0.85rem; font-weight: 500; background-color: #D9251C; box-shadow: 0 4px 6px rgba(217, 37, 28, 0.15);">
+                                <span class="las la-search" style="font-size: 1rem; color: #fff;"></span>
+                                <span>Search</span>
+                            </button>
+                        </form>
+
                         <a href="javascript:void(0);" class="btn btn-import-excel rounded"
                             data-bs-toggle="modal" data-bs-target="#importBooksModal">
                             <i class="las la-file-excel"></i>
@@ -300,6 +321,16 @@
                                 @endforelse
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Pagination Links -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                        <div class="text-muted small">
+                            Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
+                        </div>
+                        <div>
+                            {{ $books->links() }}
+                        </div>
                     </div>
                 </div>
             </div>

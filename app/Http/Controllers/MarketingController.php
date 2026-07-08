@@ -259,16 +259,32 @@ class MarketingController extends Controller
     }
 
 
-    public function products()
+    public function products(Request $request)
     {
-        $books = Book::with(['product', 'bookCategory', 'bookSubCategory'])->orderBy('created_at', 'desc')->get();
+        $search = $request->input('search');
+        
+        $query = Book::with(['product', 'bookCategory', 'bookSubCategory'])
+            ->orderBy('created_at', 'desc');
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('sku', 'like', '%' . $search . '%')
+                  ->orWhere('author', 'like', '%' . $search . '%')
+                  ->orWhere('publisher', 'like', '%' . $search . '%');
+            });
+        }
+
+        $books = $query->paginate(15)->withQueryString();
         $categories = BookCategory::whereNull('parent_id')->orderBy('name', 'asc')->get();
+
         return view('marketing.book-list', [
             'books' => $books,
             'categories' => $categories,
             'title' => 'Book List (Master Registry)',
             'role' => 'Marketing Manager',
-            'sidebar' => 'marketing'
+            'sidebar' => 'marketing',
+            'search' => $search
         ]);
     }
 
