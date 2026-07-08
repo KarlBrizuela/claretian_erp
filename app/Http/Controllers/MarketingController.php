@@ -511,13 +511,20 @@ class MarketingController extends Controller
 
     public function importBooks(Request $request)
     {
+        // Increase time and memory limits for processing large files
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
         $request->validate([
             'excel_file' => 'required|file|mimes:xlsx,xls,csv,txt',
         ]);
 
         try {
             $file = $request->file('excel_file');
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            // Use setReadDataOnly(true) to significantly reduce memory usage of PhpSpreadsheet
+            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($file->getPathname());
+            $reader->setReadDataOnly(true);
+            $spreadsheet = $reader->load($file->getPathname());
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray();
         } catch (\Exception $e) {
@@ -580,9 +587,70 @@ class MarketingController extends Controller
             return response()->json(['error' => 'Critical column "Book Title" is missing in the Excel sheet.'], 422);
         }
 
+        // Pre-scan file to collect all SKUs and Barcodes for bulk database queries
+        $skusInSheet = [];
+        $barcodesInSheet = [];
+
+        for ($i = 1; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            if (empty(array_filter($row, function($cell) { return !is_null($cell) && trim((string)$cell) !== ''; }))) {
+                continue;
+            }
+            $sku = $colMap['sku'] !== false ? trim((string)($row[$colMap['sku']] ?? '')) : '';
+            if (!empty($sku)) {
+                $skusInSheet[] = $sku;
+            }
+            $barcode = $colMap['barcode'] !== false ? trim((string)($row[$colMap['barcode']] ?? '')) : '';
+            if (!empty($barcode)) {
+                $barcodesInSheet[] = $barcode;
+            }
+        }
+
+        // Fetch existing books by SKU and Barcode in chunks
+        $existingBooksBySku = [];
+        if (!empty($skusInSheet)) {
+            foreach (array_chunk(array_unique($skusInSheet), 1000) as $chunk) {
+                $booksChunk = Book::whereIn('sku', $chunk)->get();
+                foreach ($booksChunk as $book) {
+                    $existingBooksBySku[$book->sku] = $book;
+                }
+            }
+        }
+
+        $existingBooksByBarcode = [];
+        if (!empty($barcodesInSheet)) {
+            foreach (array_chunk(array_unique($barcodesInSheet), 1000) as $chunk) {
+                $booksChunk = Book::whereIn('barcode', $chunk)->get();
+                foreach ($booksChunk as $book) {
+                    $existingBooksByBarcode[$book->barcode] = $book;
+                }
+            }
+        }
+
+        // Load all existing categories to memory mapping
+        $categories = BookCategory::all();
+        $categoryMap = [];
+        $subCategoryMap = [];
+        foreach ($categories as $cat) {
+            if (is_null($cat->parent_id)) {
+                $categoryMap[strtolower(trim($cat->name))] = $cat;
+            } else {
+                $subCategoryMap[$cat->parent_id][strtolower(trim($cat->name))] = $cat;
+            }
+        }
+
+        // Pre-fetch existing SKU prefixes for query-free autoincrement generation
+        $existingSkuPrefixes = Book::withTrashed()
+            ->where('sku', 'like', 'SKU-%')
+            ->pluck('sku')
+            ->toArray();
+        $existingSkuPrefixesMap = array_flip($existingSkuPrefixes);
+
+        $skuAutoIncrement = (Book::withTrashed()->max('id') ?? 0) + 1;
         $createdCount = 0;
         $updatedCount = 0;
         $errors = [];
+        $processedBarcodes = [];
 
         \DB::beginTransaction();
 
@@ -600,14 +668,10 @@ class MarketingController extends Controller
                 $name = trim((string)($row[$colMap['name']] ?? ''));
 
                 if (empty($sku)) {
-                    static $skuAutoIncrement = null;
-                    if ($skuAutoIncrement === null) {
-                        $skuAutoIncrement = (Book::withTrashed()->max('id') ?? 0) + 1;
-                    }
                     do {
                         $sku = 'SKU-' . str_pad($skuAutoIncrement, 5, '0', STR_PAD_LEFT);
                         $skuAutoIncrement++;
-                    } while (Book::withTrashed()->where('sku', $sku)->exists());
+                    } while (isset($existingSkuPrefixesMap[$sku]) || isset($existingBooksBySku[$sku]));
                 }
 
                 if (empty($name)) {
@@ -655,48 +719,57 @@ class MarketingController extends Controller
                 $subCategoryName = $colMap['sub_category'] !== false ? trim((string)($row[$colMap['sub_category']] ?? '')) : '';
 
                 if (!empty($categoryName)) {
-                    $category = \App\Models\BookCategory::whereNull('parent_id')
-                        ->where('name', $categoryName)
-                        ->first();
+                    $categoryKey = strtolower(trim($categoryName));
+                    $category = $categoryMap[$categoryKey] ?? null;
                     if (!$category) {
-                        $category = \App\Models\BookCategory::create([
+                        $category = BookCategory::create([
                             'name' => $categoryName,
                             'parent_id' => null
                         ]);
+                        $categoryMap[$categoryKey] = $category;
                     }
                     $data['category'] = $categoryName;
                     $data['category_id'] = $category->id;
 
                     if (!empty($subCategoryName)) {
-                        $subCategory = \App\Models\BookCategory::where('parent_id', $category->id)
-                            ->where('name', $subCategoryName)
-                            ->first();
+                        $subCategoryKey = strtolower(trim($subCategoryName));
+                        $subCategory = $subCategoryMap[$category->id][$subCategoryKey] ?? null;
                         if (!$subCategory) {
-                            $subCategory = \App\Models\BookCategory::create([
+                            $subCategory = BookCategory::create([
                                 'name' => $subCategoryName,
                                 'parent_id' => $category->id
                             ]);
+                            $subCategoryMap[$category->id][$subCategoryKey] = $subCategory;
                         }
                         $data['sub_category'] = $subCategoryName;
                         $data['sub_category_id'] = $subCategory->id;
                     }
                 }
 
-                // Check uniqueness constraints other than SKU (barcode, nbs_barcode if not null)
+                // Check uniqueness constraints other than SKU (barcode)
                 if (!empty($data['barcode'])) {
-                    $conflict = Book::where('barcode', $data['barcode'])->where('sku', '!=', $sku)->first();
-                    if ($conflict) {
+                    $conflict = $existingBooksByBarcode[$data['barcode']] ?? null;
+                    if ($conflict && $conflict->sku !== $sku) {
                         $errors[] = "Row {$rowNum}: Barcode \"{$data['barcode']}\" already exists for book with SKU \"{$conflict->sku}\".";
                         continue;
                     }
+                    if (isset($processedBarcodes[$data['barcode']]) && $processedBarcodes[$data['barcode']] !== $sku) {
+                        $errors[] = "Row {$rowNum}: Barcode \"{$data['barcode']}\" is duplicated in the uploaded spreadsheet.";
+                        continue;
+                    }
+                    $processedBarcodes[$data['barcode']] = $sku;
                 }
 
-                $book = Book::where('sku', $sku)->first();
+                $book = $existingBooksBySku[$sku] ?? null;
                 if ($book) {
                     $book->update($data);
                     $updatedCount++;
                 } else {
-                    Book::create($data);
+                    $newBook = Book::create($data);
+                    $existingBooksBySku[$sku] = $newBook;
+                    if (!empty($data['barcode'])) {
+                        $existingBooksByBarcode[$data['barcode']] = $newBook;
+                    }
                     $createdCount++;
                 }
             }
