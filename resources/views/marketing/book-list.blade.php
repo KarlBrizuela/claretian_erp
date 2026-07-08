@@ -137,6 +137,47 @@
             line-height: 1 !important;
         }
 
+        /* Import Excel Button Styling */
+        .btn-import-excel {
+            background-color: #28a745;
+            border-color: #28a745;
+            color: #fff;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(40, 167, 69, 0.2);
+            height: 38px;
+            min-height: 38px;
+            box-sizing: border-box;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            padding: 0 1rem;
+            font-size: 0.85rem;
+            gap: 0.5rem;
+        }
+
+        .btn-import-excel:hover {
+            background-color: #218838;
+            box-shadow: 0 6px 8px rgba(40, 167, 69, 0.3);
+            transform: translateY(-1px);
+            color: #fff;
+        }
+
+        .btn-import-excel i {
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            font-size: 1.1rem !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: auto !important;
+            height: 1.1rem !important;
+            line-height: 1 !important;
+        }
+
         #manageCategoriesModal .nav-tabs {
             border-bottom: 2px solid #eee;
         }
@@ -174,6 +215,11 @@
                 <div class="card-header border-0 d-block d-sm-flex">
                     <h4 class="card-title">Book List (Master)</h4>
                     <div class="d-flex align-items-center mt-3 mt-sm-0 gap-2">
+                        <a href="javascript:void(0);" class="btn btn-import-excel rounded"
+                            data-bs-toggle="modal" data-bs-target="#importBooksModal">
+                            <i class="las la-file-excel"></i>
+                            <span>Import Excel</span>
+                        </a>
                         <a href="javascript:void(0);" class="btn btn-manage-cat rounded"
                             data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">
                             <i class="las la-cog"></i>
@@ -262,6 +308,59 @@
 
     @push('modals')
 
+    <!-- Import Books Modal -->
+    <div class="modal fade" id="importBooksModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="importBooksForm" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header" style="background: #28a745; color: #fff;">
+                        <h5 class="modal-title text-white"><i class="las la-file-excel me-2" style="font-size: 1.25rem;"></i>Import Books from Excel</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <strong>Instructions:</strong>
+                            <ul class="mb-0 ps-3 small">
+                                <li>Ensure your file is in `.xlsx`, `.xls`, or `.csv` format.</li>
+                                <li>`SKU` and `Book Title` columns are required for every row.</li>
+                                <li>If a book with the same SKU already exists, its details will be updated.</li>
+                                <li>If a Category or Sub-category does not exist, it will be automatically created.</li>
+                            </ul>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-4 p-2 bg-light rounded border">
+                            <span class="small text-muted fw-bold">Need a template?</span>
+                            <a href="{{ route('marketing.books.import-template') }}" class="btn btn-sm btn-outline-success">
+                                <i class="las la-download"></i> Download Template
+                            </a>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">SELECT EXCEL/CSV FILE</label>
+                            <input type="file" class="form-control form-control-sm" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                        </div>
+                        <div id="importErrorsContainer" class="d-none mt-3">
+                            <div class="alert alert-danger p-2 mb-0">
+                                <strong class="small">Import failed due to the following errors:</strong>
+                                <ul id="importErrorList" class="mb-0 ps-3 small text-danger" style="max-height: 150px; overflow-y: auto;"></ul>
+                            </div>
+                        </div>
+                        <div id="importLoading" class="d-none text-center my-3">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="small text-muted mt-2 mb-0">Processing import... Please wait as this can take a moment for large files.</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-success btn-sm" id="importSubmitBtn">
+                            <i class="las la-upload"></i> Start Import
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Manage Categories Modal -->
     <div class="modal fade" id="manageCategoriesModal" tabindex="-1" aria-hidden="true">
@@ -1176,6 +1275,101 @@
                     });
                 });
         });
+
+        // Excel Import Form Submission
+        const importBooksModalEl = document.getElementById('importBooksModal');
+        const importBooksModal = importBooksModalEl ? bootstrap.Modal.getOrCreateInstance(importBooksModalEl) : null;
+        const importForm = document.getElementById('importBooksForm');
+        const importLoading = document.getElementById('importLoading');
+        const importSubmitBtn = document.getElementById('importSubmitBtn');
+        const importErrorsContainer = document.getElementById('importErrorsContainer');
+        const importErrorList = document.getElementById('importErrorList');
+
+        if (importForm) {
+            importForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Hide previous errors
+                importErrorsContainer.classList.add('d-none');
+                importErrorList.innerHTML = '';
+                
+                // Show loading, disable buttons
+                importLoading.classList.remove('d-none');
+                importSubmitBtn.disabled = true;
+                
+                const formData = new FormData(this);
+                
+                fetch("{{ route('marketing.books.import') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                })
+                .then(async response => {
+                    const data = await response.json();
+                    
+                    // Hide loading & enable submit
+                    importLoading.classList.add('d-none');
+                    importSubmitBtn.disabled = false;
+                    
+                    if (response.status === 422) {
+                        importErrorsContainer.classList.remove('d-none');
+                        if (data.details && data.details.length > 0) {
+                            data.details.forEach(msg => {
+                                const li = document.createElement('li');
+                                li.innerText = msg;
+                                importErrorList.appendChild(li);
+                            });
+                        } else {
+                            const li = document.createElement('li');
+                            li.innerText = data.error || 'Validation failed.';
+                            importErrorList.appendChild(li);
+                        }
+                    } else if (!response.ok) {
+                        importErrorsContainer.classList.remove('d-none');
+                        const li = document.createElement('li');
+                        li.innerText = data.error || data.message || 'An unexpected error occurred.';
+                        importErrorList.appendChild(li);
+                    } else {
+                        // Success!
+                        importForm.reset();
+                        if (importBooksModal) {
+                            importBooksModal.hide();
+                        }
+                        
+                        const successMsg = `${data.message} Created: ${data.created} books. Updated: ${data.updated} books.`;
+                        if (window.showAlert) {
+                            window.showAlert(successMsg, 'success');
+                        } else {
+                            alert(successMsg);
+                        }
+                        
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                })
+                .catch(error => {
+                    importLoading.classList.add('d-none');
+                    importSubmitBtn.disabled = false;
+                    importErrorsContainer.classList.remove('d-none');
+                    
+                    const li = document.createElement('li');
+                    li.innerText = 'Network error or connection lost. Please try again.';
+                    importErrorList.appendChild(li);
+                    console.error('Import Error:', error);
+                });
+            });
+
+            // Clean errors when closing modal
+            if (importBooksModalEl) {
+                importBooksModalEl.addEventListener('hidden.bs.modal', function () {
+                    importForm.reset();
+                    importErrorsContainer.classList.add('d-none');
+                    importErrorList.innerHTML = '';
+                });
+            }
+        }
     </script>
     @endpush
 </x-app-layout>

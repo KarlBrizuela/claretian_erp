@@ -376,6 +376,336 @@ class MarketingController extends Controller
         return response()->json(['message' => 'Book added to Master Registry']);
     }
 
+    public function downloadTemplate()
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Books Template');
+
+        $headers = [
+            '', // Column A (empty)
+            'BOOK TITLE',
+            'SKU/CATAGLOG #',
+            'ITEM CODE',
+            'BARCODE/ISBN',
+            'SELLING PRICE',
+            'AUTHOR',
+            'PUBLISHER',
+            'SIZE(LXW)',
+            'WEIGHT',
+            'PAGES',
+            'COVER TYPE',
+            'CLASSIFICATION',
+            'COPYRIGHT',
+            'UNIT COST',
+            'CATEGORY',
+            'SUB-CATEGORY',
+            'ARTILE',
+            'ROYALTY',
+            'EMAIL',
+            'NBS BARCODE'
+        ];
+
+        // Write Headers
+        foreach ($headers as $colIndex => $header) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+            $sheet->setCellValue($colLetter . '1', $header);
+        }
+
+        // Write Sample Data matching user's template Row 2
+        $sampleData = [
+            '', // Column A
+            'Advent Arts and Christmas Crafts : With Prayers and Rituals for Family, School and Church',
+            '978-8809125860',
+            '', // ITEM CODE (Leave blank to generate automatically)
+            '9788809125860',
+            255.00,
+            'Joanna Rotberg',
+            'PAULIST PRESS',
+            '11 x 8.500 x .250',
+            '230',
+            0,
+            'Paper',
+            'Foreign Book',
+            '2020',
+            0.00,
+            'Pastoral',
+            'Liturgy',
+            '', // ARTILE
+            '', // ROYALTY
+            '', // EMAIL
+            ''  // NBS BARCODE
+        ];
+
+        foreach ($sampleData as $colIndex => $value) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+            $sheet->setCellValue($colLetter . '2', $value);
+        }
+
+        // Style headers
+        $headerStyle = [
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+                'size' => 10,
+            ],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'D9251C'], // Claretian Red color
+            ],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                ],
+            ],
+        ];
+
+        $sheet->getStyle('A1:U1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+
+        // Auto-fit column widths
+        foreach ($headers as $colIndex => $header) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+            if ($colIndex === 0) {
+                $sheet->getColumnDimension('A')->setWidth(5);
+            } else {
+                $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+            }
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        
+        return response()->stream(
+            function () use ($writer) {
+                $writer->save('php://output');
+            },
+            200,
+            [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="book_import_template.xlsx"',
+                'Cache-Control' => 'max-age=0',
+            ]
+        );
+    }
+
+    public function importBooks(Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|mimes:xlsx,xls,csv,txt',
+        ]);
+
+        try {
+            $file = $request->file('excel_file');
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error reading spreadsheet file: ' . $e->getMessage()], 422);
+        }
+
+        if (empty($rows) || count($rows) < 2) {
+            return response()->json(['error' => 'The uploaded file contains no data rows.'], 422);
+        }
+
+        // Headers cleaning & mapping
+        $headers = array_map(function($h) {
+            return strtolower(trim(str_replace("\ufeff", '', $h ?? '')));
+        }, $rows[0]);
+
+        $findHeader = function($keys, $headers) {
+            foreach ($keys as $key) {
+                $idx = array_search(strtolower(trim($key)), $headers);
+                if ($idx !== false) {
+                    return $idx;
+                }
+            }
+            return false;
+        };
+
+        // Define column maps with fallbacks
+        $colMap = [
+            'name' => $findHeader(['book title', 'name', 'title'], $headers),
+            'sku' => $findHeader(['sku/cataglog #', 'sku/cataglog', 'cataglog #', 'sku/catalog #', 'sku/catalog', 'sku', 'catalog #'], $headers),
+            'item_code' => $findHeader(['item code', 'item_code'], $headers),
+            'barcode' => $findHeader(['barcode/isbn', 'barcode', 'isbn'], $headers),
+            'price' => $findHeader(['selling price', 'price'], $headers),
+            'author' => $findHeader(['author'], $headers),
+            'publisher' => $findHeader(['publisher'], $headers),
+            'size' => $findHeader(['size(lxw)', 'size', 'size(l x w)'], $headers),
+            'weight' => $findHeader(['weight'], $headers),
+            'pages' => $findHeader(['pages'], $headers),
+            'cover_type' => $findHeader(['cover type', 'cover_type'], $headers),
+            'book_type' => $findHeader(['classification', 'book type', 'book_type', 'book-type'], $headers),
+            'copyright' => $findHeader(['copyright'], $headers),
+            'cost' => $findHeader(['unit cost', 'cost'], $headers),
+            'category' => $findHeader(['category'], $headers),
+            'sub_category' => $findHeader(['sub-category', 'sub category', 'sub_category'], $headers),
+            'article' => $findHeader(['artile', 'article'], $headers),
+            'royalty' => $findHeader(['royalty'], $headers),
+            'email' => $findHeader(['email'], $headers),
+            'nbs_barcode' => $findHeader(['nbs barcode', 'nbs_barcode'], $headers),
+            'stock' => $findHeader(['stock'], $headers),
+            'shelf_number' => $findHeader(['shelf number', 'shelf_number'], $headers),
+            'rack_number' => $findHeader(['rack number', 'rack_number'], $headers),
+            'reorder_point' => $findHeader(['reorder point', 'reorder_point'], $headers),
+            'max_stock' => $findHeader(['max stock', 'max_stock'], $headers),
+            'purchase_description' => $findHeader(['purchase description', 'purchase_description'], $headers),
+            'contact_number' => $findHeader(['contact number', 'contact_number'], $headers),
+            'cogs_account' => $findHeader(['cogs account', 'cogs_account'], $headers),
+        ];
+
+        // Book Title is required
+        if ($colMap['name'] === false) {
+            return response()->json(['error' => 'Critical column "Book Title" is missing in the Excel sheet.'], 422);
+        }
+
+        $createdCount = 0;
+        $updatedCount = 0;
+        $errors = [];
+
+        \DB::beginTransaction();
+
+        try {
+            for ($i = 1; $i < count($rows); $i++) {
+                $row = $rows[$i];
+                // Check if row is entirely empty
+                if (empty(array_filter($row, function($cell) { return !is_null($cell) && trim((string)$cell) !== ''; }))) {
+                    continue;
+                }
+
+                $rowNum = $i + 1;
+
+                $sku = $colMap['sku'] !== false ? trim((string)($row[$colMap['sku']] ?? '')) : '';
+                $name = trim((string)($row[$colMap['name']] ?? ''));
+
+                if (empty($sku)) {
+                    static $skuAutoIncrement = null;
+                    if ($skuAutoIncrement === null) {
+                        $skuAutoIncrement = (Book::withTrashed()->max('id') ?? 0) + 1;
+                    }
+                    do {
+                        $sku = 'SKU-' . str_pad($skuAutoIncrement, 5, '0', STR_PAD_LEFT);
+                        $skuAutoIncrement++;
+                    } while (Book::withTrashed()->where('sku', $sku)->exists());
+                }
+
+                if (empty($name)) {
+                    $errors[] = "Row {$rowNum}: Book Title is required.";
+                    continue;
+                }
+
+                $data = [
+                    'sku' => $sku,
+                    'name' => $name,
+                    'item_code' => $colMap['item_code'] !== false ? trim((string)($row[$colMap['item_code']] ?? '')) : null,
+                    'author' => $colMap['author'] !== false ? trim((string)($row[$colMap['author']] ?? '')) : null,
+                    'publisher' => $colMap['publisher'] !== false ? trim((string)($row[$colMap['publisher']] ?? '')) : null,
+                    'copyright' => $colMap['copyright'] !== false ? trim((string)($row[$colMap['copyright']] ?? '')) : null,
+                    'book_type' => $colMap['book_type'] !== false ? trim((string)($row[$colMap['book_type']] ?? '')) : null,
+                    'cover_type' => $colMap['cover_type'] !== false ? trim((string)($row[$colMap['cover_type']] ?? '')) : null,
+                    'pages' => $colMap['pages'] !== false ? (int)($row[$colMap['pages']] ?? 0) : 0,
+                    'size' => $colMap['size'] !== false ? trim((string)($row[$colMap['size']] ?? '')) : null,
+                    'weight' => $colMap['weight'] !== false ? trim((string)($row[$colMap['weight']] ?? '')) : null,
+                    'stock' => $colMap['stock'] !== false ? (int)($row[$colMap['stock']] ?? 0) : 0,
+                    'cost' => $colMap['cost'] !== false ? (float)($row[$colMap['cost']] ?? 0) : 0.0,
+                    'price' => $colMap['price'] !== false ? (float)($row[$colMap['price']] ?? 0) : 0.0,
+                    'reorder_point' => $colMap['reorder_point'] !== false ? (int)($row[$colMap['reorder_point']] ?? 0) : 0,
+                    'max_stock' => $colMap['max_stock'] !== false ? (int)($row[$colMap['max_stock']] ?? 0) : 0,
+                    'shelf_number' => $colMap['shelf_number'] !== false ? trim((string)($row[$colMap['shelf_number']] ?? '')) : null,
+                    'rack_number' => $colMap['rack_number'] !== false ? trim((string)($row[$colMap['rack_number']] ?? '')) : null,
+                    'barcode' => $colMap['barcode'] !== false ? trim((string)($row[$colMap['barcode']] ?? '')) : null,
+                    'nbs_barcode' => $colMap['nbs_barcode'] !== false ? trim((string)($row[$colMap['nbs_barcode']] ?? '')) : null,
+                    'purchase_description' => $colMap['purchase_description'] !== false ? trim((string)($row[$colMap['purchase_description']] ?? '')) : null,
+                    'article' => $colMap['article'] !== false ? trim((string)($row[$colMap['article']] ?? '')) : null,
+                    'royalty' => $colMap['royalty'] !== false ? trim((string)($row[$colMap['royalty']] ?? '')) : null,
+                    'email' => $colMap['email'] !== false ? trim((string)($row[$colMap['email']] ?? '')) : null,
+                    'contact_number' => $colMap['contact_number'] !== false ? trim((string)($row[$colMap['contact_number']] ?? '')) : null,
+                    'cogs_account' => $colMap['cogs_account'] !== false ? trim((string)($row[$colMap['cogs_account']] ?? '')) : null,
+                    'unit' => 'pcs',
+                    'is_active' => true,
+                ];
+
+                if (empty($data['item_code'])) $data['item_code'] = null;
+                if (empty($data['barcode'])) $data['barcode'] = null;
+                if (empty($data['nbs_barcode'])) $data['nbs_barcode'] = null;
+
+                // Handle categories on the fly
+                $categoryName = $colMap['category'] !== false ? trim((string)($row[$colMap['category']] ?? '')) : '';
+                $subCategoryName = $colMap['sub_category'] !== false ? trim((string)($row[$colMap['sub_category']] ?? '')) : '';
+
+                if (!empty($categoryName)) {
+                    $category = \App\Models\BookCategory::whereNull('parent_id')
+                        ->where('name', $categoryName)
+                        ->first();
+                    if (!$category) {
+                        $category = \App\Models\BookCategory::create([
+                            'name' => $categoryName,
+                            'parent_id' => null
+                        ]);
+                    }
+                    $data['category'] = $categoryName;
+                    $data['category_id'] = $category->id;
+
+                    if (!empty($subCategoryName)) {
+                        $subCategory = \App\Models\BookCategory::where('parent_id', $category->id)
+                            ->where('name', $subCategoryName)
+                            ->first();
+                        if (!$subCategory) {
+                            $subCategory = \App\Models\BookCategory::create([
+                                'name' => $subCategoryName,
+                                'parent_id' => $category->id
+                            ]);
+                        }
+                        $data['sub_category'] = $subCategoryName;
+                        $data['sub_category_id'] = $subCategory->id;
+                    }
+                }
+
+                // Check uniqueness constraints other than SKU (barcode, nbs_barcode if not null)
+                if (!empty($data['barcode'])) {
+                    $conflict = Book::where('barcode', $data['barcode'])->where('sku', '!=', $sku)->first();
+                    if ($conflict) {
+                        $errors[] = "Row {$rowNum}: Barcode \"{$data['barcode']}\" already exists for book with SKU \"{$conflict->sku}\".";
+                        continue;
+                    }
+                }
+
+                $book = Book::where('sku', $sku)->first();
+                if ($book) {
+                    $book->update($data);
+                    $updatedCount++;
+                } else {
+                    Book::create($data);
+                    $createdCount++;
+                }
+            }
+
+            if (!empty($errors)) {
+                \DB::rollBack();
+                return response()->json([
+                    'error' => 'Import failed due to row errors. No changes were saved.',
+                    'details' => $errors
+                ], 422);
+            }
+
+            \DB::commit();
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['error' => 'An error occurred during import: ' . $e->getMessage()], 500);
+        }
+
+        return response()->json([
+            'message' => 'Import completed successfully.',
+            'created' => $createdCount,
+            'updated' => $updatedCount
+        ]);
+    }
+
     public function editProduct($id)
     {
         $product = Product::with('book')->findOrFail($id);
@@ -1818,10 +2148,40 @@ class MarketingController extends Controller
     {
         $book = Book::findOrFail($id);
         
-        // Force delete to allow SKU reuse
-        $book->forceDelete();
+        try {
+            // Delete associated POS listing if exists
+            if ($book->product) {
+                $book->product->delete();
+            }
 
-        return response()->json(['message' => 'Book deleted permanentnly from Master Registry']);
+            // Attempt to force delete to allow SKU reuse
+            $book->forceDelete();
+
+            return response()->json(['message' => 'Book deleted permanently from Master Registry']);
+        } catch (\Exception $e) {
+            // Refetch the book to reset any Eloquent internal flags (like forceDeleting)
+            $book = Book::findOrFail($id);
+
+            // Fallback: Soft delete if book is referenced by other tables (sales invoices, transactions, etc.)
+            // Rename SKU and other unique fields to allow SKU reuse
+            $timestamp = time();
+            $book->sku = $book->sku . '-DELETED-' . $timestamp;
+            
+            if ($book->item_code) {
+                $book->item_code = $book->item_code . '-DELETED-' . $timestamp;
+            }
+            if ($book->barcode) {
+                $book->barcode = $book->barcode . '-DELETED-' . $timestamp;
+            }
+            if ($book->nbs_barcode) {
+                $book->nbs_barcode = $book->nbs_barcode . '-DELETED-' . $timestamp;
+            }
+            
+            $book->save();
+            $book->delete();
+
+            return response()->json(['message' => 'Book is referenced in transactions and has been safely archived. SKU is now free to be reused.']);
+        }
     }
 
     public function getCategories()

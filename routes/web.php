@@ -211,6 +211,8 @@ Route::middleware(['auth'])->group(function () {
     
     // Book Management (Master Registry)
     Route::get('/marketing/book-list', [MarketingController::class, 'products'])->name('marketing.products');
+    Route::get('/marketing/book-list/import-template', [MarketingController::class, 'downloadTemplate'])->name('marketing.books.import-template');
+    Route::post('/marketing/book-list/import', [MarketingController::class, 'importBooks'])->name('marketing.books.import');
     Route::post('/marketing/book-list/store-book', [MarketingController::class, 'storeBook'])->name('marketing.books.store');
     Route::get('/marketing/book-list/{id}/edit-book', [MarketingController::class, 'editBook'])->name('marketing.books.edit');
     Route::post('/marketing/book-list/{id}/update-book', [MarketingController::class, 'updateBook'])->name('marketing.books.update');
