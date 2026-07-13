@@ -125,39 +125,41 @@ class AccountingService
 
             // 1. Create Header
             $entry = JournalEntry::create([
-                'entry_no' => $this->generateEntryNumber('RR'),
-                'entry_type' => 'RR',
-                'date' => $rr->received_date,
-                'reference' => $rr->rr_number,
-                'memo' => "Inventory receipt via RR #" . $rr->rr_number,
-                'currency' => 'PHP',
+                'entry_no'      => $this->generateEntryNumber('RR'),
+                'entry_type'    => 'RR',
+                'date'          => $rr->received_date,
+                'reference'     => $rr->rr_number,
+                'memo'          => "Inventory receipt via RR #" . $rr->rr_number,
+                'currency'      => 'PHP',
                 'exchange_rate' => 1.0000,
-                'created_by' => auth()->id() ?? 1,
-                'status' => 'posted',
+                'created_by'    => auth()->id() ?? 1,
+                'status'        => 'posted',
             ]);
 
             // 2. Accounts
             $inventoryAccount = ChartOfAccount::where('code', '1300')->first();
-            $apAccount = ChartOfAccount::where('code', '2000')->first();
+            $apAccount        = ChartOfAccount::where('code', '2000')->first();
 
-            // 3. Items
-            // DR Inventory
-            JournalEntryItem::create([
-                'journal_entry_id' => $entry->id,
-                'chart_of_account_id' => $inventoryAccount->id,
-                'debit' => $totalAmount,
-                'credit' => 0,
-                'memo' => "Increase inventory stock",
-            ]);
+            // 3. Items — only post journal lines if both accounts exist
+            if ($inventoryAccount && $apAccount) {
+                // DR Inventory
+                JournalEntryItem::create([
+                    'journal_entry_id'    => $entry->id,
+                    'chart_of_account_id' => $inventoryAccount->id,
+                    'debit'               => $totalAmount,
+                    'credit'              => 0,
+                    'memo'                => "Increase inventory stock",
+                ]);
 
-            // CR Accounts Payable
-            JournalEntryItem::create([
-                'journal_entry_id' => $entry->id,
-                'chart_of_account_id' => $apAccount->id,
-                'debit' => 0,
-                'credit' => $totalAmount,
-                'memo' => "Liability to supplier",
-            ]);
+                // CR Accounts Payable
+                JournalEntryItem::create([
+                    'journal_entry_id'    => $entry->id,
+                    'chart_of_account_id' => $apAccount->id,
+                    'debit'               => 0,
+                    'credit'              => $totalAmount,
+                    'memo'                => "Liability to supplier",
+                ]);
+            }
 
             return $entry;
         });

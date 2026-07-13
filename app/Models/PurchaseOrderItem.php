@@ -16,6 +16,11 @@ class PurchaseOrderItem extends Model
         'unit_price',
         'total_amount',
         'received_quantity',
+        // Ford-specific fields
+        'item_remarks',
+        'language',
+        'ft',
+        'bindings',
     ];
 
     public function purchaseOrder()

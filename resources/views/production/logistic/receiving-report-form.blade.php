@@ -43,13 +43,21 @@
                         </div>
 
                         <div class="table-responsive mb-4">
+                            <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+                                <i class="las la-info-circle fs-5"></i>
+                                <div>
+                                    <strong>Partial Receipt Allowed.</strong>
+                                    This Purchase Order will remain <span class="badge badge-warning">Open</span> until all items' received quantities match the ordered quantities.
+                                </div>
+                            </div>
                             <table class="table table-bordered">
                                 <thead class="bg-primary text-white">
                                     <tr>
                                         <th>Description</th>
-                                        <th>Ordered Qty</th>
-                                        <th>Previously Received</th>
-                                        <th>Remaining</th>
+                                        <th style="width:110px;">Ordered Qty</th>
+                                        <th style="width:130px;">Previously Received</th>
+                                        <th style="width:110px;">Remaining</th>
+                                        <th style="width:180px;">Receipt Progress</th>
                                         <th style="width: 150px;">Today's Receipt</th>
                                     </tr>
                                 </thead>
@@ -57,21 +65,41 @@
                                     @foreach($purchaseOrder->items as $item)
                                     @php
                                         $remaining = $item->quantity - $item->received_quantity;
+                                        $pct = $item->quantity > 0 ? round(($item->received_quantity / $item->quantity) * 100) : 0;
+                                        $barColor = $pct >= 100 ? 'bg-success' : ($pct > 0 ? 'bg-warning' : 'bg-danger');
                                     @endphp
                                     <tr>
                                         <td>
                                             <strong>{{ $item->product ? $item->product->name : $item->description }}</strong>
+                                            @if($item->language) <br><small class="text-muted">Lang: {{ $item->language }}{{ $item->ft ? ' | FT: '.$item->ft : '' }}</small> @endif
                                             @if($item->isbn) <br><small class="text-muted">ISBN: {{ $item->isbn }}</small> @endif
                                         </td>
-                                        <td class="text-center">{{ $item->quantity }}</td>
-                                        <td class="text-center">{{ $item->received_quantity }}</td>
-                                        <td class="text-center text-danger">{{ $remaining }}</td>
+                                        <td class="text-center fw-bold">{{ $item->quantity }}</td>
+                                        <td class="text-center text-success fw-bold">{{ $item->received_quantity }}</td>
+                                        <td class="text-center {{ $remaining > 0 ? 'text-danger fw-bold' : 'text-success fw-bold' }}">{{ $remaining }}</td>
                                         <td>
-                                            <input type="number" name="items[{{ $item->id }}][quantity_received]" 
-                                                   class="form-control text-center qty-input" 
-                                                   max="{{ $remaining }}" min="0" 
+                                            <div class="progress" style="height: 18px; border-radius: 4px;">
+                                                <div class="progress-bar {{ $barColor }}" role="progressbar"
+                                                     style="width: {{ $pct }}%"
+                                                     aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100">
+                                                    {{ $pct }}%
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">{{ $item->received_quantity }} / {{ $item->quantity }} received</small>
+                                        </td>
+                                        <td>
+                                            @if($remaining > 0)
+                                            <input type="number" name="items[{{ $item->id }}][quantity_received]"
+                                                   class="form-control text-center qty-input"
+                                                   max="{{ $remaining }}" min="0"
                                                    value="{{ $remaining }}"
                                                    oninput="validateQty(this, {{ $remaining }})">
+                                            @else
+                                            <div class="text-center">
+                                                <span class="badge badge-success"><i class="fas fa-check"></i> Fully Received</span>
+                                                <input type="hidden" name="items[{{ $item->id }}][quantity_received]" value="0">
+                                            </div>
+                                            @endif
                                         </td>
                                     </tr>
                                     @endforeach

@@ -108,6 +108,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/purchase-order', [App\Http\Controllers\Production\LogisticController::class, 'purchaseOrder'])->name('purchase-order');
       Route::get('/purchase-order/{id}', [App\Http\Controllers\Production\LogisticController::class, 'showPurchaseOrder'])->name('purchase-order.show');
       Route::post('/purchase-order', [App\Http\Controllers\Production\LogisticController::class, 'storePurchaseOrder'])->name('purchase-order.store');
+      Route::delete('/purchase-order/{id}', [App\Http\Controllers\Production\LogisticController::class, 'destroyPurchaseOrder'])->name('purchase-order.destroy');
 
       // Receiving Reports
       Route::get('/receiving-report-list', [App\Http\Controllers\Production\LogisticController::class, 'receivingReportList'])->name('receiving-report-list');
@@ -144,14 +145,22 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('production/ford')->name('production.ford.')->group(function () {
-      Route::get('/auto-debit', [App\Http\Controllers\Production\FORDController::class, 'autoDebit'])->name('auto-debit');
+      Route::get('/auto-debit', [App\Http\Controllers\Production\FORDController::class, 'autoDebitIndex'])->name('auto-debit');
+      Route::get('/auto-debit/create', [App\Http\Controllers\Production\FORDController::class, 'autoDebitCreate'])->name('auto-debit.create');
+      Route::post('/auto-debit/store', [App\Http\Controllers\Production\FORDController::class, 'autoDebitStore'])->name('auto-debit.store');
+      Route::get('/auto-debit/{id}', [App\Http\Controllers\Production\FORDController::class, 'autoDebitShow'])->name('auto-debit.show');
+      Route::post('/auto-debit/{id}/approve-director', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveDirector'])->name('auto-debit.approve-director');
+      Route::post('/auto-debit/{id}/approve-finance', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveFinance'])->name('auto-debit.approve-finance');
+      Route::post('/auto-debit/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'autoDebitReject'])->name('auto-debit.reject');
       Route::get('/client-payment-posting', [App\Http\Controllers\Production\FORDController::class, 'clientPaymentPosting'])->name('client-payment-posting');
+      Route::post('/client-payment-posting', [App\Http\Controllers\Production\FORDController::class, 'storeClientPaymentPosting'])->name('client-payment-posting.store');
       Route::get('/eford-payout', [App\Http\Controllers\Production\FORDController::class, 'eFordPayout'])->name('eford-payout');
       Route::post('/eford-payout', [App\Http\Controllers\Production\FORDController::class, 'storeEfordPayout'])->name('eford-payout.store');
       Route::get('/eford-payout/customers/{id}/unpaid-invoices', [App\Http\Controllers\Production\FORDController::class, 'getUnpaidInvoices'])->name('eford-payout.unpaid-invoices');
       Route::get('/payment-request', [App\Http\Controllers\Production\FORDController::class, 'paymentRequest'])->name('payment-request');
       Route::post('/payment-request', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'store'])->name('payment-request.store');
       Route::get('/purchase-order', [App\Http\Controllers\Production\FORDController::class, 'purchaseOrder'])->name('purchase-order');
+      Route::post('/purchase-order', [App\Http\Controllers\Production\FORDController::class, 'storeFordPurchaseOrder'])->name('purchase-order.store');
       Route::get('/request-for-quotation', [App\Http\Controllers\Production\FORDController::class, 'requestForQuotation'])->name('request-for-quotation');
       Route::get('/sales-order', [App\Http\Controllers\Production\FORDController::class, 'salesOrder'])->name('sales-order');
       Route::post('/sales-order/{id}/approve', [App\Http\Controllers\Production\FORDController::class, 'approveSalesOrder'])->name('sales-order.approve');
@@ -211,6 +220,7 @@ Route::middleware(['auth'])->group(function () {
     
     // Book Management (Master Registry)
     Route::get('/marketing/book-list', [MarketingController::class, 'products'])->name('marketing.products');
+    Route::get('/marketing/book-list/check-sku', [MarketingController::class, 'checkSku'])->name('marketing.books.check-sku');
     Route::get('/marketing/book-list/import-template', [MarketingController::class, 'downloadTemplate'])->name('marketing.books.import-template');
     Route::post('/marketing/book-list/import', [MarketingController::class, 'importBooks'])->name('marketing.books.import');
     Route::post('/marketing/book-list/store-book', [MarketingController::class, 'storeBook'])->name('marketing.books.store');
@@ -408,6 +418,21 @@ Route::middleware(['auth'])->group(function () {
           Route::get('/{id}', [App\Http\Controllers\Accounting\JournalEntryController::class, 'show'])->name('show');
           Route::delete('/{id}', [App\Http\Controllers\Accounting\JournalEntryController::class, 'destroy'])->name('destroy');
       });
+
+      // Cashier Petty Cash Approvals
+      Route::get('/cashier', [App\Http\Controllers\Accounting\PettyCashController::class, 'cashierIndex'])->name('admin-finance.accounting.cashier.index');
+      Route::post('/cashier/petty-cash/{id}/approve', [App\Http\Controllers\Accounting\PettyCashController::class, 'cashierApprove'])->name('admin-finance.accounting.cashier.approve');
+      Route::post('/cashier/petty-cash/{id}/reject', [App\Http\Controllers\Accounting\PettyCashController::class, 'cashierReject'])->name('admin-finance.accounting.cashier.reject');
+      Route::post('/cashier/petty-cash/{id}/complete', [App\Http\Controllers\Accounting\PettyCashController::class, 'cashierComplete'])->name('admin-finance.accounting.cashier.complete');
+
+      // Payment Posting
+      Route::get('/payment-posting', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingIndex'])->name('admin-finance.accounting.payment-posting.index');
+      Route::get('/payment-posting/{id}', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingShow'])->name('admin-finance.accounting.payment-posting.show');
+      Route::post('/payment-posting/{id}/post', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingPost'])->name('admin-finance.accounting.payment-posting.post');
+
+      // Auto Debits
+      Route::get('/auto-debits', [App\Http\Controllers\Production\FORDController::class, 'accountingAutoDebitIndex'])->name('admin-finance.accounting.auto-debits.index');
+      Route::get('/auto-debits/{id}', [App\Http\Controllers\Production\FORDController::class, 'accountingAutoDebitShow'])->name('admin-finance.accounting.auto-debits.show');
     });
 
     // Credit Collection
@@ -494,6 +519,7 @@ Route::prefix('admin-finance')->group(function () {
   Route::get('/petty-cash/summary', [App\Http\Controllers\Accounting\PettyCashController::class, 'summary'])->name('admin-finance.petty-cash.summary');
   Route::post('/petty-cash/liquidate', [App\Http\Controllers\Accounting\PettyCashController::class, 'liquidate'])->name('admin-finance.petty-cash.liquidate');
   Route::get('/petty-cash/{id}', [App\Http\Controllers\Accounting\PettyCashController::class, 'show'])->name('admin-finance.petty-cash.show');
+  Route::post('/petty-cash/{id}/upload-proof', [App\Http\Controllers\Accounting\PettyCashController::class, 'uploadProof'])->name('admin-finance.petty-cash.upload-proof');
   Route::delete('/petty-cash/{id}', [App\Http\Controllers\Accounting\PettyCashController::class, 'destroy'])->name('admin-finance.petty-cash.destroy');
 });
 

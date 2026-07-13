@@ -31,7 +31,7 @@
                                     <td><strong>{{ $po->po_number }}</strong></td>
                                     <td>{{ $po->date ? \Carbon\Carbon::parse($po->date)->format('Y-m-d') : 'N/A' }}</td>
                                     <td>{{ $po->supplier->company_name ?? 'N/A' }}</td>
-                                    <td>₱{{ number_format($po->total_amount, 2) }}</td>
+                                    <td>{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($po->total_amount, 2) }}</td>
                                     <td>
                                         @php
                                             $statusClass = [
@@ -58,6 +58,13 @@
                                                 <i class="fas fa-file-invoice"></i>
                                             </a>
                                             @endif
+                                            <form action="{{ route('production.logistic.purchase-order.destroy', $po->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this Purchase Order? This will also remove any related receiving reports.')" style="display: inline-block;">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger shadow btn-xs sharp" title="Delete PO">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

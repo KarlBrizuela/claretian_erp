@@ -117,30 +117,60 @@
                             </div>
 
                             <div class="form-group">
-                                <label>Attachment:</label>
+                                <label>PO Attachment:</label>
                                 @if($isEdit && $order->attachment)
                                     <div class="mb-2">
-                                        <a href="/storage/{{ $order->attachment }}" target="_blank" class="text-primary"><i class="bi bi-paperclip"></i> View Current Attachment</a>
+                                        <a href="/storage/{{ $order->attachment }}" target="_blank" class="text-primary"><i class="bi bi-paperclip"></i> View Current PO</a>
                                     </div>
                                 @endif
                                 <!-- Premium Upload UI -->
-                                <div class="upload-area p-3 border rounded-3 text-center bg-light cursor-pointer position-relative" id="uploadArea" style="border: 2px dashed #ccc !important; transition: all 0.3s ease;">
-                                    <input type="file" class="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer" name="attachment" id="attachmentInput" accept=".pdf,.jpg,.jpeg,.png">
+                                <div class="upload-area p-3 border rounded-3 text-center bg-light cursor-pointer position-relative" id="uploadAreaPO" style="border: 2px dashed #ccc !important; transition: all 0.3s ease;">
+                                    <input type="file" class="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer" name="attachment" id="attachmentInputPO" accept=".pdf,.jpg,.jpeg,.png">
                                     
-                                    <div class="upload-content" id="uploadContent">
+                                    <div class="upload-content" id="uploadContentPO">
                                         <div class="mb-1">
                                             <i class="bi bi-cloud-arrow-up fs-3 text-primary"></i>
                                         </div>
-                                        <h6 class="fw-bold mb-0">Upload File</h6>
+                                        <h6 class="fw-bold mb-0">Upload PO File</h6>
                                     </div>
 
-                                    <div class="file-preview d-none" id="filePreview">
+                                    <div class="file-preview d-none" id="filePreviewPO">
                                         <div class="d-flex align-items-center justify-content-center gap-2">
                                             <i class="bi bi-file-earmark-text fs-4 text-primary"></i>
                                             <div class="text-start">
-                                                <h6 class="fw-bold mb-0 text-dark" id="fileName" style="font-size: 0.8rem;">filename.pdf</h6>
+                                                <h6 class="fw-bold mb-0 text-dark" id="fileNamePO" style="font-size: 0.8rem;">filename.pdf</h6>
                                             </div>
-                                            <button type="button" class="btn btn-close btn-sm ms-1" id="removeFile"></button>
+                                            <button type="button" class="btn btn-close btn-sm ms-1" id="removeFilePO"></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group mt-3">
+                                <label>Proof of Payment Attachment:</label>
+                                @if($isEdit && $order->proof_of_payment)
+                                    <div class="mb-2">
+                                        <a href="/storage/{{ $order->proof_of_payment }}" target="_blank" class="text-primary"><i class="bi bi-paperclip"></i> View Current Proof of Payment</a>
+                                    </div>
+                                @endif
+                                <!-- Premium Upload UI -->
+                                <div class="upload-area p-3 border rounded-3 text-center bg-light cursor-pointer position-relative" id="uploadAreaPayment" style="border: 2px dashed #ccc !important; transition: all 0.3s ease;">
+                                    <input type="file" class="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer" name="proof_of_payment" id="attachmentInputPayment" accept=".pdf,.jpg,.jpeg,.png">
+                                    
+                                    <div class="upload-content" id="uploadContentPayment">
+                                        <div class="mb-1">
+                                            <i class="bi bi-cloud-arrow-up fs-3 text-primary"></i>
+                                        </div>
+                                        <h6 class="fw-bold mb-0">Upload Proof of Payment</h6>
+                                    </div>
+
+                                    <div class="file-preview d-none" id="filePreviewPayment">
+                                        <div class="d-flex align-items-center justify-content-center gap-2">
+                                            <i class="bi bi-file-earmark-text fs-4 text-primary"></i>
+                                            <div class="text-start">
+                                                <h6 class="fw-bold mb-0 text-dark" id="fileNamePayment" style="font-size: 0.8rem;">filename.pdf</h6>
+                                            </div>
+                                            <button type="button" class="btn btn-close btn-sm ms-1" id="removeFilePayment"></button>
                                         </div>
                                     </div>
                                 </div>
@@ -156,13 +186,13 @@
                     <table class="form-table" id="itemsTable">
                         <thead>
                             <tr>
-                                <th style="width: 100px;">QTY</th>
-                                <th style="width: 90px;">UNIT</th>
+                                <th style="width: 70px;">QTY</th>
+                                <th style="width: 70px;">UNIT</th>
                                 <th>DESCRIPTION / PRODUCT</th>
-                                <th style="width: 120px;">ISBN</th>
-                                <th style="width: 120px;">AREA</th> <!-- Added AREA -->
-                                <th style="width: 150px;">UNIT PRICE</th>
-                                <th style="width: 150px;">AMOUNT</th>
+                                <th style="width: 110px;">ISBN</th>
+                                <th style="width: 90px;">AREA</th> <!-- Added AREA -->
+                                <th style="width: 110px;">UNIT PRICE</th>
+                                <th style="width: 110px;">AMOUNT</th>
                                 <th style="width: 80px;">ACTION</th>
                             </tr>
                         </thead>
@@ -241,15 +271,15 @@
         .form-group label { font-weight: 600; color: #333; margin-bottom: 0.25rem; display: block; font-size: 0.9rem; }
         .form-group input, .form-group textarea, .form-group select { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem; font-size: 0.9rem; }
         
-        .form-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+        .form-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; table-layout: fixed; }
         .form-table thead { background: #ff0000; color: #fff; }
-        .form-table th { padding: 0.75rem; text-align: left; font-weight: 600; font-size: 0.9rem; border: 1px solid #ddd; }
+        .form-table th { padding: 0.75rem; text-align: left; font-weight: 600; font-size: 0.9rem; border: 1px solid #ddd; overflow: hidden; white-space: nowrap; }
         .form-table td { padding: 0.5rem; border: 1px solid #ddd; vertical-align: middle !important; }
         /* Adjusted inputs to blend in better inside table */
         .form-table input.qty-input, .form-table input.price-input, .form-table input.isbn-input, .form-table select { width: 100%; border: none; padding: 0.5rem; background: transparent; }
         .form-table input:focus, .form-table select:focus { outline: 2px solid #ff0000; outline-offset: -2px; background: #fff; }
         .form-table tfoot { background: #f8f9fa; font-weight: 600; }
-        .form-table tfoot td { padding: 0.75rem; border-top: 2px solid #333; }
+        .form-table tfoot td { padding: 0.75rem; border-top: 2px solid #333; overflow: visible; }
         
         .btn-add-row { background: #ff0000; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; cursor: pointer; transition: background 0.3s; }
         .btn-add-row:hover { background: #ff6666; }
@@ -279,6 +309,25 @@
         .product-select-td { 
             text-align: left; 
             vertical-align: middle !important;
+            max-width: 0; /* forces the cell to respect table-layout:fixed */
+            overflow: visible; /* MUST be visible so the dropdown menu can escape the cell */
+        }
+        /* Prevent the selectpicker button from stretching the column */
+        .product-select-td .bootstrap-select {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        .product-select-td .bootstrap-select .btn {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden;
+        }
+        /* Truncate the displayed book name with ellipsis — dropdown itself stays intact */
+        .product-select-td .bootstrap-select .filter-option-inner-inner {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
         }
         
         /* Consistency across inputs */
@@ -389,34 +438,75 @@
                 }
             });
 
-            // Upload UI Logic (Same as before)
-            const uploadArea = document.getElementById('uploadArea');
-            const attachmentInput = document.getElementById('attachmentInput');
-            const uploadContent = document.getElementById('uploadContent');
-            const filePreview = document.getElementById('filePreview');
-            const fileName = document.getElementById('fileName');
-            const removeFile = document.getElementById('removeFile');
+            // PO Upload UI Logic
+            const uploadAreaPO = document.getElementById('uploadAreaPO');
+            const attachmentInputPO = document.getElementById('attachmentInputPO');
+            const uploadContentPO = document.getElementById('uploadContentPO');
+            const filePreviewPO = document.getElementById('filePreviewPO');
+            const fileNamePO = document.getElementById('fileNamePO');
+            const removeFilePO = document.getElementById('removeFilePO');
 
-            uploadArea.addEventListener('dragover', () => uploadArea.style.borderColor = '#0d6efd');
-            uploadArea.addEventListener('dragleave', () => uploadArea.style.borderColor = '#ccc');
-            attachmentInput.addEventListener('change', function() {
-                if (this.files && this.files[0]) {
-                    const file = this.files[0];
-                    fileName.textContent = file.name;
-                    uploadContent.classList.add('d-none');
-                    filePreview.classList.remove('d-none');
-                    uploadArea.classList.remove('bg-light');
-                    uploadArea.classList.add('bg-white', 'border-primary');
-                }
-            });
-            removeFile.addEventListener('click', function(e) {
-                e.preventDefault();
-                attachmentInput.value = '';
-                uploadContent.classList.remove('d-none');
-                filePreview.classList.add('d-none');
-                uploadArea.classList.add('bg-light');
-                uploadArea.classList.remove('bg-white', 'border-primary');
-            });
+            if (uploadAreaPO) {
+                uploadAreaPO.addEventListener('dragover', () => uploadAreaPO.style.borderColor = '#0d6efd');
+                uploadAreaPO.addEventListener('dragleave', () => uploadAreaPO.style.borderColor = '#ccc');
+            }
+            if (attachmentInputPO) {
+                attachmentInputPO.addEventListener('change', function() {
+                    if (this.files && this.files[0]) {
+                        const file = this.files[0];
+                        fileNamePO.textContent = file.name;
+                        uploadContentPO.classList.add('d-none');
+                        filePreviewPO.classList.remove('d-none');
+                        uploadAreaPO.classList.remove('bg-light');
+                        uploadAreaPO.classList.add('bg-white', 'border-primary');
+                    }
+                });
+            }
+            if (removeFilePO) {
+                removeFilePO.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    attachmentInputPO.value = '';
+                    uploadContentPO.classList.remove('d-none');
+                    filePreviewPO.classList.add('d-none');
+                    uploadAreaPO.classList.add('bg-light');
+                    uploadAreaPO.classList.remove('bg-white', 'border-primary');
+                });
+            }
+
+            // Payment Upload UI Logic
+            const uploadAreaPayment = document.getElementById('uploadAreaPayment');
+            const attachmentInputPayment = document.getElementById('attachmentInputPayment');
+            const uploadContentPayment = document.getElementById('uploadContentPayment');
+            const filePreviewPayment = document.getElementById('filePreviewPayment');
+            const fileNamePayment = document.getElementById('fileNamePayment');
+            const removeFilePayment = document.getElementById('removeFilePayment');
+
+            if (uploadAreaPayment) {
+                uploadAreaPayment.addEventListener('dragover', () => uploadAreaPayment.style.borderColor = '#0d6efd');
+                uploadAreaPayment.addEventListener('dragleave', () => uploadAreaPayment.style.borderColor = '#ccc');
+            }
+            if (attachmentInputPayment) {
+                attachmentInputPayment.addEventListener('change', function() {
+                    if (this.files && this.files[0]) {
+                        const file = this.files[0];
+                        fileNamePayment.textContent = file.name;
+                        uploadContentPayment.classList.add('d-none');
+                        filePreviewPayment.classList.remove('d-none');
+                        uploadAreaPayment.classList.remove('bg-light');
+                        uploadAreaPayment.classList.add('bg-white', 'border-primary');
+                    }
+                });
+            }
+            if (removeFilePayment) {
+                removeFilePayment.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    attachmentInputPayment.value = '';
+                    uploadContentPayment.classList.remove('d-none');
+                    filePreviewPayment.classList.add('d-none');
+                    uploadAreaPayment.classList.add('bg-light');
+                    uploadAreaPayment.classList.remove('bg-white', 'border-primary');
+                });
+            }
 
             function calculateRow(row) {
                 const qty = parseFloat(row.querySelector('.qty-input').value) || 0;

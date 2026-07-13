@@ -49,7 +49,14 @@
                                     <td><span class="badge light badge-primary">{{ $voucher->items_count ?? 0 }} item(s)</span></td>
                                     <td><strong>₱ {{ number_format($voucher->items_sum_amount ?? 0, 2) }}</strong></td>
                                     <td>
-                                        <span class="badge light {{ $voucher->status === 'liquidated' ? 'badge-success' : 'badge-warning' }}">
+                                        @php
+                                            $statusClass = 'badge-warning';
+                                            if ($voucher->status === 'ongoing') $statusClass = 'badge-info';
+                                            elseif ($voucher->status === 'completed' || $voucher->status === 'liquidated') $statusClass = 'badge-success';
+                                            elseif ($voucher->status === 'rejected') $statusClass = 'badge-danger';
+                                            elseif ($voucher->status === 'pending') $statusClass = 'badge-warning';
+                                        @endphp
+                                        <span class="badge light {{ $statusClass }}">
                                             {{ ucfirst($voucher->status) }}
                                         </span>
                                     </td>
@@ -114,7 +121,7 @@
     <script>
         function confirmDelete(id, pcvNumber) {
             document.getElementById('deleteVoucherLabel').textContent = 'PCV No. ' + pcvNumber;
-            document.getElementById('deleteForm').action = '/admin-finance/accounting/petty-cash/' + id;
+            document.getElementById('deleteForm').action = '/admin-finance/petty-cash/' + id;
             var modal = new bootstrap.Modal(document.getElementById('deleteModal'));
             modal.show();
         }

@@ -16,6 +16,7 @@ class PettyCashVoucher extends Model
         'status',
         'journal_entry_id',
         'created_by',
+        'proof_attachment',
     ];
 
     public function items()

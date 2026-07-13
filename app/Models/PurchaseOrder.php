@@ -19,6 +19,13 @@ class PurchaseOrder extends Model
         'status',
         'prepared_by',
         'approved_by',
+        // Ford-specific fields
+        'source',
+        'vendor_name',
+        'contact_persons',
+        'vendor_address',
+        'payment_schedule',
+        'payment_schedule2',
     ];
 
     public function supplier()

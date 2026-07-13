@@ -355,7 +355,7 @@
                             <ul class="mb-0 ps-3 small">
                                 <li>Ensure your file is in `.xlsx`, `.xls`, or `.csv` format.</li>
                                 <li>`SKU` and `Book Title` columns are required for every row.</li>
-                                <li>If a book with the same SKU already exists, its details will be updated.</li>
+                                <li>Duplicate SKUs are not allowed. If a SKU already exists, the import will be blocked and none of the changes will be saved.</li>
                                 <li>If a Category or Sub-category does not exist, it will be automatically created.</li>
                             </ul>
                         </div>
@@ -554,7 +554,10 @@
                         <div class="col-md-6">
                             <div class="form-row-custom">
                                 <label>SKU / CATALOG #</label>
-                                <input type="text" class="form-control form-control-sm" name="sku" required>
+                                <div style="flex: 1;">
+                                    <input type="text" class="form-control form-control-sm w-100" name="sku" id="book_sku_input" required>
+                                    <div id="sku-validation-msg" class="text-danger small fw-bold mt-1" style="display: none; font-size: 0.75rem;"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -825,6 +828,70 @@
         const bookForm = document.getElementById('addBookForm');
         let isFixingErrors = false;
 
+        // Live SKU Duplication Validation
+        const skuInput = document.getElementById('book_sku_input');
+        const skuMsg = document.getElementById('sku-validation-msg');
+        const saveBookBtn = document.getElementById('saveBookBtn');
+        let skuTimeout = null;
+
+        if (skuInput) {
+            skuInput.addEventListener('input', function() {
+                clearTimeout(skuTimeout);
+                const skuVal = this.value.trim();
+                const bookId = document.getElementById('modal_book_id').value;
+
+                if (skuVal === '') {
+                    skuInput.classList.remove('is-invalid');
+                    if (skuMsg) {
+                        skuMsg.style.display = 'none';
+                        skuMsg.innerText = '';
+                    }
+                    if (skuInput) skuInput.dataset.skuExists = "false";
+                    checkSaveButtonState();
+                    return;
+                }
+
+                skuTimeout = setTimeout(() => {
+                    let url = `/marketing/book-list/check-sku?sku=${encodeURIComponent(skuVal)}`;
+                    if (bookId) {
+                        url += `&exclude_id=${bookId}`;
+                    }
+
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.exists) {
+                                skuInput.classList.add('is-invalid');
+                                if (skuMsg) {
+                                    skuMsg.innerText = 'This SKU is already taken by another book.';
+                                    skuMsg.style.display = 'block';
+                                }
+                                skuInput.dataset.skuExists = "true";
+                            } else {
+                                skuInput.classList.remove('is-invalid');
+                                if (skuMsg) {
+                                    skuMsg.style.display = 'none';
+                                    skuMsg.innerText = '';
+                                }
+                                skuInput.dataset.skuExists = "false";
+                            }
+                            checkSaveButtonState();
+                        })
+                        .catch(err => {
+                            console.error('SKU validation error:', err);
+                        });
+                }, 300);
+            });
+        }
+
+        function checkSaveButtonState() {
+            if (skuInput && skuInput.dataset.skuExists === "true") {
+                if (saveBookBtn) saveBookBtn.disabled = true;
+            } else {
+                if (saveBookBtn) saveBookBtn.disabled = false;
+            }
+        }
+
         // Auto-calculate Dollar SRP based on Peso Selling Price
         function calculateDollarPrice() {
             const pesoInput = bookForm.querySelector('input[name="price"]');
@@ -948,6 +1015,19 @@
                 });
             }
             
+            // Reset SKU live validation state when populating
+            if (skuInput) {
+                skuInput.dataset.skuExists = "false";
+                skuInput.classList.remove('is-invalid');
+            }
+            if (skuMsg) {
+                skuMsg.style.display = 'none';
+                skuMsg.innerText = '';
+            }
+            if (saveBookBtn) {
+                saveBookBtn.disabled = false;
+            }
+
             safeModal(bookModal, 'addBookModal', 'show');
         }
 
@@ -981,6 +1061,19 @@
                 bookForm.reset();
                 if (typeof clearBookFormErrors === 'function') clearBookFormErrors();
                 document.getElementById('modal_book_id').value = '';
+                
+                // Reset SKU custom attributes & state
+                if (skuInput) {
+                    skuInput.dataset.skuExists = "false";
+                    skuInput.classList.remove('is-invalid');
+                }
+                if (skuMsg) {
+                    skuMsg.style.display = 'none';
+                    skuMsg.innerText = '';
+                }
+                if (saveBookBtn) {
+                    saveBookBtn.disabled = false;
+                }
                 
                 // Reset Read-Only items
                 document.getElementById('addBookModalTitle').innerText = "Add New Book to Master Registry";
@@ -1019,6 +1112,18 @@
             const errorList = document.getElementById('modalErrorList');
             if (errorList) errorList.innerHTML = '';
             firstErrorElement = null;
+
+            // Reset live SKU validation elements
+            if (skuMsg) {
+                skuMsg.style.display = 'none';
+                skuMsg.innerText = '';
+            }
+            if (skuInput) {
+                skuInput.dataset.skuExists = "false";
+            }
+            if (saveBookBtn) {
+                saveBookBtn.disabled = false;
+            }
         }
 
         function goToFirstError() {

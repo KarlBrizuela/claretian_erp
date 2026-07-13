@@ -320,8 +320,12 @@
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td>
                                             @if($order->attachment)
-                                                <a href="/storage/{{ $order->attachment }}" target="_blank" class="text-primary"><i class="las la-paperclip"></i> View</a>
-                                            @else
+                                                <a href="/storage/{{ $order->attachment }}" target="_blank" class="text-primary mb-1 d-block"><i class="las la-paperclip"></i> PO</a>
+                                            @endif
+                                            @if($order->proof_of_payment)
+                                                <a href="/storage/{{ $order->proof_of_payment }}" target="_blank" class="text-success d-block"><i class="las la-paperclip"></i> Payment</a>
+                                            @endif
+                                            @if(!$order->attachment && !$order->proof_of_payment)
                                                 <span class="text-muted">None</span>
                                             @endif
                                         </td>

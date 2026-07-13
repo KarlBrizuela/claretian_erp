@@ -29,9 +29,54 @@
                         <p><strong>Terms:</strong> {{ $po->terms ?? 'N/A' }}</p>
                         <p><strong>Invoice No.:</strong> {{ $po->invoice_number ?? 'N/A' }}</p>
                         <p><strong>Status:</strong> <span class="badge badge-primary text-capitalize">{{ str_replace('_', ' ', $po->status) }}</span></p>
+                        @if($po->source === 'ford')
+                        <p><strong>Source:</strong> <span class="badge badge-warning">FORD Division</span></p>
+                        @endif
                     </div>
                 </div>
 
+                @if($po->source === 'ford')
+                <table class="table table-bordered mt-4">
+                    <thead class="bg-primary text-white">
+                        <tr>
+                            <th style="width: 80px;">LANG</th>
+                            <th style="width: 60px;">FT</th>
+                            <th>DESCRIPTION</th>
+                            <th style="width: 80px;">QTY</th>
+                            <th style="width: 80px;">REC'D</th>
+                            <th style="width: 80px;">REM.</th>
+                            <th style="width: 130px; text-align: right;">UNIT PRICE (USD)</th>
+                            <th style="width: 130px; text-align: right;">AMOUNT</th>
+                            <th style="width: 100px;">BINDINGS</th>
+                            <th style="width: 120px;">REMARKS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($po->items as $item)
+                        @php $remaining = $item->quantity - $item->received_quantity; @endphp
+                        <tr>
+                            <td>{{ $item->language }}</td>
+                            <td class="text-center">{{ $item->ft }}</td>
+                            <td><strong>{{ $item->description }}</strong></td>
+                            <td class="text-center">{{ $item->quantity }}</td>
+                            <td class="text-center text-success fw-bold">{{ $item->received_quantity }}</td>
+                            <td class="text-center {{ $remaining > 0 ? 'text-danger fw-bold' : 'text-success' }}">{{ $remaining }}</td>
+                            <td class="text-end">{{ number_format($item->unit_price, 2) }}</td>
+                            <td class="text-end">{{ number_format($item->total_amount, 2) }}</td>
+                            <td>{{ $item->bindings }}</td>
+                            <td>{{ $item->item_remarks }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="7" style="text-align: right; font-weight: 600;">TOTAL:</td>
+                            <td style="text-align: right; font-weight: 600;">{{ number_format($po->total_amount, 2) }}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+                @else
                 <table class="table table-bordered mt-4">
                     <thead class="bg-primary text-white">
                         <tr>
@@ -53,18 +98,19 @@
                                 @endif
                             </td>
                             <td>{{ $item->isbn ?? 'N/A' }}</td>
-                            <td class="text-end">₱{{ number_format($item->unit_price, 2) }}</td>
-                            <td class="text-end">₱{{ number_format($item->total_amount, 2) }}</td>
+                            <td class="text-end">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($item->unit_price, 2) }}</td>
+                            <td class="text-end">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($item->total_amount, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="4" style="text-align: right; font-weight: 600;">TOTAL:</td>
-                            <td style="text-align: right; font-weight: 600;">₱{{ number_format($po->total_amount, 2) }}</td>
+                            <td style="text-align: right; font-weight: 600;">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($po->total_amount, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>
+                @endif
 
                 <div class="signature-section mt-5">
                     <div class="row">

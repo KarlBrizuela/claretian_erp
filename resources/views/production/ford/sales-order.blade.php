@@ -24,7 +24,7 @@
                                 <h5>Customer Information</h5>
                                 <div class="form-group">
                                     <label>Customer:</label>
-                                    <select name="customer" id="formCustomer" class="form-control" required onchange="loadCustomerDetails(this.value)">
+                                    <select name="customer" id="formCustomer" class="form-control selectpicker" data-live-search="true" data-live-search-placeholder="Search customer..." required onchange="loadCustomerDetails(this.value)">
                                         <option value="">Select Customer</option>
                                         @foreach($customers as $customer)
                                             <option value="{{ $customer->customer_name }}" data-address="{{ $customer->billing_address ?? $customer->shipping_address ?? '' }}">
@@ -56,13 +56,25 @@
                                     <label>REF#:</label>
                                     <input type="text" name="ref_number" id="formRefNumber" placeholder="Enter reference number">
                                 </div>
+                                <div class="form-group">
+                                    <label>Currency:</label>
+                                    <select name="currency" id="formCurrency" class="form-control" onchange="onCurrencyChanged()">
+                                        <option value="PHP" selected>Peso (₱)</option>
+                                        <option value="USD">Dollar ($)</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Items Table -->
-                        <button type="button" class="btn-add-row" onclick="addRow()">
-                            <i class="las la-plus"></i> Add Row
-                        </button>
+                        <!-- Items Table Actions -->
+                        <div class="d-flex gap-2 mb-3">
+                            <button type="button" class="btn-add-row mb-0" onclick="addRow()">
+                                <i class="las la-plus"></i> Add Row
+                            </button>
+                            <button type="button" class="btn btn-primary" id="addBookItemBtn" style="height: 38px; min-height: 38px; border: none; background: #007bff; color: #fff; font-weight: 600; border-radius: 4px; padding: 0 1rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                <i class="las la-book"></i> Add Book
+                            </button>
+                        </div>
 
                         <table class="form-table" id="itemsTable">
                             <thead>
@@ -87,7 +99,29 @@
                                     <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">Remove</button></td>
                                 </tr>
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="5" style="text-align: right; font-weight: bold;">TOTAL:</td>
+                                    <td style="text-align: right; font-weight: bold;" id="formTotalAmount">₱ 0.00</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
                         </table>
+
+                        <!-- Hidden Book Options for JS -->
+                        <select id="bookSource" class="d-none">
+                            <option value="" disabled selected>Select Book...</option>
+                            @if(isset($books))
+                                @foreach($books as $book)
+                                    <option value="{{ $book->id }}" 
+                                            data-price="{{ $book->price }}" 
+                                            data-isbn="{{ $book->barcode ?? $book->sku ?? '' }}"
+                                            data-name="{{ $book->name }}">
+                                            {{ $book->name }}
+                                    </option>
+                                @endforeach
+                            @endif
+                        </select>
 
                         <!-- Form Actions -->
                         <div class="form-actions">
@@ -614,6 +648,12 @@
                     });
                 }
             }, 500);
+
+            // Bind Add Book button
+            const addBookBtn = document.getElementById('addBookItemBtn');
+            if (addBookBtn) {
+                addBookBtn.addEventListener('click', addBookItemRow);
+            }
         }
 
         if (document.readyState === 'loading') {
@@ -650,6 +690,7 @@
             const amount = qty * price;
             
             row.querySelector('input[name="amount[]"]').value = amount > 0 ? parseFloat(amount).toFixed(2) : '';
+            updateFormTotal();
         }
 
         function addRow() {
@@ -672,9 +713,103 @@
             const tbody = document.getElementById('itemsTableBody');
             if (tbody.rows.length > 1) {
                 button.closest('tr').remove();
+                updateFormTotal();
             } else {
                 alert('At least one row is required.');
             }
+        }
+
+        function updateFormTotal() {
+            const tbody = document.getElementById('itemsTableBody');
+            const rows = tbody.querySelectorAll('tr');
+            let total = 0;
+            rows.forEach(row => {
+                const amountInput = row.querySelector('input[name="amount[]"]');
+                const amt = parseFloat(amountInput ? amountInput.value : 0) || 0;
+                total += amt;
+            });
+            
+            const currency = document.getElementById('formCurrency').value;
+            const currencySymbol = currency === 'USD' ? '$' : '₱';
+            
+            const totalEl = document.getElementById('formTotalAmount');
+            if (totalEl) {
+                totalEl.textContent = currencySymbol + ' ' + formatNumber(total);
+            }
+        }
+
+        function addBookItemRow() {
+            rowCounter++;
+            const tbody = document.getElementById('itemsTableBody');
+            const newRow = document.createElement('tr');
+            
+            // Get book options
+            const bookSource = document.getElementById('bookSource');
+            const optionsHtml = bookSource ? bookSource.innerHTML : '<option value="" disabled>No books available</option>';
+            
+            newRow.innerHTML = `
+                <td><input type="number" name="quantity[]" placeholder="Qty" min="0" oninput="calculateRowTotal(this)" value="1"></td>
+                <td>
+                    <select class="form-control selectpicker select-book-item" name="book_id[]" data-live-search="true" onchange="onBookSelected(this)" required style="width: 100%;">
+                        ${optionsHtml}
+                    </select>
+                    <input type="hidden" name="description[]" class="book-description-input">
+                </td>
+                <td><input type="text" name="isbn[]" placeholder="ISBN" readonly></td>
+                <td><input type="text" name="area[]" placeholder="Area"></td>
+                <td><input type="number" name="unit_price[]" placeholder="Unit Price" min="0" step="0.01" oninput="calculateRowTotal(this)"></td>
+                <td><input type="number" name="amount[]" placeholder="Amount" readonly></td>
+                <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">Remove</button></td>
+            `;
+            tbody.appendChild(newRow);
+            
+            // Initialize selectpicker if jQuery and bootstrap-select are available
+            if (typeof jQuery !== 'undefined' && typeof jQuery.fn.selectpicker === 'function') {
+                jQuery(newRow).find('.selectpicker').selectpicker('render');
+            }
+        }
+
+        function onBookSelected(selectEl) {
+            const option = selectEl.options[selectEl.selectedIndex];
+            if (option) {
+                const name = option.getAttribute('data-name') || '';
+                const isbn = option.getAttribute('data-isbn') || '';
+                let price = parseFloat(option.getAttribute('data-price')) || 0;
+                
+                // Get currently selected currency
+                const currency = document.getElementById('formCurrency').value;
+                if (currency === 'USD') {
+                    // Calculate dollar price: (price / 40) * 1.10 rounded up to nearest 0.25
+                    const dollarBase = price / 40;
+                    const dollarSRP = dollarBase * 1.10;
+                    price = Math.ceil(dollarSRP * 4) / 4;
+                }
+                
+                const row = selectEl.closest('tr');
+                const priceInput = row.querySelector('input[name="unit_price[]"]');
+                const descInput = row.querySelector('.book-description-input');
+                const isbnInput = row.querySelector('input[name="isbn[]"]');
+                
+                if (priceInput) priceInput.value = price.toFixed(2);
+                if (descInput) descInput.value = name;
+                if (isbnInput) isbnInput.value = isbn;
+                
+                if (priceInput) {
+                    calculateRowTotal(priceInput);
+                }
+            }
+        }
+
+        function onCurrencyChanged() {
+            const tbody = document.getElementById('itemsTableBody');
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const selectEl = row.querySelector('select[name="book_id[]"]');
+                if (selectEl && selectEl.selectedIndex > 0) {
+                    onBookSelected(selectEl);
+                }
+            });
+            updateFormTotal();
         }
 
         function updateGeneratedSO() {
@@ -740,6 +875,8 @@
             reportTbody.innerHTML = '';
             
             let totalAmount = 0;
+            const currency = document.getElementById('formCurrency').value;
+            const currencySymbol = currency === 'USD' ? '$' : '₱';
             
             rows.forEach(row => {
                 const qty = row.querySelector('input[name="quantity[]"]').value || '';
@@ -758,8 +895,8 @@
                         <td>${description}</td>
                         <td>${isbn}</td>
                         <td>${area}</td>
-                        <td style="text-align: right;">${unitPrice > 0 ? formatNumber(unitPrice) : ''}</td>
-                        <td style="text-align: right;">${amount > 0 ? formatNumber(amount) : ''}</td>
+                        <td style="text-align: right;">${unitPrice > 0 ? currencySymbol + ' ' + formatNumber(unitPrice) : ''}</td>
+                        <td style="text-align: right;">${amount > 0 ? currencySymbol + ' ' + formatNumber(amount) : ''}</td>
                     `;
                     reportTbody.appendChild(tr);
                 }
@@ -780,7 +917,7 @@
                 reportTbody.appendChild(tr);
             }
             
-            document.getElementById('reportTotalAmount').textContent = formatNumber(totalAmount);
+            document.getElementById('reportTotalAmount').textContent = currencySymbol + ' ' + formatNumber(totalAmount);
             
             // Scroll to it
             document.getElementById('generatedSOSection').scrollIntoView({ behavior: 'smooth' });
@@ -788,12 +925,17 @@
 
         function resetGeneratedSO() {
             document.getElementById('salesOrderForm').reset();
+            document.getElementById('formCurrency').value = 'PHP';
+            if (typeof jQuery !== 'undefined' && typeof jQuery.fn.selectpicker === 'function') {
+                jQuery('#formCustomer').selectpicker('refresh');
+            }
             document.getElementById('generatedSOSection').style.display = 'none';
             
             const tbody = document.getElementById('itemsTableBody');
             while (tbody.rows.length > 1) {
                 tbody.deleteRow(1);
             }
+            updateFormTotal();
         }
 
         function backToForm() {

@@ -15,8 +15,8 @@
         @else
             @include('components.sidebar.unified')
         @endif
-        <div class="modern-sidebar-footer" style="padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 20px;">
-            <p style="font-size: 12px; color: #fff; margin-bottom: 0;"><strong>Claretian ERP</strong><br>© 2026 All Rights Reserved</p>
-        </div>
+    </div>
+    <div class="modern-sidebar-footer" style="padding: 14px 20px; border-top: 1px solid rgba(0,0,0,0.07); flex-shrink: 0;">
+        <p style="font-size: 11px; color: #999; margin-bottom: 0;"><strong style="color:#555;">Claretian ERP</strong><br>© 2026 All Rights Reserved</p>
     </div>
 </div>

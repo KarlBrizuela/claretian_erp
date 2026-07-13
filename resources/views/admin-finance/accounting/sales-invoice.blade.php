@@ -71,17 +71,29 @@
                                         <td>{{ $order->siPreparedBy->name ?? 'N/A' }}</td>
                                         <td>
                                             <div class="d-flex align-items-center gap-2">
-                                                <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View Detail"><i class="fas fa-eye"></i> View</a>
+                                                @if($order->proof_of_payment)
+                                                    <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View Detail"><i class="fas fa-eye"></i> View</a>
+                                                @else
+                                                    <button class="btn btn-primary shadow btn-sm" disabled title="Proof of Payment is required to view"><i class="fas fa-eye"></i> View</button>
+                                                @endif
                                                 
                                                 @if($order->status === 'pending_si_prep')
-                                                <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
+                                                    @if($order->proof_of_payment)
+                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
+                                                    @else
+                                                        <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
+                                                    @endif
                                                 @endif
 
                                                 @if($order->status === 'pending_si_approval')
-                                                <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
-                                                </form>
+                                                    @if($order->proof_of_payment)
+                                                        <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
+                                                        </form>
+                                                    @else
+                                                        <button class="btn btn-success btn-sm" disabled title="Proof of Payment is required to sign SI"><i class="fas fa-exclamation-triangle me-1"></i> Sign & Approve</button>
+                                                    @endif
                                                 @endif
                                                 
                                                 @if($order->status === 'ready_for_delivery')

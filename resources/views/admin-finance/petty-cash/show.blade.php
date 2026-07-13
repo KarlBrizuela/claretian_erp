@@ -65,8 +65,18 @@
                             <div>8 Mayumi St., UP Village, Diliman, Quezon City | Tel. No.: 921-3984</div>
                         </div>
                         <div class="ms-auto text-end">
-                            <span class="{{ $voucher->status === 'liquidated' ? 'status-badge-liquidated' : 'status-badge-open' }}">
-                                {{ strtoupper($voucher->status) }}
+                            @php
+                                $badgeStyle = 'background: #fff3cd; color: #856404;';
+                                if ($voucher->status === 'ongoing') {
+                                    $badgeStyle = 'background: #cff4fc; color: #087990;';
+                                } elseif ($voucher->status === 'completed' || $voucher->status === 'liquidated') {
+                                    $badgeStyle = 'background: #d1e7dd; color: #0f5132;';
+                                } elseif ($voucher->status === 'rejected') {
+                                    $badgeStyle = 'background: #f8d7da; color: #842029;';
+                                }
+                            @endphp
+                            <span style="{{ $badgeStyle }} padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase;">
+                                {{ $voucher->status }}
                             </span>
                         </div>
                     </div>
@@ -124,10 +134,71 @@
                 </div>
                 @endif
 
+                {{-- Proof / Attachment Section --}}
+                <div class="mt-4 p-4 border rounded bg-light">
+                    <h5 class="fw-bold mb-3"><i class="las la-paperclip me-1"></i>Proof of Payment / Copy of Cheque</h5>
+                    @if($voucher->proof_attachment)
+                        <div class="d-flex align-items-center gap-3">
+                            <div>
+                                @php
+                                    $ext = pathinfo($voucher->proof_attachment, PATHINFO_EXTENSION);
+                                    $isImage = in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+                                @endphp
+                                @if($isImage)
+                                    <a href="/storage/{{ $voucher->proof_attachment }}" target="_blank">
+                                        <img src="/storage/{{ $voucher->proof_attachment }}" alt="Proof" class="img-thumbnail" style="max-height: 150px;">
+                                    </a>
+                                @else
+                                    <a href="/storage/{{ $voucher->proof_attachment }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        <i class="las la-download me-1"></i>Download Proof File ({{ strtoupper($ext) }})
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
+                    @else
+                        @if($voucher->status === 'ongoing' && (auth()->id() === $voucher->created_by || auth()->user()->isSuperAdmin() || auth()->user()->position === 'Cashier'))
+                            <form action="{{ route('admin-finance.petty-cash.upload-proof', $voucher->id) }}" method="POST" enctype="multipart/form-data">
+                                @csrf
+                                <div class="mb-3">
+                                    <label class="form-label small text-muted">Upload image of proof or copy of cheque:</label>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <input type="file" name="proof_file" class="form-control" accept="image/*,application/pdf" required>
+                                        <button type="submit" class="btn btn-primary btn-sm rounded shadow-sm px-4" style="background: #ff0000; border: none; height: 35px;">Upload</button>
+                                    </div>
+                                </div>
+                            </form>
+                        @else
+                            <p class="text-muted mb-0 small">No proof of payment attached yet.</p>
+                        @endif
+                    @endif
+                </div>
+
+                {{-- Cashier Actions Section --}}
+                @if($voucher->status === 'pending' && (auth()->user()->position === 'Cashier' || auth()->user()->isSuperAdmin()))
+                <div class="mt-4 p-3 border rounded bg-light-warning d-flex gap-2">
+                    <form action="{{ route('admin-finance.accounting.cashier.approve', $voucher->id) }}" method="POST" style="display:inline;">
+                        @csrf
+                        <button type="submit" class="btn btn-success"><i class="las la-check me-1"></i>Approve Petty Cash</button>
+                    </form>
+                    <form action="{{ route('admin-finance.accounting.cashier.reject', $voucher->id) }}" method="POST" style="display:inline;">
+                        @csrf
+                        <button type="submit" class="btn btn-danger"><i class="las la-times me-1"></i>Reject Petty Cash</button>
+                    </form>
+                </div>
+                @endif
+
+
+
                 <div class="print-actions d-flex justify-content-between gap-2 mt-4">
+                    @if(request('from') === 'cashier')
+                    <a href="{{ route('admin-finance.accounting.cashier.index') }}" class="btn btn-primary rounded shadow-sm px-5 d-flex align-items-center justify-content-center" style="background: #ff0000; color: #ffffff; border: none; height: 35px !important; padding-top: 0 !important; padding-bottom: 0 !important;">
+                        <i class="las la-arrow-left me-1"></i>Back to Cashier
+                    </a>
+                    @else
                     <a href="{{ route('admin-finance.petty-cash.index') }}" class="btn btn-primary rounded shadow-sm px-5 d-flex align-items-center justify-content-center" style="background: #ff0000; color: #ffffff; border: none; height: 35px !important; padding-top: 0 !important; padding-bottom: 0 !important;">
                         <i class="las la-arrow-left me-1"></i>Back to List
                     </a>
+                    @endif
                     <button type="button" class="btn btn-light rounded shadow-sm px-5 d-flex align-items-center justify-content-center" style="height: 35px !important; padding-top: 0 !important; padding-bottom: 0 !important;" onclick="window.print()"><i class="las la-print me-1"></i>Print</button>
                 </div>
             </div>

@@ -1236,6 +1236,10 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
 
+    if (!$order->proof_of_payment) {
+      return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
+    }
+
     return view('admin-finance.accounting.prepare-si', [
       'title' => 'Prepare Sales Invoice',
       'role' => 'Accounting Staff',
@@ -1247,6 +1251,11 @@ public function checkVoucher()
   public function storeSalesInvoice(Request $request, $id)
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
+
+    if (!$order->proof_of_payment) {
+      return redirect()->route('admin-finance.accounting.sales-invoice')->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
+    }
+
     $isEcomDirect = $order->type === 'ecom_direct';
 
     if ($isEcomDirect) {
@@ -1315,6 +1324,10 @@ public function checkVoucher()
   public function signSalesInvoice($id)
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
+
+    if (!$order->proof_of_payment) {
+      return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
+    }
 
     $isEcomDirect = $order->type === 'ecom_direct';
     $newStatus = $isEcomDirect ? 'picking' : 'ready_for_delivery';

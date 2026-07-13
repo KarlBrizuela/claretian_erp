@@ -69,18 +69,18 @@
                     </div>
 
                     @php $monthLabel = date('F Y', strtotime($selectedMonth . '-01')); @endphp
-                    @if($vouchers->where('status', 'open')->count() > 0)
+                    @if($vouchers->where('status', 'completed')->count() > 0)
                     <div class="p-4 border rounded bg-light d-flex justify-content-between align-items-center">
                         <div>
                             <h5 class="mb-1 text-black">Ready for Liquidation?</h5>
                             <p class="mb-0 small text-muted">
-                                This will close all <strong>{{ $vouchers->where('status','open')->count() }} open</strong> voucher(s) for {{ $monthLabel }} and post a journal entry.
+                                This will close all <strong>{{ $vouchers->where('status','completed')->count() }} completed</strong> voucher(s) for {{ $monthLabel }} and post a journal entry.
                             </p>
                         </div>
                         <form action="{{ route('admin-finance.petty-cash.liquidate') }}" method="POST">
                             @csrf
                             <input type="hidden" name="month" value="{{ $selectedMonth }}">
-                            <button type="submit" class="btn btn-primary rounded shadow-sm px-4 d-flex align-items-center" style="background: #ff0000; color: #ffffff; border: none; height: 35px !important;" onclick="return confirm('Liquidate all open vouchers for {{ $monthLabel }}?')">
+                            <button type="submit" class="btn btn-primary rounded shadow-sm px-4 d-flex align-items-center" style="background: #ff0000; color: #ffffff; border: none; height: 35px !important;" onclick="return confirm('Liquidate all completed vouchers for {{ $monthLabel }}?')">
                                 <i class="las la-check-circle me-1"></i>Liquidate & Journalize
                             </button>
                         </form>

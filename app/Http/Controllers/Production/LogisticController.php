@@ -168,6 +168,41 @@ class LogisticController extends Controller
                 'gathered_by' => auth()->id()
             ]);
 
+            // Retrieve pending pick lists for this sales order to deduct stock
+            $pendingPickLists = \App\Models\PickList::where('sales_order_id', $orderId)
+                ->where('status', '!=', 'completed')
+                ->with('pickListItems.salesOrderItem.book')
+                ->get();
+
+            foreach ($pendingPickLists as $pl) {
+                foreach ($pl->pickListItems as $plItem) {
+                    $soItem = $plItem->salesOrderItem;
+                    if ($soItem && $soItem->book) {
+                        $book = $soItem->book;
+                        $deductedQty = $plItem->picked_qty;
+                        if ($deductedQty > 0) {
+                            $book->decrement('stock', $deductedQty);
+
+                            // Record Inventory Transaction for audit trail
+                            \App\Models\InventoryTransaction::create([
+                                'book_id' => $book->id,
+                                'type' => 'out',
+                                'quantity' => $deductedQty,
+                                'location' => 'Main Warehouse',
+                                'source' => 'Sales Order Picklist',
+                                'reference_number' => $order->so_number,
+                                'unit_cost' => $book->cost ?? 0,
+                                'total_cost' => $deductedQty * ($book->cost ?? 0),
+                                'notes' => 'Sales Order #' . $order->so_number . ' - Picked from Picklist #' . $pl->pick_list_number,
+                                'status' => 'completed',
+                                'transaction_date' => now(),
+                                'user_id' => auth()->id()
+                            ]);
+                        }
+                    }
+                }
+            }
+
             // Mark all associated pick lists as completed
             \App\Models\PickList::where('sales_order_id', $orderId)
                 ->where('status', '!=', 'completed')
@@ -411,6 +446,25 @@ class LogisticController extends Controller
         ]);
     }
 
+    public function destroyPurchaseOrder($id)
+    {
+        $po = \App\Models\PurchaseOrder::findOrFail($id);
+        
+        // Log the activity
+        \App\Models\ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'Purchase Order deleted',
+            'description' => 'Purchase Order #' . $po->po_number . ' has been deleted from the system.',
+            'reference_type' => 'PurchaseOrder',
+            'reference_id' => $id,
+            'details' => json_encode(['po_number' => $po->po_number, 'amount' => $po->total_amount])
+        ]);
+
+        $po->delete();
+
+        return redirect()->route('production.logistic.purchase-order-list')->with('success', 'Purchase Order deleted successfully.');
+    }
+
     public function receivingReportList()
     {
         $reports = \App\Models\ReceivingReport::with('purchaseOrder', 'supplier', 'receivedBy')
@@ -498,7 +552,23 @@ class LogisticController extends Controller
                 if ($poItem->product_id) {
                     $product = \App\Models\Product::find($poItem->product_id);
                     if ($product) {
-                        $product->increment('stock', $data['quantity_received']);
+                        $source = $product->source;
+                        if ($source) {
+                            $source->increment('stock', $data['quantity_received']);
+                            
+                            // Explicitly sync to Main Warehouse Site Inventory
+                            if ($source instanceof \App\Models\Book) {
+                                \App\Models\SiteInventory::updateOrCreate(
+                                    [
+                                        'site_id' => 1, // Main Warehouse
+                                        'book_id' => $source->id
+                                    ],
+                                    [
+                                        'quantity' => $source->stock
+                                    ]
+                                );
+                            }
+                        }
                         
                         // Record Inventory Transaction
                         \App\Models\InventoryTransaction::create([

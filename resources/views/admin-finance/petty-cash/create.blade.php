@@ -98,7 +98,7 @@
                     <div class="form-info-row">
                         <div class="form-info-item">
                             <label>PCV No.:</label>
-                            <input type="text" class="form-control @error('pcv_number') is-invalid @enderror" name="pcv_number" value="{{ old('pcv_number') }}" required>
+                            <input type="text" class="form-control @error('pcv_number') is-invalid @enderror" name="pcv_number" value="{{ old('pcv_number', $pcvNumber) }}" readonly required>
                             @error('pcv_number')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -135,7 +135,12 @@
                         <tfoot>
                             <tr>
                                 <td class="text-end"><strong>TOTAL</strong></td>
-                                <td class="text-end"><strong id="grandTotal">₱ 0.00</strong></td>
+                                <td class="text-end">
+                                    <strong id="grandTotal">₱ 0.00</strong>
+                                    <div id="limitWarning" class="text-danger mt-1 text-start" style="display: none; font-size: 0.85rem; font-weight: bold;">
+                                        Voucher total cannot exceed ₱1,000. For amounts above ₱1,000, please create a Material Request or Cash Advance.
+                                    </div>
+                                </td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -163,6 +168,22 @@
             let total = 0;
             document.querySelectorAll('.amount-input').forEach(i => total += parseFloat(i.value) || 0);
             document.getElementById('grandTotal').textContent = '₱ ' + total.toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+            const submitBtn = document.querySelector('button[type="submit"]');
+            const warning = document.getElementById('limitWarning');
+            if (total > 1000) {
+                warning.style.display = 'block';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                }
+            } else {
+                warning.style.display = 'none';
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                }
+            }
         }
 
         function addRow() {

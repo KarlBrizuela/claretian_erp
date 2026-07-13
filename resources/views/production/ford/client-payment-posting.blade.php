@@ -40,16 +40,25 @@
                                     <th style="width: 150px;">BANK/DATE</th>
                                     <th style="width: 150px;">DOCUMENT NO.</th>
                                     <th style="width: 150px;">AMOUNT</th>
+                                    <th style="width: 250px;">PROOF OF PAYMENT</th>
                                     <th style="width: 80px;">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="paymentTableBody">
                                 <tr>
                                     <td style="text-align: center;">1</td>
-                                    <td><input type="text" name="client_name[]" placeholder="Enter client name"></td>
+                                    <td>
+                                        <select name="customer_id[]" class="form-control selectpicker" data-live-search="true" required>
+                                            <option value="">Select Client</option>
+                                            @foreach($customers as $customer)
+                                                <option value="{{ $customer->customer_id }}">{{ $customer->customer_name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </td>
                                     <td><input type="text" name="bank_date[]" placeholder="Bank/Date"></td>
                                     <td><input type="text" name="document_no[]" placeholder="Document No."></td>
-                                    <td><input type="number" name="amount[]" placeholder="Amount" min="0" step="0.01"></td>
+                                    <td><input type="number" name="amount[]" placeholder="Amount" min="0" step="0.01" required></td>
+                                    <td><input type="file" name="proof_file[0]" class="form-control" accept="image/*,application/pdf"></td>
                                     <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">Remove</button></td>
                                 </tr>
                             </tbody>
@@ -439,6 +448,7 @@
 
     @push('scripts')
     <script>
+        const customers = @json($customers);
         let rowCounter = 1;
 
         function formatDate(dateString) {
@@ -452,15 +462,27 @@
             rowCounter++;
             const tbody = document.getElementById('paymentTableBody');
             const newRow = document.createElement('tr');
+            
+            let options = '<option value="">Select Client</option>';
+            customers.forEach(c => {
+                options += `<option value="${c.customer_id}">${c.customer_name}</option>`;
+            });
+
             newRow.innerHTML = `
                 <td style="text-align: center;">${rowCounter}</td>
-                <td><input type="text" name="client_name[]" placeholder="Enter client name"></td>
+                <td>
+                    <select name="customer_id[]" class="form-control selectpicker" data-live-search="true" required>
+                        ${options}
+                    </select>
+                </td>
                 <td><input type="text" name="bank_date[]" placeholder="Bank/Date"></td>
                 <td><input type="text" name="document_no[]" placeholder="Document No."></td>
-                <td><input type="number" name="amount[]" placeholder="Amount" min="0" step="0.01"></td>
+                <td><input type="number" name="amount[]" placeholder="Amount" min="0" step="0.01" required></td>
+                <td><input type="file" name="proof_file[${rowCounter - 1}]" class="form-control" accept="image/*,application/pdf"></td>
                 <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">Remove</button></td>
             `;
             tbody.appendChild(newRow);
+            $('.selectpicker').selectpicker('refresh');
         }
 
         function removeRow(button) {
@@ -478,6 +500,10 @@
             const rows = tbody.querySelectorAll('tr');
             rows.forEach((row, index) => {
                 row.querySelector('td:first-child').textContent = index + 1;
+                const fileInput = row.querySelector('input[type="file"]');
+                if (fileInput) {
+                    fileInput.name = `proof_file[${index}]`;
+                }
             });
             rowCounter = rows.length;
         }
@@ -485,89 +511,121 @@
         function updateGeneratedLetter() {
             const date = document.getElementById('formDate').value;
             if (!date) {
-                if(window.showAlert) window.showAlert('Please select a Date.', 'warning');
-                else alert('Please select a Date.');
+                alert('Please select a Date.');
                 return;
             }
 
             const tbody = document.getElementById('paymentTableBody');
             const rows = tbody.querySelectorAll('tr');
-            let hasValidRow = false;
-            let missingRowData = false;
-            
+            let hasValidRow = true;
+
             rows.forEach(row => {
-                const clientName = row.querySelector('input[name="client_name[]"]').value;
-                const documentNo = row.querySelector('input[name="document_no[]"]').value;
-                const amount = row.querySelector('input[name="amount[]"]').value;
-                
-                if (clientName || documentNo || amount) {
-                    if (!clientName || !documentNo || !amount) {
-                        missingRowData = true;
-                    } else {
-                        hasValidRow = true;
-                    }
+                const customerSelect = row.querySelector('select[name="customer_id[]"]');
+                const amountInput = row.querySelector('input[name="amount[]"]');
+                if (!customerSelect.value || !amountInput.value) {
+                    hasValidRow = false;
                 }
             });
 
-            if (missingRowData) {
-                if(window.showAlert) window.showAlert('Please complete Client Name, Document No, and Amount for all entered rows.', 'warning');
-                else alert('Please complete Client Name, Document No, and Amount for all entered rows.');
-                return;
-            }
-
             if (!hasValidRow) {
-                if(window.showAlert) window.showAlert('Please add at least one payment entry.', 'warning');
-                else alert('Please add at least one payment entry.');
+                alert('Please complete Client Name and Amount for all rows.');
                 return;
             }
 
-            document.querySelector('.order-form').style.display = 'none';
-            document.getElementById('generatedLetterSection').style.display = 'block';
-            
-            document.getElementById('reportDate').textContent = formatDate(date);
+            // Perform AJAX Submit
+            const form = document.getElementById('clientPaymentForm');
+            const formData = new FormData(form);
+            formData.append('_token', '{{ csrf_token() }}');
 
-            const reportTbody = document.getElementById('reportPaymentTableBody');
-            reportTbody.innerHTML = '';
-            
-            let totalAmount = 0;
-            const rows = tbody.querySelectorAll('tr');
-            
-            rows.forEach((row, index) => {
-                const clientName = row.querySelector('input[name="client_name[]"]').value || '_____________';
-                const bankDate = row.querySelector('input[name="bank_date[]"]').value || '_____________';
-                const documentNo = row.querySelector('input[name="document_no[]"]').value || '_____________';
-                const amount = parseFloat(row.querySelector('input[name="amount[]"]').value) || 0;
-                
-                totalAmount += amount;
-                
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="border: 1px solid #000; padding: 5px; text-align: center;">${index + 1}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">${clientName}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">${bankDate}</td>
-                    <td style="border: 1px solid #000; padding: 5px;">${documentNo}</td>
-                    <td style="border: 1px solid #000; padding: 5px; text-align: right;">${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                `;
-                reportTbody.appendChild(tr);
+            // Disable generate button
+            const genBtn = document.querySelector('button[onclick="updateGeneratedLetter()"]');
+            if (genBtn) {
+                genBtn.disabled = true;
+                genBtn.textContent = 'Generating...';
+            }
+
+            fetch("{{ route('production.ford.client-payment-posting.store') }}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Populate Report Letter
+                    document.getElementById('reportDate').textContent = formatDate(date);
+                    const reportTbody = document.getElementById('reportPaymentTableBody');
+                    reportTbody.innerHTML = '';
+                    
+                    let totalAmount = 0;
+                    rows.forEach((row, index) => {
+                        const selectElement = row.querySelector('select[name="customer_id[]"]');
+                        const clientName = selectElement.options[selectElement.selectedIndex].text || '_____________';
+                        const bankDate = row.querySelector('input[name="bank_date[]"]').value || '_____________';
+                        const documentNo = row.querySelector('input[name="document_no[]"]').value || '_____________';
+                        const amount = parseFloat(row.querySelector('input[name="amount[]"]').value) || 0;
+                        
+                        totalAmount += amount;
+                        
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="border: 1px solid #000; padding: 5px; text-align: center;">${index + 1}</td>
+                            <td style="border: 1px solid #000; padding: 5px;">${clientName}</td>
+                            <td style="border: 1px solid #000; padding: 5px;">${bankDate}</td>
+                            <td style="border: 1px solid #000; padding: 5px;">${documentNo}</td>
+                            <td style="border: 1px solid #000; padding: 5px; text-align: right;">${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        `;
+                        reportTbody.appendChild(tr);
+                    });
+                    
+                    document.getElementById('reportTotalAmount').textContent = totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    
+                    document.querySelector('.order-form').style.display = 'none';
+                    document.getElementById('generatedLetterSection').style.display = 'block';
+
+                    if (window.showAlert) window.showAlert('Request saved and sent to Accounting successfully.', 'success');
+                    else alert('Request saved and sent to Accounting successfully.');
+                } else {
+                    alert(data.message || 'An error occurred.');
+                    if (genBtn) {
+                        genBtn.disabled = false;
+                        genBtn.innerHTML = '<i class="las la-check"></i> Generate Letter';
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Connection error occurred.');
+                if (genBtn) {
+                    genBtn.disabled = false;
+                    genBtn.innerHTML = '<i class="las la-check"></i> Generate Letter';
+                }
             });
-            
-            document.getElementById('reportTotalAmount').textContent = totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         }
 
         function resetGeneratedLetter() {
             document.getElementById('clientPaymentForm').reset();
             document.getElementById('generatedLetterSection').style.display = 'none';
+            document.querySelector('.order-form').style.display = 'block';
             document.getElementById('reportDate').textContent = '_____________';
             
             const tbody = document.getElementById('paymentTableBody');
             while (tbody.rows.length > 1) {
                 tbody.deleteRow(1);
             }
+            renumberRows();
+            $('.selectpicker').selectpicker('refresh');
+            const genBtn = document.querySelector('button[onclick="updateGeneratedLetter()"]');
+            if (genBtn) {
+                genBtn.disabled = false;
+                genBtn.innerHTML = '<i class="las la-check"></i> Generate Letter';
+            }
         }
 
         function backToForm() {
-            document.querySelector('.order-form').style.display = 'block';
-            document.getElementById('generatedLetterSection').style.display = 'none';
+            resetGeneratedLetter();
         }
 
         function printReport() {

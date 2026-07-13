@@ -329,6 +329,25 @@ class MarketingController extends Controller
         return response()->json(['message' => 'Book successfully listed as a POS product']);
     }
 
+    public function checkSku(Request $request)
+    {
+        $sku = trim((string)$request->query('sku'));
+        $excludeId = $request->query('exclude_id');
+
+        if ($sku === '') {
+            return response()->json(['exists' => false]);
+        }
+
+        $query = Book::withTrashed()->where('sku', $sku);
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        $exists = $query->exists();
+
+        return response()->json(['exists' => $exists]);
+    }
+
     public function storeBook(Request $request)
     {
         $validated = $request->validate([
@@ -527,7 +546,7 @@ class MarketingController extends Controller
             $spreadsheet = $reader->load($file->getPathname());
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json(['error' => 'Error reading spreadsheet file: ' . $e->getMessage()], 422);
         }
 
@@ -610,7 +629,7 @@ class MarketingController extends Controller
         $existingBooksBySku = [];
         if (!empty($skusInSheet)) {
             foreach (array_chunk(array_unique($skusInSheet), 1000) as $chunk) {
-                $booksChunk = Book::whereIn('sku', $chunk)->get();
+                $booksChunk = Book::withTrashed()->whereIn('sku', $chunk)->get();
                 foreach ($booksChunk as $book) {
                     $existingBooksBySku[$book->sku] = $book;
                 }
@@ -651,6 +670,7 @@ class MarketingController extends Controller
         $updatedCount = 0;
         $errors = [];
         $processedBarcodes = [];
+        $processedSkus = [];
 
         \DB::beginTransaction();
 
@@ -667,11 +687,31 @@ class MarketingController extends Controller
                 $sku = $colMap['sku'] !== false ? trim((string)($row[$colMap['sku']] ?? '')) : '';
                 $name = trim((string)($row[$colMap['name']] ?? ''));
 
+                $isAutoSku = false;
                 if (empty($sku)) {
+                    $isAutoSku = true;
                     do {
                         $sku = 'SKU-' . str_pad($skuAutoIncrement, 5, '0', STR_PAD_LEFT);
                         $skuAutoIncrement++;
-                    } while (isset($existingSkuPrefixesMap[$sku]) || isset($existingBooksBySku[$sku]));
+                    } while (isset($existingSkuPrefixesMap[$sku]) || isset($existingBooksBySku[$sku]) || isset($processedSkus[$sku]));
+                }
+
+                $hasSkuError = false;
+                if (!$isAutoSku) {
+                    if (isset($existingBooksBySku[$sku])) {
+                        $errors[] = "Row {$rowNum}: SKU \"{$sku}\" already exists in the database.";
+                        $hasSkuError = true;
+                    }
+                    if (isset($processedSkus[$sku])) {
+                        $errors[] = "Row {$rowNum}: SKU \"{$sku}\" is duplicated in the uploaded spreadsheet (previously seen on Row {$processedSkus[$sku]}).";
+                        $hasSkuError = true;
+                    }
+                }
+
+                $processedSkus[$sku] = $rowNum;
+
+                if ($hasSkuError) {
+                    continue;
                 }
 
                 if (empty($name)) {
@@ -733,7 +773,7 @@ class MarketingController extends Controller
 
                     if (!empty($subCategoryName)) {
                         $subCategoryKey = strtolower(trim($subCategoryName));
-                        $subCategory = $subCategoryMap[$category->id][$subCategoryKey] ?? null;
+                        $subCategory = ($subCategoryMap[$category->id] ?? [])[$subCategoryKey] ?? null;
                         if (!$subCategory) {
                             $subCategory = BookCategory::create([
                                 'name' => $subCategoryName,
@@ -783,8 +823,10 @@ class MarketingController extends Controller
             }
 
             \DB::commit();
-        } catch (\Exception $e) {
-            \DB::rollBack();
+        } catch (\Throwable $e) {
+            if (\DB::transactionLevel() > 0) {
+                \DB::rollBack();
+            }
             return response()->json(['error' => 'An error occurred during import: ' . $e->getMessage()], 500);
         }
 
@@ -1186,6 +1228,7 @@ class MarketingController extends Controller
             'ref_number' => 'nullable',
             'billing_address' => 'nullable',
             'attachment' => 'nullable|file|max:5120', // 5MB Limit
+            'proof_of_payment' => 'nullable|file|max:5120', // 5MB Limit
             'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
         ]);
 
@@ -1229,6 +1272,11 @@ class MarketingController extends Controller
             $attachmentPath = $request->file('attachment')->store('sales_orders', 'public');
         }
 
+        $proofOfPaymentPath = null;
+        if ($request->hasFile('proof_of_payment')) {
+            $proofOfPaymentPath = $request->file('proof_of_payment')->store('sales_orders', 'public');
+        }
+
         // 3. Create Header
         $so = \App\Models\SalesOrder::create([
             'customer_id' => $request->customer_id,
@@ -1243,6 +1291,7 @@ class MarketingController extends Controller
             'billing_address' => $request->billing_address,
             'shipping_address' => $request->billing_address,
             'attachment' => $attachmentPath,
+            'proof_of_payment' => $proofOfPaymentPath,
             'freight_option' => $validated['freight_option'] ?? null,
         ]);
 
@@ -1265,27 +1314,6 @@ class MarketingController extends Controller
                     'source_price_at_sale' => $book ? $book->source_price : 0,
                 ]);
 
-                // STOCK MANAGEMENT: Only decrement for submitted SOs
-                if ($action === 'submit' && $book) {
-                    $deductedQty = $item['quantity'];
-                    $book->decrement('stock', $deductedQty);
-
-                    // Record Inventory Transaction for audit trail
-                    \App\Models\InventoryTransaction::create([
-                        'book_id' => $book->id,
-                        'type' => 'out',
-                        'quantity' => $deductedQty,
-                        'location' => 'Main Warehouse',
-                        'source' => 'Sales Order',
-                        'reference_number' => $so->so_number,
-                        'unit_cost' => $book->cost ?? 0,
-                        'total_cost' => $deductedQty * ($book->cost ?? 0),
-                        'notes' => 'Sales Order #' . $so->so_number . ' - ' . $so->type,
-                        'status' => 'completed',
-                        'transaction_date' => now(),
-                        'user_id' => auth()->id()
-                    ]);
-                }
             }
         }
 
@@ -1366,28 +1394,6 @@ class MarketingController extends Controller
             'mkt_approved_at' => $isMktManager ? now() : null,
         ]);
 
-        // Deduct stock only now when finalizing (so we don't hold stock during draft period)
-        foreach ($so->items as $item) {
-            $book = \App\Models\Book::find($item->book_id);
-            if ($book && $book->stock >= $item->quantity) {
-                $book->decrement('stock', $item->quantity);
-
-                \App\Models\InventoryTransaction::create([
-                    'book_id' => $book->id,
-                    'type' => 'out',
-                    'quantity' => $item->quantity,
-                    'location' => 'Main Warehouse',
-                    'source' => 'Sales Order',
-                    'reference_number' => $so->so_number,
-                    'unit_cost' => $book->cost ?? 0,
-                    'total_cost' => $item->quantity * ($book->cost ?? 0),
-                    'notes' => 'Sales Order #' . $so->so_number . ' - ' . $so->type . ' (Finalized from Draft)',
-                    'status' => 'completed',
-                    'transaction_date' => now(),
-                    'user_id' => auth()->id()
-                ]);
-            }
-        }
 
         $message = 'Sales Order #' . $so->so_number . ' has been finalized with freight charges (₱' . number_format($so->freight_charges, 2) . ') and routed for approval.';
         return redirect()->route('marketing.sales-orders.list')->with('success', $message);
@@ -1465,6 +1471,7 @@ class MarketingController extends Controller
             'ref_number' => 'nullable',
             'billing_address' => 'nullable',
             'attachment' => 'nullable|file|max:5120',
+            'proof_of_payment' => 'nullable|file|max:5120',
             'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
         ]);
 
@@ -1472,6 +1479,11 @@ class MarketingController extends Controller
             // optional: delete old file
             $path = $request->file('attachment')->store('sales_orders', 'public');
             $so->attachment = $path;
+        }
+
+        if ($request->hasFile('proof_of_payment')) {
+            $path = $request->file('proof_of_payment')->store('sales_orders', 'public');
+            $so->proof_of_payment = $path;
         }
 
         $so->update([
@@ -1485,29 +1497,6 @@ class MarketingController extends Controller
             'freight_option' => $validated['freight_option'] ?? null,
         ]);
 
-        // STOCK MANAGEMENT: Handle inventory adjustments
-        // First, restore stock for old items
-        foreach ($so->items as $oldItem) {
-            if ($oldItem->book) {
-                $oldItem->book->increment('stock', $oldItem->quantity);
-
-                // Record reversal transaction
-                \App\Models\InventoryTransaction::create([
-                    'book_id' => $oldItem->book->id,
-                    'type' => 'in',
-                    'quantity' => $oldItem->quantity,
-                    'location' => 'Main Warehouse',
-                    'source' => 'Sales Order Update (Reversal)',
-                    'reference_number' => $so->so_number,
-                    'unit_cost' => $oldItem->book->cost ?? 0,
-                    'total_cost' => $oldItem->quantity * ($oldItem->book->cost ?? 0),
-                    'notes' => 'Reversal - Sales Order #' . $so->so_number . ' updated',
-                    'status' => 'completed',
-                    'transaction_date' => now(),
-                    'user_id' => auth()->id()
-                ]);
-            }
-        }
 
         // Re-create items
         $so->items()->delete();
@@ -1528,26 +1517,6 @@ class MarketingController extends Controller
                 'area' => $item['area'] ?? null,
             ]);
 
-            // Decrement stock for new items
-            if ($book) {
-                $book->decrement('stock', $item['quantity']);
-
-                // Record inventory transaction
-                \App\Models\InventoryTransaction::create([
-                    'book_id' => $book->id,
-                    'type' => 'out',
-                    'quantity' => $item['quantity'],
-                    'location' => 'Main Warehouse',
-                    'source' => 'Sales Order Update',
-                    'reference_number' => $so->so_number,
-                    'unit_cost' => $book->cost ?? 0,
-                    'total_cost' => $item['quantity'] * ($book->cost ?? 0),
-                    'notes' => 'Updated - Sales Order #' . $so->so_number . ' - ' . $so->type,
-                    'status' => 'completed',
-                    'transaction_date' => now(),
-                    'user_id' => auth()->id()
-                ]);
-            }
         }
 
         if (($validated['freight_option'] ?? null) === 'freight_collect') {
@@ -1672,27 +1641,6 @@ class MarketingController extends Controller
                 'source_price_at_sale' => $book ? $book->source_price : 0,
             ]);
 
-            // STOCK MANAGEMENT: Decrement inventory for direct invoice
-            if ($book) {
-                $deductedQty = $item['quantity'];
-                $book->decrement('stock', $deductedQty);
-
-                // Record Inventory Transaction for audit trail
-                \App\Models\InventoryTransaction::create([
-                    'book_id' => $book->id,
-                    'type' => 'out',
-                    'quantity' => $deductedQty,
-                    'location' => 'Main Warehouse',
-                    'source' => 'Direct Invoice (Website)',
-                    'reference_number' => $invoiceNumber,
-                    'unit_cost' => $book->cost ?? 0,
-                    'total_cost' => $deductedQty * ($book->cost ?? 0),
-                    'notes' => 'Direct Invoice #' . $invoiceNumber . ' - ' . $request->transaction_subtype,
-                    'status' => 'completed',
-                    'transaction_date' => now(),
-                    'user_id' => auth()->id()
-                ]);
-            }
         }
 
         $so->update(['total_amount' => $totalAmount]);
@@ -1851,27 +1799,6 @@ class MarketingController extends Controller
                 'source_price_at_sale' => $book ? $book->source_price : 0,
             ]);
 
-            // STOCK MANAGEMENT: Decrement inventory for E-com direct invoice
-            if ($book) {
-                $deductedQty = $item['quantity'];
-                $book->decrement('stock', $deductedQty);
-
-                // Record Inventory Transaction for audit trail
-                \App\Models\InventoryTransaction::create([
-                    'book_id' => $book->id,
-                    'type' => 'out',
-                    'quantity' => $deductedQty,
-                    'location' => 'Main Warehouse',
-                    'source' => 'Direct Invoice (E-com)',
-                    'reference_number' => $invoiceNumber,
-                    'unit_cost' => $book->cost ?? 0,
-                    'total_cost' => $deductedQty * ($book->cost ?? 0),
-                    'notes' => 'E-com Direct Invoice #' . $invoiceNumber . ' - Platform: ' . $request->ecom_platform,
-                    'status' => 'completed',
-                    'transaction_date' => now(),
-                    'user_id' => auth()->id()
-                ]);
-            }
         }
 
         $so->update(['total_amount' => $totalAmount]);

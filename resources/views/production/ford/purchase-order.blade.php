@@ -42,6 +42,15 @@
                                     <label>Payment Schedule (Line 2):</label>
                                     <input type="text" name="payment_schedule2" id="formPaymentSchedule2" placeholder="e.g., IN 12 EQUAL MONTHLY INSTALLMENTS" value="IN 12 EQUAL MONTHLY INSTALLMENTS">
                                 </div>
+                                <div class="form-group">
+                                    <label>Supplier <span class="text-danger">*</span> <small class="text-muted">(required to save to system)</small>:</label>
+                                    <select id="formSupplierId" class="form-control">
+                                        <option value="">-- Select Supplier --</option>
+                                        @foreach($suppliers as $supplier)
+                                            <option value="{{ $supplier->id }}">{{ $supplier->company_name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                             <div class="customer-details">
                                 <h5>Vendor Information</h5>
@@ -83,7 +92,21 @@
                                 <tr>
                                     <td><input type="text" name="language[]" placeholder="Language"></td>
                                     <td><input type="text" name="ft[]" placeholder="FT"></td>
-                                    <td><input type="text" name="description[]" placeholder="Description"></td>
+                                    <td>
+                                        <select class="form-control selectpicker select-product" name="product_id[]" data-live-search="true" onchange="onProductSelected(this)" required>
+                                            <option value="" disabled selected>-- Select Book --</option>
+                                            <option value="new_custom_book" style="font-weight: bold; color: #007bff;">+ New Book / Custom Title...</option>
+                                            @foreach($products as $product)
+                                                <option value="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->book->cost ?? $product->price }}">
+                                                    {{ $product->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <div class="custom-title-container mt-1" style="display: none;">
+                                            <input type="text" class="form-control custom-title-input" placeholder="Type custom book title..." oninput="onCustomTitleInput(this)">
+                                        </div>
+                                        <input type="hidden" name="description[]" class="product-name-input">
+                                    </td>
                                     <td><input type="number" name="quantity[]" placeholder="Qty" min="0" oninput="calculateRowTotal(this)"></td>
                                     <td><input type="number" name="unit_price[]" placeholder="Unit Price" min="0" step="0.01" oninput="calculateRowTotal(this)"></td>
                                     <td><input type="number" name="total_amount[]" placeholder="Total" readonly></td>
@@ -94,6 +117,16 @@
                             </tbody>
                         </table>
 
+                        <!-- Hidden Book Options for JS -->
+                        <select id="productSource" class="d-none">
+                            <option value="" disabled selected>-- Select Book --</option>
+                            <option value="new_custom_book" style="font-weight: bold; color: #007bff;">+ New Book / Custom Title...</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->book->cost ?? $product->price }}">
+                                    {{ $product->name }}
+                                </option>
+                            @endforeach
+                        </select>
                         <!-- Form Actions -->
                         <div class="form-actions">
                             <button type="button" class="btn btn-light" onclick="resetGeneratedPO()">
@@ -106,6 +139,21 @@
                     </form>
                 </div>
                 
+                <!-- Hidden form that POSTs to the server to save the PO -->
+                <form id="savePOForm" action="{{ route('production.ford.purchase-order.store') }}" method="POST" style="display:none">
+                    @csrf
+                    <input type="hidden" name="supplier_id" id="saveSupplier">
+                    <input type="hidden" name="po_number" id="savePONumber">
+                    <input type="hidden" name="date" id="saveDate">
+                    <input type="hidden" name="terms" id="saveTerms">
+                    <input type="hidden" name="vendor_name" id="saveVendorName">
+                    <input type="hidden" name="contact_persons" id="saveContactPersons">
+                    <input type="hidden" name="vendor_address" id="saveVendorAddress">
+                    <input type="hidden" name="payment_schedule" id="savePaymentSchedule">
+                    <input type="hidden" name="payment_schedule2" id="savePaymentSchedule2">
+                    <div id="saveItemsContainer"></div>
+                </form>
+
                 <!-- Generated PO Section -->
                 <div class="generated-po-section" id="generatedPOSection" style="display: none;">
                     <div class="d-flex gap-2 mb-3 report-actions">
@@ -114,6 +162,9 @@
                         </button>
                         <button type="button" class="btn btn-success" onclick="printReport()">
                             <i class="las la-print"></i> Print PO
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="savePOToSystem()" id="savePOBtn">
+                            <i class="las la-save"></i> Save &amp; Send to Logistics
                         </button>
                     </div>
                     <div class="generated-po" id="generatedPO">
@@ -607,14 +658,65 @@
             row.querySelector('input[name="total_amount[]"]').value = total > 0 ? total.toFixed(2) : '';
         }
 
+        function onProductSelected(selectEl) {
+            const option = selectEl.options[selectEl.selectedIndex];
+            const row = selectEl.closest('tr');
+            const customContainer = row.querySelector('.custom-title-container');
+            const customInput = row.querySelector('.custom-title-input');
+            const priceInput = row.querySelector('input[name="unit_price[]"]');
+            const descInput = row.querySelector('.product-name-input');
+
+            if (option) {
+                const val = option.value;
+                if (val === 'new_custom_book') {
+                    customContainer.style.display = 'block';
+                    customInput.required = true;
+                    if (descInput) descInput.value = customInput.value;
+                    if (priceInput) priceInput.value = '0.00';
+                } else {
+                    customContainer.style.display = 'none';
+                    customInput.required = false;
+                    customInput.value = '';
+                    const price = option.getAttribute('data-price') || 0;
+                    const name = option.getAttribute('data-name') || '';
+                    if (priceInput) priceInput.value = price;
+                    if (descInput) descInput.value = name;
+                }
+                
+                if (priceInput) {
+                    calculateRowTotal(priceInput);
+                }
+            }
+        }
+
+        function onCustomTitleInput(inputEl) {
+            const row = inputEl.closest('tr');
+            const descInput = row.querySelector('.product-name-input');
+            if (descInput) {
+                descInput.value = inputEl.value;
+            }
+        }
+
         function addRow() {
             rowCounter++;
             const tbody = document.getElementById('itemsTableBody');
             const newRow = document.createElement('tr');
+            
+            const productSource = document.getElementById('productSource');
+            const optionsHtml = productSource ? productSource.innerHTML : '<option value="" disabled>No products available</option>';
+
             newRow.innerHTML = `
                 <td><input type="text" name="language[]" placeholder="Language"></td>
                 <td><input type="text" name="ft[]" placeholder="FT"></td>
-                <td><input type="text" name="description[]" placeholder="Description"></td>
+                <td>
+                    <select class="form-control selectpicker select-product" name="product_id[]" data-live-search="true" onchange="onProductSelected(this)" required style="width: 100%;">
+                        ${optionsHtml}
+                    </select>
+                    <div class="custom-title-container mt-1" style="display: none;">
+                        <input type="text" class="form-control custom-title-input" placeholder="Type custom book title..." oninput="onCustomTitleInput(this)">
+                    </div>
+                    <input type="hidden" name="description[]" class="product-name-input">
+                </td>
                 <td><input type="number" name="quantity[]" placeholder="Qty" min="0" oninput="calculateRowTotal(this)"></td>
                 <td><input type="number" name="unit_price[]" placeholder="Unit Price" min="0" step="0.01" oninput="calculateRowTotal(this)"></td>
                 <td><input type="number" name="total_amount[]" placeholder="Total" readonly></td>
@@ -623,6 +725,10 @@
                 <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">Remove</button></td>
             `;
             tbody.appendChild(newRow);
+
+            if (typeof jQuery !== 'undefined' && typeof jQuery.fn.selectpicker === 'function') {
+                jQuery(newRow).find('.selectpicker').selectpicker('render');
+            }
         }
 
         function removeRow(button) {
@@ -637,10 +743,11 @@
         function updateGeneratedPO() {
             const date = document.getElementById('formDate').value;
             const vendorName = document.getElementById('formVendorName').value;
+            const poNumber = document.getElementById('formPONumber').value;
 
-            if (!date || !vendorName) {
-                if(window.showAlert) window.showAlert('Please enter the Date and Vendor Name.', 'warning');
-                else alert('Please enter the Date and Vendor Name.');
+            if (!date || !vendorName || !poNumber) {
+                if(window.showAlert) window.showAlert('Please enter the Date, PO Number, and Vendor Name.', 'warning');
+                else alert('Please enter the Date, PO Number, and Vendor Name.');
                 return;
             }
 
@@ -651,11 +758,12 @@
             
             rows.forEach(row => {
                 const qty = row.querySelector('input[name="quantity[]"]').value;
-                const description = row.querySelector('input[name="description[]"]').value;
+                const prodSelect = row.querySelector('select[name="product_id[]"]');
+                const prodId = prodSelect ? prodSelect.value : '';
                 const unitPrice = row.querySelector('input[name="unit_price[]"]').value;
                 
-                if (qty || description || unitPrice) {
-                    if (!qty || !description || !unitPrice) {
+                if (qty || prodId || unitPrice) {
+                    if (!qty || !prodId || !unitPrice) {
                         missingRowData = true;
                     } else {
                         hasValidRow = true;
@@ -664,8 +772,8 @@
             });
 
             if (missingRowData) {
-                if(window.showAlert) window.showAlert('Please complete Quantity, Description, and Unit Price for all entered rows.', 'warning');
-                else alert('Please complete Quantity, Description, and Unit Price for all entered rows.');
+                if(window.showAlert) window.showAlert('Please complete Quantity, Book selection, and Unit Price for all entered rows.', 'warning');
+                else alert('Please complete Quantity, Book selection, and Unit Price for all entered rows.');
                 return;
             }
 
@@ -690,18 +798,17 @@
             document.getElementById('reportPaymentSchedule').textContent = document.getElementById('formPaymentSchedule').value || '_______________________';
             document.getElementById('reportPaymentSchedule2').textContent = document.getElementById('formPaymentSchedule2').value || '_______________________';
 
-            // Generate table
-            const tbody = document.getElementById('itemsTableBody');
+            // Generate table — reuse tbody/rows already declared above
             const reportTbody = document.getElementById('reportItemsTableBody');
             reportTbody.innerHTML = '';
             
             let totalAmount = 0;
-            const rows = tbody.querySelectorAll('tr');
             
             rows.forEach(row => {
                 const language = row.querySelector('input[name="language[]"]').value || '';
                 const ft = row.querySelector('input[name="ft[]"]').value || '';
-                const description = row.querySelector('input[name="description[]"]').value || '';
+                const descInput = row.querySelector('.product-name-input');
+                const description = descInput ? descInput.value : '';
                 const quantity = row.querySelector('input[name="quantity[]"]').value || '';
                 const unitPrice = parseFloat(row.querySelector('input[name="unit_price[]"]').value) || 0;
                 const totalAmountRow = parseFloat(row.querySelector('input[name="total_amount[]"]').value) || 0;
@@ -737,9 +844,68 @@
             }
             
             document.getElementById('reportTotalAmount').textContent = totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            
+
+            // --- Populate the hidden save form ---
+            document.getElementById('saveSupplier').value         = document.getElementById('formSupplierId').value;
+            document.getElementById('savePONumber').value          = poNumber;
+            document.getElementById('saveDate').value              = date;
+            document.getElementById('saveTerms').value             = document.getElementById('formTerms').value;
+            document.getElementById('saveVendorName').value        = vendorName;
+            document.getElementById('saveContactPersons').value    = document.getElementById('formContactPersons').value;
+            document.getElementById('saveVendorAddress').value     = document.getElementById('formVendorAddress').value;
+            document.getElementById('savePaymentSchedule').value   = document.getElementById('formPaymentSchedule').value;
+            document.getElementById('savePaymentSchedule2').value  = document.getElementById('formPaymentSchedule2').value;
+
+            // Build hidden item inputs
+            const container = document.getElementById('saveItemsContainer');
+            container.innerHTML = '';
+            rows.forEach((row, idx) => {
+                const lang  = row.querySelector('input[name="language[]"]').value;
+                const ft    = row.querySelector('input[name="ft[]"]').value;
+                
+                const prodSelect = row.querySelector('select[name="product_id[]"]');
+                const prodId = prodSelect ? prodSelect.value : '';
+                
+                const descInput = row.querySelector('.product-name-input');
+                const desc  = descInput ? descInput.value : '';
+                
+                const qty   = row.querySelector('input[name="quantity[]"]').value;
+                const price = row.querySelector('input[name="unit_price[]"]').value;
+                const bind  = row.querySelector('input[name="bindings[]"]').value;
+                const rem   = row.querySelector('input[name="remarks[]"]').value;
+
+                if (!desc || !qty || !price || !prodId) return; // skip incomplete rows
+
+                const hidden = (name, val) => {
+                    const i = document.createElement('input');
+                    i.type = 'hidden'; i.name = name; i.value = val;
+                    container.appendChild(i);
+                };
+                hidden(`language[${idx}]`,     lang);
+                hidden(`ft[${idx}]`,           ft);
+                hidden(`product_id[${idx}]`,   prodId);
+                hidden(`description[${idx}]`,  desc);
+                hidden(`quantity[${idx}]`,     qty);
+                hidden(`unit_price[${idx}]`,   price);
+                hidden(`bindings[${idx}]`,     bind);
+                hidden(`item_remarks[${idx}]`, rem);
+            });
+
             // Scroll to it
             document.getElementById('generatedPOSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function savePOToSystem() {
+            const supplierId = document.getElementById('formSupplierId').value;
+            if (!supplierId) {
+                if(window.showAlert) window.showAlert('Please select a Supplier before saving to the system.', 'warning');
+                else alert('Please select a Supplier before saving to the system.');
+                return;
+            }
+            const btn = document.getElementById('savePOBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="las la-spinner la-spin"></i> Saving...';
+            document.getElementById('savePOForm').submit();
         }
 
         function resetGeneratedPO() {

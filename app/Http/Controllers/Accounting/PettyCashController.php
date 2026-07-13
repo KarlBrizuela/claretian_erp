@@ -60,16 +60,34 @@ class PettyCashController extends Controller
             ->orderBy('code')
             ->get();
 
+        // Generate automatic PCV number
+        $lastVoucher = PettyCashVoucher::orderBy('id', 'desc')->first();
+        $nextNum = 1;
+        if ($lastVoucher && preg_match('/PCV-\d{4}-(\d+)/', $lastVoucher->pcv_number, $matches)) {
+            $nextNum = intval($matches[1]) + 1;
+        }
+        $pcvNumber = 'PCV-' . date('Y') . '-' . str_pad($nextNum, 5, '0', STR_PAD_LEFT);
+
         return view('admin-finance.petty-cash.create', [
             'title' => 'New Petty Cash Voucher',
             'role' => 'Finance Manager',
             'sidebar' => $this->getUserSidebar(),
-            'expenseAccounts' => $expenseAccounts
+            'expenseAccounts' => $expenseAccounts,
+            'pcvNumber' => $pcvNumber,
         ]);
     }
 
     public function store(Request $request)
     {
+        // Automatically generate PCV number to override any user input
+        $lastVoucher = PettyCashVoucher::orderBy('id', 'desc')->first();
+        $nextNum = 1;
+        if ($lastVoucher && preg_match('/PCV-\d{4}-(\d+)/', $lastVoucher->pcv_number, $matches)) {
+            $nextNum = intval($matches[1]) + 1;
+        }
+        $pcvNumber = 'PCV-' . date('Y') . '-' . str_pad($nextNum, 5, '0', STR_PAD_LEFT);
+        $request->merge(['pcv_number' => $pcvNumber]);
+
         $validated = $request->validate([
             'pcv_number' => 'required|unique:petty_cash_vouchers,pcv_number',
             'date' => 'required|date',
@@ -81,6 +99,12 @@ class PettyCashController extends Controller
             'items.*.amount' => 'required|numeric|min:0',
         ]);
 
+        // Enforce maximum 1000 limit
+        $totalAmount = collect($request->items)->sum('amount');
+        if ($totalAmount > 1000) {
+            return back()->withInput()->with('error', 'Petty Cash Voucher total cannot exceed ₱1,000. For amounts above ₱1,000, please create a Material Request or Cash Advance.');
+        }
+
         try {
             DB::transaction(function () use ($validated) {
                 $voucher = PettyCashVoucher::create([
@@ -90,7 +114,7 @@ class PettyCashController extends Controller
                     'approved_by' => $validated['approved_by'] ?? null,
                     'received_by' => $validated['received_by'] ?? null,
                     'created_by' => auth()->id(),
-                    'status'     => 'open',
+                    'status'     => 'pending',
                 ]);
 
                 foreach ($validated['items'] as $item) {
@@ -98,7 +122,7 @@ class PettyCashController extends Controller
                 }
             });
 
-            return redirect()->route('admin-finance.petty-cash.index')->with('success', 'Petty Cash Voucher created successfully.');
+            return redirect()->route('admin-finance.petty-cash.index')->with('success', 'Petty Cash Voucher created successfully and sent to Cashier for approval.');
         } catch (\Exception $e) {
             return back()->withInput()->with('error', 'Failed to create: ' . $e->getMessage());
         }
@@ -137,13 +161,13 @@ class PettyCashController extends Controller
     public function liquidate(Request $request)
     {
         $month = $request->input('month');
-        $vouchers = PettyCashVoucher::where('status', 'open')
+        $vouchers = PettyCashVoucher::where('status', 'completed')
             ->where('date', 'like', "$month%")
             ->with('items.expenseAccount')
             ->get();
 
         if ($vouchers->isEmpty()) {
-            return back()->with('error', 'No open vouchers found for this month to liquidate.');
+            return back()->with('error', 'No completed vouchers found for this month to liquidate.');
         }
 
         try {
@@ -186,5 +210,73 @@ class PettyCashController extends Controller
         $voucher->delete();
 
         return redirect()->route('admin-finance.petty-cash.index')->with('success', 'Petty Cash Voucher deleted successfully.');
+    }
+
+    public function cashierIndex()
+    {
+        $vouchers = PettyCashVoucher::with('creator')
+            ->withSum('items', 'amount')
+            ->withCount('items')
+            ->latest()
+            ->paginate(15);
+
+        return view('admin-finance.accounting.cashier.index', [
+            'title' => 'Cashier Petty Cash Approvals',
+            'role' => 'Cashier',
+            'sidebar' => $this->getUserSidebar(),
+            'vouchers' => $vouchers
+        ]);
+    }
+
+    public function cashierApprove($id)
+    {
+        if (auth()->user()->position !== 'Cashier' && !auth()->user()->isSuperAdmin()) {
+            return redirect()->back()->with('error', 'Only the Cashier can approve Petty Cash Vouchers.');
+        }
+
+        $voucher = PettyCashVoucher::findOrFail($id);
+        $voucher->update(['status' => 'ongoing']);
+        return redirect()->back()->with('success', 'Petty Cash Voucher #' . $voucher->pcv_number . ' has been approved and status updated to ongoing.');
+    }
+
+    public function cashierReject($id)
+    {
+        if (auth()->user()->position !== 'Cashier' && !auth()->user()->isSuperAdmin()) {
+            return redirect()->back()->with('error', 'Only the Cashier can reject Petty Cash Vouchers.');
+        }
+
+        $voucher = PettyCashVoucher::findOrFail($id);
+        $voucher->update(['status' => 'rejected']);
+        return redirect()->back()->with('success', 'Petty Cash Voucher #' . $voucher->pcv_number . ' has been rejected.');
+    }
+
+    public function cashierComplete($id)
+    {
+        if (auth()->user()->position !== 'Cashier' && !auth()->user()->isSuperAdmin()) {
+            return redirect()->back()->with('error', 'Only the Cashier can mark this voucher as completed.');
+        }
+
+        $voucher = PettyCashVoucher::findOrFail($id);
+        if (!$voucher->proof_attachment) {
+            return redirect()->back()->with('error', 'Cannot complete. No proof attachment uploaded yet.');
+        }
+        $voucher->update(['status' => 'completed']);
+        return redirect()->back()->with('success', 'Petty Cash Voucher #' . $voucher->pcv_number . ' has been completed successfully.');
+    }
+
+    public function uploadProof(Request $request, $id)
+    {
+        $request->validate([
+            'proof_file' => 'required|file|max:5120', // Limit to 5MB
+        ]);
+
+        $voucher = PettyCashVoucher::findOrFail($id);
+
+        if ($request->hasFile('proof_file')) {
+            $path = $request->file('proof_file')->store('petty_cash', 'public');
+            $voucher->update(['proof_attachment' => $path]);
+        }
+
+        return redirect()->back()->with('success', 'Proof of payment / cheque copy attached successfully.');
     }
 }
