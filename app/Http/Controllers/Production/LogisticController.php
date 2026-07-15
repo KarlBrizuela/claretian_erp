@@ -642,9 +642,9 @@ class LogisticController extends Controller
 
     public function deliveryReceiptList()
     {
-        // Get sales orders pending DR prep/approval
+        // Get sales orders pending DR prep/approval or linked/pending reconsignment
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval', 'ready_for_delivery'])
+            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval', 'ready_for_delivery', 'si_created', 'reconsignment_pending'])
             ->latest()
             ->get();
 
@@ -653,6 +653,30 @@ class LogisticController extends Controller
             'title' => 'Delivery Receipts',
             'sidebar' => 'production'
         ]);
+    }
+
+    public function requestReconsignment($id)
+    {
+        $order = \App\Models\SalesOrder::findOrFail($id);
+        
+        // Ensure order is area_consignment and status is si_created
+        if ($order->type !== 'area_consignment' || $order->status !== 'si_created') {
+            return redirect()->back()->with('error', 'Invalid order status for reconsignment.');
+        }
+
+        // Update Sales Order status to reconsignment_pending
+        $order->update(['status' => 'reconsignment_pending']);
+
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'Reconsignment Requested',
+            'description' => "Reconsignment request submitted for Sales Order {$order->so_number}.",
+            'affected_model' => 'SalesOrder',
+            'affected_model_id' => $order->id,
+        ]);
+
+        return redirect()->back()->with('success', 'Reconsignment request submitted to Credit and Collection.');
     }
 
     public function deliveryReceipt($id = null)

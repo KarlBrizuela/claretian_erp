@@ -55,7 +55,7 @@
                     @endif
 
                     <!-- Items Table for Area Consignment (Item Selection) -->
-                    @if($order->type === 'area_consignment' && in_array($order->status, ['pending_dr_prep', 'ready_for_delivery']))
+                    @if($order->type === 'area_consignment' && in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created', 'reconsignment_pending']))
                         <div style="background: #e7f3ff; border: 2px solid #0d6efd; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
                             <h5 style="color: #0d6efd; margin-bottom: 0;">Area Consignment - Select Items to Purchase</h5>
                             <p style="color: #666; font-size: 0.9rem; margin-bottom: 0;">Select the quantity you want to purchase for each item below. Items not selected will be returned.</p>
@@ -76,8 +76,19 @@
                                     </thead>
                                     <tbody>
                                         @forelse($order->items as $index => $item)
+                                            @php
+                                                $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
+                                                    $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
+                                                })->where('book_id', $item->book_id)->sum('quantity');
+                                                $remainingQty = max(0, $item->quantity - $alreadyPurchasedQty);
+                                            @endphp
                                             <tr class="consignment-item" data-item-id="{{ $item->id }}" data-unit-price="{{ $item->price }}">
-                                                <td style="text-align: center;">{{ $item->quantity }}</td>
+                                                <td style="text-align: center;">
+                                                    {{ $item->quantity }}
+                                                    @if($alreadyPurchasedQty > 0)
+                                                        <br><small class="text-muted">({{ $remainingQty }} remaining)</small>
+                                                    @endif
+                                                </td>
                                                 <td>{{ $item->book->name ?? 'Unknown Item' }}</td>
                                                 <td style="text-align: right;">₱{{ number_format($item->price, 2) }}</td>
                                                 <td>
@@ -85,9 +96,10 @@
                                                            class="form-control selected-qty" 
                                                            name="items[{{ $item->id }}][selected_qty]" 
                                                            min="0" 
-                                                           max="{{ $item->quantity }}" 
+                                                           max="{{ $remainingQty }}" 
                                                            value="0"
-                                                           style="text-align: center;">
+                                                           style="text-align: center;"
+                                                           {{ ($remainingQty <= 0 || in_array($order->status, ['si_created', 'reconsignment_pending'])) ? 'disabled' : '' }}>
                                                 </td>
                                                 <td style="text-align: right; font-weight: 600;">
                                                     <span class="item-subtotal">₱0.00</span>
@@ -116,15 +128,23 @@
                             <input type="hidden" name="order_id" value="{{ $order->id }}">
 
                             <div class="form-actions" style="margin-top: 1.5rem;">
-                                <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-light">
-                                    <i class="las la-arrow-left"></i> Cancel
+                                <button type="button" class="btn btn-light" onclick="window.print()">
+                                    <i class="las la-print"></i> Print
+                                </button>
+                                <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-secondary">
+                                    <i class="las la-arrow-left"></i> Back to List
                                 </a>
                                 <button type="button" class="btn btn-info" id="saveSelectionsBtn" style="display: none;">
                                     <i class="las la-save"></i> Save Selections
                                 </button>
-                                <button type="submit" class="btn btn-primary" id="linkToSIBtn">
+                                <button type="submit" class="btn btn-primary" id="linkToSIBtn" {{ in_array($order->status, ['si_created', 'reconsignment_pending']) ? 'disabled' : '' }}>
                                     <i class="las la-link"></i> Link to Sales Invoice
                                 </button>
+                                @if($order->status === 'si_created')
+                                    <button type="submit" class="btn btn-warning" id="reconsignmentBtn" formaction="{{ route('production.logistic.request-reconsignment', $order->id) }}" style="margin-left: 0.5rem;">
+                                        <i class="las la-retweet"></i> Reconsignment
+                                    </button>
+                                @endif
                             </div>
                         </form>
 

@@ -1653,6 +1653,10 @@ public function checkVoucher()
       $freightBills = \App\Models\FreightBill::with('customer')->latest()->get();
       
       $jvRequests = \App\Models\JournalVoucherRequest::with(['requestor', 'items'])->latest()->get();
+      $reconsignmentRequests = \App\Models\SalesOrder::with('customer')
+          ->where('status', 'reconsignment_pending')
+          ->latest()
+          ->get();
 
       return view('admin-finance.credit-collection.billing', [
           'title' => 'Billing',
@@ -1661,8 +1665,197 @@ public function checkVoucher()
           'unpaidOrders' => $unpaidOrders,
           'statements' => $statements,
           'freightBills' => $freightBills,
-          'jvRequests' => $jvRequests
+          'jvRequests' => $jvRequests,
+          'reconsignmentRequests' => $reconsignmentRequests
       ]);
+  }
+
+  public function reconsignmentsList()
+  {
+      $reconsignmentRequests = \App\Models\SalesOrder::with('customer')
+          ->where('status', 'reconsignment_pending')
+          ->latest()
+          ->get();
+
+      return view('admin-finance.credit-collection.reconsignments', [
+          'title' => 'Reconsignments',
+          'role' => 'Finance Manager',
+          'sidebar' => 'admin-finance',
+          'reconsignmentRequests' => $reconsignmentRequests
+      ]);
+  }
+
+  public function approveReconsignment($id)
+  {
+      $order = \App\Models\SalesOrder::with(['items.book', 'customer'])->findOrFail($id);
+      
+      if ($order->status !== 'reconsignment_pending') {
+          return redirect()->back()->with('error', 'Order is not in pending reconsignment status.');
+      }
+
+      // 1. Calculate return books for this request
+      $returnedBooks = [];
+      foreach ($order->items as $item) {
+          $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
+              $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
+          })->where('book_id', $item->book_id)->sum('quantity');
+          
+          $returnedQty = max(0, $item->quantity - $alreadyPurchasedQty);
+          if ($returnedQty > 0) {
+              $returnedBooks[] = [
+                  'book_id' => $item->book_id,
+                  'quantity' => $returnedQty,
+                  'price' => $item->price,
+                  'unit' => $item->unit ?? 'pcs',
+                  'area' => $item->area ?? null,
+                  'source_price_at_sale' => $item->source_price_at_sale ?? 0,
+                  'book_name' => $item->book->name ?? 'Unknown Book'
+              ];
+          }
+      }
+
+      if (empty($returnedBooks)) {
+          return redirect()->back()->with('error', 'No return books found for this reconsignment request.');
+      }
+
+      // Start Database Transaction
+      \DB::beginTransaction();
+      try {
+          // 2. Generate a new unique SO number
+          $baseSoNumber = $order->so_number;
+          $newSoNumber = $baseSoNumber . '-R';
+          $suffix = 1;
+          while (\App\Models\SalesOrder::where('so_number', $newSoNumber)->exists()) {
+              $newSoNumber = $baseSoNumber . '-R' . $suffix;
+              $suffix++;
+          }
+
+          // 3. Create the new Sales Order
+          $newOrder = \App\Models\SalesOrder::create([
+              'customer_id' => $order->customer_id,
+              'area_sales_staff_id' => $order->area_sales_staff_id,
+              'so_number' => $newSoNumber,
+              'type' => $order->type, // 'area_consignment'
+              'transaction_type' => $order->transaction_type,
+              'terms' => $order->terms,
+              'ref_number' => $order->ref_number,
+              'status' => 'ready_for_delivery', // ready to be delivered
+              'billing_address' => $order->billing_address,
+              'shipping_address' => $order->shipping_address,
+              'freight_option' => $order->freight_option,
+              'freight_charges' => $order->freight_charges,
+              'freight_notes' => $order->freight_notes,
+              'prepared_by' => auth()->id(),
+              'dr_prepared_by' => auth()->id(),
+              'dr_prepared_at' => now(),
+              'total_amount' => 0 // will update after items creation
+          ]);
+
+          $newTotalAmount = 0;
+          // 4. Create the new Sales Order Items
+          foreach ($returnedBooks as $bookData) {
+              $subtotal = $bookData['quantity'] * $bookData['price'];
+              $newTotalAmount += $subtotal;
+
+              \App\Models\SalesOrderItem::create([
+                  'sales_order_id' => $newOrder->id,
+                  'book_id' => $bookData['book_id'],
+                  'quantity' => $bookData['quantity'],
+                  'price' => $bookData['price'],
+                  'subtotal' => $subtotal,
+                  'unit' => $bookData['unit'],
+                  'area' => $bookData['area'],
+                  'source_price_at_sale' => $bookData['source_price_at_sale'],
+              ]);
+          }
+
+          // Update new Sales Order total amount
+          $newOrder->update(['total_amount' => $newTotalAmount]);
+
+          // 5. Find the previous Delivery Receipt and close it
+          $previousDr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
+          if ($previousDr) {
+              $previousDr->update(['status' => 'completed']);
+          }
+
+          // 6. Generate a new unique DR number
+          $baseDrNumber = $previousDr ? $previousDr->dr_number : 'DR-' . $order->so_number;
+          $newDrNumber = $baseDrNumber . '-R';
+          $suffix = 1;
+          while (\App\Models\DeliveryReceipt::where('dr_number', $newDrNumber)->exists()) {
+              $newDrNumber = $baseDrNumber . '-R' . $suffix;
+              $suffix++;
+          }
+
+          // 7. Create the new Delivery Receipt record
+          $newDr = \App\Models\DeliveryReceipt::create([
+              'dr_number' => $newDrNumber,
+              'so_id' => $newOrder->id,
+              'so_number' => $newOrder->so_number,
+              'customer_id' => $newOrder->customer_id,
+              'customer_name' => $order->customer->customer_name ?? $order->customer->company_name ?? '',
+              'delivery_address' => $previousDr ? $previousDr->delivery_address : ($order->shipping_address ?: $order->customer->shipping_address ?? ''),
+              'total_amount' => $newTotalAmount,
+              'delivery_date' => now(),
+              'status' => 'pending', // new DR is pending delivery / tracking
+              'prepared_by' => auth()->id(),
+              'prepared_at' => now()
+          ]);
+
+          // 8. Create the new Delivery Receipt items
+          foreach ($returnedBooks as $bookData) {
+              \App\Models\DeliveryReceiptItem::create([
+                  'dr_id' => $newDr->id,
+                  'product_name' => $bookData['book_name'],
+                  'quantity' => $bookData['quantity'],
+                  'unit_price' => $bookData['price'],
+                  'amount' => $bookData['quantity'] * $bookData['price'],
+              ]);
+          }
+
+          // 9. Close the previous Sales Order
+          $order->update(['status' => 'completed']);
+
+          // 10. Log activity
+          \App\Models\ActivityLog::create([
+              'user_id' => auth()->id(),
+              'action' => 'Reconsignment Approved',
+              'description' => "Reconsignment request approved for Sales Order {$order->so_number}. Created new Sales Order {$newOrder->so_number} & DR {$newDr->dr_number} for returned books.",
+              'affected_model' => 'SalesOrder',
+              'affected_model_id' => $order->id,
+          ]);
+
+          \DB::commit();
+          return redirect()->back()->with('success', "Reconsignment request approved. New DR {$newDr->dr_number} created successfully and the previous DR is now closed.");
+
+      } catch (\Exception $e) {
+          \DB::rollBack();
+          \Log::error('Error approving reconsignment: ' . $e->getMessage());
+          return redirect()->back()->with('error', 'Error approving reconsignment: ' . $e->getMessage());
+      }
+  }
+
+  public function rejectReconsignment($id)
+  {
+      $order = \App\Models\SalesOrder::findOrFail($id);
+      
+      if ($order->status !== 'reconsignment_pending') {
+          return redirect()->back()->with('error', 'Order is not in pending reconsignment status.');
+      }
+
+      // Reject: set back to si_created (meaning closed)
+      $order->update(['status' => 'si_created']);
+
+      // Log activity
+      \App\Models\ActivityLog::create([
+          'user_id' => auth()->id(),
+          'action' => 'Reconsignment Rejected',
+          'description' => "Reconsignment request rejected for Sales Order {$order->so_number}.",
+          'affected_model' => 'SalesOrder',
+          'affected_model_id' => $order->id,
+      ]);
+
+      return redirect()->back()->with('success', 'Reconsignment request rejected.');
   }
 
   public function showAccountStatement($id)

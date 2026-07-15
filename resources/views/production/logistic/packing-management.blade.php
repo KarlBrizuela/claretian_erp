@@ -224,9 +224,11 @@
                                                                 <i class="fas fa-check" style="font-size: 0.9rem;"></i>
                                                             </button>
                                                         </div>
-                                                    </td>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center">No Lazada orders found</td>
                                                 </tr>
-                                                @endforeach
+                                                @endforelse
                                             </tbody>
                                         </table>
                                     </div>
@@ -299,7 +301,11 @@
                                                         </div>
                                                     </td>
                                                 </tr>
-                                                @endforeach
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center">No Shopee orders found</td>
+                                                </tr>
+                                                @endforelse
                                             </tbody>
                                         </table>
                                     </div>
@@ -372,7 +378,11 @@
                                                         </div>
                                                     </td>
                                                 </tr>
-                                                @endforeach
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center">No TikTok orders found</td>
+                                                </tr>
+                                                @endforelse
                                             </tbody>
                                         </table>
                                     </div>
@@ -924,35 +934,29 @@
                 loadPackingOrder(preloadOrderId);
             }
 
-            // Mark as Packed Button Click
-            document.querySelectorAll('.mark-packed-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const orderId = this.dataset.orderId;
-                    const soNumber = this.dataset.soNumber;
-                    if (confirm(`Mark all items in ${soNumber} as packed?`)) {
-                        markOrderAsPacked(orderId, soNumber);
-                    }
-                });
+            // Mark as Packed Button Click using event delegation
+            $(document).on('click', '.mark-packed-btn', function() {
+                const orderId = this.dataset.orderId;
+                const soNumber = this.dataset.soNumber;
+                if (confirm(`Mark all items in ${soNumber} as packed?`)) {
+                    markOrderAsPacked(orderId, soNumber);
+                }
             });
 
-            // Mark as Gathered Button Click (Ready for Pickup tab)
-            document.querySelectorAll('.mark-gathered-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const orderId = this.dataset.orderId;
-                    const soNumber = this.dataset.soNumber;
-                    if (confirm(`Mark ${soNumber} as gathered? It will move to Delivery Scheduling.`)) {
-                        markOrderAsGathered(orderId, soNumber);
-                    }
-                });
+            // Mark as Gathered Button Click (Ready for Pickup tab) using event delegation
+            $(document).on('click', '.mark-gathered-btn', function() {
+                const orderId = this.dataset.orderId;
+                const soNumber = this.dataset.soNumber;
+                if (confirm(`Mark ${soNumber} as gathered? It will move to Delivery Scheduling.`)) {
+                    markOrderAsGathered(orderId, soNumber);
+                }
             });
 
-            // View Order Button Click
-            document.querySelectorAll('.view-order-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    currentOrderId = this.dataset.orderId;
-                    console.log('Clicked view details for order:', currentOrderId);
-                    loadPackingOrder(currentOrderId);
-                });
+            // View Order Button Click using event delegation
+            $(document).on('click', '.view-order-btn', function() {
+                currentOrderId = this.dataset.orderId;
+                console.log('Clicked view details for order:', currentOrderId);
+                loadPackingOrder(currentOrderId);
             });
 
             // Close Detail Modal
@@ -1510,17 +1514,16 @@
 
         function initializeBulkActions() {
             const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-            const orderCheckboxes = document.querySelectorAll('.order-checkbox');
             const setReadyPickupBtn = document.getElementById('setReadyPickupBtn');
             const clearSelectionBtn = document.getElementById('clearSelectionBtn');
 
-            // Select All functionality
-            selectAllCheckbox.addEventListener('change', function() {
+            // Select All functionality using event delegation
+            $(document).on('change', '#selectAllCheckbox', function() {
                 const isChecked = this.checked;
-                orderCheckboxes.forEach(cb => {
-                    if (!cb.disabled) {
-                        cb.checked = isChecked;
-                        const orderId = cb.dataset.orderId;
+                $('.order-checkbox').each(function() {
+                    if (!this.disabled) {
+                        this.checked = isChecked;
+                        const orderId = this.dataset.orderId;
                         if (isChecked) {
                             selectedOrderIds.add(orderId);
                         } else {
@@ -1531,18 +1534,16 @@
                 updateBulkActionToolbar();
             });
 
-            // Individual checkbox handling
-            orderCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    const orderId = this.dataset.orderId;
-                    if (this.checked) {
-                        selectedOrderIds.add(orderId);
-                    } else {
-                        selectedOrderIds.delete(orderId);
-                    }
-                    updateSelectAllCheckbox();
-                    updateBulkActionToolbar();
-                });
+            // Individual checkbox handling using event delegation
+            $(document).on('change', '.order-checkbox', function() {
+                const orderId = this.dataset.orderId;
+                if (this.checked) {
+                    selectedOrderIds.add(orderId);
+                } else {
+                    selectedOrderIds.delete(orderId);
+                }
+                updateSelectAllCheckbox();
+                updateBulkActionToolbar();
             });
 
             // Set as Ready for Pickup button
@@ -1563,8 +1564,9 @@
             if (clearSelectionBtn) {
                 clearSelectionBtn.addEventListener('click', function() {
                     selectedOrderIds.clear();
-                    selectAllCheckbox.checked = false;
-                    orderCheckboxes.forEach(cb => cb.checked = false);
+                    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+                    $('.order-checkbox').prop('checked', false);
                     updateBulkActionToolbar();
                 });
             }
@@ -1585,8 +1587,10 @@
 
         function updateSelectAllCheckbox() {
             const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-            const orderCheckboxes = document.querySelectorAll('.order-checkbox:not(:disabled)');
-            const checkedCheckboxes = document.querySelectorAll('.order-checkbox:not(:disabled):checked');
+            if (!selectAllCheckbox) return;
+
+            const orderCheckboxes = $('.order-checkbox:not(:disabled)');
+            const checkedCheckboxes = $('.order-checkbox:not(:disabled):checked');
 
             if (orderCheckboxes.length === 0) {
                 selectAllCheckbox.indeterminate = false;

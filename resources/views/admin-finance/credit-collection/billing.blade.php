@@ -208,7 +208,7 @@
                                                             @forelse($statements->where('status', 'draft') as $soa)
                                                             <tr>
                                                                 <td class="fw-bold">{{ $soa->soa_number }}</td>
-                                                                <td>{{ $soa->customer->customer_name ?? $soa->customer->company_name }}</td>
+                                                                <td>{{ $soa->customer ? ($soa->customer->customer_name ?? $soa->customer->company_name) : 'Unknown' }}</td>
                                                                 <td class="fw-bold">₱ {{ number_format($soa->total_amount, 2) }}</td>
                                                                 <td>{{ $soa->created_at->format('M d, Y') }}</td>
                                                                 <td class="text-center">
@@ -241,7 +241,7 @@
                                                             @forelse($statements->where('status', 'pending') as $soa)
                                                             <tr>
                                                                 <td class="fw-bold">{{ $soa->soa_number }}</td>
-                                                                <td>{{ $soa->customer->customer_name ?? $soa->customer->company_name }}</td>
+                                                                <td>{{ $soa->customer ? ($soa->customer->customer_name ?? $soa->customer->company_name) : 'Unknown' }}</td>
                                                                 <td class="fw-bold">₱ {{ number_format($soa->total_amount, 2) }}</td>
                                                                 <td>{{ $soa->created_at->format('M d, Y') }}</td>
                                                                 <td class="text-center">
@@ -337,7 +337,7 @@
                                                                     </div>
                                                                 </td>
                                                                 <td>{{ $soa->soa_number }}</td>
-                                                                <td>{{ $soa->customer->customer_name ?? $soa->customer->company_name ?? 'Unknown' }}</td>
+                                                                <td>{{ $soa->customer ? ($soa->customer->customer_name ?? $soa->customer->company_name) : 'Unknown' ?? 'Unknown' }}</td>
                                                                 <td>General</td>
                                                                 <td class="fw-bold">₱ {{ number_format($soa->total_amount, 2) }}</td>
                                                                 <td><span class="badge bg-success">Approved</span></td>
@@ -429,7 +429,7 @@
                                                                     <td class="text-center">
                                                                         <button class="btn btn-primary px-3 shadow btnCreateJV" 
                                                                             data-report-id="{{ $soa->soa_number }}"
-                                                                            data-customer-name="{{ $soa->customer->customer_name ?? $soa->customer->company_name ?? 'Unknown' }}"
+                                                                            data-customer-name="{{ $soa->customer ? ($soa->customer ? ($soa->customer->customer_name ?? $soa->customer->company_name) : 'Unknown') : 'Unknown' }}"
                                                                             data-customer-id="{{ $soa->customer_id }}">
                                                                             <i class="las la-file-invoice me-1"></i> Create JV Request
                                                                         </button>
@@ -464,7 +464,7 @@
                                                             @forelse($statements ?? [] as $soa)
                                                             <tr>
                                                                 <td>{{ $soa->soa_number }}</td>
-                                                                <td>{{ $soa->customer->customer_name ?? $soa->customer->company_name ?? 'Unknown' }}</td>
+                                                                <td>{{ $soa->customer ? ($soa->customer->customer_name ?? $soa->customer->company_name) : 'Unknown' ?? 'Unknown' }}</td>
                                                                 <td>General</td>
                                                                 <td>{{ Carbon\Carbon::parse($soa->billing_period_start)->format('M d') }} - {{ Carbon\Carbon::parse($soa->billing_period_end)->format('M d, Y') }}</td>
                                                                 <td>
@@ -844,6 +844,7 @@
                                     </div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -998,6 +999,14 @@
                 const jvTabLink = document.querySelector('a[href="#jv-summary"]');
                 if (jvTabLink) {
                     const tab = new bootstrap.Tab(jvTabLink);
+                    tab.show();
+                }
+            }
+
+            if (activeTab === 'reconsignment') {
+                const reconsignmentTabLink = document.querySelector('a[href="#reconsignment-requests"]');
+                if (reconsignmentTabLink) {
+                    const tab = new bootstrap.Tab(reconsignmentTabLink);
                     tab.show();
                 }
             }

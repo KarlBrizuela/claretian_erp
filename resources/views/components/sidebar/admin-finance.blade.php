@@ -132,7 +132,10 @@
 		</a>
 		<div class="modern-nav-submenu" data-submenu="credit-collection">
 			@if($user->hasPermission('admin_finance.credit_collection.billing'))
-			<a href="{{ route('admin-finance.credit-collection.billing') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.credit-collection.billing') ? 'active' : '' }}">Billing</a>
+			<a href="{{ route('admin-finance.credit-collection.billing') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.credit-collection.billing') && !request()->has('tab') ? 'active' : '' }}">Billing</a>
+			@endif
+			@if($user->hasPermission('admin_finance.credit_collection.billing'))
+			<a href="{{ route('admin-finance.credit-collection.reconsignment.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.credit-collection.reconsignment.index') ? 'active' : '' }}">Reconsignments</a>
 			@endif
 			@if($user->hasPermission('admin_finance.credit_collection.reports'))
 			<a href="{{ route('admin-finance.credit-collection.reports') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.credit-collection.reports') ? 'active' : '' }}">Reports</a>

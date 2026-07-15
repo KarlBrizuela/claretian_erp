@@ -77,11 +77,27 @@
                             <div class="search-box">
                                 <input type="text" id="searchInput" class="form-control" placeholder="Search by SO # or Customer...">
                             </div>
+                            <!-- Customer Filter -->
+                            <select id="customerFilter" class="form-control status-filter-dropdown" style="min-width: 220px;">
+                                <option value="all">All Customers</option>
+                                @php
+                                    $uniqueCustomers = $orders->map(function($order) {
+                                        return $order->customer;
+                                    })->filter()->unique('id')->sortBy(function($c) {
+                                        return $c->customer_name ?? $c->company_name ?? '';
+                                    });
+                                @endphp
+                                @foreach($uniqueCustomers as $c)
+                                    <option value="{{ $c->id }}">{{ $c->customer_name ?? $c->company_name ?? 'Unknown' }}</option>
+                                @endforeach
+                            </select>
                             <select id="statusFilter" class="form-control status-filter-dropdown">
                                 <option value="all">All Status</option>
                                 <option value="pending_dr_prep">Pending Prep</option>
                                 <option value="pending_dr_approval">Pending Approval</option>
                                 <option value="ready_for_delivery">Ready for Delivery</option>
+                                <option value="si_created">Closed</option>
+                                <option value="reconsignment_pending">Reconsignment Pending</option>
                             </select>
                         </div>
                         <div class="table-responsive">
@@ -100,7 +116,7 @@
                                 </thead>
                                 <tbody>
                                     @forelse($orders as $order)
-                                    <tr data-so-number="{{ $order->so_number }}" data-customer="{{ $order->customer->customer_name ?? '' }}" data-status="{{ $order->status }}">
+                                    <tr data-so-number="{{ $order->so_number }}" data-customer="{{ $order->customer->customer_name ?? '' }}" data-customer-id="{{ $order->customer_id ?? '' }}" data-status="{{ $order->status }}">
                                         <td><strong>{{ $order->so_number }}</strong></td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
@@ -186,6 +202,10 @@
                                                 <span class="table-status-badge status-in-transit">Pending Approval</span>
                                             @elseif($order->status === 'ready_for_delivery')
                                                 <span class="table-status-badge status-completed">Ready for Delivery</span>
+                                            @elseif($order->status === 'si_created')
+                                                <span class="table-status-badge bg-secondary text-white">Closed</span>
+                                            @elseif($order->status === 'reconsignment_pending')
+                                                <span class="table-status-badge bg-warning text-dark text-nowrap">Reconsignment Pending</span>
                                             @endif
                                         </td>
                                         <td>{{ $order->preparedBy->name ?? 'System' }}</td>
@@ -233,11 +253,17 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('searchInput');
+            const customerFilter = document.getElementById('customerFilter');
             const statusFilter = document.getElementById('statusFilter');
             const tableRows = document.querySelectorAll('#drTable tbody tr');
 
             // Search functionality
             searchInput.addEventListener('keyup', function() {
+                filterTable();
+            });
+
+            // Customer filter functionality
+            customerFilter.addEventListener('change', function() {
                 filterTable();
             });
 
@@ -248,21 +274,26 @@
 
             function filterTable() {
                 const searchTerm = searchInput.value.toLowerCase();
+                const currentCustomerId = customerFilter.value;
                 const currentStatusFilter = statusFilter.value;
 
                 tableRows.forEach(row => {
                     const soNumber = row.dataset.soNumber.toLowerCase();
                     const customer = row.dataset.customer.toLowerCase();
+                    const customerId = row.dataset.customerId;
                     const status = row.dataset.status;
 
                     // Check search term match
                     const searchMatch = soNumber.includes(searchTerm) || customer.includes(searchTerm);
 
+                    // Check customer match
+                    const customerMatch = currentCustomerId === 'all' || customerId === currentCustomerId;
+
                     // Check status match
                     const statusMatch = currentStatusFilter === 'all' || status === currentStatusFilter;
 
-                    // Show row if both conditions match
-                    if (searchMatch && statusMatch) {
+                    // Show row if all conditions match
+                    if (searchMatch && customerMatch && statusMatch) {
                         row.style.display = '';
                     } else {
                         row.style.display = 'none';

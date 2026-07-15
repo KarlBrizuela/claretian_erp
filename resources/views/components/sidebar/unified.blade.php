@@ -188,6 +188,7 @@
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-money-bill-wave"></i></div><span class="modern-nav-label">Credit and Collection</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu">
             <a href="{{ route('admin-finance.credit-collection.billing') }}" class="modern-nav-subitem">Billing</a>
+            <a href="{{ route('admin-finance.credit-collection.reconsignment.index') }}" class="modern-nav-subitem">Reconsignments</a>
             <a href="{{ route('admin-finance.credit-collection.reports') }}" class="modern-nav-subitem">Reports</a>
             <a href="{{ route('admin-finance.credit-collection.invoice') }}" class="modern-nav-subitem">Invoice</a>
         </div>

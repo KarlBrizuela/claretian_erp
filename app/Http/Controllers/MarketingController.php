@@ -1204,13 +1204,15 @@ class MarketingController extends Controller
     {
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
         $products = \App\Models\Book::where('is_active', true)->get();
+        $areaSalesStaff = \App\Models\User::where('department', 'Area Sales')->get();
 
         return view('marketing.sales-orders.create', [
             'title' => 'Create Sales Order',
             'role' => 'Marketing Manager',
             'sidebar' => 'marketing',
             'customers' => $customers,
-            'products' => $products
+            'products' => $products,
+            'areaSalesStaff' => $areaSalesStaff
         ]);
     }
 
@@ -1219,7 +1221,8 @@ class MarketingController extends Controller
         $action = $request->input('action', 'submit'); // 'draft' or 'submit'
         
         $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,customer_id',
+            'customer_id' => $request->input('type') === 'area_sales_consignment' ? 'nullable|exists:customers,customer_id' : 'required|exists:customers,customer_id',
+            'area_sales_staff_id' => $request->input('type') === 'area_sales_consignment' ? 'required|exists:users,id' : 'nullable|exists:users,id',
             'type' => 'required',
             'so_number' => 'required|unique:sales_orders,so_number',
             'items' => $action === 'draft' ? 'nullable|array' : 'required|array|min:1', // Items optional for draft
@@ -1280,6 +1283,7 @@ class MarketingController extends Controller
         // 3. Create Header
         $so = \App\Models\SalesOrder::create([
             'customer_id' => $request->customer_id,
+            'area_sales_staff_id' => $request->type === 'area_sales_consignment' ? $request->area_sales_staff_id : null,
             'so_number' => $request->so_number,
             'type' => $request->type,
             'status' => $initialStatus,
@@ -1404,6 +1408,7 @@ class MarketingController extends Controller
         $order = \App\Models\SalesOrder::with('items.book')->findOrFail($id);
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
         $products = \App\Models\Book::where('is_active', true)->get();
+        $areaSalesStaff = \App\Models\User::where('department', 'Area Sales')->get();
 
         return view('marketing.sales-orders.create', [
             'title' => 'Edit Sales Order',
@@ -1411,7 +1416,8 @@ class MarketingController extends Controller
             'sidebar' => 'marketing',
             'customers' => $customers,
             'products' => $products,
-            'order' => $order
+            'order' => $order,
+            'areaSalesStaff' => $areaSalesStaff
         ]);
     }
 
@@ -1463,7 +1469,8 @@ class MarketingController extends Controller
         $so = \App\Models\SalesOrder::with('items')->findOrFail($id);
         
         $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,customer_id',
+            'customer_id' => $request->input('type') === 'area_sales_consignment' ? 'nullable|exists:customers,customer_id' : 'required|exists:customers,customer_id',
+            'area_sales_staff_id' => $request->input('type') === 'area_sales_consignment' ? 'required|exists:users,id' : 'nullable|exists:users,id',
             'type' => 'required',
             'items' => 'required|array|min:1',
             'remarks' => 'nullable',
@@ -1488,6 +1495,7 @@ class MarketingController extends Controller
 
         $so->update([
             'customer_id' => $request->customer_id,
+            'area_sales_staff_id' => $request->type === 'area_sales_consignment' ? $request->area_sales_staff_id : null,
             'type' => $request->type,
             'remarks' => $request->remarks,
             'terms' => $request->terms,

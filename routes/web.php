@@ -102,6 +102,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/mark-as-dr-prepared/{id}', [App\Http\Controllers\Production\LogisticController::class, 'markAsDRPrepared'])->name('mark-as-dr-prepared');
       Route::post('/approve-dr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'approveDR'])->name('approve-dr');
       Route::post('/link-consignment-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'linkConsignmentToSI'])->name('link-consignment-to-si');
+      Route::post('/request-reconsignment/{id}', [App\Http\Controllers\Production\LogisticController::class, 'requestReconsignment'])->name('request-reconsignment');
 
       // Purchase Orders
       Route::get('/purchase-order-list', [App\Http\Controllers\Production\LogisticController::class, 'purchaseOrderList'])->name('purchase-order-list');
@@ -438,6 +439,7 @@ Route::middleware(['auth'])->group(function () {
     // Credit Collection
     Route::prefix('credit-collection')->group(function () {
       Route::get('/billing', [App\Http\Controllers\AdminFinanceController::class, 'billing'])->name('admin-finance.credit-collection.billing');
+      Route::get('/reconsignments', [App\Http\Controllers\AdminFinanceController::class, 'reconsignmentsList'])->name('admin-finance.credit-collection.reconsignment.index');
       Route::get('/billing/create/{id}', [App\Http\Controllers\AdminFinanceController::class, 'createAccountStatement'])->name('admin-finance.credit-collection.billing.create');
       Route::post('/billing/store', [App\Http\Controllers\AdminFinanceController::class, 'storeAccountStatement'])->name('admin-finance.credit-collection.billing.store');
       Route::post('/billing/{id}/update-status', [App\Http\Controllers\AdminFinanceController::class, 'updateStatementStatus'])->name('admin-finance.credit-collection.billing.update-status');
@@ -466,7 +468,9 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/jv-requests/{id}/print-summary', [AdminFinanceController::class, 'printSummaryRequest'])->name('admin-finance.credit-collection.jv-requests.print-summary');
       Route::get('/jv-requests/{id}/prepare-adjustment', [AdminFinanceController::class, 'prepareAdjustmentRequest'])->name('admin-finance.credit-collection.jv-requests.prepare-adjustment');
       Route::post('/jv-requests/{id}/update-adjustment', [AdminFinanceController::class, 'updateAdjustmentRequest'])->name('admin-finance.credit-collection.jv-requests.update-adjustment');
-      Route::get('/jv-requests/{id}/download-supporting', [AdminFinanceController::class, 'downloadSupportingDocuments'])->name('admin-finance.credit-collection.jv-requests.download-supporting');
+      // Reconsignment
+      Route::post('/reconsignment/{id}/approve', [App\Http\Controllers\AdminFinanceController::class, 'approveReconsignment'])->name('admin-finance.credit-collection.reconsignment.approve');
+      Route::post('/reconsignment/{id}/reject', [App\Http\Controllers\AdminFinanceController::class, 'rejectReconsignment'])->name('admin-finance.credit-collection.reconsignment.reject');
     });
 
     // Expenses
