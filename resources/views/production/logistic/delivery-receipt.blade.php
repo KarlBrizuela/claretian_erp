@@ -140,11 +140,9 @@
                                 <button type="submit" class="btn btn-primary" id="linkToSIBtn" {{ in_array($order->status, ['si_created', 'reconsignment_pending']) ? 'disabled' : '' }}>
                                     <i class="las la-link"></i> Link to Sales Invoice
                                 </button>
-                                @if($order->status === 'si_created')
-                                    <button type="submit" class="btn btn-warning" id="reconsignmentBtn" formaction="{{ route('production.logistic.request-reconsignment', $order->id) }}" style="margin-left: 0.5rem;">
-                                        <i class="las la-retweet"></i> Reconsignment
-                                    </button>
-                                @endif
+                                <button type="submit" class="btn btn-warning" id="reconsignmentBtn" formaction="{{ route('production.logistic.request-reconsignment', $order->id) }}" style="margin-left: 0.5rem;" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created']) ? 'disabled' : '' }}>
+                                    <i class="las la-retweet"></i> Reconsignment
+                                </button>
                             </div>
                         </form>
 

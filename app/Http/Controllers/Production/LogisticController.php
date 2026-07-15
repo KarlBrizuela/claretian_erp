@@ -659,13 +659,19 @@ class LogisticController extends Controller
     {
         $order = \App\Models\SalesOrder::findOrFail($id);
         
-        // Ensure order is area_consignment and status is si_created
-        if ($order->type !== 'area_consignment' || $order->status !== 'si_created') {
+        // Ensure order is area_consignment and status is in valid statuses
+        if ($order->type !== 'area_consignment' || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created'])) {
             return redirect()->back()->with('error', 'Invalid order status for reconsignment.');
         }
 
         // Update Sales Order status to reconsignment_pending
         $order->update(['status' => 'reconsignment_pending']);
+
+        // Find the previous Delivery Receipt and close it
+        $previousDr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
+        if ($previousDr) {
+            $previousDr->update(['status' => 'completed']);
+        }
 
         // Log activity
         \App\Models\ActivityLog::create([
