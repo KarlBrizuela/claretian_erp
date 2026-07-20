@@ -183,6 +183,8 @@
 		<div class="modern-nav-submenu">
 			@if($user->hasPermission('marketing.book_mgmt.book_list'))
 			<a href="{{ route('marketing.products') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.products') ? 'active' : '' }}">Book List (Master)</a>
+			<a href="{{ route('marketing.indices') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.indices') ? 'active' : '' }}">Book Index</a>
+			<a href="{{ route('marketing.bundles') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.bundles') ? 'active' : '' }}">Book Bundles</a>
 			@endif
 			@if($user->hasPermission('marketing.book_mgmt.consignment'))
 			<a href="{{ route('marketing.consignment.index') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.consignment.index') ? 'active' : '' }}">Consignment Management</a>

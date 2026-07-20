@@ -275,7 +275,7 @@ class MarketingController extends Controller
             });
         }
 
-        $books = $query->paginate(15)->withQueryString();
+        $books = $query->paginate(15, ['*'], 'books_page')->withQueryString();
         $categories = BookCategory::whereNull('parent_id')->orderBy('name', 'asc')->get();
 
         return view('marketing.book-list', [
@@ -286,6 +286,101 @@ class MarketingController extends Controller
             'sidebar' => 'marketing',
             'search' => $search
         ]);
+    }
+
+    public function bundles(Request $request)
+    {
+        $bundleSearch = $request->input('bundle_search');
+
+        $bundleQuery = \App\Models\BookBundle::with('books')->orderBy('created_at', 'desc');
+        if (!empty($bundleSearch)) {
+            $bundleQuery->where(function($q) use ($bundleSearch) {
+                $q->where('name', 'like', '%' . $bundleSearch . '%')
+                  ->orWhere('sku', 'like', '%' . $bundleSearch . '%');
+            });
+        }
+        $bundles = $bundleQuery->paginate(15, ['*'], 'bundles_page')->withQueryString();
+
+        $allBooks = Book::orderBy('name', 'asc')->get();
+
+        return view('marketing.book-bundles', [
+            'bundles' => $bundles,
+            'allBooks' => $allBooks,
+            'title' => 'Book Bundles Registry',
+            'role' => 'Marketing Manager',
+            'sidebar' => 'marketing',
+            'bundleSearch' => $bundleSearch
+        ]);
+    }
+
+    public function bookIndices(Request $request)
+    {
+        $search = $request->input('search');
+
+        $query = \App\Models\BookIndex::with('book')->orderBy('created_at', 'desc');
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('index_value', 'like', '%' . $search . '%')
+                  ->orWhereHas('book', function($bq) use ($search) {
+                      $bq->where('name', 'like', '%' . $search . '%')
+                         ->orWhere('sku', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        $indices = $query->paginate(15, ['*'], 'indices_page')->withQueryString();
+        $allBooks = Book::orderBy('name', 'asc')->get();
+
+        return view('marketing.book-indices', [
+            'indices' => $indices,
+            'allBooks' => $allBooks,
+            'title' => 'Book Indices Registry',
+            'role' => 'Marketing Manager',
+            'sidebar' => 'marketing',
+            'search' => $search
+        ]);
+    }
+
+    public function storeIndex(Request $request)
+    {
+        $validated = $request->validate([
+            'book_id' => 'required|exists:books,id',
+            'index_value' => 'required|string|max:255',
+            'stock' => 'required|integer|min:0',
+        ]);
+
+        \App\Models\BookIndex::create($validated);
+
+        return response()->json(['message' => 'Book Index mapping created successfully']);
+    }
+
+    public function editIndex($id)
+    {
+        $index = \App\Models\BookIndex::with('book')->findOrFail($id);
+        return response()->json($index);
+    }
+
+    public function updateIndex(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'book_id' => 'required|exists:books,id',
+            'index_value' => 'required|string|max:255',
+            'stock' => 'required|integer|min:0',
+        ]);
+
+        $index = \App\Models\BookIndex::findOrFail($id);
+        $index->update($validated);
+
+        return response()->json(['message' => 'Book Index mapping updated successfully']);
+    }
+
+    public function destroyIndex($id)
+    {
+        $index = \App\Models\BookIndex::findOrFail($id);
+        $index->delete();
+
+        return response()->json(['message' => 'Book Index mapping deleted successfully']);
     }
 
 
@@ -1992,23 +2087,53 @@ class MarketingController extends Controller
             ->map(function($p) {
                 return [
                     'id' => $p->id,
+                    'type' => 'book',
                     'category' => strtolower($p->category ?? 'books'),
                     'name' => $p->name,
                     'price' => (float)$p->price,
                     'barcode' => $p->barcode,
                     'sku' => $p->sku,
+                    'stock' => $p->stock,
                     'image' => $p->image ? asset('storage/' . $p->image) : asset('images/no-book-cover.svg')
+                ];
+            });
+
+        $bundles = \App\Models\BookBundle::where('is_active', true)
+            ->with(['books' => function ($q) {
+                $q->select('books.id', 'books.name', 'books.stock', 'books.cost')
+                  ->withPivot('quantity');
+            }])
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(function($b) {
+                return [
+                    'id' => $b->id,
+                    'type' => 'bundle',
+                    'category' => 'bundle',
+                    'name' => $b->name,
+                    'sku' => $b->sku,
+                    'price' => (float)$b->price,
+                    'stock' => $b->stock,
+                    'image' => asset('images/no-book-cover.svg'),
+                    'books' => $b->books->map(fn($book) => [
+                        'id' => $book->id,
+                        'name' => $book->name,
+                        'stock' => $book->stock,
+                        'quantity' => $book->pivot->quantity,
+                    ])->values(),
                 ];
             });
 
         return view('marketing.direct-sales.pos', [
             'products' => $products,
+            'bundles' => $bundles,
             'customers' => \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get(),
             'title' => 'New Sale - Point of Sale',
             'role' => 'Marketing Manager',
             'sidebar' => 'marketing'
         ]);
     }
+
 
     public function posProducts()
     {
@@ -2241,5 +2366,91 @@ class MarketingController extends Controller
         $category->delete();
 
         return response()->json(['message' => 'Category deleted successfully']);
+    }
+
+    public function storeBundle(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'sku' => 'required|string|unique:book_bundles,sku',
+            'description' => 'nullable|string',
+            'price' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
+            'is_active' => 'nullable',
+            'items' => 'required|array|min:1',
+            'items.*.book_id' => 'required|exists:books,id',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        $bundle = \App\Models\BookBundle::create([
+            'name' => $validated['name'],
+            'sku' => $validated['sku'],
+            'description' => $validated['description'] ?? null,
+            'price' => $validated['price'],
+            'stock' => $validated['stock'],
+            'is_active' => $request->has('is_active') ? (bool)$request->input('is_active') : true,
+        ]);
+
+        foreach ($validated['items'] as $item) {
+            $bundle->books()->attach($item['book_id'], ['quantity' => $item['quantity']]);
+        }
+
+        return response()->json([
+            'message' => 'Book bundle created successfully',
+            'bundle' => $bundle
+        ]);
+    }
+
+    public function editBundle($id)
+    {
+        $bundle = \App\Models\BookBundle::with('books')->findOrFail($id);
+        return response()->json($bundle);
+    }
+
+    public function updateBundle(Request $request, $id)
+    {
+        $bundle = \App\Models\BookBundle::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'sku' => 'required|string|unique:book_bundles,sku,' . $bundle->id,
+            'description' => 'nullable|string',
+            'price' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
+            'is_active' => 'nullable',
+            'items' => 'required|array|min:1',
+            'items.*.book_id' => 'required|exists:books,id',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        $bundle->update([
+            'name' => $validated['name'],
+            'sku' => $validated['sku'],
+            'description' => $validated['description'] ?? null,
+            'price' => $validated['price'],
+            'stock' => $validated['stock'],
+            'is_active' => $request->has('is_active') ? (bool)$request->input('is_active') : true,
+        ]);
+
+        $syncData = [];
+        foreach ($validated['items'] as $item) {
+            $syncData[$item['book_id']] = ['quantity' => $item['quantity']];
+        }
+        $bundle->books()->sync($syncData);
+
+        return response()->json([
+            'message' => 'Book bundle updated successfully',
+            'bundle' => $bundle
+        ]);
+    }
+
+    public function destroyBundle($id)
+    {
+        $bundle = \App\Models\BookBundle::findOrFail($id);
+        $bundle->delete();
+
+        return response()->json([
+            'message' => 'Book bundle deleted successfully'
+        ]);
     }
 }

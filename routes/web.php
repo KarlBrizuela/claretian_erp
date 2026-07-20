@@ -221,6 +221,7 @@ Route::middleware(['auth'])->group(function () {
     
     // Book Management (Master Registry)
     Route::get('/marketing/book-list', [MarketingController::class, 'products'])->name('marketing.products');
+    Route::get('/marketing/book-bundles', [MarketingController::class, 'bundles'])->name('marketing.bundles');
     Route::get('/marketing/book-list/check-sku', [MarketingController::class, 'checkSku'])->name('marketing.books.check-sku');
     Route::get('/marketing/book-list/import-template', [MarketingController::class, 'downloadTemplate'])->name('marketing.books.import-template');
     Route::post('/marketing/book-list/import', [MarketingController::class, 'importBooks'])->name('marketing.books.import');
@@ -228,6 +229,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/book-list/{id}/edit-book', [MarketingController::class, 'editBook'])->name('marketing.books.edit');
     Route::post('/marketing/book-list/{id}/update-book', [MarketingController::class, 'updateBook'])->name('marketing.books.update');
     Route::delete('/marketing/book-list/{id}', [MarketingController::class, 'destroyBook'])->name('marketing.books.destroy');
+
+    // Book Bundles
+    Route::post('/marketing/book-bundles/store', [MarketingController::class, 'storeBundle'])->name('marketing.bundles.store');
+    Route::get('/marketing/book-bundles/{id}/edit', [MarketingController::class, 'editBundle'])->name('marketing.bundles.edit');
+    Route::post('/marketing/book-bundles/{id}/update', [MarketingController::class, 'updateBundle'])->name('marketing.bundles.update');
+    Route::delete('/marketing/book-bundles/{id}', [MarketingController::class, 'destroyBundle'])->name('marketing.bundles.destroy');
+
+    // Book Indexing
+    Route::get('/marketing/book-indices', [MarketingController::class, 'bookIndices'])->name('marketing.indices');
+    Route::post('/marketing/book-indices/store', [MarketingController::class, 'storeIndex'])->name('marketing.indices.store');
+    Route::get('/marketing/book-indices/{id}/edit', [MarketingController::class, 'editIndex'])->name('marketing.indices.edit');
+    Route::post('/marketing/book-indices/{id}/update', [MarketingController::class, 'updateIndex'])->name('marketing.indices.update');
+    Route::delete('/marketing/book-indices/{id}', [MarketingController::class, 'destroyIndex'])->name('marketing.indices.destroy');
 
     // POS Listed Products
     Route::post('/marketing/pos-products/store', [MarketingController::class, 'storeProduct'])->name('marketing.products.store');

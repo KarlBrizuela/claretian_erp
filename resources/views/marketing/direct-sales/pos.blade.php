@@ -190,6 +190,7 @@
             <div class="pos-category-tabs">
                 <button class="pos-category-tab active" onclick="switchCategory('books')">Books</button>
                 <button class="pos-category-tab" onclick="switchCategory('non-books')">Non-Books</button>
+                <button class="pos-category-tab" onclick="switchCategory('bundle')">📦 Bundles</button>
             </div>
             <div class="mb-4">
                 <input type="text" class="form-control form-control-lg" id="productSearch" placeholder="Search products..." onkeyup="filterProducts()">
@@ -348,6 +349,9 @@
     <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
         const products = @json($products);
+        const bundles  = @json($bundles);
+        // Merge all items into one list; bundles have type='bundle', books have type='book'
+        const allItems = [...products, ...bundles];
 
         let cart = [];
         let currentCategory = 'books';
@@ -371,20 +375,35 @@
         function renderProducts() {
             const grid = document.getElementById('productGrid');
             const search = document.getElementById('productSearch').value.toLowerCase();
-            const filtered = products.filter(p => 
-                p.category === currentCategory && 
+            const filtered = allItems.filter(p =>
+                p.category === currentCategory &&
                 (p.name.toLowerCase().includes(search) ||
                  (p.barcode && p.barcode.toLowerCase().includes(search)) ||
                  (p.sku && p.sku.toLowerCase().includes(search)))
             );
-            
-            grid.innerHTML = filtered.map(p => `
-                <div class="pos-product-card" onclick="addToCart(${p.id})">
-                    <img src="${p.image}" alt="${p.name}">
-                    <h6>${p.name}</h6>
-                    <div class="price">₱${p.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
-                </div>
-            `).join('');
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="text-center text-muted py-5" style="grid-column:1/-1"><i class="las la-search" style="font-size:3rem;opacity:.2"></i><p class="mt-2">No items found</p></div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(p => {
+                const stockBadge = p.stock !== undefined
+                    ? `<div style="font-size:0.72rem;color:${p.stock > 0 ? '#28a745' : '#dc3545'};margin-top:2px;">${p.stock > 0 ? p.stock + ' in stock' : 'Out of stock'}</div>`
+                    : '';
+                const bundleBadge = p.type === 'bundle'
+                    ? `<span style="position:absolute;top:8px;right:8px;background:#6f42c1;color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:10px;">BUNDLE</span>`
+                    : '';
+                const cartKey = p.type + '_' + p.id;
+                return `
+                    <div class="pos-product-card" onclick="addToCart('${cartKey}')">
+                        ${bundleBadge}
+                        <img src="${p.image}" alt="${p.name}">
+                        <h6>${p.name}</h6>
+                        <div class="price">₱${p.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                        ${stockBadge}
+                    </div>`;
+            }).join('');
         }
 
         function switchCategory(category) {
@@ -401,56 +420,61 @@
             renderProducts();
         }
 
-        function addToCart(id) {
-            console.log('📥 addToCart called with ID:', id);
-            const product = products.find(p => p.id === id);
-            console.log('🔎 Found product:', product);
-            
-            const existing = cart.find(item => item.id === id);
-            console.log('🔄 Existing item in cart:', existing);
-            
-            if (existing) {
-                existing.qty++;
-                console.log('📈 Increased quantity to:', existing.qty);
-            } else {
-                cart.push({ ...product, qty: 1 });
-                console.log('🆕 Added new item to cart');
+        function addToCart(cartKey) {
+            const item = allItems.find(p => (p.type + '_' + p.id) === cartKey);
+            if (!item) return;
+
+            // Out of stock guard
+            if (item.stock !== undefined && item.stock <= 0) {
+                window.showAlert(`"${item.name}" is out of stock.`, 'error');
+                return;
             }
-            console.log('🛒 Cart contents:', cart);
+
+            const existing = cart.find(c => c.cartKey === cartKey);
+            if (existing) {
+                // Check if adding one more would exceed stock
+                if (item.stock !== undefined && existing.qty >= item.stock) {
+                    window.showAlert(`Only ${item.stock} unit(s) of "${item.name}" available.`, 'error');
+                    return;
+                }
+                existing.qty++;
+            } else {
+                cart.push({ ...item, cartKey, qty: 1 });
+            }
             renderCart();
         }
 
         function renderCart() {
-            console.log('🎨 renderCart called, cart items:', cart.length);
             const container = document.getElementById('cartItems');
             if (cart.length === 0) {
-                console.log('📭 Cart is empty');
                 container.innerHTML = `
                     <div class="text-center text-muted p-5">
                         <i class="las la-shopping-cart" style="font-size: 4rem; opacity: 0.2;"></i>
                         <p class="mt-2">Cart is empty</p>
                     </div>`;
             } else {
-                console.log('📝 Rendering cart items...');
-                container.innerHTML = cart.map((item, index) => `
+                container.innerHTML = cart.map((item, index) => {
+                    const typeBadge = item.type === 'bundle'
+                        ? `<span style="font-size:0.65rem;background:#6f42c1;color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">BUNDLE</span>`
+                        : '';
+                    return `
                     <div class="cart-item-card">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
-                                <h6 class="mb-1" style="font-size: 0.9rem;">${item.name}</h6>
+                                <h6 class="mb-1" style="font-size: 0.9rem;">${item.name}${typeBadge}</h6>
                                 <div class="text-primary font-w600">₱${item.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
                             </div>
                             <div class="d-flex flex-column align-items-end">
-                                <button class="btn btn-xs btn-outline-danger mb-2" onclick="removeItem(${index})">&times;</button>
+                                <button class="btn btn-xs btn-outline-danger mb-2" onclick="removeItem(${index})">×</button>
                                 <div class="input-group input-group-sm" style="width: 120px;">
                                     <button class="btn btn-outline-secondary" type="button" onclick="updateQty(${index}, -1)">-</button>
-                                    <input type="number" class="form-control text-center px-0 qty-input" value="${item.qty}" min="1" oninput="updateQtyDirect(${index}, this.value)" autofocus>
+                                    <input type="number" class="form-control text-center px-0 qty-input" value="${item.qty}" min="1" oninput="updateQtyDirect(${index}, this.value)">
                                     <button class="btn btn-outline-secondary" type="button" onclick="updateQty(${index}, 1)">+</button>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                `).join('');
-                console.log('✅ Cart rendered successfully');
+                    </div>`;
+                }).join('');
             }
             calculateTotals();
         }
@@ -616,17 +640,19 @@
                 }
             }
 
-            // Prepare order data
+            // Prepare order data — map bundle items to bundle_id, book items to product_id
             const orderData = {
                 customer_id: document.getElementById('customerSelect').value || null,
                 payment_method: selectedPaymentMethod,
                 payment_reference: paymentReference,
                 cash_received: cashReceived,
-                items: cart.map(item => ({
-                    product_id: item.id,
-                    quantity: item.qty,
-                    price: item.price
-                })),
+                items: cart.map(item => {
+                    if (item.type === 'bundle') {
+                        return { bundle_id: item.id, quantity: item.qty, price: item.price };
+                    } else {
+                        return { product_id: item.id, quantity: item.qty, price: item.price };
+                    }
+                }),
                 subtotal: subtotalAmt,
                 tax: taxAmt,
                 total: totalAmt

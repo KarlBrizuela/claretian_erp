@@ -119,6 +119,8 @@
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-book"></i></div><span class="modern-nav-label">Book Management</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu">
             <a href="{{ route('marketing.products') }}" class="modern-nav-subitem">Book List (Master)</a>
+            <a href="{{ route('marketing.indices') }}" class="modern-nav-subitem">Book Index</a>
+            <a href="{{ route('marketing.bundles') }}" class="modern-nav-subitem">Book Bundles</a>
             <a href="{{ route('marketing.consignment.index') }}" class="modern-nav-subitem">Consignment Management</a>
         </div>
     </div>

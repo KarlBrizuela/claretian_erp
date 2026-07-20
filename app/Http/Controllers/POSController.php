@@ -24,17 +24,18 @@ class POSController extends Controller
     public function processOrder(Request $request)
     {
         $validated = $request->validate([
-            'customer_id' => 'nullable|exists:customers,customer_id',
-            'payment_method' => 'required|in:cash,gcash,paymaya,card,bank,check',
-            'payment_reference' => 'required_unless:payment_method,cash',
-            'cash_received' => 'required_if:payment_method,cash|numeric|min:0',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:books,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.price' => 'required|numeric|min:0',
-            'subtotal' => 'required|numeric|min:0',
-            'tax' => 'required|numeric|min:0',
-            'total' => 'required|numeric|min:0',
+            'customer_id'         => 'nullable|exists:customers,customer_id',
+            'payment_method'      => 'required|in:cash,gcash,paymaya,card,bank,check',
+            'payment_reference'   => 'required_unless:payment_method,cash',
+            'cash_received'       => 'required_if:payment_method,cash|numeric|min:0',
+            'items'               => 'required|array|min:1',
+            'items.*.product_id'  => 'nullable|exists:books,id',
+            'items.*.bundle_id'   => 'nullable|exists:book_bundles,id',
+            'items.*.quantity'    => 'required|integer|min:1',
+            'items.*.price'       => 'required|numeric|min:0',
+            'subtotal'            => 'required|numeric|min:0',
+            'tax'                 => 'required|numeric|min:0',
+            'total'               => 'required|numeric|min:0',
         ]);
 
         // Validate cash payment
@@ -47,107 +48,168 @@ class POSController extends Controller
             }
         }
 
-        // STOCK VALIDATION: Check if all items have sufficient stock
+        // ── STOCK VALIDATION ────────────────────────────────────────────────
         $insufficientItems = [];
+
         foreach ($validated['items'] as $item) {
-            $book = Book::find($item['product_id']);
-            if (!$book || $book->stock < $item['quantity']) {
-                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
-                $availableStock = $book ? $book->stock : 0;
-                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+            $qty = (int) $item['quantity'];
+
+            if (!empty($item['bundle_id'])) {
+                // --- Bundle item ---
+                $bundle = \App\Models\BookBundle::with(['books' => fn($q) => $q->withPivot('quantity')])
+                            ->find($item['bundle_id']);
+
+                if (!$bundle || $bundle->stock < $qty) {
+                    $name = $bundle ? $bundle->name : "Bundle #{$item['bundle_id']}";
+                    $avail = $bundle ? $bundle->stock : 0;
+                    $insufficientItems[] = "$name (Bundle stock available: $avail, requested: $qty)";
+                } else {
+                    // Check each book inside the bundle
+                    foreach ($bundle->books as $book) {
+                        $need = $book->pivot->quantity * $qty;
+                        if ($book->stock < $need) {
+                            $insufficientItems[] = "{$book->name} in bundle {$bundle->name} (Available: {$book->stock} pcs, Needed: $need pcs)";
+                        }
+                    }
+                }
+            } else {
+                // --- Regular book item ---
+                $book = Book::find($item['product_id']);
+                if (!$book || $book->stock < $qty) {
+                    $bookName  = $book ? $book->name : "Product #{$item['product_id']}";
+                    $available = $book ? $book->stock : 0;
+                    $insufficientItems[] = "$bookName (Available: $available pcs, Requested: $qty pcs)";
+                }
             }
         }
 
         if (!empty($insufficientItems)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient stock for items: ' . implode(', ', $insufficientItems)
+                'message' => 'Insufficient stock: ' . implode('; ', $insufficientItems)
             ], 422);
         }
+        // ────────────────────────────────────────────────────────────────────
 
         try {
             DB::beginTransaction();
 
             // Generate order number
-            $posConfig = PaymentSetting::getSetting('pos_config', ['orderPrefix' => 'POS']);
-            $prefix = $posConfig['orderPrefix'] ?? 'POS';
-            $date = now()->format('Ymd');
-            
-            // Get the last order number for today
-            $lastOrder = SalesOrder::where('so_number', 'like', "{$prefix}-{$date}-%")
-                ->orderBy('so_number', 'desc')
-                ->first();
-            
-            if ($lastOrder) {
-                $lastNumber = (int) substr($lastOrder->so_number, -4);
-                $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-            } else {
-                $newNumber = '0001';
-            }
-            
-            $orderNumber = "{$prefix}-{$date}-{$newNumber}";
+            $posConfig   = \App\Models\PaymentSetting::getSetting('pos_config', ['orderPrefix' => 'POS']);
+            $prefix      = $posConfig['orderPrefix'] ?? 'POS';
+            $date        = now()->format('Ymd');
+            $lastOrder   = SalesOrder::where('so_number', 'like', "{$prefix}-{$date}-%")
+                            ->orderBy('so_number', 'desc')->first();
+            $lastNumber  = $lastOrder ? (int) substr($lastOrder->so_number, -4) : 0;
+            $orderNumber = "{$prefix}-{$date}-" . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
 
-            // Calculate change for cash payments
-            $changeAmount = null;
-            if ($validated['payment_method'] === 'cash') {
-                $changeAmount = $validated['cash_received'] - $validated['total'];
-            }
+            $changeAmount = $validated['payment_method'] === 'cash'
+                ? $validated['cash_received'] - $validated['total']
+                : null;
 
-            // Create sales order
+            // Create sales order header
             $order = SalesOrder::create([
-                'customer_id' => $validated['customer_id'] ?? null,
-                'so_number' => $orderNumber,
-                'type' => 'calculator_pos',
-                'status' => 'completed', // POS orders are immediately completed
-                'payment_method' => $validated['payment_method'],
-                'payment_reference' => $validated['payment_reference'] ?? null,
-                'cash_received' => $validated['cash_received'] ?? null,
-                'change_amount' => $changeAmount,
-                'total_amount' => $validated['total'],
-                'tax_amount' => $validated['tax'],
-                'prepared_by' => auth()->id(),
-                'approved_by_mkt' => auth()->id(),
+                'customer_id'      => $validated['customer_id'] ?? null,
+                'so_number'        => $orderNumber,
+                'type'             => 'calculator_pos',
+                'status'           => 'completed',
+                'payment_method'   => $validated['payment_method'],
+                'payment_reference'=> $validated['payment_reference'] ?? null,
+                'cash_received'    => $validated['cash_received'] ?? null,
+                'change_amount'    => $changeAmount,
+                'total_amount'     => $validated['total'],
+                'tax_amount'       => $validated['tax'],
+                'prepared_by'      => auth()->id(),
+                'approved_by_mkt'  => auth()->id(),
                 'approved_by_acct' => auth()->id(),
-                'mkt_approved_at' => now(),
+                'mkt_approved_at'  => now(),
                 'acct_approved_at' => now(),
             ]);
 
-            // Create order items
+            // ── PROCESS EACH LINE ITEM ───────────────────────────────────────
             foreach ($validated['items'] as $item) {
-                $book = Book::find($item['product_id']);
-                SalesOrderItem::create([
-                    'sales_order_id' => $order->id,
-                    'book_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'subtotal' => $item['quantity'] * $item['price'],
-                    'unit' => 'pcs',
-                    'source_price_at_sale' => $book ? $book->source_price : 0,
-                ]);
+                $qty = (int) $item['quantity'];
 
-                // Decrement book stock
-                Book::where('id', $item['product_id'])->decrement('stock', $item['quantity']);
+                if (!empty($item['bundle_id'])) {
+                    // ── Bundle item ───────────────────────────────────────
+                    $bundle = \App\Models\BookBundle::with(['books' => fn($q) => $q->withPivot('quantity')])
+                                ->find($item['bundle_id']);
 
-                // Record inventory transaction
-                if ($book) {
-                    \App\Models\InventoryTransaction::create([
-                        'book_id' => $book->id,
-                        'type' => 'out',
-                        'quantity' => $item['quantity'],
-                        'location' => 'Main Warehouse',
-                        'source' => 'POS Calculator',
-                        'reference_number' => $orderNumber,
-                        'unit_cost' => $book->cost ?? 0,
-                        'total_cost' => $item['quantity'] * ($book->cost ?? 0),
-                        'notes' => 'POS Order #' . $orderNumber,
-                        'status' => 'completed',
-                        'transaction_date' => now(),
-                        'user_id' => auth()->id()
+                    // 1. Save the line item (book_id is null for bundle lines)
+                    SalesOrderItem::create([
+                        'sales_order_id'      => $order->id,
+                        'book_id'             => null,
+                        'bundle_id'           => $bundle->id,
+                        'quantity'            => $qty,
+                        'price'               => $item['price'],
+                        'subtotal'            => $qty * $item['price'],
+                        'unit'                => 'pcs',
+                        'source_price_at_sale'=> 0,
                     ]);
+
+                    // 2. Decrement bundle stock
+                    \App\Models\BookBundle::where('id', $bundle->id)->decrement('stock', $qty);
+
+                    // 3. Decrement each book's stock and log inventory transactions
+                    foreach ($bundle->books as $book) {
+                        $bookQtyToDeduct = $book->pivot->quantity * $qty;
+
+                        Book::where('id', $book->id)->decrement('stock', $bookQtyToDeduct);
+
+                        \App\Models\InventoryTransaction::create([
+                            'book_id'          => $book->id,
+                            'type'             => 'out',
+                            'quantity'         => $bookQtyToDeduct,
+                            'location'         => 'Main Warehouse',
+                            'source'           => 'POS Bundle Sale',
+                            'reference_number' => $orderNumber,
+                            'unit_cost'        => $book->cost ?? 0,
+                            'total_cost'       => $bookQtyToDeduct * ($book->cost ?? 0),
+                            'notes'            => "Bundle \"{$bundle->name}\" × {$qty} — POS Order #{$orderNumber}",
+                            'status'           => 'completed',
+                            'transaction_date' => now(),
+                            'user_id'          => auth()->id(),
+                        ]);
+                    }
+
+                } else {
+                    // ── Regular book item ─────────────────────────────────
+                    $book = Book::find($item['product_id']);
+
+                    SalesOrderItem::create([
+                        'sales_order_id'      => $order->id,
+                        'book_id'             => $item['product_id'],
+                        'bundle_id'           => null,
+                        'quantity'            => $qty,
+                        'price'               => $item['price'],
+                        'subtotal'            => $qty * $item['price'],
+                        'unit'                => 'pcs',
+                        'source_price_at_sale'=> $book ? $book->source_price : 0,
+                    ]);
+
+                    Book::where('id', $item['product_id'])->decrement('stock', $qty);
+
+                    if ($book) {
+                        \App\Models\InventoryTransaction::create([
+                            'book_id'          => $book->id,
+                            'type'             => 'out',
+                            'quantity'         => $qty,
+                            'location'         => 'Main Warehouse',
+                            'source'           => 'POS Calculator',
+                            'reference_number' => $orderNumber,
+                            'unit_cost'        => $book->cost ?? 0,
+                            'total_cost'       => $qty * ($book->cost ?? 0),
+                            'notes'            => 'POS Order #' . $orderNumber,
+                            'status'           => 'completed',
+                            'transaction_date' => now(),
+                            'user_id'          => auth()->id(),
+                        ]);
+                    }
                 }
             }
+            // ────────────────────────────────────────────────────────────────
 
-            // --- ACCOUNTING INTEGRATION ---
+            // Accounting integration
             $this->accounting->postSalesOrderEntry($order);
 
             DB::commit();
@@ -155,13 +217,13 @@ class POSController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Order processed successfully',
-                'order' => [
-                    'id' => $order->id,
-                    'order_number' => $orderNumber,
-                    'total' => $validated['total'],
+                'order'   => [
+                    'id'             => $order->id,
+                    'order_number'   => $orderNumber,
+                    'total'          => $validated['total'],
                     'payment_method' => $validated['payment_method'],
-                    'change' => $changeAmount,
-                    'created_at' => $order->created_at->format('Y-m-d h:i A')
+                    'change'         => $changeAmount,
+                    'created_at'     => $order->created_at->format('Y-m-d h:i A')
                 ]
             ]);
 

@@ -10,6 +10,7 @@ class SalesOrderItem extends Model
     protected $fillable = [
         'sales_order_id',
         'book_id',
+        'bundle_id',
         'quantity',
         'price',
         'subtotal',
@@ -29,6 +30,11 @@ class SalesOrderItem extends Model
     public function book()
     {
         return $this->belongsTo(Book::class);
+    }
+
+    public function bundle()
+    {
+        return $this->belongsTo(BookBundle::class);
     }
 
     /**

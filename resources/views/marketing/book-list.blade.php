@@ -1,6 +1,40 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
     <style>
+        /* Custom Page Tabs Styling */
+        .page-tabs {
+            border-bottom: 2px solid #eee;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1.5rem;
+            padding-left: 1rem;
+        }
+        .page-tabs .nav-link {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #666;
+            border: none;
+            background: transparent;
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease-in-out;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .page-tabs .nav-link:hover {
+            color: #D9251C;
+            background: transparent !important;
+        }
+        .page-tabs .nav-link.active {
+            color: #D9251C;
+            border-bottom-color: #D9251C;
+            background: transparent !important;
+        }
+
         /* Modern Tabbed Form Styles */
         .book-modal-header-info {
             padding: 1rem 1.5rem;
@@ -211,131 +245,153 @@
 
     <div class="row">
         <div class="col-xl-12 col-xxl-12">
+            <!-- Navigation Tabs -->
+            <ul class="nav page-tabs" id="bookMgmtTabs">
+                <li class="nav-item">
+                    <a class="nav-link active" id="book-list-tab" href="{{ route('marketing.products') }}">
+                        <i class="las la-list" style="font-size: 1.25rem;"></i>
+                        <span>Book List</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="book-index-tab" href="{{ route('marketing.indices') }}">
+                        <i class="las la-tag" style="font-size: 1.25rem;"></i>
+                        <span>Book Index</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="book-bundle-tab" href="{{ route('marketing.bundles') }}">
+                        <i class="las la-boxes" style="font-size: 1.25rem;"></i>
+                        <span>Book Bundle</span>
+                    </a>
+                </li>
+            </ul>
+
             <div class="card">
-                <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between flex-wrap gap-3">
-                    <div>
-                        <h4 class="card-title mb-0">Book List (Master)</h4>
-                    </div>
-                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
-                        <!-- Search Form -->
-                        <form action="{{ route('marketing.products') }}" method="GET" class="d-flex align-items-center gap-2">
-                            <div style="width: 250px; height: 38px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa; padding: 0 12px; box-sizing: border-box;">
-                                <span class="las la-search text-muted me-2" style="font-size: 1.1rem; line-height: 1;"></span>
-                                <input type="text" name="search" class="form-control" 
-                                       placeholder="Search books..." value="{{ request('search') }}" 
-                                       style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.85rem; color: #333; outline: none !important; box-shadow: none !important;">
-                                @if(request('search'))
-                                    <a href="{{ route('marketing.products') }}" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
-                                        <span class="las la-times-circle" style="color: #999; font-size: 1.25rem; cursor: pointer;"></span>
-                                    </a>
-                                @endif
+                        <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div>
+                                <h4 class="card-title mb-0">Book List (Master)</h4>
                             </div>
-                            <button type="submit" class="btn btn-danger text-white rounded d-inline-flex align-items-center justify-content-center gap-2" style="height: 38px; padding: 0 1.2rem; border: none; font-size: 0.85rem; font-weight: 500; background-color: #D9251C; box-shadow: 0 4px 6px rgba(217, 37, 28, 0.15);">
-                                <span class="las la-search" style="font-size: 1rem; color: #fff;"></span>
-                                <span>Search</span>
-                            </button>
-                        </form>
-
-                        <a href="javascript:void(0);" class="btn btn-import-excel rounded"
-                            data-bs-toggle="modal" data-bs-target="#importBooksModal">
-                            <i class="las la-file-excel"></i>
-                            <span>Import Excel</span>
-                        </a>
-                        <a href="javascript:void(0);" class="btn btn-manage-cat rounded"
-                            data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">
-                            <i class="las la-cog"></i>
-                            <span>Manage Categories</span>
-                        </a>
-                        <a href="javascript:void(0);"
-                            class="btn btn-primary rounded d-flex align-items-center" data-bs-toggle="modal"
-                            data-bs-target="#addBookModal"
-                            style="gap: 0.5rem; padding: 0.5rem 1rem; height: 38px; min-height: 38px; line-height: 1.5; box-sizing: border-box; border: none; background: #ff0000; color: #ffffff; font-weight: 500;">
-                            <i class="las la-plus" style="font-size: 1rem;"></i>
-                            <span>Add New Book</span>
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-responsive-md">
-                            <thead>
-                                <tr>
-                                    <th>Cover</th>
-                                    <th>SKU</th>
-                                    <th>Book Title</th>
-                                    <th>Author</th>
-                                    <th>Price</th>
-                                    <th>Cost</th>
-                                    <th>Stock</th>
-                                    <th>Classification</th>
-                                    <th>POS Status</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($books as $book)
-                                <tr>
-                                    <td>
-                                        <img src="{{ $book->image ? '/storage/' . $book->image : asset('images/no-book-cover.svg') }}" 
-                                             class="rounded-circle" width="35" height="35" style="object-fit: cover; border: 1px solid #eee;">
-                                    </td>
-                                    <td><strong>#{{ $book->sku }}</strong></td>
-                                    <td>{{ $book->name }}</td>
-                                    <td>{{ $book->author ?? 'N/A' }}</td>
-                                    <td>₱{{ number_format($book->price, 2) }}</td>
-                                    <td>₱{{ number_format($book->cost, 2) }}</td>
-                                    <td>
-                                        @if($book->stock > 0)
-                                            <span class="badge badge-success">{{ $book->stock }} {{ $book->unit ?? 'pcs' }}</span>
-                                        @elseif($book->stock == 0)
-                                            <span class="badge badge-warning">0 {{ $book->unit ?? 'pcs' }}</span>
-                                        @else
-                                            <span class="badge badge-danger">{{ $book->stock }} {{ $book->unit ?? 'pcs' }}</span>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
+                                <!-- Search Form -->
+                                <form action="{{ route('marketing.products') }}" method="GET" class="d-flex align-items-center gap-2">
+                                    <div style="width: 250px; height: 38px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa; padding: 0 12px; box-sizing: border-box;">
+                                        <span class="las la-search text-muted me-2" style="font-size: 1.1rem; line-height: 1;"></span>
+                                        <input type="text" name="search" class="form-control" 
+                                               placeholder="Search books..." value="{{ request('search') }}" 
+                                               style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.85rem; color: #333; outline: none !important; box-shadow: none !important;">
+                                        @if(request('search'))
+                                            <a href="{{ route('marketing.products') }}" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
+                                                <span class="las la-times-circle" style="color: #999; font-size: 1.25rem; cursor: pointer;"></span>
+                                            </a>
                                         @endif
-                                    </td>
-                                    <td>
-                                        <span class="badge badge-outline-primary">{{ $book->book_type ?? 'N/A' }}</span>
-                                    </td>
-                                    <td>
-                                        @if($book->is_active)
-                                            <span class="badge badge-success">Active on POS</span>
-                                        @else
-                                            <span class="badge badge-light">Inactive</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <div class="d-flex">
-                                            <a href="javascript:void(0);" class="btn btn-secondary shadow btn-xs sharp me-1 view-book-btn" 
-                                               data-id="{{ $book->id }}"><i class="far fa-eye"></i></a>
-                                            <a href="javascript:void(0);" class="btn btn-primary shadow btn-xs sharp me-1 edit-book-btn" 
-                                               data-id="{{ $book->id }}"><i class="fas fa-pencil-alt"></i></a>
-                                            <a href="javascript:void(0);" class="btn btn-danger shadow btn-xs sharp delete-book-btn"
-                                               data-id="{{ $book->id }}"><i class="fa fa-trash"></i></a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="10" class="text-center">No books in the list.</td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-danger text-white rounded d-inline-flex align-items-center justify-content-center gap-2" style="height: 38px; padding: 0 1.2rem; border: none; font-size: 0.85rem; font-weight: 500; background-color: #D9251C; box-shadow: 0 4px 6px rgba(217, 37, 28, 0.15);">
+                                        <span class="las la-search" style="font-size: 1rem; color: #fff;"></span>
+                                        <span>Search</span>
+                                    </button>
+                                </form>
 
-                    <!-- Pagination Links -->
-                    <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-                        <div class="text-muted small">
-                            Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
+                                <a href="javascript:void(0);" class="btn btn-import-excel rounded"
+                                    data-bs-toggle="modal" data-bs-target="#importBooksModal">
+                                    <i class="las la-file-excel"></i>
+                                    <span>Import Excel</span>
+                                </a>
+                                <a href="javascript:void(0);" class="btn btn-manage-cat rounded"
+                                    data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">
+                                    <i class="las la-cog"></i>
+                                    <span>Manage Categories</span>
+                                </a>
+                                <a href="javascript:void(0);"
+                                    class="btn btn-primary rounded d-flex align-items-center" data-bs-toggle="modal"
+                                    data-bs-target="#addBookModal"
+                                    style="gap: 0.5rem; padding: 0.5rem 1rem; height: 38px; min-height: 38px; line-height: 1.5; box-sizing: border-box; border: none; background: #ff0000; color: #ffffff; font-weight: 500;">
+                                    <i class="las la-plus" style="font-size: 1rem;"></i>
+                                    <span>Add New Book</span>
+                                </a>
+                            </div>
                         </div>
-                        <div>
-                            {{ $books->links() }}
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-responsive-md">
+                                    <thead>
+                                        <tr>
+                                            <th>Cover</th>
+                                            <th>SKU</th>
+                                            <th>Book Title</th>
+                                            <th>Author</th>
+                                            <th>Price</th>
+                                            <th>Cost</th>
+                                            <th>Stock</th>
+                                            <th>Classification</th>
+                                            <th>POS Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($books as $book)
+                                        <tr>
+                                            <td>
+                                                <img src="{{ $book->image ? '/storage/' . $book->image : asset('images/no-book-cover.svg') }}" 
+                                                     class="rounded-circle" width="35" height="35" style="object-fit: cover; border: 1px solid #eee;">
+                                            </td>
+                                            <td><strong>#{{ $book->sku }}</strong></td>
+                                            <td>{{ $book->name }}</td>
+                                            <td>{{ $book->author ?? 'N/A' }}</td>
+                                            <td>₱{{ number_format($book->price, 2) }}</td>
+                                            <td>₱{{ number_format($book->cost, 2) }}</td>
+                                            <td>
+                                                @if($book->stock > 0)
+                                                    <span class="badge badge-success">{{ $book->stock }} {{ $book->unit ?? 'pcs' }}</span>
+                                                @elseif($book->stock == 0)
+                                                    <span class="badge badge-warning">0 {{ $book->unit ?? 'pcs' }}</span>
+                                                @else
+                                                    <span class="badge badge-danger">{{ $book->stock }} {{ $book->unit ?? 'pcs' }}</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-outline-primary">{{ $book->book_type ?? 'N/A' }}</span>
+                                            </td>
+                                            <td>
+                                                @if($book->is_active)
+                                                    <span class="badge badge-success">Active on POS</span>
+                                                @else
+                                                    <span class="badge badge-light">Inactive</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="d-flex">
+                                                    <a href="javascript:void(0);" class="btn btn-secondary shadow btn-xs sharp me-1 view-book-btn" 
+                                                       data-id="{{ $book->id }}"><i class="far fa-eye"></i></a>
+                                                    <a href="javascript:void(0);" class="btn btn-primary shadow btn-xs sharp me-1 edit-book-btn" 
+                                                       data-id="{{ $book->id }}"><i class="fas fa-pencil-alt"></i></a>
+                                                    <a href="javascript:void(0);" class="btn btn-danger shadow btn-xs sharp delete-book-btn"
+                                                       data-id="{{ $book->id }}"><i class="fa fa-trash"></i></a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="10" class="text-center">No books in the list.</td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Pagination Links -->
+                            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
+                                </div>
+                                <div>
+                                    {{ $books->appends(['bundle_search' => request('bundle_search')])->links() }}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
     @push('modals')
 
@@ -785,6 +841,7 @@
             </div>
         </div>
     </div>
+
     @endpush
 
     @push('scripts')
@@ -800,6 +857,8 @@
         } catch (e) {
             console.warn("Bootstrap Modal JS not available, falling back to manual/jQuery methods", e);
         }
+
+
 
         // Helper to show/hide modals safely
         function safeModal(modalObj, elementId, action = 'show') {
@@ -1506,6 +1565,7 @@
                 });
             }
         }
-    </script>
-    @endpush
+
+</script>
+@endpush
 </x-app-layout>
