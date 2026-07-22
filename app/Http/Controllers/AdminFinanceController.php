@@ -1210,11 +1210,19 @@ public function checkVoucher()
   public function salesInvoice()
   {
     // Get SalesOrders pending SI prep/approval
-    $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
+    $allOrders = \App\Models\SalesOrder::with('customer', 'preparedBy', 'siPreparedBy')
       ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created'])
       ->whereNull('signed_by_af_manager')
       ->latest()
       ->get();
+
+    $normalOrders = $allOrders->filter(function($order) {
+        return $order->type !== 'ecom_direct';
+    });
+
+    $ecomOrders = $allOrders->filter(function($order) {
+        return $order->type === 'ecom_direct';
+    });
 
     // Get SalesInvoices from area consignment
     $areaConsignmentSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder')
@@ -1227,7 +1235,8 @@ public function checkVoucher()
       'title' => 'Sales Invoice Management',
       'role' => 'Finance Manager',
       'sidebar' => 'admin-finance',
-      'orders' => $orders,
+      'normalOrders' => $normalOrders,
+      'ecomOrders' => $ecomOrders,
       'areaConsignmentSIs' => $areaConsignmentSIs
     ]);
   }
@@ -1319,6 +1328,108 @@ public function checkVoucher()
     }
 
     return redirect()->route('admin-finance.accounting.sales-invoice')->with('success', 'Sales Invoice for #' . $order->so_number . ' has been prepared and is waiting for Manager signature.');
+  }
+
+  public function bulkFinalizeInvoices(Request $request)
+  {
+    $ids = $request->input('ids', []);
+    if (empty($ids)) {
+      return response()->json(['success' => false, 'message' => 'No invoices selected.'], 400);
+    }
+
+    $processed = 0;
+    $errors = [];
+
+    // Run within a transaction for DB safety
+    \DB::beginTransaction();
+    try {
+      foreach ($ids as $id) {
+        $order = \App\Models\SalesOrder::findOrFail($id);
+
+        if (!$order->proof_of_payment) {
+          $errors[] = "Order #{$order->so_number} is missing Proof of Payment.";
+          continue;
+        }
+
+        $isEcomDirect = $order->type === 'ecom_direct';
+
+        if ($isEcomDirect) {
+          $order->update([
+            'status' => 'picking',
+            'si_prepared_by' => auth()->id(),
+            'si_prepared_at' => now(),
+            'signed_by_af_manager' => auth()->id(),
+            'signed_at' => now(),
+            'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared and auto-signed in bulk by ' . auth()->user()->name
+          ]);
+
+          // --- ACCOUNTING INTEGRATION ---
+          $this->accounting->postSalesOrderEntry($order);
+
+          // Automatically create a pick list for E-Com Direct Invoice
+          $order->load('items');
+          if ($order->items && $order->items->count() > 0) {
+            $pickList = \App\Models\PickList::create([
+              'sales_order_id' => $order->id,
+              'pick_list_number' => 'PL-' . $order->so_number . '-' . date('YmdHis'),
+              'status' => 'in_progress',
+              'prepared_by' => auth()->id(),
+            ]);
+
+            foreach ($order->items as $item) {
+              \App\Models\PickListItem::create([
+                'pick_list_id' => $pickList->id,
+                'sales_order_item_id' => $item->id,
+                'requested_qty' => $item->quantity,
+                'picked_qty' => 0,
+                'status' => 'pending'
+              ]);
+            }
+          }
+        } else {
+          $order->update([
+            'status' => 'pending_si_approval',
+            'si_prepared_by' => auth()->id(),
+            'si_prepared_at' => now(),
+            'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared in bulk by ' . auth()->user()->name
+          ]);
+
+          // Send Notification to Director if status is "pending_si_approval"
+          $director = \App\Models\User::where('position', 'Director')->first();
+          if ($director) {
+              try {
+                  $director->notify(new \App\Notifications\DirectorApprovalRequested($order, 'Sales Order'));
+              } catch (\Exception $e) {
+                  \Log::error("Failed to send bulk Sales Order SI approval notification: " . $e->getMessage());
+              }
+          }
+        }
+
+        $processed++;
+      }
+
+      \DB::commit();
+
+      $message = "Successfully finalized {$processed} sales invoice(s).";
+      if (!empty($errors)) {
+        $message .= " Gaps: " . implode(', ', $errors);
+      }
+
+      return response()->json([
+        'success' => true,
+        'message' => $message,
+        'processed' => $processed,
+        'errors' => $errors
+      ]);
+
+    } catch (\Exception $e) {
+      \DB::rollBack();
+      \Log::error('Error in bulk finalizing invoices: ' . $e->getMessage());
+      return response()->json([
+        'success' => false,
+        'message' => 'Error bulk finalizing invoices: ' . $e->getMessage()
+      ], 500);
+    }
   }
 
   public function signSalesInvoice($id)
@@ -1685,7 +1796,7 @@ public function checkVoucher()
       ]);
   }
 
-  public function approveReconsignment($id)
+  public function approveReconsignment(Request $request, $id)
   {
       $order = \App\Models\SalesOrder::with(['items.book', 'customer'])->findOrFail($id);
       
@@ -1737,7 +1848,7 @@ public function checkVoucher()
               'so_number' => $newSoNumber,
               'type' => $order->type, // 'area_consignment'
               'transaction_type' => $order->transaction_type,
-              'terms' => $order->terms,
+              'terms' => $request->input('terms', $order->terms),
               'ref_number' => $order->ref_number,
               'status' => 'ready_for_delivery', // ready to be delivered
               'billing_address' => $order->billing_address,
@@ -2154,6 +2265,73 @@ public function checkVoucher()
       'sidebar' => 'admin-finance',
       'invoices' => $invoices
     ]);
+  }
+
+  public function finalizeInvoice(Request $request, $id)
+  {
+    $order = \App\Models\SalesOrder::findOrFail($id);
+
+    // Start database transaction
+    \DB::beginTransaction();
+    try {
+      // 1. Update Sales Order status to 'completed' and payment_status to 'paid'
+      $order->update([
+        'status' => 'completed',
+        'payment_status' => 'paid',
+        'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'Invoice finalized by ' . auth()->user()->name
+      ]);
+
+      // 2. Post accounting journal entries using AccountingService
+      $this->accounting->postSalesOrderEntry($order);
+
+      \DB::commit();
+      
+      return response()->json([
+        'success' => true,
+        'message' => 'Sales Invoice finalized, customer balance updated, and posted to Charts of Accounts successfully.'
+      ]);
+
+    } catch (\Exception $e) {
+      \DB::rollBack();
+      \Log::error('Error finalizing invoice: ' . $e->getMessage());
+      return response()->json([
+        'success' => false,
+        'message' => 'Error finalizing invoice: ' . $e->getMessage()
+      ], 500);
+    }
+  }
+
+  public function ecomPayoutsIndex()
+  {
+    $orders = \App\Models\SalesOrder::with(['customer', 'preparedBy'])
+      ->where('type', 'ecom_direct')
+      ->whereIn('status', ['picking', 'ready_for_delivery', 'completed', 'verified'])
+      ->latest()
+      ->get();
+
+    return view('admin-finance.accounting.ecom-payouts.index', [
+      'title' => 'E-com Direct Payouts',
+      'role' => auth()->user()->position ?? 'Finance Manager',
+      'sidebar' => 'admin-finance',
+      'orders' => $orders
+    ]);
+  }
+
+  public function ecomPayoutsToggle(Request $request, $id)
+  {
+    $order = \App\Models\SalesOrder::findOrFail($id);
+
+    if ($order->type !== 'ecom_direct') {
+      return redirect()->back()->with('error', 'This is not an E-com direct invoice.');
+    }
+
+    $newStatus = $order->ecom_payout_status === 'completed' ? 'pending' : 'completed';
+    $order->update([
+      'ecom_payout_status' => $newStatus,
+      'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'E-com payout marked as ' . $newStatus . ' by ' . auth()->user()->name
+    ]);
+
+    return redirect()->back()->with('success', 'Payout status for Invoice #' . $order->so_number . ' updated to ' . ucfirst($newStatus) . '.');
   }
 
   public function reviewSalesOrder($id)
@@ -2727,6 +2905,151 @@ public function checkVoucher()
         }
 
         return response()->download($path, basename($path));
+    }
+
+    private function getAccountBalanceAndTrack($namePattern, $type, &$trackedIds)
+    {
+        $account = \App\Models\ChartOfAccount::where('type', $type)
+            ->where('name', 'like', $namePattern)
+            ->first();
+
+        if (!$account) {
+            return 0.00;
+        }
+
+        $trackedIds[] = $account->id;
+
+        $debitSum = $account->journalEntryItems()->sum('debit');
+        $creditSum = $account->journalEntryItems()->sum('credit');
+
+        if ($type === 'Asset' || $type === 'Expense') {
+            return $debitSum - $creditSum;
+        } else {
+            return $creditSum - $debitSum;
+        }
+    }
+
+    public function chartOfAccounts(\Illuminate\Http\Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $tab = $request->query('tab', 'assets');
+        if (!in_array($tab, ['assets', 'liabilities', 'equity', 'income'])) {
+            $tab = 'assets';
+        }
+
+        $trackedIds = [];
+
+        $balances = [
+            // Assets
+            'cash_on_hand' => $this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds) ?: \App\Models\SalesInvoice::sum('total_amount'),
+            'petty_cash' => $this->getAccountBalanceAndTrack('%Petty Cash%', 'Asset', $trackedIds) ?: \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
+            'bank_accounts' => $this->getAccountBalanceAndTrack('%Bank%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash in Bank%', 'Asset', $trackedIds),
+            'receivables' => $this->getAccountBalanceAndTrack('%Receivable%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Trade/Accounts Receivable%', 'Asset', $trackedIds) ?: \App\Models\StatementOfAccount::sum('total_amount'),
+            'inventory_raw_materials' => $this->getAccountBalanceAndTrack('%Raw Materials%', 'Asset', $trackedIds),
+            'inventory_work_in_progress' => $this->getAccountBalanceAndTrack('%Work in Progress%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%WIP%', 'Asset', $trackedIds),
+            'inventory_finished_goods' => $this->getAccountBalanceAndTrack('%Finished Goods%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Books%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Consignment%', 'Asset', $trackedIds) ?: \App\Models\Book::sum(\DB::raw('stock * cost')),
+            'fixed_assets' => $this->getAccountBalanceAndTrack('%Fixed Assets%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Equipment%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Property%', 'Asset', $trackedIds),
+            'investments' => $this->getAccountBalanceAndTrack('%Investment%', 'Asset', $trackedIds),
+            'deposits' => $this->getAccountBalanceAndTrack('%Deposit%', 'Asset', $trackedIds),
+
+            // Liabilities
+            'suppliers' => $this->getAccountBalanceAndTrack('%Supplier%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Accounts Payable%', 'Liability', $trackedIds) ?: \App\Models\PurchaseOrder::sum('total_amount'),
+            'payables' => $this->getAccountBalanceAndTrack('%Payable%', 'Liability', $trackedIds),
+            'loans' => $this->getAccountBalanceAndTrack('%Loan%', 'Liability', $trackedIds),
+            'taxes' => $this->getAccountBalanceAndTrack('%Tax%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Withholding Tax Payable%', 'Liability', $trackedIds),
+            'government_contributions' => $this->getAccountBalanceAndTrack('%Government%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Contribution%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%SSS%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%PhilHealth%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Pag-IBIG%', 'Liability', $trackedIds),
+            'customer_deposits' => $this->getAccountBalanceAndTrack('%Customer Deposit%', 'Liability', $trackedIds),
+            'unearned_revenue' => $this->getAccountBalanceAndTrack('%Unearned%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Deferred%', 'Liability', $trackedIds),
+
+            // Equity
+            'capital' => $this->getAccountBalanceAndTrack('%Capital%', 'Equity', $trackedIds),
+            'retained_earnings' => $this->getAccountBalanceAndTrack('%Retained Earnings%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%RE%', 'Equity', $trackedIds),
+            'current_year_income' => $this->getAccountBalanceAndTrack('%Current Year%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%Net Income%', 'Equity', $trackedIds) ?: \App\Models\SalesInvoice::sum('total_amount'),
+
+            // Income (Publishing)
+            'pub_book_sales' => $this->getAccountBalanceAndTrack('%Book Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Sales - Books%', 'Income', $trackedIds) ?: \App\Models\SalesInvoice::sum('total_amount'),
+            'pub_royalties' => $this->getAccountBalanceAndTrack('%Royalties%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Royalty%', 'Income', $trackedIds),
+            'pub_rights_income' => $this->getAccountBalanceAndTrack('%Rights Income%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Rights%', 'Income', $trackedIds),
+            'pub_licensing' => $this->getAccountBalanceAndTrack('%Licensing%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%License%', 'Income', $trackedIds),
+            'pub_ebooks' => $this->getAccountBalanceAndTrack('%E-book%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Ebook%', 'Income', $trackedIds),
+
+            // Income (Printing)
+            'print_income' => $this->getAccountBalanceAndTrack('%Printing Income%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Printing%', 'Income', $trackedIds),
+            'print_layout' => $this->getAccountBalanceAndTrack('%Layout%', 'Income', $trackedIds),
+            'print_design' => $this->getAccountBalanceAndTrack('%Design%', 'Income', $trackedIds),
+            'print_binding' => $this->getAccountBalanceAndTrack('%Binding%', 'Income', $trackedIds),
+            'print_lamination' => $this->getAccountBalanceAndTrack('%Lamination%', 'Income', $trackedIds),
+
+            // Income (Marketing)
+            'mkt_direct_sales' => $this->getAccountBalanceAndTrack('%Direct Sales%', 'Income', $trackedIds),
+            'mkt_area_sales' => $this->getAccountBalanceAndTrack('%Area Sales%', 'Income', $trackedIds),
+            'mkt_cob_sales' => $this->getAccountBalanceAndTrack('%COB%', 'Income', $trackedIds),
+            'mkt_lazada' => $this->getAccountBalanceAndTrack('%Lazada%', 'Income', $trackedIds),
+            'mkt_shopee' => $this->getAccountBalanceAndTrack('%Shopee%', 'Income', $trackedIds),
+            'mkt_tiktok' => $this->getAccountBalanceAndTrack('%Tiktok%', 'Income', $trackedIds),
+            'mkt_facebook' => $this->getAccountBalanceAndTrack('%Facebook%', 'Income', $trackedIds),
+            'mkt_wholesale' => $this->getAccountBalanceAndTrack('%Wholesale%', 'Income', $trackedIds),
+            'mkt_export' => $this->getAccountBalanceAndTrack('%Export%', 'Income', $trackedIds),
+            'mkt_claret_media' => $this->getAccountBalanceAndTrack('%Claret Media%', 'Income', $trackedIds),
+
+            // Income (Other)
+            'oth_donations' => $this->getAccountBalanceAndTrack('%Donation%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Donations%', 'Income', $trackedIds),
+            'oth_grants' => $this->getAccountBalanceAndTrack('%Grant%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Grants%', 'Income', $trackedIds),
+            'oth_investments' => $this->getAccountBalanceAndTrack('%Other Investment%', 'Income', $trackedIds),
+            'oth_interest_income' => $this->getAccountBalanceAndTrack('%Interest%', 'Income', $trackedIds),
+            'oth_rental_income' => $this->getAccountBalanceAndTrack('%Rental%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Rent%', 'Income', $trackedIds),
+        ];
+
+        // Also fetch any dynamic/uncategorized accounts from the database that don't match our pre-defined names
+        $typeFilter = '';
+        if ($tab === 'assets') {
+            $typeFilter = 'Asset';
+        } elseif ($tab === 'liabilities') {
+            $typeFilter = 'Liability';
+        } elseif ($tab === 'equity') {
+            $typeFilter = 'Equity';
+        } elseif ($tab === 'income') {
+            $typeFilter = 'Income';
+        }
+
+        $uncategorizedAccounts = \App\Models\ChartOfAccount::where('type', $typeFilter)
+            ->whereNotIn('id', $trackedIds)
+            ->get()
+            ->map(function($acc) use ($typeFilter) {
+                $debit = $acc->journalEntryItems()->sum('debit');
+                $credit = $acc->journalEntryItems()->sum('credit');
+                if ($typeFilter === 'Asset' || $typeFilter === 'Expense') {
+                    $acc->balance = $debit - $credit;
+                } else {
+                    $acc->balance = $credit - $debit;
+                }
+                return $acc;
+            });
+
+        // Query operational transaction details for interactive modals
+        $salesInvoices = \App\Models\SalesInvoice::select('si_number', 'total_amount', 'status', 'customer_name', 'created_at')->latest()->get();
+        $pettyCashVouchers = \App\Models\PettyCashVoucher::withSum('items', 'amount')->latest()->get();
+        $statementOfAccounts = \App\Models\StatementOfAccount::select('soa_number', 'total_amount', 'status', 'created_at')->latest()->get();
+        $books = \App\Models\Book::select('name', 'stock', 'cost')->where('stock', '>', 0)->get();
+        $purchaseOrders = \App\Models\PurchaseOrder::select('po_number', 'total_amount', 'status', 'created_at')->latest()->get();
+
+        return view('admin-finance.accounting.chart-of-accounts', [
+            'title' => 'Chart of Accounts - ' . ucfirst($tab),
+            'role' => $user->position,
+            'sidebar' => 'admin-finance',
+            'tab' => $tab,
+            'balances' => $balances,
+            'uncategorizedAccounts' => $uncategorizedAccounts,
+            'salesInvoices' => $salesInvoices,
+            'pettyCashVouchers' => $pettyCashVouchers,
+            'statementOfAccounts' => $statementOfAccounts,
+            'books' => $books,
+            'purchaseOrders' => $purchaseOrders,
+        ]);
     }
 
 }

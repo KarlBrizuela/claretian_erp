@@ -144,22 +144,13 @@
                     <div class="customer-section">
                         <div class="customer-details">
                             <h5><i class="las la-user me-1"></i> Customer Information</h5>
-                            <div class="form-group">
-                                <label>Sold to: *</label>
-                                <select class="form-control" name="customer_id" id="customerSelect" required>
-                                    <option value="" disabled selected>Select Customer...</option>
-                                    @foreach($customers as $customer)
-                                        <option value="{{ $customer->customer_id }}"
-                                            data-address="{{ $customer->billing_address ?? $customer->shipping_address ?? '' }}"
-                                            {{ old('customer_id') == $customer->customer_id ? 'selected' : '' }}>
-                                            {{ $customer->customer_name }} {{ $customer->company_name ? '('.$customer->company_name.')' : '' }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                            @php
+                                $defaultCustomer = $customers->first();
+                            @endphp
+                            <input type="hidden" name="customer_id" id="customerSelect" value="{{ $defaultCustomer ? $defaultCustomer->customer_id : '' }}">
                             <div class="form-group">
                                 <label>Address:</label>
-                                <textarea class="form-control" name="billing_address" id="billingAddress" rows="2" placeholder="Customer address...">{{ old('billing_address') }}</textarea>
+                                <textarea class="form-control" name="billing_address" id="billingAddress" rows="4" placeholder="Customer address...">{{ old('billing_address') }}</textarea>
                             </div>
                         </div>
                         <div class="transaction-details">
@@ -213,12 +204,20 @@
                     <div class="attachments-section">
                         <h5><i class="las la-paperclip me-2"></i>Required Attachments</h5>
                         <div class="row mt-3">
-                            <div class="col-12 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold">Pick List</label>
                                 <div class="upload-box" id="plUploadBox">
                                     <input type="file" name="pick_list" id="plFile" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.csv">
                                     <span class="upload-icon"><i class="las la-clipboard-list"></i></span>
                                     <span class="upload-label" id="plLabel">Click or drag Pick List file here</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Proof of Payment</label>
+                                <div class="upload-box" id="popUploadBox">
+                                    <input type="file" name="proof_of_payment" id="popFile" accept=".pdf,.jpg,.jpeg,.png">
+                                    <span class="upload-icon"><i class="las la-receipt"></i></span>
+                                    <span class="upload-label" id="popLabel">Click or drag Proof of Payment file here</span>
                                 </div>
                             </div>
                         </div>
@@ -362,7 +361,12 @@
         @foreach($products as $product)
             <option value="{{ $product->id }}"
                     data-price="{{ $product->price }}"
-                    data-isbn="{{ $product->isbn ?? $product->barcode ?? $product->sku ?? '' }}">
+                    data-isbn="{{ $product->isbn ?? $product->barcode ?? $product->sku ?? '' }}"
+                    data-name="{{ $product->name }}"
+                    data-stock-lazada="{{ $product->lazada_stock ?? 0 }}"
+                    data-stock-shopee="{{ $product->shopee_stock ?? 0 }}"
+                    data-stock-tiktok="{{ $product->tiktok_stock ?? 0 }}"
+                    data-stock-main="{{ $product->main_stock ?? 0 }}">
                 {{ $product->name }}
             </option>
         @endforeach
@@ -387,15 +391,57 @@
                     document.querySelectorAll('.platform-option').forEach(o => o.classList.remove('active'));
                     this.classList.add('active');
                     radio.checked = true;
+                    updateProductStocks();
                 });
             });
 
+            function getSelectedPlatform() {
+                const checkedRadio = document.querySelector('input[name="ecom_platform"]:checked');
+                return checkedRadio ? checkedRadio.value : 'lazada';
+            }
+
+            function updateProductStocks() {
+                const platform = getSelectedPlatform();
+                
+                // Update productSource options
+                updateSelectOptions(productSource, platform);
+                
+                // Update all active row select dropdowns
+                document.querySelectorAll('.product-select').forEach(select => {
+                    const selectedValue = select.value;
+                    updateSelectOptions(select, platform);
+                    select.value = selectedValue; // restore selected value
+                });
+            }
+
+            function updateSelectOptions(selectElement, platform) {
+                for (let i = 0; i < selectElement.options.length; i++) {
+                    const opt = selectElement.options[i];
+                    if (opt.value === "") continue; // skip "Select Product..." option
+                    
+                    const name = opt.dataset.name;
+                    let stock = 0;
+                    if (platform === 'lazada') {
+                        stock = opt.dataset.stockLazada || 0;
+                    } else if (platform === 'shopee') {
+                        stock = opt.dataset.stockShopee || 0;
+                    } else if (platform === 'tiktok') {
+                        stock = opt.dataset.stockTiktok || 0;
+                    } else {
+                        stock = opt.dataset.stockMain || 0;
+                    }
+                    opt.text = `${name} (Stock: ${stock})`;
+                }
+            }
+
             // Auto-fill address on customer change
-            customerSelect.addEventListener('change', function() {
-                const opt = this.options[this.selectedIndex];
-                const addr = opt.getAttribute('data-address');
-                billingAddress.value = (addr && addr !== '') ? addr : '';
-            });
+            if (customerSelect && customerSelect.tagName === 'SELECT') {
+                customerSelect.addEventListener('change', function() {
+                    const opt = this.options[this.selectedIndex];
+                    const addr = opt.getAttribute('data-address');
+                    billingAddress.value = (addr && addr !== '') ? addr : '';
+                });
+            }
 
             // File upload UI
             function setupUpload(fileInput, box, label) {
@@ -410,6 +456,7 @@
                 });
             }
             setupUpload(document.getElementById('plFile'), document.getElementById('plUploadBox'), document.getElementById('plLabel'));
+            setupUpload(document.getElementById('popFile'), document.getElementById('popUploadBox'), document.getElementById('popLabel'));
 
             // Row calculations
             function calculateRow(row) {
@@ -460,6 +507,7 @@
                 `;
 
                 const select = tr.querySelector('.product-select');
+                updateSelectOptions(select, getSelectedPlatform());
                 const priceInput = tr.querySelector('.price-input');
                 const qtyInput = tr.querySelector('.qty-input');
                 const removeBtn = tr.querySelector('.remove-row');
@@ -485,6 +533,7 @@
 
             addItemBtn.addEventListener('click', addRow);
             addRow(); // Start with one row
+            updateProductStocks();
 
             // Form validation
             document.getElementById('diEcomForm').addEventListener('submit', function(e) {

@@ -14,6 +14,7 @@
     $hasMyRequests = $user->hasPermission('admin_finance.my_requests');
     $hasServiceRequests = $user->hasPermission('admin_finance.service_requests');
     $hasFreightVoucher = $user->hasPermission('admin_finance.freight_voucher');
+    $hasChartOfAccounts = $user->hasPermission('admin_finance.accounting.chart_of_accounts') || $user->hasPermission('admin_finance.accounting');
 @endphp
 
 <nav class="modern-nav-menu">
@@ -88,6 +89,7 @@
 			@if($user->hasPermission('admin_finance.accounting'))
 			<a href="{{ route('admin-finance.accounting.payment-requests') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.payment-requests') ? 'active' : '' }}">Payment Requests</a>
 			<a href="{{ route('admin-finance.accounting.eford-payouts') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.eford-payouts*') ? 'active' : '' }}">E-FORD Payouts</a>
+			<a href="{{ route('admin-finance.accounting.ecom-payouts.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.ecom-payouts*') ? 'active' : '' }}">E-com Payouts</a>
 			@endif
 			@if($user->hasPermission('admin_finance.accounting.office_supplies') || $user->hasPermission('admin_finance.accounting'))
 			<a href="{{ route('admin-finance.accounting.office-supplies.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.office-supplies.*') ? 'active' : '' }}">Office Supplies</a>
@@ -116,6 +118,25 @@
 			@if($hasFreightVoucher)
 			<a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
 			@endif
+		</div>
+	</div>
+	@endif
+
+	<!-- Chart of Accounts -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/chart-of-accounts*') ? 'active' : '' }}">
+		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="chart-of-accounts">
+			<div class="modern-nav-icon">
+				<i class="las la-sitemap"></i>
+			</div>
+			<span class="modern-nav-label">Chart of Accounts</span>
+			<i class="modern-nav-arrow las la-chevron-right"></i>
+		</a>
+		<div class="modern-nav-submenu" data-submenu="chart-of-accounts">
+			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'assets']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'assets' ? 'active' : '' }}">Assets</a>
+			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'liabilities']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'liabilities' ? 'active' : '' }}">Liabilities</a>
+			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'equity']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'equity' ? 'active' : '' }}">Equity</a>
+			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'income']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'income' ? 'active' : '' }}">Income</a>
 		</div>
 	</div>
 	@endif

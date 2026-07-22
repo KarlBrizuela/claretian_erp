@@ -41,7 +41,13 @@
                                     <td>
                                         <strong>{{ $book->name }}</strong>
                                     </td>
-                                    <td><span class="category-badge category-books">{{ $book->category ?? 'Books' }}</span></td>
+                                    <td>
+                                        @if($book->is_book)
+                                            <span class="category-badge category-books">{{ $book->category ?? 'Books' }}</span>
+                                        @else
+                                            <span class="category-badge category-non-books">Non-Books</span>
+                                        @endif
+                                    </td>
                                     <td>₱{{ number_format($book->price, 2) }}</td>
                                     <td>#{{ $book->sku }}</td>
                                     <td>
@@ -130,7 +136,31 @@
                 $.get(`/marketing/book-list/${id}/edit-book`, function(data) {
                     $('#edit_product_id').val(data.id);
                     $('#edit_name').val(data.name);
-                    $('#edit_category').val(data.category);
+                    
+                    const categorySelect = $('#edit_category');
+                    categorySelect.empty();
+                    
+                    if (!data.is_book) {
+                        categorySelect.append('<option value="Non-Books">Non-Books</option>');
+                        categorySelect.val('Non-Books');
+                        categorySelect.prop('disabled', true);
+                        if ($('#hidden_category').length === 0) {
+                            $('#editProductForm').append('<input type="hidden" name="category" id="hidden_category" value="Non-Books">');
+                        } else {
+                            $('#hidden_category').val('Non-Books');
+                        }
+                    } else {
+                        categorySelect.prop('disabled', false);
+                        $('#hidden_category').remove();
+                        categorySelect.append(`
+                            <option value="Books">Books</option>
+                            <option value="Bibles">Bibles</option>
+                            <option value="Prayer Books">Prayer Books</option>
+                            <option value="Spiritual Reading">Spiritual Reading</option>
+                        `);
+                        categorySelect.val(data.category || 'Books');
+                    }
+                    
                     $('#edit_price').val(data.price);
                     $('#edit_is_active').prop('checked', data.is_active ? true : false);
                     

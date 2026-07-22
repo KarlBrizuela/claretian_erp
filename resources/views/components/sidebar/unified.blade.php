@@ -40,6 +40,7 @@
     $hasAppAF = $user->hasPermission('admin_finance.approval_queue') && $hasAdminFinanceDivision;
     $hasReqAF = $user->hasPermission('admin_finance.my_requests') && $hasAdminFinanceDivision;
     $hasServiceRequestsAF = $user->hasPermission('admin_finance.service_requests') && $hasAdminFinanceDivision;
+    $hasChartOfAccounts = ($user->hasPermission('admin_finance.accounting.chart_of_accounts') || $user->hasPermission('admin_finance.accounting')) && $hasAdminFinanceDivision;
 @endphp
 
 <nav class="modern-nav-menu">
@@ -115,10 +116,11 @@
     @endif
 
     @if($hasBook)
-    <div class="modern-nav-group {{ request()->is('marketing/book-list*', 'marketing/consignment*') ? 'active' : '' }}">
+    <div class="modern-nav-group {{ request()->is('marketing/book-list*', 'marketing/non-books*', 'marketing/consignment*', 'marketing/book-indices*', 'marketing/book-bundles*') ? 'active' : '' }}">
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-book"></i></div><span class="modern-nav-label">Book Management</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu">
             <a href="{{ route('marketing.products') }}" class="modern-nav-subitem">Book List (Master)</a>
+            <a href="{{ route('marketing.non-books') }}" class="modern-nav-subitem">Non-Books</a>
             <a href="{{ route('marketing.indices') }}" class="modern-nav-subitem">Book Index</a>
             <a href="{{ route('marketing.bundles') }}" class="modern-nav-subitem">Book Bundles</a>
             <a href="{{ route('marketing.consignment.index') }}" class="modern-nav-subitem">Consignment Management</a>
@@ -179,6 +181,7 @@
             <a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem">Freight Voucher</a>
             <a href="{{ route('admin-finance.accounting.payment-requests') }}" class="modern-nav-subitem">Payment Requests</a>
             <a href="{{ route('admin-finance.accounting.eford-payouts') }}" class="modern-nav-subitem">E-FORD Payouts</a>
+            <a href="{{ route('admin-finance.accounting.ecom-payouts.index') }}" class="modern-nav-subitem">E-com Payouts</a>
             <a href="{{ route('admin-finance.accounting.office-supplies.index') }}" class="modern-nav-subitem">Office Supplies</a>
             <a href="{{ route('admin-finance.accounting.expenses.index') }}" class="modern-nav-subitem">Expenses</a>
         </div>
@@ -238,6 +241,22 @@
             @if($hasFreightVoucher)
             <a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem">Freight Voucher</a>
             @endif
+        </div>
+    </div>
+    @endif
+
+    @if($hasChartOfAccounts)
+    <div class="modern-nav-group {{ request()->is('admin-finance/chart-of-accounts*') ? 'active' : '' }}">
+        <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="chart-of-accounts">
+            <div class="modern-nav-icon"><i class="las la-sitemap"></i></div>
+            <span class="modern-nav-label">Chart of Accounts</span>
+            <i class="modern-nav-arrow las la-chevron-right"></i>
+        </a>
+        <div class="modern-nav-submenu" data-submenu="chart-of-accounts">
+            <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'assets']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'assets' ? 'active' : '' }}">Assets</a>
+            <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'liabilities']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'liabilities' ? 'active' : '' }}">Liabilities</a>
+            <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'equity']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'equity' ? 'active' : '' }}">Equity</a>
+            <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'income']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'income' ? 'active' : '' }}">Income</a>
         </div>
     </div>
     @endif

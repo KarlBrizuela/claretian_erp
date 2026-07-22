@@ -49,6 +49,7 @@ class Book extends Model
         'consignment_owner_id',
         'source_price',
         'markup_amount',
+        'is_book',
     ];
 
     public function consignmentOwner()
@@ -76,6 +77,7 @@ class Book extends Model
         'pages' => 'integer',
         'source_price' => 'decimal:2',
         'markup_amount' => 'decimal:2',
+        'is_book' => 'boolean',
     ];
 
     protected static function boot()
@@ -84,10 +86,11 @@ class Book extends Model
 
         static::creating(function ($book) {
             if (empty($book->item_code)) {
-                // Generate Item Code: BK-00001
+                // Generate Item Code: BK-00001 or NB-00001
                 $maxId = static::max('id') ?? 0;
                 $nextId = $maxId + 1;
-                $book->item_code = 'BK-' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+                $prefix = $book->is_book ? 'BK-' : 'NB-';
+                $book->item_code = $prefix . str_pad($nextId, 5, '0', STR_PAD_LEFT);
             }
         });
     }

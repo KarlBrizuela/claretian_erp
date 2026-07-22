@@ -263,7 +263,8 @@ class MarketingController extends Controller
     {
         $search = $request->input('search');
         
-        $query = Book::with(['product', 'bookCategory', 'bookSubCategory'])
+        $query = Book::where('is_book', true)
+            ->with(['product', 'bookCategory', 'bookSubCategory'])
             ->orderBy('created_at', 'desc');
 
         if (!empty($search)) {
@@ -282,6 +283,36 @@ class MarketingController extends Controller
             'books' => $books,
             'categories' => $categories,
             'title' => 'Book List (Master Registry)',
+            'role' => 'Marketing Manager',
+            'sidebar' => 'marketing',
+            'search' => $search
+        ]);
+    }
+
+    public function nonBooks(Request $request)
+    {
+        $search = $request->input('search');
+        
+        $query = Book::where('is_book', false)
+            ->with(['product', 'bookCategory', 'bookSubCategory'])
+            ->orderBy('created_at', 'desc');
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('sku', 'like', '%' . $search . '%')
+                  ->orWhere('author', 'like', '%' . $search . '%')
+                  ->orWhere('publisher', 'like', '%' . $search . '%');
+            });
+        }
+
+        $books = $query->paginate(15, ['*'], 'books_page')->withQueryString();
+        $categories = BookCategory::whereNull('parent_id')->orderBy('name', 'asc')->get();
+
+        return view('marketing.non-books', [
+            'books' => $books,
+            'categories' => $categories,
+            'title' => 'Non-Books (Master Registry)',
             'role' => 'Marketing Manager',
             'sidebar' => 'marketing',
             'search' => $search
@@ -1328,6 +1359,8 @@ class MarketingController extends Controller
             'attachment' => 'nullable|file|max:5120', // 5MB Limit
             'proof_of_payment' => 'nullable|file|max:5120', // 5MB Limit
             'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
+            'discount_value' => 'nullable|numeric|min:0',
+            'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
 
         // For submitted SOs, validate stock
@@ -1416,12 +1449,30 @@ class MarketingController extends Controller
             }
         }
 
-        if (($validated['freight_option'] ?? null) === 'freight_collect') {
-            $totalAmount += 50.00;
+        $discountAmount = 0;
+        $discountPercentage = null;
+        if ($request->filled('discount_value') && $request->discount_value > 0) {
+            $discountValue = (float) $request->discount_value;
+            if ($request->discount_type === 'percentage') {
+                $discountPercentage = $discountValue;
+                $discountAmount = $totalAmount * ($discountPercentage / 100);
+            } else {
+                $discountAmount = $discountValue;
+            }
         }
 
-        // 5. Update Total
-        $so->update(['total_amount' => $totalAmount]);
+        $finalTotal = $totalAmount - $discountAmount;
+
+        if (($validated['freight_option'] ?? null) === 'freight_collect') {
+            $finalTotal += 50.00;
+        }
+
+        // 5. Update Total and Discount fields
+        $so->update([
+            'discount_amount' => $discountAmount,
+            'discount_percentage' => $discountPercentage,
+            'total_amount' => max(0, $finalTotal)
+        ]);
 
         // 6. Set transaction type to COD if SO type is 'cod'
         if ($validated['type'] === 'cod') {
@@ -1575,6 +1626,8 @@ class MarketingController extends Controller
             'attachment' => 'nullable|file|max:5120',
             'proof_of_payment' => 'nullable|file|max:5120',
             'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
+            'discount_value' => 'nullable|numeric|min:0',
+            'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
 
         if ($request->hasFile('attachment')) {
@@ -1622,13 +1675,31 @@ class MarketingController extends Controller
 
         }
 
-        if (($validated['freight_option'] ?? null) === 'freight_collect') {
-            $totalAmount += 50.00;
+        $discountAmount = 0;
+        $discountPercentage = null;
+        if ($request->filled('discount_value') && $request->discount_value > 0) {
+            $discountValue = (float) $request->discount_value;
+            if ($request->discount_type === 'percentage') {
+                $discountPercentage = $discountValue;
+                $discountAmount = $totalAmount * ($discountPercentage / 100);
+            } else {
+                $discountAmount = $discountValue;
+            }
         }
 
-        $totalAmount += $so->freight_charges ?? 0;
+        $finalTotal = $totalAmount - $discountAmount;
 
-        $so->update(['total_amount' => $totalAmount]);
+        if (($validated['freight_option'] ?? null) === 'freight_collect') {
+            $finalTotal += 50.00;
+        }
+
+        $finalTotal += $so->freight_charges ?? 0;
+
+        $so->update([
+            'discount_amount' => $discountAmount,
+            'discount_percentage' => $discountPercentage,
+            'total_amount' => max(0, $finalTotal)
+        ]);
 
         return redirect()->route('marketing.sales-orders.list')->with('success', 'Sales Order updated successfully!');
     }
@@ -1808,6 +1879,15 @@ class MarketingController extends Controller
     {
         $customers = \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get();
         $products = \App\Models\Book::where('is_active', true)->orderBy('name')->get();
+
+        // Load stocks for B2C platforms: Lazada (site_id=3), Shopee (site_id=4), TikTok (site_id=5), Main (site_id=1)
+        foreach ($products as $product) {
+            $product->lazada_stock = \DB::table('site_inventory')->where('book_id', $product->id)->where('site_id', 3)->value('quantity') ?? 0;
+            $product->shopee_stock = \DB::table('site_inventory')->where('book_id', $product->id)->where('site_id', 4)->value('quantity') ?? 0;
+            $product->tiktok_stock = \DB::table('site_inventory')->where('book_id', $product->id)->where('site_id', 5)->value('quantity') ?? 0;
+            $product->main_stock = \DB::table('site_inventory')->where('book_id', $product->id)->where('site_id', 1)->value('quantity') ?? 0;
+        }
+
         $invoices = \App\Models\SalesOrder::with('customer', 'preparedBy')
             ->where('type', 'ecom_direct')
             ->latest()
@@ -1837,6 +1917,7 @@ class MarketingController extends Controller
             'billing_address' => 'nullable|string',
             'terms' => 'nullable|string',
             'pick_list' => 'nullable|file|max:10240',
+            'proof_of_payment' => 'nullable|file|max:10240',
             'shipping_label' => 'nullable|file|max:10240',
         ]);
 
@@ -1864,6 +1945,7 @@ class MarketingController extends Controller
 
         // Store attachments (optional)
         $pickListPath = $request->hasFile('pick_list') ? $request->file('pick_list')->store('direct_invoices/pick_lists', 'public') : null;
+        $proofOfPaymentPath = $request->hasFile('proof_of_payment') ? $request->file('proof_of_payment')->store('direct_invoices/proof_of_payments', 'public') : null;
         // $shippingLabelPath = $request->file('shipping_label')->store('direct_invoices/shipping_labels', 'public');
 
         // E-com direct invoices always require approval before proceeding to Sales Invoice
@@ -1882,6 +1964,7 @@ class MarketingController extends Controller
             'shipping_address' => $request->billing_address,
             'terms' => $request->terms,
             'pick_list_attachment' => $pickListPath,
+            'proof_of_payment' => $proofOfPaymentPath,
             // 'shipping_label_attachment' => $shippingLabelPath,
         ]);
 
@@ -2087,8 +2170,8 @@ class MarketingController extends Controller
             ->map(function($p) {
                 return [
                     'id' => $p->id,
-                    'type' => 'book',
-                    'category' => strtolower($p->category ?? 'books'),
+                    'type' => $p->is_book ? 'book' : 'non-book',
+                    'category' => $p->is_book ? 'books' : 'non-books',
                     'name' => $p->name,
                     'price' => (float)$p->price,
                     'barcode' => $p->barcode,
@@ -2452,5 +2535,171 @@ class MarketingController extends Controller
         return response()->json([
             'message' => 'Book bundle deleted successfully'
         ]);
+    }
+
+    public function storeNonBook(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'sku' => 'required|string|unique:books,sku',
+            'barcode' => 'nullable|string',
+            'nbs_barcode' => 'nullable|string',
+            'author' => 'nullable|string',
+            'publisher' => 'nullable|string',
+            'sub_category' => 'nullable|string',
+            'size' => 'nullable|string',
+            'pages' => 'nullable|integer',
+            'cover_type' => 'nullable|string',
+            'book_type' => 'nullable|string',
+            'copyright' => 'nullable|string',
+            'weight' => 'nullable|string',
+            'stock' => 'nullable|integer',
+            'reorder_point' => 'nullable|integer',
+            'max_stock' => 'nullable|integer',
+            'cost' => 'nullable|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
+            'shelf_number' => 'nullable|string|max:50',
+            'rack_number' => 'nullable|string|max:50',
+            'category' => 'nullable|string',
+            'category_id' => 'nullable|exists:book_categories,id',
+            'sub_category_id' => 'nullable|exists:book_categories,id',
+            'purchase_description' => 'nullable',
+            'item_code' => 'nullable|string|unique:books,item_code',
+            'email' => 'nullable|email',
+            'contact_number' => 'nullable|string',
+            'royalty' => 'nullable|string',
+            'article' => 'nullable|string',
+            'cogs_account' => 'nullable|string',
+            'is_active' => 'nullable',
+        ]);
+
+        if (empty($validated['item_code'])) {
+            $validated['item_code'] = null;
+        }
+        if (empty($validated['barcode'])) {
+            $validated['barcode'] = null;
+        }
+
+        $validated['stock'] = $validated['stock'] ?? 0;
+        $validated['reorder_point'] = $validated['reorder_point'] ?? 0;
+        $validated['max_stock'] = $validated['max_stock'] ?? 0;
+        $validated['cost'] = $validated['cost'] ?? 0;
+        $validated['pages'] = $validated['pages'] ?? 0;
+        $validated['price'] = $validated['price'] ?? 0;
+        $validated['is_active'] = $request->has('is_active');
+        $validated['is_book'] = false;
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('books', 'public');
+            $validated['image'] = $path;
+        }
+
+        Book::create($validated);
+
+        return response()->json(['message' => 'Non-Book added to Master Registry']);
+    }
+
+    public function editNonBook($id)
+    {
+        $book = Book::findOrFail($id);
+        return response()->json($book);
+    }
+
+    public function updateNonBook(Request $request, $id)
+    {
+        $book = Book::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required',
+            'sku' => 'required|unique:books,sku,' . $id,
+            'barcode' => 'nullable',
+            'nbs_barcode' => 'nullable|string',
+            'author' => 'nullable',
+            'publisher' => 'nullable',
+            'size' => 'nullable',
+            'pages' => 'nullable|integer',
+            'unit' => 'nullable',
+            'copyright' => 'nullable',
+            'book_type' => 'nullable',
+            'weight' => 'nullable',
+            'cover_type' => 'nullable',
+            'royalty' => 'nullable',
+            'article' => 'nullable',
+            'sub_category' => 'nullable',
+            'email' => 'nullable|email',
+            'contact_number' => 'nullable',
+            'stock' => 'nullable|integer',
+            'reorder_point' => 'nullable|integer',
+            'max_stock' => 'nullable|integer',
+            'cost' => 'nullable|numeric|min:0',
+            'cogs_account' => 'nullable',
+            'purchase_description' => 'nullable',
+            'price' => 'nullable|numeric',
+            'category' => 'nullable|string',
+            'category_id' => 'nullable|exists:book_categories,id',
+            'sub_category_id' => 'nullable|exists:book_categories,id',
+            'item_code' => 'nullable|string|unique:books,item_code,' . $id,
+            'is_active' => 'nullable',
+        ]);
+
+        $validated['is_active'] = $request->has('is_active');
+
+        if (empty($validated['item_code'])) {
+            $validated['item_code'] = null;
+        }
+        if (empty($validated['barcode'])) {
+            $validated['barcode'] = null;
+        }
+
+        $validated['stock'] = $validated['stock'] ?? $book->stock;
+        $validated['reorder_point'] = $validated['reorder_point'] ?? 0;
+        $validated['max_stock'] = $validated['max_stock'] ?? 0;
+        $validated['cost'] = $validated['cost'] ?? 0;
+        $validated['pages'] = $validated['pages'] ?? 0;
+        $validated['price'] = $validated['price'] ?? 0;
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('books', 'public');
+            $validated['image'] = $path;
+        }
+
+        $book->update($validated);
+
+        return response()->json(['message' => 'Master Non-Book entry updated successfully']);
+    }
+
+    public function destroyNonBook($id)
+    {
+        $book = Book::findOrFail($id);
+        
+        try {
+            if ($book->product) {
+                $book->product->delete();
+            }
+
+            $book->forceDelete();
+
+            return response()->json(['message' => 'Non-Book deleted permanently from Master Registry']);
+        } catch (\Exception $e) {
+            $book = Book::findOrFail($id);
+
+            $timestamp = time();
+            $book->sku = $book->sku . '-DELETED-' . $timestamp;
+            
+            if ($book->item_code) {
+                $book->item_code = $book->item_code . '-DELETED-' . $timestamp;
+            }
+            if ($book->barcode) {
+                $book->barcode = $book->barcode . '-DELETED-' . $timestamp;
+            }
+            if ($book->nbs_barcode) {
+                $book->nbs_barcode = $book->nbs_barcode . '-DELETED-' . $timestamp;
+            }
+            
+            $book->save();
+            $book->delete();
+
+            return response()->json(['message' => 'Non-Book is referenced in transactions and has been safely archived. SKU is now free to be reused.']);
+        }
     }
 }

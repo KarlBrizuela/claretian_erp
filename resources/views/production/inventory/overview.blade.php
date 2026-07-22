@@ -134,12 +134,31 @@
                 <div class="row">
                     <div class="col-xl-12 col-xxl-12">
                         <div class="card">
-                            <div class="card-header border-0">
+                            <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between flex-wrap gap-3">
                                 <div>
                                     <h4 class="fs-20 mb-0 text-black">Master Book Registry</h4>
                                 </div>
-                                <div>
-                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#transferStockModal" onclick="initTransferModalFromMaster()">
+                                <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
+                                    <!-- Search Form -->
+                                    <form action="{{ route('production.inventory.overview') }}" method="GET" class="d-flex align-items-center gap-2">
+                                        <div style="width: 250px; height: 38px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa; padding: 0 12px; box-sizing: border-box;">
+                                            <span class="las la-search text-muted me-2" style="font-size: 1.1rem; line-height: 1;"></span>
+                                            <input type="text" name="search" class="form-control" 
+                                                   placeholder="Search books..." value="{{ request('search') }}" 
+                                                   style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.85rem; color: #333; outline: none !important; box-shadow: none !important;">
+                                            @if(request('search'))
+                                                <a href="{{ route('production.inventory.overview') }}" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
+                                                    <span class="las la-times-circle" style="color: #999; font-size: 1.25rem; cursor: pointer;"></span>
+                                                </a>
+                                            @endif
+                                        </div>
+                                        <button type="submit" class="btn btn-primary text-white rounded d-inline-flex align-items-center justify-content-center gap-2" style="height: 38px; padding: 0 1.2rem; border: none; font-size: 0.85rem; font-weight: 500; background-color: #D9251C; border-color: #D9251C; box-shadow: 0 4px 6px rgba(217, 37, 28, 0.15);">
+                                            <span class="las la-search" style="font-size: 1rem; color: #fff;"></span>
+                                            <span>Search</span>
+                                        </button>
+                                    </form>
+
+                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#transferStockModal" onclick="initTransferModalFromMaster()" style="height: 38px; display: inline-flex; align-items: center;">
                                         <i class="las la-exchange-alt me-1"></i>Transfer Stock
                                     </button>
                                 </div>
@@ -211,7 +230,7 @@
                                         Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
                                     </div>
                                     <nav>
-                                        {{ $books->links() }}
+                                        {{ $books->appends(['search' => request('search')])->links() }}
                                     </nav>
                                 </div>
                             </div>
@@ -633,6 +652,14 @@
                         <label class="form-label font-w600">Book Name</label>
                         <input type="text" class="form-control" id="mgmtBookName" disabled>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label font-w600">Site/Warehouse *</label>
+                        <select class="form-control" id="mgmtSiteSelect" onchange="onStockMgmtSiteChange()">
+                            @foreach($sites ?? [] as $site)
+                                <option value="{{ $site->id }}">{{ $site->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label font-w600">Current Stock</label>
@@ -935,21 +962,61 @@
         }
 
         let currentBookName = null;
-        let currentStock = null;
+        let currentStock = 0;
         let maxStock = null;
         let currentBookId = null;
+        let globalBookMaxStock = null;
         let stockMgmtAddHandler = null;
         let stockMgmtEditHandler = null;
+
+        function onStockMgmtSiteChange() {
+            if (!currentBookId) return;
+            const siteId = parseInt(document.getElementById('mgmtSiteSelect').value);
+            if (!siteId) return;
+
+            const inventory = sitesInventoryData[siteId] || [];
+            const item = inventory.find(i => i.book_id === currentBookId);
+            
+            const stockVal = item ? item.quantity : 0;
+            const siteMaxStock = (item && item.max_stock !== null) ? item.max_stock : (globalBookMaxStock || null);
+
+            currentStock = stockVal;
+            maxStock = siteMaxStock;
+
+            document.getElementById('mgmtCurrentStock').value = currentStock;
+            document.getElementById('mgmtMaxStock').value = maxStock !== null ? maxStock : 'Not Set';
+
+            // Trigger inputs update to refresh previews/warnings
+            const addQtyInput = document.getElementById('mgmtAddQuantity');
+            if (addQtyInput && addQtyInput.value) {
+                addQtyInput.dispatchEvent(new Event('input'));
+            }
+            const editQtyInput = document.getElementById('mgmtEditQuantity');
+            if (editQtyInput && editQtyInput.value) {
+                editQtyInput.dispatchEvent(new Event('input'));
+            }
+        }
 
         function openStockManagementModal(bookId, bookName, stock, max) {
             currentBookId = bookId;
             currentBookName = bookName;
-            currentStock = stock;
-            maxStock = max;
+            globalBookMaxStock = max;
 
             document.getElementById('mgmtBookName').value = bookName;
-            document.getElementById('mgmtCurrentStock').value = stock;
-            document.getElementById('mgmtMaxStock').value = max || 'Not Set';
+            
+            // Default select site to "Main Warehouse" if it exists
+            const siteSelect = document.getElementById('mgmtSiteSelect');
+            if (siteSelect) {
+                let mainWarehouseOption = [...siteSelect.options].find(opt => opt.text.trim() === 'Main Warehouse');
+                if (mainWarehouseOption) {
+                    siteSelect.value = mainWarehouseOption.value;
+                } else if (siteSelect.options.length > 0) {
+                    siteSelect.selectedIndex = 0;
+                }
+            }
+
+            // Sync values for selected site
+            onStockMgmtSiteChange();
             
             document.getElementById('mgmtAddQuantity').value = '';
             document.getElementById('mgmtAddWarning').innerHTML = '';
@@ -1029,6 +1096,12 @@
 
         function saveAddStock() {
             const quantity = parseInt(document.getElementById('mgmtAddQuantity').value);
+            const siteId = document.getElementById('mgmtSiteSelect').value;
+
+            if (!siteId) {
+                showNotification('Please select a site/warehouse', 'warning');
+                return;
+            }
 
             if (!quantity || quantity < 1) {
                 showNotification('Please enter a valid quantity', 'warning');
@@ -1049,6 +1122,7 @@
                 },
                 body: JSON.stringify({
                     action: 'add',
+                    site_id: siteId,
                     quantity: quantity,
                     new_stock: newStock
                 })
@@ -1071,6 +1145,12 @@
 
         function saveEditStock() {
             const newStock = parseInt(document.getElementById('mgmtEditQuantity').value);
+            const siteId = document.getElementById('mgmtSiteSelect').value;
+
+            if (!siteId) {
+                showNotification('Please select a site/warehouse', 'warning');
+                return;
+            }
 
             if (isNaN(newStock)) {
                 showNotification('Please enter a valid stock value', 'warning');
@@ -1090,6 +1170,7 @@
                 },
                 body: JSON.stringify({
                     action: 'set',
+                    site_id: siteId,
                     new_stock: newStock
                 })
             })
@@ -1228,7 +1309,9 @@
                         {
                             book_id: {{ $inv->book_id }},
                             book: { name: '{{ addslashes($inv->book->name ?? 'Unknown') }}' },
-                            quantity: {{ $inv->quantity }}
+                            quantity: {{ $inv->quantity }},
+                            reorder_point: {{ $inv->reorder_point ?? 'null' }},
+                            max_stock: {{ $inv->max_stock ?? 'null' }}
                         }{{ !$loop->last ? ',' : '' }}
                     @endforeach
                 ]{{ !$loop->last ? ',' : '' }}

@@ -230,6 +230,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/marketing/book-list/{id}/update-book', [MarketingController::class, 'updateBook'])->name('marketing.books.update');
     Route::delete('/marketing/book-list/{id}', [MarketingController::class, 'destroyBook'])->name('marketing.books.destroy');
 
+    // Non-Books Management
+    Route::get('/marketing/non-books', [MarketingController::class, 'nonBooks'])->name('marketing.non-books');
+    Route::post('/marketing/non-books/store', [MarketingController::class, 'storeNonBook'])->name('marketing.non-books.store');
+    Route::get('/marketing/non-books/{id}/edit', [MarketingController::class, 'editNonBook'])->name('marketing.non-books.edit');
+    Route::post('/marketing/non-books/{id}/update', [MarketingController::class, 'updateNonBook'])->name('marketing.non-books.update');
+    Route::delete('/marketing/non-books/{id}', [MarketingController::class, 'destroyNonBook'])->name('marketing.non-books.destroy');
+
     // Book Bundles
     Route::post('/marketing/book-bundles/store', [MarketingController::class, 'storeBundle'])->name('marketing.bundles.store');
     Route::get('/marketing/book-bundles/{id}/edit', [MarketingController::class, 'editBundle'])->name('marketing.bundles.edit');
@@ -382,6 +389,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/sales-invoice/{id}/prepare', [App\Http\Controllers\AdminFinanceController::class, 'prepareSalesInvoice'])->name('admin-finance.accounting.sales-invoice.prepare');
       Route::post('/sales-invoice/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeSalesInvoice'])->name('admin-finance.accounting.sales-invoice.store');
       Route::post('/sales-invoice/{id}/sign', [App\Http\Controllers\AdminFinanceController::class, 'signSalesInvoice'])->name('admin-finance.accounting.sales-invoice.sign');
+      Route::post('/sales-invoice/bulk-finalize', [App\Http\Controllers\AdminFinanceController::class, 'bulkFinalizeInvoices'])->name('admin-finance.accounting.sales-invoice.bulk-finalize');
       Route::get('/sales-invoice/{id}/print', [App\Http\Controllers\AdminFinanceController::class, 'printSalesInvoice'])->name('admin-finance.accounting.sales-invoice.print');
       Route::get('/acknowledgement-receipt/{id}/prepare', [App\Http\Controllers\AdminFinanceController::class, 'prepareAR'])->name('admin-finance.accounting.ar.prepare');
       Route::post('/acknowledgement-receipt/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeAR'])->name('admin-finance.accounting.ar.store');
@@ -407,6 +415,10 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/eford-payouts', [App\Http\Controllers\Production\FORDController::class, 'accountingIndex'])->name('admin-finance.accounting.eford-payouts');
       Route::get('/eford-payouts/{id}', [App\Http\Controllers\Production\FORDController::class, 'accountingShow'])->name('admin-finance.accounting.eford-payouts.show');
       Route::get('/eford-payouts/{id}/download/{index}', [App\Http\Controllers\Production\FORDController::class, 'downloadAttachment'])->name('admin-finance.accounting.eford-payouts.download');
+
+      // Ecom Payouts (Direct Invoice Ecom)
+      Route::get('/ecom-payouts', [App\Http\Controllers\AdminFinanceController::class, 'ecomPayoutsIndex'])->name('admin-finance.accounting.ecom-payouts.index');
+      Route::post('/ecom-payouts/{id}/toggle', [App\Http\Controllers\AdminFinanceController::class, 'ecomPayoutsToggle'])->name('admin-finance.accounting.ecom-payouts.toggle');
 
       // Office Supplies
       Route::prefix('office-supplies')->name('admin-finance.accounting.office-supplies.')->group(function () {
@@ -450,6 +462,9 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/auto-debits/{id}', [App\Http\Controllers\Production\FORDController::class, 'accountingAutoDebitShow'])->name('admin-finance.accounting.auto-debits.show');
     });
 
+    // Chart of Accounts
+    Route::get('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'chartOfAccounts'])->name('admin-finance.accounting.chart-of-accounts');
+
     // Credit Collection
     Route::prefix('credit-collection')->group(function () {
       Route::get('/billing', [App\Http\Controllers\AdminFinanceController::class, 'billing'])->name('admin-finance.credit-collection.billing');
@@ -469,6 +484,7 @@ Route::middleware(['auth'])->group(function () {
 
       Route::get('/reports', [App\Http\Controllers\AdminFinanceController::class, 'reports'])->name('admin-finance.credit-collection.reports');
       Route::get('/invoice', [App\Http\Controllers\AdminFinanceController::class, 'invoice'])->name('admin-finance.credit-collection.invoice');
+      Route::post('/invoice/{id}/finalize', [App\Http\Controllers\AdminFinanceController::class, 'finalizeInvoice'])->name('admin-finance.credit-collection.invoice.finalize');
 
       // JV Requests
       Route::get('/jv-requests', [AdminFinanceController::class, 'jvRequests'])->name('admin-finance.credit-collection.jv-requests.index');

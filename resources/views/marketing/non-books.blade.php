@@ -171,47 +171,6 @@
             line-height: 1 !important;
         }
 
-        /* Import Excel Button Styling */
-        .btn-import-excel {
-            background-color: #28a745;
-            border-color: #28a745;
-            color: #fff;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(40, 167, 69, 0.2);
-            height: 38px;
-            min-height: 38px;
-            box-sizing: border-box;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            padding: 0 1rem;
-            font-size: 0.85rem;
-            gap: 0.5rem;
-        }
-
-        .btn-import-excel:hover {
-            background-color: #218838;
-            box-shadow: 0 6px 8px rgba(40, 167, 69, 0.3);
-            transform: translateY(-1px);
-            color: #fff;
-        }
-
-        .btn-import-excel i {
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: none !important;
-            font-size: 1.1rem !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: auto !important;
-            height: 1.1rem !important;
-            line-height: 1 !important;
-        }
-
         #manageCategoriesModal .nav-tabs {
             border-bottom: 2px solid #eee;
         }
@@ -238,7 +197,7 @@
         /* Fix for red border cutoff on invalid fields */
         .form-row-custom .is-invalid {
             border-right: 1px solid #dc3545 !important;
-            margin-right: 2px; /* Pull it back slightly to ensure border visibility */
+            margin-right: 2px;
         }
     </style>
     @endpush
@@ -248,25 +207,25 @@
             <!-- Navigation Tabs -->
             <ul class="nav page-tabs" id="bookMgmtTabs">
                 <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('marketing.products') ? 'active' : '' }}" id="book-list-tab" href="{{ route('marketing.products') }}">
+                    <a class="nav-link" id="book-list-tab" href="{{ route('marketing.products') }}">
                         <i class="las la-book" style="font-size: 1.25rem;"></i>
                         <span>Book List</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('marketing.non-books') ? 'active' : '' }}" id="non-books-tab" href="{{ route('marketing.non-books') }}">
+                    <a class="nav-link active" id="non-books-tab" href="{{ route('marketing.non-books') }}">
                         <i class="las la-list" style="font-size: 1.25rem;"></i>
                         <span>Non-Books</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('marketing.indices') ? 'active' : '' }}" id="book-index-tab" href="{{ route('marketing.indices') }}">
+                    <a class="nav-link" id="book-index-tab" href="{{ route('marketing.indices') }}">
                         <i class="las la-tag" style="font-size: 1.25rem;"></i>
                         <span>Book Index</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('marketing.bundles') ? 'active' : '' }}" id="book-bundle-tab" href="{{ route('marketing.bundles') }}">
+                    <a class="nav-link" id="book-bundle-tab" href="{{ route('marketing.bundles') }}">
                         <i class="las la-boxes" style="font-size: 1.25rem;"></i>
                         <span>Book Bundle</span>
                     </a>
@@ -274,193 +233,132 @@
             </ul>
 
             <div class="card">
-                        <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between flex-wrap gap-3">
-                            <div>
-                                <h4 class="card-title mb-0">Book List (Master)</h4>
+                <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div>
+                        <h4 class="card-title mb-0">Non-Books List (Master)</h4>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
+                        <!-- Search Form -->
+                        <form action="{{ route('marketing.non-books') }}" method="GET" class="d-flex align-items-center gap-2">
+                            <div style="width: 250px; height: 38px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa; padding: 0 12px; box-sizing: border-box;">
+                                <span class="las la-search text-muted me-2" style="font-size: 1.1rem; line-height: 1;"></span>
+                                <input type="text" name="search" class="form-control" 
+                                       placeholder="Search items..." value="{{ request('search') }}" 
+                                       style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.85rem; color: #333; outline: none !important; box-shadow: none !important;">
+                                @if(request('search'))
+                                    <a href="{{ route('marketing.non-books') }}" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
+                                        <span class="las la-times-circle" style="color: #999; font-size: 1.25rem; cursor: pointer;"></span>
+                                    </a>
+                                @endif
                             </div>
-                            <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
-                                <!-- Search Form -->
-                                <form action="{{ route('marketing.products') }}" method="GET" class="d-flex align-items-center gap-2">
-                                    <div style="width: 250px; height: 38px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa; padding: 0 12px; box-sizing: border-box;">
-                                        <span class="las la-search text-muted me-2" style="font-size: 1.1rem; line-height: 1;"></span>
-                                        <input type="text" name="search" class="form-control" 
-                                               placeholder="Search books..." value="{{ request('search') }}" 
-                                               style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.85rem; color: #333; outline: none !important; box-shadow: none !important;">
-                                        @if(request('search'))
-                                            <a href="{{ route('marketing.products') }}" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
-                                                <span class="las la-times-circle" style="color: #999; font-size: 1.25rem; cursor: pointer;"></span>
-                                            </a>
+                            <button type="submit" class="btn btn-danger text-white rounded d-inline-flex align-items-center justify-content-center gap-2" style="height: 38px; padding: 0 1.2rem; border: none; font-size: 0.85rem; font-weight: 500; background-color: #D9251C; box-shadow: 0 4px 6px rgba(217, 37, 28, 0.15);">
+                                <span class="las la-search" style="font-size: 1rem; color: #fff;"></span>
+                                <span>Search</span>
+                            </button>
+                        </form>
+
+                        <a href="javascript:void(0);" class="btn btn-manage-cat rounded"
+                            data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">
+                            <i class="las la-cog"></i>
+                            <span>Manage Categories</span>
+                        </a>
+                        <a href="javascript:void(0);"
+                            class="btn btn-primary rounded d-flex align-items-center" data-bs-toggle="modal"
+                            data-bs-target="#addNonBookModal"
+                            style="gap: 0.5rem; padding: 0.5rem 1rem; height: 38px; min-height: 38px; line-height: 1.5; box-sizing: border-box; border: none; background: #ff0000; color: #ffffff; font-weight: 500;">
+                            <i class="las la-plus" style="font-size: 1rem;"></i>
+                            <span>Add New Non-Book</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-responsive-md">
+                            <thead>
+                                <tr>
+                                    <th>Cover</th>
+                                    <th>SKU</th>
+                                    <th>Item Name</th>
+                                    <th>Price</th>
+                                    <th>Cost</th>
+                                    <th>Stock</th>
+                                    <th>Classification</th>
+                                    <th>POS Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($books as $book)
+                                <tr>
+                                    <td>
+                                        <img src="{{ $book->image ? '/storage/' . $book->image : asset('images/no-book-cover.svg') }}" 
+                                             class="rounded-circle" width="35" height="35" style="object-fit: cover; border: 1px solid #eee;">
+                                    </td>
+                                    <td><strong>#{{ $book->sku }}</strong></td>
+                                    <td>{{ $book->name }}</td>
+                                    <td>₱{{ number_format($book->price, 2) }}</td>
+                                    <td>₱{{ number_format($book->cost, 2) }}</td>
+                                    <td>
+                                        @if($book->stock > 0)
+                                            <span class="badge badge-success">{{ $book->stock }} {{ $book->unit ?? 'pcs' }}</span>
+                                        @elseif($book->stock == 0)
+                                            <span class="badge badge-warning">0 {{ $book->unit ?? 'pcs' }}</span>
+                                        @else
+                                            <span class="badge badge-danger">{{ $book->stock }} {{ $book->unit ?? 'pcs' }}</span>
                                         @endif
-                                    </div>
-                                    <button type="submit" class="btn btn-danger text-white rounded d-inline-flex align-items-center justify-content-center gap-2" style="height: 38px; padding: 0 1.2rem; border: none; font-size: 0.85rem; font-weight: 500; background-color: #D9251C; box-shadow: 0 4px 6px rgba(217, 37, 28, 0.15);">
-                                        <span class="las la-search" style="font-size: 1rem; color: #fff;"></span>
-                                        <span>Search</span>
-                                    </button>
-                                </form>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-outline-primary">{{ $book->book_type ?? 'N/A' }}</span>
+                                    </td>
+                                    <td>
+                                        @if($book->is_active)
+                                            <span class="badge badge-success">Active on POS</span>
+                                        @else
+                                            <span class="badge badge-light">Inactive</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="d-flex">
+                                            <a href="javascript:void(0);" class="btn btn-secondary shadow btn-xs sharp me-1 view-book-btn" 
+                                               data-id="{{ $book->id }}"><i class="far fa-eye"></i></a>
+                                            <a href="javascript:void(0);" class="btn btn-primary shadow btn-xs sharp me-1 edit-book-btn" 
+                                               data-id="{{ $book->id }}"><i class="fas fa-pencil-alt"></i></a>
+                                            <a href="javascript:void(0);" class="btn btn-danger shadow btn-xs sharp delete-book-btn"
+                                               data-id="{{ $book->id }}"><i class="fa fa-trash"></i></a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="9" class="text-center">No non-books in the list.</td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
 
-                                <a href="javascript:void(0);" class="btn btn-import-excel rounded"
-                                    data-bs-toggle="modal" data-bs-target="#importBooksModal">
-                                    <i class="las la-file-excel"></i>
-                                    <span>Import Excel</span>
-                                </a>
-                                <a href="javascript:void(0);" class="btn btn-manage-cat rounded"
-                                    data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">
-                                    <i class="las la-cog"></i>
-                                    <span>Manage Categories</span>
-                                </a>
-                                <a href="javascript:void(0);"
-                                    class="btn btn-primary rounded d-flex align-items-center" data-bs-toggle="modal"
-                                    data-bs-target="#addBookModal"
-                                    style="gap: 0.5rem; padding: 0.5rem 1rem; height: 38px; min-height: 38px; line-height: 1.5; box-sizing: border-box; border: none; background: #ff0000; color: #ffffff; font-weight: 500;">
-                                    <i class="las la-plus" style="font-size: 1rem;"></i>
-                                    <span>Add New Book</span>
-                                </a>
-                            </div>
+                    <!-- Pagination Links -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                        <div class="text-muted small">
+                            Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-responsive-md">
-                                    <thead>
-                                        <tr>
-                                            <th>Cover</th>
-                                            <th>SKU</th>
-                                            <th>Book Title</th>
-                                            <th>Author</th>
-                                            <th>Price</th>
-                                            <th>Cost</th>
-                                            <th>Stock</th>
-                                            <th>Classification</th>
-                                            <th>POS Status</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse($books as $book)
-                                        <tr>
-                                            <td>
-                                                <img src="{{ $book->image ? '/storage/' . $book->image : asset('images/no-book-cover.svg') }}" 
-                                                     class="rounded-circle" width="35" height="35" style="object-fit: cover; border: 1px solid #eee;">
-                                            </td>
-                                            <td><strong>#{{ $book->sku }}</strong></td>
-                                            <td>{{ $book->name }}</td>
-                                            <td>{{ $book->author ?? 'N/A' }}</td>
-                                            <td>₱{{ number_format($book->price, 2) }}</td>
-                                            <td>₱{{ number_format($book->cost, 2) }}</td>
-                                            <td>
-                                                @if($book->stock > 0)
-                                                    <span class="badge badge-success">{{ $book->stock }} {{ $book->unit ?? 'pcs' }}</span>
-                                                @elseif($book->stock == 0)
-                                                    <span class="badge badge-warning">0 {{ $book->unit ?? 'pcs' }}</span>
-                                                @else
-                                                    <span class="badge badge-danger">{{ $book->stock }} {{ $book->unit ?? 'pcs' }}</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <span class="badge badge-outline-primary">{{ $book->book_type ?? 'N/A' }}</span>
-                                            </td>
-                                            <td>
-                                                @if($book->is_active)
-                                                    <span class="badge badge-success">Active on POS</span>
-                                                @else
-                                                    <span class="badge badge-light">Inactive</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <div class="d-flex">
-                                                    <a href="javascript:void(0);" class="btn btn-secondary shadow btn-xs sharp me-1 view-book-btn" 
-                                                       data-id="{{ $book->id }}"><i class="far fa-eye"></i></a>
-                                                    <a href="javascript:void(0);" class="btn btn-primary shadow btn-xs sharp me-1 edit-book-btn" 
-                                                       data-id="{{ $book->id }}"><i class="fas fa-pencil-alt"></i></a>
-                                                    <a href="javascript:void(0);" class="btn btn-danger shadow btn-xs sharp delete-book-btn"
-                                                       data-id="{{ $book->id }}"><i class="fa fa-trash"></i></a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        @empty
-                                        <tr>
-                                            <td colspan="10" class="text-center">No books in the list.</td>
-                                        </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- Pagination Links -->
-                            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-                                <div class="text-muted small">
-                                    Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
-                                </div>
-                                <div>
-                                    {{ $books->appends(['bundle_search' => request('bundle_search')])->links() }}
-                                </div>
-                            </div>
+                        <div>
+                            {{ $books->links() }}
                         </div>
                     </div>
                 </div>
             </div>
-
-    @push('modals')
-
-    <!-- Import Books Modal -->
-    <div class="modal fade" id="importBooksModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <form id="importBooksForm" enctype="multipart/form-data">
-                    @csrf
-                    <div class="modal-header" style="background: #28a745; color: #fff;">
-                        <h5 class="modal-title text-white"><i class="las la-file-excel me-2" style="font-size: 1.25rem;"></i>Import Books from Excel</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <strong>Instructions:</strong>
-                            <ul class="mb-0 ps-3 small">
-                                <li>Ensure your file is in `.xlsx`, `.xls`, or `.csv` format.</li>
-                                <li>`SKU` and `Book Title` columns are required for every row.</li>
-                                <li>Duplicate SKUs are not allowed. If a SKU already exists, the import will be blocked and none of the changes will be saved.</li>
-                                <li>If a Category or Sub-category does not exist, it will be automatically created.</li>
-                            </ul>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mb-4 p-2 bg-light rounded border">
-                            <span class="small text-muted fw-bold">Need a template?</span>
-                            <a href="{{ route('marketing.books.import-template') }}" class="btn btn-sm btn-outline-success">
-                                <i class="las la-download"></i> Download Template
-                            </a>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">SELECT EXCEL/CSV FILE</label>
-                            <input type="file" class="form-control form-control-sm" name="excel_file" accept=".xlsx,.xls,.csv" required>
-                        </div>
-                        <div id="importErrorsContainer" class="d-none mt-3">
-                            <div class="alert alert-danger p-2 mb-0">
-                                <strong class="small">Import failed due to the following errors:</strong>
-                                <ul id="importErrorList" class="mb-0 ps-3 small text-danger" style="max-height: 150px; overflow-y: auto;"></ul>
-                            </div>
-                        </div>
-                        <div id="importLoading" class="d-none text-center my-3">
-                            <div class="spinner-border text-success" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p class="small text-muted mt-2 mb-0">Processing import... Please wait as this can take a moment for large files.</p>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-success btn-sm" id="importSubmitBtn">
-                            <i class="las la-upload"></i> Start Import
-                        </button>
-                    </div>
-                </form>
-            </div>
         </div>
     </div>
+
+    @push('modals')
 
     <!-- Manage Categories Modal -->
     <div class="modal fade" id="manageCategoriesModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Manage Book Categories</h5>
+                    <h5 class="modal-title">Manage Categories</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
@@ -485,7 +383,7 @@
                                 @csrf
                                 <div class="mb-3">
                                     <label class="form-label small fw-bold">CATEGORY NAME</label>
-                                    <input type="text" class="form-control form-control-sm" name="name" required placeholder="e.g., Theology, Bibles">
+                                    <input type="text" class="form-control form-control-sm" name="name" required placeholder="e.g., Stationery, Gifts">
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-sm">Create Category</button>
                             </form>
@@ -505,7 +403,7 @@
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label small fw-bold">SUB-CATEGORY NAME</label>
-                                    <input type="text" class="form-control form-control-sm" name="name" required placeholder="e.g., Scripture, Prayer Books">
+                                    <input type="text" class="form-control form-control-sm" name="name" required placeholder="e.g., Notebooks, Pens">
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-sm">Create Sub-category</button>
                             </form>
@@ -560,7 +458,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Are you sure you want to permanently delete this book from the Master Registry?</p>
+                    <p>Are you sure you want to permanently delete this item from the Master Registry?</p>
                     <p class="text-danger small fw-bold">This action cannot be undone and will free up the SKU.</p>
                     <input type="hidden" id="delete_book_id">
                 </div>
@@ -593,15 +491,15 @@
         </div>
     </div>
 
-    <!-- Master Book Modal -->
-    <div class="modal fade" id="addBookModal" tabindex="-1" aria-hidden="true">
+    <!-- Master Non-Book Modal -->
+    <div class="modal fade" id="addNonBookModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl">
-            <form id="addBookForm" class="modal-content" novalidate>
+            <form id="addNonBookForm" class="modal-content" novalidate>
                 @csrf
                 <input type="hidden" name="book_id" id="modal_book_id">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addBookModalTitle">Book Details</h5>
-                    <button type="submit" class="btn btn-primary btn-sm mx-3" id="saveBookBtn">Save Book</button>
+                    <h5 class="modal-title" id="addNonBookModalTitle">Non-Book Details</h5>
+                    <button type="submit" class="btn btn-primary btn-sm mx-3" id="saveNonBookBtn">Save Non-Book</button>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
@@ -609,7 +507,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-row-custom">
-                                <label>BOOK TITLE</label>
+                                <label>ITEM NAME</label>
                                 <input type="text" class="form-control form-control-sm" name="name" required>
                             </div>
                         </div>
@@ -637,7 +535,7 @@
 
                         <div class="tab-content book-tab-content">
                             <div class="tab-pane fade" id="book-cover" role="tabpanel">
-                                <div class="section-divider mt-0">BOOK COVER PREVIEW</div>
+                                <div class="section-divider mt-0">COVER PREVIEW</div>
                                 <div class="text-center p-4 border rounded bg-light">
                                     <img id="book_image_preview" src="" class="img-fluid rounded shadow-sm mb-3 d-none" style="max-height: 300px; max-width: 100%; object-fit: contain;">
                                     <div class="mt-2">
@@ -645,7 +543,7 @@
                                             <i class="fas fa-camera me-2"></i>Choose Image
                                         </label>
                                         <input type="file" id="cover_image_input" class="d-none" name="image" accept="image/*" onchange="previewBookImage(this)">
-                                        <p class="text-muted small mt-2">Recommended size: 600x900px (Portrait). Max 2MB.</p>
+                                        <p class="text-muted small mt-2">Recommended size: 600x900px. Max 2MB.</p>
                                     </div>
                                 </div>
                             </div>
@@ -657,7 +555,7 @@
                                     <input type="text" class="form-control form-control-sm" name="item_code" readonly placeholder="Auto-generated">
                                 </div>
                                 <div class="form-row-custom">
-                                    <label>BARCODE / ISBN</label>
+                                    <label>BARCODE</label>
                                     <input type="text" class="form-control form-control-sm" name="barcode">
                                 </div>
                                 <div class="form-row-custom">
@@ -682,16 +580,15 @@
                                     </div>
                                 </div>
                                 
-                                <div class="section-divider">AUTHORSHIP</div>
+                                <div class="section-divider">MANUFACTURER / BRAND</div>
                                 <div class="form-row-custom">
-                                    <label>AUTHOR</label>
+                                    <label>BRAND/AUTHOR</label>
                                     <input type="text" class="form-control form-control-sm" name="author">
                                 </div>
                                 <div class="form-row-custom">
-                                    <label>PUBLISHER</label>
+                                    <label>PUBLISHER/SUPPLIER</label>
                                     <input type="text" class="form-control form-control-sm" name="publisher">
                                 </div>
-
                             </div>
 
                             <div class="tab-pane fade" id="book-metadata" role="tabpanel">
@@ -706,26 +603,26 @@
                                             <input type="text" class="form-control form-control-sm" name="weight">
                                         </div>
                                         <div class="form-row-custom">
-                                            <label>PAGES</label>
+                                            <label>PAGES / QTY IN SET</label>
                                             <input type="number" class="form-control form-control-sm" name="pages">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-row-custom">
-                                            <label>COVER TYPE</label>
+                                            <label>MATERIAL TYPE</label>
                                             <input type="text" class="form-control form-control-sm" name="cover_type">
                                         </div>
                                         <div class="form-row-custom">
                                             <label>CLASSIFICATION</label>
                                             <select class="form-select form-select-sm" name="book_type">
                                                 <option value="">Select Classification</option>
-                                                <option value="Local">Local Book</option>
-                                                <option value="Foreign">Foreign Book</option>
+                                                <option value="Local">Local Item</option>
+                                                <option value="Foreign">Foreign Item</option>
                                                 <option value="Consignment">Consignment</option>
                                             </select>
                                         </div>
                                         <div class="form-row-custom">
-                                            <label>COPYRIGHT</label>
+                                            <label>COPYRIGHT / MODEL YEAR</label>
                                             <input type="text" class="form-control form-control-sm" name="copyright">
                                         </div>
                                     </div>
@@ -799,7 +696,7 @@
                                     </select>
                                 </div>
                                 <div class="form-row-custom">
-                                    <label>ARTICLE</label>
+                                    <label>ARTICLE CODE</label>
                                     <input type="text" class="form-control form-control-sm" name="article">
                                 </div>
                                 <div class="form-row-custom">
@@ -823,16 +720,18 @@
                                     <input type="text" class="form-control form-control-sm" name="nbs_barcode">
                                 </div>
                             </div>
+                        </div>
                     </div>
                 </div>
             </form>
         </div>
     </div>
+
     <!-- Validation Errors Modal -->
     <div class="modal fade" id="validationErrorsModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header bg-danger">
+                <div class="modal-header" style="background: #D9251C; color: #fff;">
                     <h5 class="modal-title text-white"><i class="fas fa-exclamation-triangle me-2"></i>Validation Errors</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
@@ -852,11 +751,10 @@
 
     @push('scripts')
     <script>
-        // Defensive Modal Initialization
-        let bookModal, deleteModal, validationErrorsModal;
+        let nonBookModal, deleteModal, validationErrorsModal;
         try {
             if (window.bootstrap && bootstrap.Modal) {
-                bookModal = new bootstrap.Modal(document.getElementById('addBookModal'));
+                nonBookModal = new bootstrap.Modal(document.getElementById('addNonBookModal'));
                 deleteModal = new bootstrap.Modal(document.getElementById('deleteBookModal'));
                 validationErrorsModal = new bootstrap.Modal(document.getElementById('validationErrorsModal'));
             }
@@ -864,9 +762,6 @@
             console.warn("Bootstrap Modal JS not available, falling back to manual/jQuery methods", e);
         }
 
-
-
-        // Helper to show/hide modals safely
         function safeModal(modalObj, elementId, action = 'show') {
             try {
                 if (modalObj && typeof modalObj[action] === 'function') {
@@ -877,7 +772,6 @@
                     $(elementId).modal(action);
                     return true;
                 }
-                // Last resort toggle for simple CSS based visibility if any
                 const el = document.getElementById(elementId);
                 if (el) {
                     if (action === 'show') el.classList.add('show'), el.style.display = 'block';
@@ -890,13 +784,12 @@
             return false;
         }
 
-        const bookForm = document.getElementById('addBookForm');
+        const nonBookForm = document.getElementById('addNonBookForm');
         let isFixingErrors = false;
 
-        // Live SKU Duplication Validation
         const skuInput = document.getElementById('book_sku_input');
         const skuMsg = document.getElementById('sku-validation-msg');
-        const saveBookBtn = document.getElementById('saveBookBtn');
+        const saveBookBtn = document.getElementById('saveNonBookBtn');
         let skuTimeout = null;
 
         if (skuInput) {
@@ -928,7 +821,7 @@
                             if (data.exists) {
                                 skuInput.classList.add('is-invalid');
                                 if (skuMsg) {
-                                    skuMsg.innerText = 'This SKU is already taken by another book.';
+                                    skuMsg.innerText = 'This SKU is already taken by another item.';
                                     skuMsg.style.display = 'block';
                                 }
                                 skuInput.dataset.skuExists = "true";
@@ -957,9 +850,8 @@
             }
         }
 
-        // Auto-calculate Dollar SRP based on Peso Selling Price
         function calculateDollarPrice() {
-            const pesoInput = bookForm.querySelector('input[name="price"]');
+            const pesoInput = nonBookForm.querySelector('input[name="price"]');
             const dollarInput = document.getElementById('formDollarPrice');
             if (pesoInput && dollarInput) {
                 const pesoValue = parseFloat(pesoInput.value) || 0;
@@ -967,23 +859,19 @@
                     dollarInput.value = '';
                     return;
                 }
-                // Formula: Peso Price / 40 + 10%
                 const dollarBase = pesoValue / 40;
                 const dollarSRP = dollarBase * 1.10;
-                
-                // Round up to nearest .25 increment (.00, .25, .50, .75)
                 const roundedDollar = Math.ceil(dollarSRP * 4) / 4;
-                
                 dollarInput.value = roundedDollar.toFixed(2);
             }
         }
 
-        const pesoInputEl = bookForm.querySelector('input[name="price"]');
+        const pesoInputEl = nonBookForm.querySelector('input[name="price"]');
         if (pesoInputEl) {
             pesoInputEl.addEventListener('input', calculateDollarPrice);
         }
 
-        bookForm.addEventListener('reset', function() {
+        nonBookForm.addEventListener('reset', function() {
             const dollarInput = document.getElementById('formDollarPrice');
             if (dollarInput) dollarInput.value = '';
         });
@@ -1000,10 +888,10 @@
 
         function populateBookModal(data, isReadOnly = false) {
             document.getElementById('modal_book_id').value = data.id;
-            bookForm.querySelector('[name="name"]').value = data.name;
-            bookForm.querySelector('[name="sku"]').value = data.sku;
-            bookForm.querySelector('[name="item_code"]').value = data.item_code || '';
-            bookForm.querySelector('[name="category_id"]').value = data.category_id || '';
+            nonBookForm.querySelector('[name="name"]').value = data.name;
+            nonBookForm.querySelector('[name="sku"]').value = data.sku;
+            nonBookForm.querySelector('[name="item_code"]').value = data.item_code || '';
+            nonBookForm.querySelector('[name="category_id"]').value = data.category_id || '';
             
             const subCatSelect = document.getElementById('book_sub_category_id');
             subCatSelect.innerHTML = '<option value="">Select Sub-category</option>';
@@ -1022,30 +910,30 @@
                     });
             }
             
-            bookForm.querySelector('[name="barcode"]').value = data.barcode || '';
-            bookForm.querySelector('[name="nbs_barcode"]').value = data.nbs_barcode || '';
-            bookForm.querySelector('[name="article"]').value = data.article || '';
-            bookForm.querySelector('[name="author"]').value = data.author || '';
-            bookForm.querySelector('[name="publisher"]').value = data.publisher || '';
-            bookForm.querySelector('[name="size"]').value = data.size || '';
-            bookForm.querySelector('[name="pages"]').value = data.pages || '';
-            bookForm.querySelector('[name="cover_type"]').value = data.cover_type || '';
-            bookForm.querySelector('[name="book_type"]').value = data.book_type || '';
-            bookForm.querySelector('[name="copyright"]').value = data.copyright || '';
-            bookForm.querySelector('[name="weight"]').value = data.weight || '';
-            bookForm.querySelector('[name="cost"]').value = data.cost;
-            bookForm.querySelector('[name="price"]').value = data.price;
+            nonBookForm.querySelector('[name="barcode"]').value = data.barcode || '';
+            nonBookForm.querySelector('[name="nbs_barcode"]').value = data.nbs_barcode || '';
+            nonBookForm.querySelector('[name="article"]').value = data.article || '';
+            nonBookForm.querySelector('[name="author"]').value = data.author || '';
+            nonBookForm.querySelector('[name="publisher"]').value = data.publisher || '';
+            nonBookForm.querySelector('[name="size"]').value = data.size || '';
+            nonBookForm.querySelector('[name="pages"]').value = data.pages || '';
+            nonBookForm.querySelector('[name="cover_type"]').value = data.cover_type || '';
+            nonBookForm.querySelector('[name="book_type"]').value = data.book_type || '';
+            nonBookForm.querySelector('[name="copyright"]').value = data.copyright || '';
+            nonBookForm.querySelector('[name="weight"]').value = data.weight || '';
+            nonBookForm.querySelector('[name="cost"]').value = data.cost;
+            nonBookForm.querySelector('[name="price"]').value = data.price;
             calculateDollarPrice();
-            bookForm.querySelector('[name="cogs_account"]').value = data.cogs_account || '';
-            bookForm.querySelector('[name="reorder_point"]').value = data.reorder_point;
-            bookForm.querySelector('[name="max_stock"]').value = data.max_stock;
-            bookForm.querySelector('[name="shelf_number"]').value = data.shelf_number || '';
-            bookForm.querySelector('[name="rack_number"]').value = data.rack_number || '';
-            bookForm.querySelector('[name="royalty"]').value = data.royalty || '';
-            bookForm.querySelector('[name="email"]').value = data.email || '';
-            bookForm.querySelector('[name="contact_number"]').value = data.contact_number || '';
-            bookForm.querySelector('[name="purchase_description"]').value = data.purchase_description || '';
-            bookForm.querySelector('[name="is_active"]').checked = data.is_active ? true : false;
+            nonBookForm.querySelector('[name="cogs_account"]').value = data.cogs_account || '';
+            nonBookForm.querySelector('[name="reorder_point"]').value = data.reorder_point;
+            nonBookForm.querySelector('[name="max_stock"]').value = data.max_stock;
+            nonBookForm.querySelector('[name="shelf_number"]').value = data.shelf_number || '';
+            nonBookForm.querySelector('[name="rack_number"]').value = data.rack_number || '';
+            nonBookForm.querySelector('[name="royalty"]').value = data.royalty || '';
+            nonBookForm.querySelector('[name="email"]').value = data.email || '';
+            nonBookForm.querySelector('[name="contact_number"]').value = data.contact_number || '';
+            nonBookForm.querySelector('[name="purchase_description"]').value = data.purchase_description || '';
+            nonBookForm.querySelector('[name="is_active"]').checked = data.is_active ? true : false;
 
             const preview = document.getElementById('book_image_preview');
             preview.classList.remove('d-none');
@@ -1056,12 +944,12 @@
             }
 
             // Mode Logic
-            const titleEl = document.getElementById('addBookModalTitle');
-            const saveBtn = document.getElementById('saveBookBtn');
-            const inputs = bookForm.querySelectorAll('input, select, textarea');
+            const titleEl = document.getElementById('addNonBookModalTitle');
+            const saveBtn = document.getElementById('saveNonBookBtn');
+            const inputs = nonBookForm.querySelectorAll('input, select, textarea');
 
             if (isReadOnly) {
-                titleEl.innerText = "View Book Details";
+                titleEl.innerText = "View Non-Book Details";
                 saveBtn.classList.add('d-none');
                 document.getElementById('choose_image_btn').classList.add('d-none');
                 inputs.forEach(input => {
@@ -1070,7 +958,7 @@
                     }
                 });
             } else {
-                titleEl.innerText = data.id ? "Edit Book Master Entry" : "Add New Book to Master Registry";
+                titleEl.innerText = data.id ? "Edit Non-Book Entry" : "Add New Non-Book to Master Registry";
                 saveBtn.classList.remove('d-none');
                 document.getElementById('choose_image_btn').classList.remove('d-none');
                 inputs.forEach(input => {
@@ -1080,7 +968,6 @@
                 });
             }
             
-            // Reset SKU live validation state when populating
             if (skuInput) {
                 skuInput.dataset.skuExists = "false";
                 skuInput.classList.remove('is-invalid');
@@ -1093,13 +980,13 @@
                 saveBookBtn.disabled = false;
             }
 
-            safeModal(bookModal, 'addBookModal', 'show');
+            safeModal(nonBookModal, 'addNonBookModal', 'show');
         }
 
         document.querySelectorAll('.edit-book-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = this.dataset.id;
-                fetch(`/marketing/book-list/${id}/edit-book`)
+                fetch(`/marketing/non-books/${id}/edit`)
                     .then(response => response.json())
                     .then(data => populateBookModal(data, false));
             });
@@ -1108,26 +995,23 @@
         document.querySelectorAll('.view-book-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = this.dataset.id;
-                fetch(`/marketing/book-list/${id}/edit-book`) // Reusing edit endpoint to fetch data
+                fetch(`/marketing/non-books/${id}/edit`)
                     .then(response => response.json())
                     .then(data => populateBookModal(data, true));
             });
         });
 
-        // Clear modal on close
-        const addBookModalEl = document.getElementById('addBookModal');
-        if (addBookModalEl) {
-            addBookModalEl.addEventListener('hidden.bs.modal', function () {
+        const addNonBookModalEl = document.getElementById('addNonBookModal');
+        if (addNonBookModalEl) {
+            addNonBookModalEl.addEventListener('hidden.bs.modal', function () {
                 if (isFixingErrors) {
-                    console.log("Skipping form reset - user is correcting validation errors.");
                     isFixingErrors = false;
                     return;
                 }
-                bookForm.reset();
-                if (typeof clearBookFormErrors === 'function') clearBookFormErrors();
+                nonBookForm.reset();
+                clearBookFormErrors();
                 document.getElementById('modal_book_id').value = '';
                 
-                // Reset SKU custom attributes & state
                 if (skuInput) {
                     skuInput.dataset.skuExists = "false";
                     skuInput.classList.remove('is-invalid');
@@ -1140,11 +1024,10 @@
                     saveBookBtn.disabled = false;
                 }
                 
-                // Reset Read-Only items
-                document.getElementById('addBookModalTitle').innerText = "Add New Book to Master Registry";
-                document.getElementById('saveBookBtn').classList.remove('d-none');
+                document.getElementById('addNonBookModalTitle').innerText = "Add New Non-Book to Master Registry";
+                document.getElementById('saveNonBookBtn').classList.remove('d-none');
                 document.getElementById('choose_image_btn').classList.remove('d-none');
-                bookForm.querySelectorAll('input, select, textarea').forEach(input => {
+                nonBookForm.querySelectorAll('input, select, textarea').forEach(input => {
                     if (input.name !== 'item_code') {
                         input.disabled = false;
                     }
@@ -1159,26 +1042,24 @@
         const validationErrorsModalEl = document.getElementById('validationErrorsModal');
         if (validationErrorsModalEl) {
             validationErrorsModalEl.addEventListener('show.bs.modal', function () {
-                // Dim only the inner content of the registration modal
-                const content = addBookModalEl.querySelector('.modal-content');
+                const content = addNonBookModalEl.querySelector('.modal-content');
                 if (content) content.style.filter = 'brightness(0.5)';
             });
             validationErrorsModalEl.addEventListener('hidden.bs.modal', function () {
-                const content = addBookModalEl.querySelector('.modal-content');
+                const content = addNonBookModalEl.querySelector('.modal-content');
                 if (content) content.style.filter = 'brightness(1)';
             });
         }
         let firstErrorElement = null;
 
         function clearBookFormErrors() {
-            if (!bookForm) return;
-            bookForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            bookForm.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+            if (!nonBookForm) return;
+            nonBookForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            nonBookForm.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
             const errorList = document.getElementById('modalErrorList');
             if (errorList) errorList.innerHTML = '';
             firstErrorElement = null;
 
-            // Reset live SKU validation elements
             if (skuMsg) {
                 skuMsg.style.display = 'none';
                 skuMsg.innerText = '';
@@ -1192,7 +1073,7 @@
         }
 
         function goToFirstError() {
-            isFixingErrors = true; // Signal that the next 'hide' is not a cancellation
+            isFixingErrors = true;
             safeModal(validationErrorsModal, 'validationErrorsModal', 'hide');
             if (firstErrorElement) {
                 const tabPane = firstErrorElement.closest('.tab-pane');
@@ -1225,12 +1106,12 @@
             }
         }
 
-        bookForm.addEventListener('submit', function(e) {
+        nonBookForm.addEventListener('submit', function(e) {
             e.preventDefault();
             clearBookFormErrors();
 
             const id = document.getElementById('modal_book_id').value;
-            const url = id ? `/marketing/book-list/${id}/update-book` : "{{ route('marketing.books.store') }}";
+            const url = id ? `/marketing/non-books/${id}/update` : "{{ route('marketing.non-books.store') }}";
             
             const formData = new FormData(this);
 
@@ -1246,13 +1127,12 @@
                 const data = await response.json();
                 
                 if (response.status === 422) {
-                    // Validation Errors
                     const errorList = document.getElementById('modalErrorList');
                     let errorMessages = [];
                     firstErrorElement = null;
                     
                     for (const [key, messages] of Object.entries(data.errors)) {
-                        const input = bookForm.querySelector(`[name="${key}"]`);
+                        const input = nonBookForm.querySelector(`[name="${key}"]`);
                         if (input) {
                             if (!firstErrorElement) firstErrorElement = input;
                             input.classList.add('is-invalid');
@@ -1267,12 +1147,9 @@
                         });
                     }
 
-                    // Attempt to show the modal
                     const shown = safeModal(validationErrorsModal, 'validationErrorsModal', 'show');
                     
-                    // FALLBACK: If modal didn't show or isn't available, use alert
                     if (!shown || !document.getElementById('validationErrorsModal').classList.contains('show')) {
-                        // Check after a tiny delay if the modal stayed hidden
                         setTimeout(() => {
                             const modal = document.getElementById('validationErrorsModal');
                             if (!modal || window.getComputedStyle(modal).display === 'none') {
@@ -1309,7 +1186,7 @@
         document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
             const id = document.getElementById('delete_book_id').value;
             
-            fetch(`/marketing/book-list/${id}`, {
+            fetch(`/marketing/non-books/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -1339,7 +1216,6 @@
             fetch("{{ route('marketing.categories.index') }}")
                 .then(response => response.json())
                 .then(data => {
-                    // Update dropdowns
                     let parentOpts = '<option value="" disabled selected>Select Parent Category...</option>';
                     let bookOpts = '<option value="">Select Category</option>';
                     
@@ -1351,7 +1227,6 @@
                     if(parentCatSelect) parentCatSelect.innerHTML = parentOpts;
                     if(bookCatSelect) bookCatSelect.innerHTML = bookOpts;
 
-                    // Update Accordion
                     let html = '<div class="accordion accordion-sm accordion-danger-solid" id="accordionCategories">';
                     data.forEach(cat => {
                         let subHtml = '';
@@ -1476,102 +1351,6 @@
                     });
                 });
         });
-
-        // Excel Import Form Submission
-        const importBooksModalEl = document.getElementById('importBooksModal');
-        const importBooksModal = importBooksModalEl ? bootstrap.Modal.getOrCreateInstance(importBooksModalEl) : null;
-        const importForm = document.getElementById('importBooksForm');
-        const importLoading = document.getElementById('importLoading');
-        const importSubmitBtn = document.getElementById('importSubmitBtn');
-        const importErrorsContainer = document.getElementById('importErrorsContainer');
-        const importErrorList = document.getElementById('importErrorList');
-
-        if (importForm) {
-            importForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                // Hide previous errors
-                importErrorsContainer.classList.add('d-none');
-                importErrorList.innerHTML = '';
-                
-                // Show loading, disable buttons
-                importLoading.classList.remove('d-none');
-                importSubmitBtn.disabled = true;
-                
-                const formData = new FormData(this);
-                
-                fetch("{{ route('marketing.books.import') }}", {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    },
-                    body: formData
-                })
-                .then(async response => {
-                    const data = await response.json();
-                    
-                    // Hide loading & enable submit
-                    importLoading.classList.add('d-none');
-                    importSubmitBtn.disabled = false;
-                    
-                    if (response.status === 422) {
-                        importErrorsContainer.classList.remove('d-none');
-                        if (data.details && data.details.length > 0) {
-                            data.details.forEach(msg => {
-                                const li = document.createElement('li');
-                                li.innerText = msg;
-                                importErrorList.appendChild(li);
-                            });
-                        } else {
-                            const li = document.createElement('li');
-                            li.innerText = data.error || 'Validation failed.';
-                            importErrorList.appendChild(li);
-                        }
-                    } else if (!response.ok) {
-                        importErrorsContainer.classList.remove('d-none');
-                        const li = document.createElement('li');
-                        li.innerText = data.error || data.message || 'An unexpected error occurred.';
-                        importErrorList.appendChild(li);
-                    } else {
-                        // Success!
-                        importForm.reset();
-                        if (importBooksModal) {
-                            importBooksModal.hide();
-                        }
-                        
-                        const successMsg = `${data.message} Created: ${data.created} books. Updated: ${data.updated} books.`;
-                        if (window.showAlert) {
-                            window.showAlert(successMsg, 'success');
-                        } else {
-                            alert(successMsg);
-                        }
-                        
-                        setTimeout(() => location.reload(), 1500);
-                    }
-                })
-                .catch(error => {
-                    importLoading.classList.add('d-none');
-                    importSubmitBtn.disabled = false;
-                    importErrorsContainer.classList.remove('d-none');
-                    
-                    const li = document.createElement('li');
-                    li.innerText = 'Network error or connection lost. Please try again.';
-                    importErrorList.appendChild(li);
-                    console.error('Import Error:', error);
-                });
-            });
-
-            // Clean errors when closing modal
-            if (importBooksModalEl) {
-                importBooksModalEl.addEventListener('hidden.bs.modal', function () {
-                    importForm.reset();
-                    importErrorsContainer.classList.add('d-none');
-                    importErrorList.innerHTML = '';
-                });
-            }
-        }
-
-</script>
-@endpush
+    </script>
+    @endpush
 </x-app-layout>

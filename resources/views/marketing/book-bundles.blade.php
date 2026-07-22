@@ -43,19 +43,25 @@
             <!-- Navigation Tabs -->
             <ul class="nav page-tabs" id="bookMgmtTabs">
                 <li class="nav-item">
-                    <a class="nav-link" id="book-list-tab" href="{{ route('marketing.products') }}">
-                        <i class="las la-list" style="font-size: 1.25rem;"></i>
+                    <a class="nav-link {{ request()->routeIs('marketing.products') ? 'active' : '' }}" id="book-list-tab" href="{{ route('marketing.products') }}">
+                        <i class="las la-book" style="font-size: 1.25rem;"></i>
                         <span>Book List</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" id="book-index-tab" href="{{ route('marketing.indices') }}">
+                    <a class="nav-link {{ request()->routeIs('marketing.non-books') ? 'active' : '' }}" id="non-books-tab" href="{{ route('marketing.non-books') }}">
+                        <i class="las la-list" style="font-size: 1.25rem;"></i>
+                        <span>Non-Books</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('marketing.indices') ? 'active' : '' }}" id="book-index-tab" href="{{ route('marketing.indices') }}">
                         <i class="las la-tag" style="font-size: 1.25rem;"></i>
                         <span>Book Index</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link active" id="book-bundle-tab" href="{{ route('marketing.bundles') }}">
+                    <a class="nav-link {{ request()->routeIs('marketing.bundles') ? 'active' : '' }}" id="book-bundle-tab" href="{{ route('marketing.bundles') }}">
                         <i class="las la-boxes" style="font-size: 1.25rem;"></i>
                         <span>Book Bundle</span>
                     </a>

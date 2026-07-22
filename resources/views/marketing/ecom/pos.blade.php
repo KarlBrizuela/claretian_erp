@@ -141,6 +141,17 @@
 
             <div class="pos-total-section">
                 <div class="d-flex justify-content-between mb-2 text-muted"><span>Subtotal</span><span id="subtotal">₱0.00</span></div>
+                <div class="d-flex justify-content-between mb-2 align-items-center text-muted">
+                    <span>Discount</span>
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="number" step="any" min="0" id="discountValue" class="form-control form-control-sm text-end" style="width: 70px;" value="0" oninput="updateTotals()">
+                        <select id="discountType" class="form-select form-select-sm" style="width: 60px; padding: 2px;" onchange="updateTotals()">
+                            <option value="amount">₱</option>
+                            <option value="percentage">%</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between mb-2 text-muted"><span>Discount Amt</span><span id="discountDisplay" class="text-danger">-₱0.00</span></div>
                 <div class="d-flex justify-content-between mb-2 text-muted"><span>Tax (12%)</span><span id="tax">₱0.00</span></div>
                 <div class="d-flex justify-content-between mt-3 pt-3 border-top"><h4 class="mb-0">Total</h4><h4 id="total" class="text-primary mb-0">₱0.00</h4></div>
             </div>
@@ -162,6 +173,7 @@
                 <div class="modal-body p-3">
                     <div class="checkout-summary">
                         <div class="checkout-summary-row"><span>Subtotal</span><span id="modalSubtotal">₱0.00</span></div>
+                        <div class="checkout-summary-row"><span>Discount</span><span id="modalDiscount" class="text-danger">-₱0.00</span></div>
                         <div class="checkout-summary-row"><span>VAT (12%)</span><span id="modalTax">₱0.00</span></div>
                         <div class="checkout-summary-row"><span>Grand Total</span><span id="modalTotal">₱0.00</span></div>
                     </div>
@@ -286,6 +298,20 @@
              if (!customerId) return alert('Please select a customer');
             
             document.getElementById('modalSubtotal').textContent = `₱${currentSubtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            
+            const discountValueInput = document.getElementById('discountValue');
+            const discountTypeSelect = document.getElementById('discountType');
+            const discountVal = parseFloat(discountValueInput?.value) || 0;
+            const discountType = discountTypeSelect?.value || 'amount';
+
+            let discountAmount = 0;
+            if (discountType === 'percentage') {
+                discountAmount = currentSubtotal * (discountVal / 100);
+            } else {
+                discountAmount = discountVal;
+            }
+            document.getElementById('modalDiscount').textContent = `-₱${discountAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+
             document.getElementById('modalTax').textContent = `₱${currentTax.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('modalTotal').textContent = `₱${currentTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             
@@ -336,6 +362,8 @@
                 subtotal: currentSubtotal,
                 tax: currentTax,
                 total: currentTotal,
+                discount_value: parseFloat(document.getElementById('discountValue').value) || 0,
+                discount_type: document.getElementById('discountType').value,
                 notes: selectedMethodName === 'cod' ? refNumber : null,
                 payment_reference: selectedMethodName !== 'cod' ? refNumber : null
             };
@@ -412,12 +440,32 @@
 
         function updateTotals() {
             currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            
+            // Calculate discount
+            const discountValueInput = document.getElementById('discountValue');
+            const discountTypeSelect = document.getElementById('discountType');
+            const discountVal = parseFloat(discountValueInput?.value) || 0;
+            const discountType = discountTypeSelect?.value || 'amount';
+
+            let discountAmount = 0;
+            if (discountType === 'percentage') {
+                discountAmount = currentSubtotal * (discountVal / 100);
+            } else {
+                discountAmount = discountVal;
+            }
+
+            // Update discount display
+            const discountDisplay = document.getElementById('discountDisplay');
+            if (discountDisplay) {
+                discountDisplay.textContent = `-₱${discountAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            }
+
             const taxRate = 0.12; // 12% tax
             
             // Shipping Fee removed
-            
-            currentTax = currentSubtotal * taxRate;
-            currentTotal = currentSubtotal + currentTax;
+            const discountedSubtotal = Math.max(0, currentSubtotal - discountAmount);
+            currentTax = discountedSubtotal * taxRate;
+            currentTotal = discountedSubtotal + currentTax;
 
             document.getElementById('subtotal').textContent = `₱${currentSubtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('tax').textContent = `₱${currentTax.toLocaleString(undefined, {minimumFractionDigits: 2})}`;

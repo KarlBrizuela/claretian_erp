@@ -211,6 +211,7 @@ class User extends Authenticatable
                 'admin_finance.accounting.auto_debit',
                 'admin_finance.accounting.office_supplies',
                 'admin_finance.accounting.expenses',
+                'admin_finance.accounting.chart_of_accounts',
             ],
             'admin_finance.finance' => [
                 'admin_finance.petty_cash_voucher',

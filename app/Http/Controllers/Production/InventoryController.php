@@ -16,8 +16,10 @@ use App\Models\User;
 
 class InventoryController extends Controller
 {
-    public function overview()
+    public function overview(Request $request)
     {
+        $search = $request->input('search');
+
         // Fetch sites and stock transfers first
         $sites = Site::where('is_active', true)
             ->with(['inventory' => function ($q) {
@@ -30,7 +32,17 @@ class InventoryController extends Controller
 
         // Get all books
         $allBooks = Book::all();
-        $books = Book::latest()->paginate(10);
+        
+        $query = Book::latest();
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('sku', 'like', '%' . $search . '%')
+                  ->orWhere('author', 'like', '%' . $search . '%')
+                  ->orWhere('publisher', 'like', '%' . $search . '%');
+            });
+        }
+        $books = $query->paginate(10)->withQueryString();
 
         // Calculate statistics based on MAIN WAREHOUSE ONLY
         $totalBooks = 0;
@@ -412,6 +424,7 @@ class InventoryController extends Controller
     {
         $request->validate([
             'action' => 'required|in:add,set',
+            'site_id' => 'required|exists:sites,id',
             'quantity' => 'nullable|integer|min:1',
             'new_stock' => 'nullable|integer|min:0',
         ]);
@@ -420,11 +433,23 @@ class InventoryController extends Controller
             DB::beginTransaction();
 
             $book = Book::findOrFail($bookId);
+            $site = Site::findOrFail($request->site_id);
             
-            // Get max_stock - default to a high value if not set
-            $maxStock = $book->max_stock ?? PHP_INT_MAX;
+            // Get site inventory record
+            $siteInventory = \App\Models\SiteInventory::firstOrCreate(
+                [
+                    'site_id' => $site->id,
+                    'book_id' => $book->id
+                ],
+                [
+                    'quantity' => 0
+                ]
+            );
+
+            // Get max_stock - default to site's max stock, then book's max stock, then high value
+            $maxStock = $siteInventory->max_stock ?? $book->max_stock ?? PHP_INT_MAX;
             
-            $oldStock = $book->stock;
+            $oldStock = $siteInventory->quantity;
             $newStock = $oldStock;
 
             if ($request->action === 'add') {
@@ -436,7 +461,7 @@ class InventoryController extends Controller
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => "Cannot add stock. New total ({$newStock}) exceeds max stock ({$maxStock})"
+                        'message' => "Cannot add stock. New total ({$newStock}) exceeds max stock ({$maxStock}) for site {$site->name}"
                     ], 422);
                 }
             } elseif ($request->action === 'set') {
@@ -447,37 +472,43 @@ class InventoryController extends Controller
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => "Cannot set stock to {$newStock}. Max stock is {$maxStock}"
+                        'message' => "Cannot set stock to {$newStock}. Max stock is {$maxStock} for site {$site->name}"
                     ], 422);
                 }
             }
 
-            // Update book stock
-            $book->stock = $newStock;
-            $book->save();
+            // Update site inventory
+            $siteInventory->quantity = $newStock;
+            $siteInventory->save();
+
+            // If it is Main Warehouse (site_id = 1), also update book stock
+            if ($site->id == 1 || $site->name == 'Main Warehouse') {
+                $book->stock = $newStock;
+                $book->save();
+            }
+
+            // Update ProductStock for compatibility
+            $bookStock = ProductStock::firstOrNew([
+                'book_id' => $book->id,
+                'location' => $site->name
+            ]);
+            $bookStock->quantity = $newStock;
+            $bookStock->save();
 
             // Create inventory transaction record
             $transaction = new InventoryTransaction();
             $transaction->book_id = $book->id;
             $transaction->type = $newStock > $oldStock ? 'in' : ($newStock < $oldStock ? 'out' : 'adjustment');
             $transaction->quantity = abs($newStock - $oldStock);
-            $transaction->location = 'Main Warehouse';
+            $transaction->location = $site->name;
             $transaction->source = 'Manual Adjustment';
             $transaction->notes = $request->action === 'add' 
-                ? "Added {$request->quantity} units via inventory overview"
-                : "Manually set stock from {$oldStock} to {$newStock}";
+                ? "Added {$request->quantity} units to {$site->name} via inventory overview"
+                : "Manually set stock at {$site->name} from {$oldStock} to {$newStock}";
             $transaction->user_id = Auth::id();
             $transaction->transaction_date = now();
             $transaction->status = 'completed';
             $transaction->save();
-
-            // Update ProductStock for location tracking
-            $bookStock = ProductStock::firstOrNew([
-                'book_id' => $book->id,
-                'location' => 'Main Warehouse'
-            ]);
-            $bookStock->quantity = $newStock;
-            $bookStock->save();
 
             DB::commit();
 

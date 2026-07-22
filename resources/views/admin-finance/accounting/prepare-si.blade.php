@@ -92,6 +92,39 @@
                         </div>
                     </div>
 
+                    <!-- Attachments Display -->
+                    <div class="card mb-4 border-light bg-light">
+                        <div class="card-body">
+                            <h5 class="fw-bold text-dark mb-3"><i class="las la-paperclip me-1"></i> Attachments</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold text-muted">Pick List:</label>
+                                    <div>
+                                        @if($order->pick_list_attachment)
+                                            <a href="{{ asset('storage/' . $order->pick_list_attachment) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                <i class="las la-file-alt me-1"></i> View Pick List
+                                            </a>
+                                        @else
+                                            <span class="text-muted"><i class="las la-info-circle me-1"></i> No Pick List attached</span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold text-muted">Proof of Payment:</label>
+                                    <div>
+                                        @if($order->proof_of_payment)
+                                            <a href="{{ asset('storage/' . $order->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                <i class="las la-receipt me-1"></i> View Proof of Payment
+                                            </a>
+                                        @else
+                                            <span class="text-muted"><i class="las la-info-circle me-1"></i> No Proof of Payment attached</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <table class="invoice-table">
                         <thead>
                             <tr>

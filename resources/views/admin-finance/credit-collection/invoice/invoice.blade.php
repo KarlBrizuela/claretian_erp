@@ -278,6 +278,7 @@
                                                                 title="Sales invoice"
                                                                 data-bs-toggle="modal" 
                                                                 data-bs-target="#createSIModal"
+                                                                data-so-id="{{ $invoice->id }}"
                                                                 data-dr-number="{{ str_pad($invoice->id, 4, '0', STR_PAD_LEFT) }}"
                                                                 data-so-number="{{ $invoice->so_number }}"
                                                                 data-customer="{{ $invoice->customer->name ?? 'Unknown Customer' }}"
@@ -458,6 +459,7 @@
                                                                     title="Sales invoice"
                                                                     data-bs-toggle="modal" 
                                                                     data-bs-target="#createSIModal"
+                                                                    data-so-id="{{ $invoice->id }}"
                                                                     data-dr-number="{{ str_pad($invoice->id, 4, '0', STR_PAD_LEFT) }}"
                                                                     data-so-number="{{ $invoice->so_number }}"
                                                                     data-customer="{{ $invoice->customer->name ?? 'Unknown Customer' }}"
@@ -766,6 +768,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
+                    <input type="hidden" id="si_so_id">
                     <!-- Document Trail -->
                     <div class="row mb-4">
                         <div class="col-md-12">
@@ -1388,6 +1391,7 @@
             // --- Create SI Modal Logic ---
             $('#createSIModal').on('show.bs.modal', function (event) {
                 const button = $(event.relatedTarget);
+                const soId = button.data('so-id');
                 const drNumber = button.data('dr-number');
                 const soNumber = button.data('so-number');
                 const customer = button.data('customer');
@@ -1396,6 +1400,7 @@
                 const items = button.data('items');
 
                 const modal = $(this);
+                modal.find('#si_so_id').val(soId || '');
                 const generatedSI = 'SI-' + Math.floor(10000 + Math.random() * 90000);
                 
                 // Document Trail
@@ -1654,6 +1659,39 @@
             
             $('#createSIModal .btn-success:contains("Finalize Invoice")').click(function() {
                 const modal = $('#createSIModal');
+                const soId = modal.find('#si_so_id').val();
+                
+                if (soId) {
+                    // Disable button to prevent double-submit
+                    const btn = $(this);
+                    btn.prop('disabled', true).html('<i class="las la-spinner la-spin me-1"></i> Finalizing...');
+                    
+                    $.ajax({
+                        url: `/credit-collection/invoice/${soId}/finalize`,
+                        type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                $('#createSIModal').modal('hide');
+                                showSuccess(response.message);
+                                setTimeout(() => {
+                                    location.reload();
+                                }, 1500);
+                            } else {
+                                alert('Error: ' + response.message);
+                                btn.prop('disabled', false).html('<i class="las la-check-double me-1"></i> Finalize Invoice');
+                            }
+                        },
+                        error: function(xhr) {
+                            alert('An error occurred while finalizing invoice.');
+                            btn.prop('disabled', false).html('<i class="las la-check-double me-1"></i> Finalize Invoice');
+                        }
+                    });
+                    return;
+                }
+
                 const drNumber = modal.find('#si_dr_number').val().replace('#', '');
                 const soNumber = modal.find('#si_trail_so').text().replace('#', '');
                 const customer = modal.find('#si_customer_name').val();

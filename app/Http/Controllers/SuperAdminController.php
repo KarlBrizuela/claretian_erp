@@ -285,6 +285,7 @@ class SuperAdminController extends Controller
                 'admin_finance.accounting.cod_collections' => '— COD Collections Verification',
                 'admin_finance.accounting.office_supplies' => '— Office Supplies',
                 'admin_finance.accounting.expenses' => '— Expenses',
+                'admin_finance.accounting.chart_of_accounts' => '— Chart of Accounts',
                 'admin_finance.credit_collection' => 'Credit and Collection',
                 'admin_finance.credit_collection.billing' => '— Billing',
                 'admin_finance.credit_collection.reports' => '— Reports',

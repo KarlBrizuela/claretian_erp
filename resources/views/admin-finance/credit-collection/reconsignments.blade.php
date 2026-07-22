@@ -56,7 +56,7 @@
                                         <th>Customer Name</th>
                                         <th>Date Requested</th>
                                         <th>Amount</th>
-                                        <th class="text-center">Action</th>
+                                        <th class="text-center" style="width: 280px;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -90,16 +90,17 @@
                                         <td>{{ $req->updated_at->format('M d, Y') }}</td>
                                         <td class="fw-bold text-dark">₱ {{ number_format($req->total_amount, 2) }}</td>
                                         <td class="text-center">
-                                            <div class="d-flex justify-content-center gap-2">
-                                                <form action="{{ route('admin-finance.credit-collection.reconsignment.approve', $req->id) }}" method="POST" style="display:inline;">
+                                            <div class="d-flex justify-content-center align-items-center gap-2">
+                                                <form action="{{ route('admin-finance.credit-collection.reconsignment.approve', $req->id) }}" method="POST" style="display:inline-flex; align-items:center; gap: 0.5rem; margin-bottom: 0;">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-success btn-xs px-3 shadow" title="Approve Request">
+                                                    <input type="text" name="terms" class="form-control form-control-sm px-2 py-1" placeholder="Terms" value="{{ $req->terms }}" style="width: 120px; font-size: 0.75rem; height: 28px;" title="Update Terms">
+                                                    <button type="submit" class="btn btn-success btn-xs px-3 shadow d-flex align-items-center" title="Approve Request" style="height: 28px;">
                                                         <i class="las la-check me-1"></i> Go
                                                     </button>
                                                 </form>
-                                                <form action="{{ route('admin-finance.credit-collection.reconsignment.reject', $req->id) }}" method="POST" style="display:inline;">
+                                                <form action="{{ route('admin-finance.credit-collection.reconsignment.reject', $req->id) }}" method="POST" style="display:inline; margin-bottom: 0;">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-danger btn-xs px-3 shadow" title="Reject Request">
+                                                    <button type="submit" class="btn btn-danger btn-xs px-3 shadow d-flex align-items-center" title="Reject Request" style="height: 28px;">
                                                         <i class="las la-times me-1"></i> Reject
                                                     </button>
                                                 </form>

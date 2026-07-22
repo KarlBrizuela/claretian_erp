@@ -36,6 +36,8 @@ class POSController extends Controller
             'subtotal'            => 'required|numeric|min:0',
             'tax'                 => 'required|numeric|min:0',
             'total'               => 'required|numeric|min:0',
+            'discount_value'      => 'nullable|numeric|min:0',
+            'discount_type'       => 'nullable|string|in:amount,percentage',
         ]);
 
         // Validate cash payment
@@ -107,6 +109,18 @@ class POSController extends Controller
                 ? $validated['cash_received'] - $validated['total']
                 : null;
 
+            $discountAmount = 0;
+            $discountPercentage = null;
+            if (!empty($validated['discount_value']) && $validated['discount_value'] > 0) {
+                $discountValue = (float) $validated['discount_value'];
+                if ($validated['discount_type'] === 'percentage') {
+                    $discountPercentage = $discountValue;
+                    $discountAmount = $validated['subtotal'] * ($discountPercentage / 100);
+                } else {
+                    $discountAmount = $discountValue;
+                }
+            }
+
             // Create sales order header
             $order = SalesOrder::create([
                 'customer_id'      => $validated['customer_id'] ?? null,
@@ -119,6 +133,8 @@ class POSController extends Controller
                 'change_amount'    => $changeAmount,
                 'total_amount'     => $validated['total'],
                 'tax_amount'       => $validated['tax'],
+                'discount_amount'  => $discountAmount,
+                'discount_percentage' => $discountPercentage,
                 'prepared_by'      => auth()->id(),
                 'approved_by_mkt'  => auth()->id(),
                 'approved_by_acct' => auth()->id(),
@@ -334,6 +350,8 @@ class POSController extends Controller
             'total' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
             'payment_reference' => 'nullable|string',
+            'discount_value' => 'nullable|numeric|min:0',
+            'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
 
         // STOCK VALIDATION: Check if all items have sufficient stock
@@ -379,6 +397,18 @@ class POSController extends Controller
             // COD is unpaid, others are considered paid (or at least authorized)
             $paymentStatus = ($validated['payment_method'] === 'cod') ? 'unpaid' : 'paid';
 
+            $discountAmount = 0;
+            $discountPercentage = null;
+            if (!empty($validated['discount_value']) && $validated['discount_value'] > 0) {
+                $discountValue = (float) $validated['discount_value'];
+                if ($validated['discount_type'] === 'percentage') {
+                    $discountPercentage = $discountValue;
+                    $discountAmount = $validated['subtotal'] * ($discountPercentage / 100);
+                } else {
+                    $discountAmount = $discountValue;
+                }
+            }
+
             // Create sales order
             $order = SalesOrder::create([
                 'customer_id' => $validated['customer_id'],
@@ -391,6 +421,8 @@ class POSController extends Controller
                 'payment_reference' => $validated['payment_reference'] ?? null,
                 'total_amount' => $validated['total'],
                 'tax_amount' => $validated['tax'],
+                'discount_amount' => $discountAmount,
+                'discount_percentage' => $discountPercentage,
                 'remarks' => $validated['notes'] ?? null,
                 'prepared_by' => auth()->id(),
                 'approved_by_mkt' => auth()->id(),
@@ -483,7 +515,7 @@ class POSController extends Controller
                       ->orWhere('sku', $barcode)
                       ->orWhere('nbs_barcode', $barcode);
             })
-            ->select('id', 'name', 'price', 'barcode', 'sku', 'category', 'image')
+            ->select('id', 'name', 'price', 'barcode', 'sku', 'category', 'image', 'is_book')
             ->first();
 
         if (!$product) {
@@ -501,7 +533,7 @@ class POSController extends Controller
                 'price' => (float)$product->price,
                 'barcode' => $product->barcode,
                 'sku' => $product->sku,
-                'category' => strtolower($product->category ?? 'books'),
+                'category' => $product->is_book ? 'books' : 'non-books',
                 'image' => $product->image ? asset('storage/' . $product->image) : asset('images/no-book-cover.svg')
             ]
         ]);

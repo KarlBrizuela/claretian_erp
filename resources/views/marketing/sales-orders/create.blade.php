@@ -19,6 +19,18 @@
                     $isEdit = isset($order);
                     $selectedType = old('type', $isEdit ? $order->type : 'paid');
                     $selectedAreaSalesStaffId = old('area_sales_staff_id', $isEdit ? $order->area_sales_staff_id : null);
+                    
+                    $discountValue = 0;
+                    $discountType = 'amount';
+                    if ($isEdit) {
+                        if ($order->discount_percentage && $order->discount_percentage > 0) {
+                            $discountValue = $order->discount_percentage;
+                            $discountType = 'percentage';
+                        } elseif ($order->discount_amount && $order->discount_amount > 0) {
+                            $discountValue = $order->discount_amount;
+                            $discountType = 'amount';
+                        }
+                    }
                 @endphp
                 <form id="soForm" action="{{ $isEdit ? route('marketing.sales-orders.update', $order->id) : route('marketing.sales-orders.store') }}" method="POST" enctype="multipart/form-data" class="form-section">
                     @csrf
@@ -205,6 +217,20 @@
                                 <td class="text-end fw-bold fs-5" id="subtotalAmount">₱ 0.00</td>
                                 <td></td>
                             </tr>
+                            <tr>
+                                <td colspan="6" class="text-end text-uppercase">
+                                    <div class="d-inline-flex align-items-center justify-content-end gap-2">
+                                        <strong>Discount:</strong>
+                                        <input type="number" step="any" min="0" name="discount_value" id="discountValue" class="form-control form-control-sm text-end" style="width: 100px; display: inline-block;" value="{{ old('discount_value', $discountValue) }}">
+                                        <select name="discount_type" id="discountType" class="form-select form-select-sm" style="width: 80px; display: inline-block;">
+                                            <option value="amount" {{ old('discount_type', $discountType) === 'amount' ? 'selected' : '' }}>₱ (Amt)</option>
+                                            <option value="percentage" {{ old('discount_type', $discountType) === 'percentage' ? 'selected' : '' }}>% (Pct)</option>
+                                        </select>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-bold text-danger fs-5" id="discountAmountDisplay">- ₱ 0.00</td>
+                                <td></td>
+                            </tr>
                             @if($isEdit && $order->freight_charges)
                             <tr class="bg-light">
                                 <td colspan="6" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
@@ -243,10 +269,16 @@
     <select id="productSource" class="d-none">
         <option value="" disabled selected>Select Product...</option>
         @foreach($products as $product)
+                @php
+                    $imgUrl = $product->image ? asset('storage/' . $product->image) : asset('images/no-book-cover.svg');
+                    $optionContent = '<div class="d-flex align-items-center gap-2"><img src="'.$imgUrl.'" style="width:24px; height:24px; object-fit:cover; border-radius:3px; border:1px solid #ddd;"> <span style="font-size:0.85rem;">'.e($product->name).' (Stock: '.($product->stock ?? 0).')</span></div>';
+                @endphp
                 <option value="{{ $product->id }}" 
                     data-price="{{ $product->price }}" 
                     data-isbn="{{ $product->isbn ?? $product->barcode ?? $product->sku ?? '' }}"
-                    data-stock="{{ $product->stock ?? 0 }}">
+                    data-stock="{{ $product->stock ?? 0 }}"
+                    data-image="{{ $imgUrl }}"
+                    data-content="{{ $optionContent }}">
                     {{ $product->name }} (Stock: {{ $product->stock ?? 0 }})
                 </option>
         @endforeach
@@ -516,6 +548,14 @@
                 updateGrandTotal();
             }
 
+            const discountValueInput = document.getElementById('discountValue');
+            const discountTypeSelect = document.getElementById('discountType');
+
+            if (discountValueInput && discountTypeSelect) {
+                discountValueInput.addEventListener('input', updateGrandTotal);
+                discountTypeSelect.addEventListener('change', updateGrandTotal);
+            }
+
             function updateGrandTotal() {
                 let total = 0;
                 document.querySelectorAll('.subtotal-display').forEach(el => {
@@ -524,6 +564,20 @@
                 
                 // Display items subtotal
                 document.getElementById('subtotalAmount').textContent = '₱ ' + total.toFixed(2);
+
+                // Calculate discount
+                let discountAmount = 0;
+                const discountVal = parseFloat(discountValueInput.value) || 0;
+                const discountType = discountTypeSelect.value;
+
+                if (discountType === 'percentage') {
+                    discountAmount = total * (discountVal / 100);
+                } else {
+                    discountAmount = discountVal;
+                }
+
+                // Update discount display
+                document.getElementById('discountAmountDisplay').textContent = '- ₱ ' + discountAmount.toFixed(2);
                 
                 // Add freight charges if they exist
                 const freightChargesDisplay = document.getElementById('freightChargesDisplay');
@@ -531,10 +585,11 @@
                     parseFloat(freightChargesDisplay.textContent.replace(/[^\d.-]/g, '')) : 0;
                 const serviceFee = freightOptionSelect?.value === 'freight_collect' ? 50 : 0;
                 
-                const grandTotal = total + freightCharges + serviceFee;
-                document.getElementById('grandTotal').textContent = '₱ ' + grandTotal.toFixed(2);
+                const grandTotal = total - discountAmount + freightCharges + serviceFee;
+                document.getElementById('grandTotal').textContent = '₱ ' + Math.max(0, grandTotal).toFixed(2);
             }
 
+            const defaultCover = '{{ asset("images/no-book-cover.svg") }}';
             const existingItems = @json($isEdit ? $order->items : []);
 
             function addRow(data = null) {
@@ -559,10 +614,17 @@
                             <option value="set" ${unitVal === 'set' ? 'selected' : ''}>set</option>
                         </select>
                     </td>
-                    <td class="product-select-td">
-                        <select class="form-control product-select selectpicker" data-live-search="true" name="items[new_${uniqueId}][product_id]" required>
-                            ${productSource.innerHTML}
-                        </select>
+                    <td class="product-select-td" style="vertical-align: middle;">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="product-image-container border rounded bg-white" style="width: 42px; height: 42px; min-width: 42px; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <img src="${defaultCover}" class="product-image-preview" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                            <div class="flex-grow-1" style="min-width: 0;">
+                                <select class="form-control product-select selectpicker" data-live-search="true" name="items[new_${uniqueId}][product_id]" required>
+                                    ${productSource.innerHTML}
+                                </select>
+                            </div>
+                        </div>
                     </td>
                     <td>
                         <input type="text" class="isbn-input" name="items[new_${uniqueId}][isbn]" value="${isbnVal}" readonly style="width: 100%; border: none; background: transparent;">
@@ -595,6 +657,13 @@
                     const option = this.options[this.selectedIndex];
                     priceInput.value = option.dataset.price;
                     isbnInput.value = option.dataset.isbn;
+
+                    // Update image preview
+                    const imageEl = tr.querySelector('.product-image-preview');
+                    if (imageEl && option.dataset.image) {
+                        imageEl.src = option.dataset.image;
+                    }
+
                     const availabilityEl = tr.querySelector('.availability');
                     if (availabilityEl) {
                         const stock = option.dataset.stock !== undefined ? option.dataset.stock : '0';

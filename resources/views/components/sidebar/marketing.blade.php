@@ -172,7 +172,7 @@
 
 	<!-- Book Management (Master) -->
 	@if($hasBookMgmt)
-	<div class="modern-nav-group {{ request()->is('marketing/book-list*', 'marketing/consignment*') ? 'active' : '' }}">
+	<div class="modern-nav-group {{ request()->is('marketing/book-list*', 'marketing/non-books*', 'marketing/consignment*', 'marketing/book-indices*', 'marketing/book-bundles*') ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="book-management">
 			<div class="modern-nav-icon">
 				<i class="las la-book"></i>
@@ -183,6 +183,7 @@
 		<div class="modern-nav-submenu">
 			@if($user->hasPermission('marketing.book_mgmt.book_list'))
 			<a href="{{ route('marketing.products') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.products') ? 'active' : '' }}">Book List (Master)</a>
+			<a href="{{ route('marketing.non-books') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.non-books') ? 'active' : '' }}">Non-Books</a>
 			<a href="{{ route('marketing.indices') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.indices') ? 'active' : '' }}">Book Index</a>
 			<a href="{{ route('marketing.bundles') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.bundles') ? 'active' : '' }}">Book Bundles</a>
 			@endif
