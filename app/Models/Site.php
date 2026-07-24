@@ -29,12 +29,27 @@ class Site extends Model
         return $this->hasMany(StockTransfer::class, 'to_site_id');
     }
 
+    public function getTotalInventoryQuantity()
+    {
+        return (int) $this->inventory()->sum('quantity');
+    }
+
     public function getTotalInventoryValue()
     {
-        return $this->inventory()
-            ->join('books', 'site_inventory.book_id', '=', 'books.id')
-            ->selectRaw('SUM(site_inventory.quantity * books.cost) as total')
-            ->value('total') ?? 0;
+        $val = 0;
+        $invs = $this->inventory()->with(['book', 'bookIndex.book', 'bookBundle'])->get();
+        foreach ($invs as $inv) {
+            $unitPrice = 0;
+            if ($inv->book_id && $inv->book) {
+                $unitPrice = ($inv->book->cost && $inv->book->cost > 0) ? $inv->book->cost : ($inv->book->price ?? 0);
+            } elseif ($inv->book_index_id && $inv->bookIndex) {
+                $unitPrice = ($inv->bookIndex->price && $inv->bookIndex->price > 0) ? $inv->bookIndex->price : ($inv->bookIndex->book->price ?? $inv->bookIndex->book->cost ?? 0);
+            } elseif ($inv->book_bundle_id && $inv->bookBundle) {
+                $unitPrice = $inv->bookBundle->price ?? 0;
+            }
+            $val += ($inv->quantity * $unitPrice);
+        }
+        return $val;
     }
 
     public function getActiveSites()

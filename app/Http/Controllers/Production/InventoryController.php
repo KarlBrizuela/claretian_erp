@@ -23,13 +23,6 @@ class InventoryController extends Controller
     {
         $search = $request->input('search');
 
-        // Fetch sites and stock transfers first
-        $sites = Site::where('is_active', true)
-            ->with(['inventory' => function ($q) {
-                $q->where('quantity', '>', 0)->with(['book', 'bookIndex.book', 'bookBundle']);
-            }])
-            ->get();
-
         // Get Main Warehouse specifically
         $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
 
@@ -65,6 +58,13 @@ class InventoryController extends Controller
                 }
             });
         }
+
+        // Fetch sites with fresh inventory after any sync
+        $sites = Site::where('is_active', true)
+            ->with(['inventory' => function ($q) {
+                $q->where('quantity', '>', 0)->with(['book', 'bookIndex.book', 'bookBundle']);
+            }])
+            ->get();
 
         // Get all books
         $allBooks = Book::all();

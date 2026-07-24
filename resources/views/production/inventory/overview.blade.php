@@ -631,7 +631,7 @@
                                                 <td><strong>{{ $site->name }}</strong></td>
                                                 <td>{{ $site->code ?? 'N/A' }}</td>
                                                 <td>{{ $site->location ?? 'N/A' }}</td>
-                                                <td>{{ $site->inventory->sum('quantity') }} items</td>
+                                                <td>{{ $site->getTotalInventoryQuantity() }} items</td>
                                                 <td>₱{{ number_format($site->getTotalInventoryValue(), 2) }}</td>
                                                 <td>
                                                     @if($site->is_active)
@@ -838,13 +838,13 @@
     @forelse($sites ?? [] as $site)
         <!-- View Site Inventory Modal -->
         <div class="modal fade" id="viewSiteInventory{{ $site->id }}" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header bg-info text-white">
                         <h6 class="modal-title text-white"><i class="las la-boxes me-2"></i>Inventory at {{ $site->name }}</h6>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body px-4 py-3" style="max-height: 75vh; overflow-y: auto;">
                         @php
                             $booksInv = $site->inventory->filter(fn($inv) => !empty($inv->book_id) && empty($inv->book_index_id) && empty($inv->book_bundle_id));
                             $indicesInv = $site->inventory->filter(fn($inv) => !empty($inv->book_index_id));
