@@ -2621,21 +2621,25 @@
                     new_stock: newStock
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            .then(async response => {
+                const data = await response.json();
+                if (response.ok && data.success) {
                     showNotification(data.message || 'Index stock updated successfully!', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('indexStockModal')).hide();
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showNotification('Error: ' + data.message, 'error');
+                    let msg = data.message || 'Failed to update index stock';
+                    if (data.errors) {
+                        msg = Object.values(data.errors).flat().join(' ');
+                    }
+                    showNotification('Error: ' + msg, 'error');
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalText;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showNotification('An error occurred', 'error');
+                showNotification('An error occurred while saving index stock', 'error');
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;
             });
@@ -2752,21 +2756,25 @@
                     new_stock: newStock
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            .then(async response => {
+                const data = await response.json();
+                if (response.ok && data.success) {
                     showNotification(data.message || 'Bundle stock updated successfully!', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('bundleStockModal')).hide();
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showNotification('Error: ' + data.message, 'error');
+                    let msg = data.message || 'Failed to update bundle stock';
+                    if (data.errors) {
+                        msg = Object.values(data.errors).flat().join(' ');
+                    }
+                    showNotification('Error: ' + msg, 'error');
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalText;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showNotification('An error occurred', 'error');
+                showNotification('An error occurred while saving bundle stock', 'error');
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;
             });
@@ -2812,8 +2820,8 @@
                 }
             }
 
-            // Site Inventory Modal Client-side Pagination
-            function initSiteTablePagination(tableId, pageSize = 5) {
+            // Site Inventory Modal Client-side Pagination (Sliding Window)
+            function initSiteTablePagination(tableId, pageSize = 10) {
                 const table = document.getElementById(tableId);
                 if (!table) return;
                 const tbody = table.querySelector('tbody');
@@ -2828,7 +2836,7 @@
                 if (!container) {
                     container = document.createElement('div');
                     container.id = tableId + '_pagination';
-                    container.className = 'd-flex justify-content-between align-items-center mt-3 pt-2 border-top';
+                    container.className = 'd-flex flex-wrap justify-content-between align-items-center mt-3 pt-2 border-top gap-2';
                     table.parentNode.appendChild(container);
                 }
 
@@ -2843,27 +2851,70 @@
                     const showingStart = Math.min(start + 1, rows.length);
                     const showingEnd = Math.min(end, rows.length);
 
-                    let html = `<small class="text-muted">Showing ${showingStart} to ${showingEnd} of ${rows.length} entries</small>`;
+                    let html = `<small class="text-muted fw-bold">Showing ${showingStart} to ${showingEnd} of ${rows.length} entries</small>`;
+                    
                     if (totalPages > 1) {
-                        html += `<ul class="pagination pagination-sm m-0">`;
+                        html += `<ul class="pagination pagination-sm m-0 flex-wrap">`;
+                        
+                        // Previous button
                         html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-                            <button class="page-link py-1 px-2" type="button" data-page="${currentPage - 1}">Previous</button>
+                            <button class="page-link py-1 px-2" type="button" data-page="${currentPage - 1}">Prev</button>
                         </li>`;
-                        for (let i = 1; i <= totalPages; i++) {
-                            html += `<li class="page-item ${currentPage === i ? 'active' : ''}">
-                                <button class="page-link py-1 px-2" type="button" data-page="${i}">${i}</button>
-                            </li>`;
+
+                        // Smart sliding window for page numbers
+                        let pages = [];
+                        if (totalPages <= 7) {
+                            for (let i = 1; i <= totalPages; i++) pages.push(i);
+                        } else {
+                            pages.push(1);
+                            if (currentPage > 3) {
+                                pages.push('...');
+                            }
+                            
+                            let startPage = Math.max(2, currentPage - 1);
+                            let endPage = Math.min(totalPages - 1, currentPage + 1);
+
+                            if (currentPage <= 3) {
+                                endPage = 4;
+                            }
+                            if (currentPage >= totalPages - 2) {
+                                startPage = totalPages - 3;
+                            }
+
+                            for (let i = startPage; i <= endPage; i++) {
+                                pages.push(i);
+                            }
+
+                            if (currentPage < totalPages - 2) {
+                                pages.push('...');
+                            }
+                            pages.push(totalPages);
                         }
+
+                        pages.forEach(p => {
+                            if (p === '...') {
+                                html += `<li class="page-item disabled"><span class="page-link py-1 px-2">...</span></li>`;
+                            } else {
+                                html += `<li class="page-item ${currentPage === p ? 'active' : ''}">
+                                    <button class="page-link py-1 px-2" type="button" data-page="${p}">${p}</button>
+                                </li>`;
+                            }
+                        });
+
+                        // Next button
                         html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
                             <button class="page-link py-1 px-2" type="button" data-page="${currentPage + 1}">Next</button>
                         </li>`;
+                        
                         html += `</ul>`;
                     }
+
                     container.innerHTML = html;
 
                     container.querySelectorAll('button.page-link').forEach(btn => {
                         btn.addEventListener('click', function(e) {
                             e.preventDefault();
+                            e.stopPropagation();
                             const p = parseInt(this.getAttribute('data-page'));
                             if (p >= 1 && p <= totalPages) {
                                 currentPage = p;
@@ -2877,11 +2928,18 @@
             }
 
             document.querySelectorAll('[id^="viewSiteInventory"]').forEach(modalEl => {
-                modalEl.addEventListener('shown.bs.modal', function() {
-                    const siteId = this.id.replace('viewSiteInventory', '');
-                    initSiteTablePagination(`site-books-table-${siteId}`, 5);
-                    initSiteTablePagination(`site-indices-table-${siteId}`, 5);
-                    initSiteTablePagination(`site-bundles-table-${siteId}`, 5);
+                const siteId = modalEl.id.replace('viewSiteInventory', '');
+                
+                function initAllTabs() {
+                    initSiteTablePagination(`site-books-table-${siteId}`, 10);
+                    initSiteTablePagination(`site-indices-table-${siteId}`, 10);
+                    initSiteTablePagination(`site-bundles-table-${siteId}`, 10);
+                }
+
+                modalEl.addEventListener('shown.bs.modal', initAllTabs);
+
+                modalEl.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tabBtn => {
+                    tabBtn.addEventListener('shown.bs.tab', initAllTabs);
                 });
             });
         });

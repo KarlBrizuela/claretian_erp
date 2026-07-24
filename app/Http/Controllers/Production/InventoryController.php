@@ -604,7 +604,7 @@ class InventoryController extends Controller
     {
         $request->validate([
             'action' => 'required|in:add,set',
-            'quantity' => 'nullable|integer|min:1',
+            'quantity' => 'nullable|integer|min:0',
             'new_stock' => 'nullable|integer|min:0',
         ]);
 
@@ -686,7 +686,7 @@ class InventoryController extends Controller
     {
         $request->validate([
             'action' => 'required|in:add,set',
-            'quantity' => 'nullable|integer|min:1',
+            'quantity' => 'nullable|integer|min:0',
             'new_stock' => 'nullable|integer|min:0',
         ]);
 
