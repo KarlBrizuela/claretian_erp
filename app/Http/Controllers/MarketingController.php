@@ -475,6 +475,8 @@ class MarketingController extends Controller
                 $book->save(); // Triggers BookObserver to sync master book site_inventory quantity
             }
 
+            // Disassociate from stock transfers so foreign key constraint doesn't block deletion
+            \App\Models\StockTransfer::where('book_index_id', $index->id)->update(['book_index_id' => null]);
             \App\Models\SiteInventory::where('book_index_id', $index->id)->delete();
             $index->delete();
         });
@@ -2601,8 +2603,12 @@ class MarketingController extends Controller
 
     public function destroyBundle($id)
     {
-        $bundle = \App\Models\BookBundle::findOrFail($id);
-        $bundle->delete();
+        \DB::transaction(function() use ($id) {
+            $bundle = \App\Models\BookBundle::findOrFail($id);
+            \App\Models\StockTransfer::where('book_bundle_id', $bundle->id)->update(['book_bundle_id' => null]);
+            \App\Models\SiteInventory::where('book_bundle_id', $bundle->id)->delete();
+            $bundle->delete();
+        });
 
         return response()->json([
             'message' => 'Book bundle deleted successfully'

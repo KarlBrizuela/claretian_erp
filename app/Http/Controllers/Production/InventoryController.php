@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 use App\Models\Book;
+use App\Models\BookIndex;
+use App\Models\BookBundle;
+use App\Models\SiteInventory;
 use App\Models\InventoryTransaction;
 use App\Models\ProductStock;
 use App\Models\Site;
@@ -33,36 +36,32 @@ class InventoryController extends Controller
         // Auto-sync: ensure all indices/bundles with stock > 0 are in site_inventory for Main Warehouse
         if ($mainWarehouse) {
             // Sync BookIndex stocks
-            \App\Models\BookIndex::where('stock', '>', 0)->each(function($idx) use ($mainWarehouse) {
-                $existing = \App\Models\SiteInventory::where('site_id', $mainWarehouse->id)
+            BookIndex::where('stock', '>', 0)->each(function($idx) use ($mainWarehouse) {
+                $existing = SiteInventory::where('site_id', $mainWarehouse->id)
                     ->where('book_index_id', $idx->id)->first();
                 if (!$existing) {
-                    \App\Models\SiteInventory::create([
+                    SiteInventory::create([
                         'site_id'        => $mainWarehouse->id,
                         'book_index_id'  => $idx->id,
                         'book_id'        => null,
                         'book_bundle_id' => null,
                         'quantity'       => $idx->stock,
                     ]);
-                } elseif ($existing->quantity !== $idx->stock) {
-                    $existing->update(['quantity' => $idx->stock]);
                 }
             });
 
             // Sync BookBundle stocks
-            \App\Models\BookBundle::where('stock', '>', 0)->each(function($bundle) use ($mainWarehouse) {
-                $existing = \App\Models\SiteInventory::where('site_id', $mainWarehouse->id)
+            BookBundle::where('stock', '>', 0)->each(function($bundle) use ($mainWarehouse) {
+                $existing = SiteInventory::where('site_id', $mainWarehouse->id)
                     ->where('book_bundle_id', $bundle->id)->first();
                 if (!$existing) {
-                    \App\Models\SiteInventory::create([
+                    SiteInventory::create([
                         'site_id'        => $mainWarehouse->id,
                         'book_bundle_id' => $bundle->id,
                         'book_id'        => null,
                         'book_index_id'  => null,
                         'quantity'       => $bundle->stock,
                     ]);
-                } elseif ($existing->quantity !== $bundle->stock) {
-                    $existing->update(['quantity' => $bundle->stock]);
                 }
             });
         }

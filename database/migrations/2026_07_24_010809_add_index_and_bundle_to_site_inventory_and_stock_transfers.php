@@ -135,10 +135,10 @@ class AddIndexAndBundleToSiteInventoryAndStockTransfers extends Migration
 
         Schema::table('stock_transfers', function (Blueprint $table) {
             if (!Schema::hasColumn('stock_transfers', 'book_index_id')) {
-                $table->foreignId('book_index_id')->nullable()->after('book_id')->constrained('book_indices')->onDelete('restrict');
+                $table->foreignId('book_index_id')->nullable()->after('book_id')->constrained('book_indices')->onDelete('set null');
             }
             if (!Schema::hasColumn('stock_transfers', 'book_bundle_id')) {
-                $table->foreignId('book_bundle_id')->nullable()->after('book_index_id')->constrained('book_bundles')->onDelete('restrict');
+                $table->foreignId('book_bundle_id')->nullable()->after('book_index_id')->constrained('book_bundles')->onDelete('set null');
             }
         });
 
