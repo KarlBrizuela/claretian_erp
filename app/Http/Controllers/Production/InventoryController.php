@@ -623,10 +623,17 @@ class InventoryController extends Controller
                 $newStock = $request->new_stock ?? $oldStock;
             }
 
+            $diff = $newStock - $oldStock;
             $index->stock = $newStock;
             $index->save();
 
-            // Sync with Main Warehouse site inventory
+            if ($diff != 0 && $index->book) {
+                $book = $index->book;
+                $book->stock = max(0, $book->stock - $diff);
+                $book->save(); // Triggers BookObserver to update master book site_inventory
+            }
+
+            // Sync with Main Warehouse site inventory for index
             $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
             if ($mainWarehouse) {
                 $siteInv = SiteInventory::where('site_id', $mainWarehouse->id)

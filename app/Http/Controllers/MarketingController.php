@@ -383,9 +383,37 @@ class MarketingController extends Controller
             'stock' => 'required|integer|min:0',
         ]);
 
-        \App\Models\BookIndex::create($validated);
+        \DB::transaction(function() use ($validated) {
+            $index = \App\Models\BookIndex::create($validated);
+            $indexStock = (int)$validated['stock'];
 
-        return response()->json(['message' => 'Book Index mapping created successfully']);
+            if ($indexStock > 0) {
+                $book = \App\Models\Book::find($validated['book_id']);
+                if ($book) {
+                    // Deduct stock from master Book. $book->save() triggers BookObserver which automatically updates master book site_inventory quantity.
+                    $book->stock = max(0, $book->stock - $indexStock);
+                    $book->save();
+                }
+            }
+
+            // Create/update site inventory for the index
+            $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
+            if ($mainWarehouse) {
+                \App\Models\SiteInventory::updateOrCreate(
+                    [
+                        'site_id' => $mainWarehouse->id,
+                        'book_index_id' => $index->id,
+                    ],
+                    [
+                        'book_id' => null,
+                        'book_bundle_id' => null,
+                        'quantity' => $indexStock,
+                    ]
+                );
+            }
+        });
+
+        return response()->json(['message' => 'Book Index mapping created successfully and stock transferred']);
     }
 
     public function editIndex($id)
@@ -402,18 +430,56 @@ class MarketingController extends Controller
             'stock' => 'required|integer|min:0',
         ]);
 
-        $index = \App\Models\BookIndex::findOrFail($id);
-        $index->update($validated);
+        \DB::transaction(function() use ($validated, $id) {
+            $index = \App\Models\BookIndex::findOrFail($id);
+            $oldStock = (int)$index->stock;
+            $newStock = (int)$validated['stock'];
+            $diff = $newStock - $oldStock;
+
+            $index->update($validated);
+
+            if ($diff != 0 && $index->book) {
+                $book = $index->book;
+                $book->stock = max(0, $book->stock - $diff);
+                $book->save(); // Triggers BookObserver to sync master book site_inventory quantity
+            }
+
+            $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
+            if ($mainWarehouse) {
+                \App\Models\SiteInventory::updateOrCreate(
+                    [
+                        'site_id' => $mainWarehouse->id,
+                        'book_index_id' => $index->id,
+                    ],
+                    [
+                        'book_id' => null,
+                        'book_bundle_id' => null,
+                        'quantity' => $newStock,
+                    ]
+                );
+            }
+        });
 
         return response()->json(['message' => 'Book Index mapping updated successfully']);
     }
 
     public function destroyIndex($id)
     {
-        $index = \App\Models\BookIndex::findOrFail($id);
-        $index->delete();
+        \DB::transaction(function() use ($id) {
+            $index = \App\Models\BookIndex::findOrFail($id);
+            $stockToReturn = (int)$index->stock;
 
-        return response()->json(['message' => 'Book Index mapping deleted successfully']);
+            if ($stockToReturn > 0 && $index->book) {
+                $book = $index->book;
+                $book->stock += $stockToReturn;
+                $book->save(); // Triggers BookObserver to sync master book site_inventory quantity
+            }
+
+            \App\Models\SiteInventory::where('book_index_id', $index->id)->delete();
+            $index->delete();
+        });
+
+        return response()->json(['message' => 'Book Index mapping deleted successfully and stock returned to book']);
     }
 
 

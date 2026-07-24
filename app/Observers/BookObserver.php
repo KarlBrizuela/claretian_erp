@@ -39,7 +39,9 @@ class BookObserver
             SiteInventory::updateOrCreate(
                 [
                     'site_id' => $mainWarehouseId,
-                    'book_id' => $book->id
+                    'book_id' => $book->id,
+                    'book_index_id' => null,
+                    'book_bundle_id' => null,
                 ],
                 [
                     'quantity' => $newStock

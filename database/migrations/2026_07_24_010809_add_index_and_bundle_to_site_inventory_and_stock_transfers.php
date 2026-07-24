@@ -7,6 +7,60 @@ use Illuminate\Support\Facades\DB;
 
 class AddIndexAndBundleToSiteInventoryAndStockTransfers extends Migration
 {
+    private function indexExists(string $table, string $index): bool
+    {
+        $database = DB::getDatabaseName();
+
+        $result = DB::select(
+            'SELECT COUNT(*) AS count
+             FROM information_schema.statistics
+             WHERE table_schema = ?
+               AND table_name = ?
+               AND index_name = ?',
+            [$database, $table, $index]
+        );
+
+        return (int) $result[0]->count > 0;
+    }
+
+    private function dropIndexIfExists(string $table, string $index): void
+    {
+        try {
+            if ($this->indexExists($table, $index)) {
+                DB::statement(sprintf('ALTER TABLE `%s` DROP INDEX `%s`', $table, $index));
+            }
+        } catch (\Throwable $e) {
+            // Ignore missing index errors so the migration remains idempotent on live databases.
+        }
+    }
+
+    private function foreignKeyExists(string $table, string $foreignKey): bool
+    {
+        $database = DB::getDatabaseName();
+
+        $result = DB::select(
+            'SELECT COUNT(*) AS count
+             FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = ?
+               AND TABLE_NAME = ?
+               AND CONSTRAINT_NAME = ?',
+            [$database, $table, $foreignKey]
+        );
+
+        return (int) $result[0]->count > 0;
+    }
+
+    private function dropForeignKeyIfExists(string $table, string $foreignKey): void
+    {
+        try {
+            if ($this->foreignKeyExists($table, $foreignKey)) {
+                DB::statement(sprintf('ALTER TABLE `%s` DROP FOREIGN KEY `%s`', $table, $foreignKey));
+            }
+        } catch (\Throwable $e) {
+            // Ignore missing foreign key errors so the migration remains idempotent on live databases.
+        }
+    }
+
     /**
      * Run the migrations.
      *
@@ -18,18 +72,15 @@ class AddIndexAndBundleToSiteInventoryAndStockTransfers extends Migration
         Schema::disableForeignKeyConstraints();
 
         // 1. Alter site_inventory table
-        // Try dropping foreign keys / unique constraint that might exist
-        try {
-            Schema::table('site_inventory', function (Blueprint $table) {
-                $table->dropForeign('site_inventory_book_id_foreign');
-            });
-        } catch (\Exception $e) {}
-
-        try {
-            Schema::table('site_inventory', function (Blueprint $table) {
-                $table->dropUnique('site_inventory_site_id_book_id_unique');
-            });
-        } catch (\Exception $e) {}
+        // Drop existing constraints only when they actually exist on the current database.
+        // NOTE: Drop foreign keys FIRST (they may depend on indexes)
+        $this->dropForeignKeyIfExists('site_inventory', 'site_inventory_book_id_foreign');
+        $this->dropForeignKeyIfExists('site_inventory', 'fk_site_inventory_book_id');
+        $this->dropForeignKeyIfExists('site_inventory', 'fk_site_inventory_site_id');
+        
+        // Then drop indexes (now that foreign keys are gone)
+        $this->dropIndexIfExists('site_inventory', 'site_inventory_site_id_book_id_unique');
+        $this->dropIndexIfExists('site_inventory', 'unique_site_book');
 
         // Make book_id nullable if it isn't
         try {
@@ -74,11 +125,9 @@ class AddIndexAndBundleToSiteInventoryAndStockTransfers extends Migration
 
 
         // 2. Alter stock_transfers table
-        try {
-            Schema::table('stock_transfers', function (Blueprint $table) {
-                $table->dropForeign('stock_transfers_book_id_foreign');
-            });
-        } catch (\Exception $e) {}
+        // Try multiple possible foreign key names
+        $this->dropForeignKeyIfExists('stock_transfers', 'stock_transfers_book_id_foreign');
+        $this->dropForeignKeyIfExists('stock_transfers', 'fk_stock_transfers_book_id');
 
         try {
             DB::statement('ALTER TABLE stock_transfers MODIFY book_id BIGINT UNSIGNED NULL');
@@ -112,11 +161,10 @@ class AddIndexAndBundleToSiteInventoryAndStockTransfers extends Migration
         Schema::disableForeignKeyConstraints();
 
         // 1. Rollback site_inventory
-        try {
-            Schema::table('site_inventory', function (Blueprint $table) {
-                $table->dropUnique('site_inv_unique_composite');
-            });
-        } catch (\Exception $e) {}
+        // Drop indexes and foreign keys that may have been created
+        $this->dropIndexIfExists('site_inventory', 'site_inv_unique_composite');
+        $this->dropForeignKeyIfExists('site_inventory', 'fk_site_inventory_book_index_id');
+        $this->dropForeignKeyIfExists('site_inventory', 'fk_site_inventory_book_bundle_id');
 
         try {
             Schema::table('site_inventory', function (Blueprint $table) {
@@ -134,6 +182,12 @@ class AddIndexAndBundleToSiteInventoryAndStockTransfers extends Migration
 
         try {
             Schema::table('site_inventory', function (Blueprint $table) {
+                $table->dropForeign('fk_site_inventory_site_id');
+            });
+        } catch (\Exception $e) {}
+        
+        try {
+            Schema::table('site_inventory', function (Blueprint $table) {
                 $table->dropForeign('site_inventory_book_id_foreign');
             });
         } catch (\Exception $e) {}
@@ -147,16 +201,14 @@ class AddIndexAndBundleToSiteInventoryAndStockTransfers extends Migration
             Schema::table('site_inventory', function (Blueprint $table) {
                 // Re-add old unique constraint and foreign key
                 $table->unique(['site_id', 'book_id'], 'site_inventory_site_id_book_id_unique');
+                $table->foreign('site_id')->references('id')->on('sites')->onDelete('cascade');
                 $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
             });
         } catch (\Exception $e) {}
 
         // 2. Rollback stock_transfers
-        try {
-            Schema::table('stock_transfers', function (Blueprint $table) {
-                $table->dropForeign('stock_transfers_book_id_foreign');
-            });
-        } catch (\Exception $e) {}
+        $this->dropForeignKeyIfExists('stock_transfers', 'stock_transfers_book_id_foreign');
+        $this->dropForeignKeyIfExists('stock_transfers', 'fk_stock_transfers_book_id');
 
         try {
             Schema::table('stock_transfers', function (Blueprint $table) {

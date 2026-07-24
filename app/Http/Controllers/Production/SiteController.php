@@ -152,6 +152,8 @@ class SiteController extends Controller
         }
 
         try {
+            DB::beginTransaction();
+
             // Check if source has enough stock
             $invQuery = SiteInventory::where('site_id', $request->from_site_id);
             if ($hasBook) {
@@ -162,34 +164,79 @@ class SiteController extends Controller
                 $invQuery->where('book_bundle_id', $request->book_bundle_id);
             }
             
-            $sourceInventory = $invQuery->first();
+            $sourceInventory = $invQuery->lockForUpdate()->first();
 
             if (!$sourceInventory || $sourceInventory->quantity < $request->quantity) {
+                DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => 'Insufficient stock at source site'
                 ], 422);
             }
 
-            // Create transfer request
-            $transfer = StockTransfer::create([
-                'from_site_id' => $request->from_site_id,
-                'to_site_id' => $request->to_site_id,
-                'book_id' => $request->book_id,
-                'book_index_id' => $request->book_index_id,
-                'book_bundle_id' => $request->book_bundle_id,
-                'quantity' => $request->quantity,
-                'approval_division' => StockTransfer::approvalDivisionForUser(auth()->user()),
-                'notes' => $request->notes,
-                'created_by' => auth()->id(),
-                'status' => 'pending'
-            ]);
+            $user = auth()->user();
+            $isSuperAdmin = $user && $user->isSuperAdmin();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Transfer request submitted for ' . $transfer->approval_division . ' approval'
-            ]);
+            if ($isSuperAdmin) {
+                $transfer = StockTransfer::create([
+                    'from_site_id'            => $request->from_site_id,
+                    'to_site_id'              => $request->to_site_id,
+                    'book_id'                 => $request->book_id,
+                    'book_index_id'           => $request->book_index_id,
+                    'book_bundle_id'          => $request->book_bundle_id,
+                    'quantity'                => $request->quantity,
+                    'approval_division'       => StockTransfer::approvalDivisionForUser($user),
+                    'notes'                   => $request->notes,
+                    'created_by'              => $user->id,
+                    'approved_by'             => $user->id,
+                    'approved_at'             => now(),
+                    'accounting_reviewed_by'  => $user->id,
+                    'accounting_reviewed_at'  => now(),
+                    'logistics_assigned_by'   => $user->id,
+                    'logistics_assigned_to'   => $user->id,
+                    'logistics_assigned_at'   => now(),
+                    'completed_by'            => $user->id,
+                    'completed_at'            => now(),
+                    'status'                  => 'completed'
+                ]);
+
+                if (!$transfer->executeStockMovement()) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to execute stock movement for direct transfer'
+                    ], 422);
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Stock transfer completed immediately (Direct Transfer).'
+                ]);
+            } else {
+                $transfer = StockTransfer::create([
+                    'from_site_id' => $request->from_site_id,
+                    'to_site_id' => $request->to_site_id,
+                    'book_id' => $request->book_id,
+                    'book_index_id' => $request->book_index_id,
+                    'book_bundle_id' => $request->book_bundle_id,
+                    'quantity' => $request->quantity,
+                    'approval_division' => StockTransfer::approvalDivisionForUser($user),
+                    'notes' => $request->notes,
+                    'created_by' => $user->id,
+                    'status' => 'pending'
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Transfer request submitted for ' . $transfer->approval_division . ' approval'
+                ]);
+            }
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error creating transfer: ' . $e->getMessage()
@@ -217,7 +264,9 @@ class SiteController extends Controller
         }
 
         $batchId = \Illuminate\Support\Str::uuid()->toString();
-        $approvalDivision = StockTransfer::approvalDivisionForUser(auth()->user());
+        $user = auth()->user();
+        $isSuperAdmin = $user && $user->isSuperAdmin();
+        $approvalDivision = StockTransfer::approvalDivisionForUser($user);
         $errors = [];
         $created = [];
 
@@ -248,20 +297,52 @@ class SiteController extends Controller
                     continue;
                 }
 
-                // Create transfer record
-                $transfer = StockTransfer::create([
-                    'from_site_id'      => $request->from_site_id,
-                    'to_site_id'        => $request->to_site_id,
-                    'book_id'           => $type === 'book'   ? $itemId : null,
-                    'book_index_id'     => $type === 'index'  ? $itemId : null,
-                    'book_bundle_id'    => $type === 'bundle' ? $itemId : null,
-                    'quantity'          => $quantity,
-                    'approval_division' => $approvalDivision,
-                    'notes'             => $request->notes,
-                    'batch_id'          => $batchId,
-                    'created_by'        => auth()->id(),
-                    'status'            => 'pending',
-                ]);
+                if ($isSuperAdmin) {
+                    $transfer = StockTransfer::create([
+                        'from_site_id'            => $request->from_site_id,
+                        'to_site_id'              => $request->to_site_id,
+                        'book_id'                 => $type === 'book'   ? $itemId : null,
+                        'book_index_id'           => $type === 'index'  ? $itemId : null,
+                        'book_bundle_id'          => $type === 'bundle' ? $itemId : null,
+                        'quantity'                => $quantity,
+                        'approval_division'       => $approvalDivision,
+                        'notes'                   => $request->notes,
+                        'batch_id'                => $batchId,
+                        'created_by'              => $user->id,
+                        'approved_by'             => $user->id,
+                        'approved_at'             => now(),
+                        'accounting_reviewed_by'  => $user->id,
+                        'accounting_reviewed_at'  => now(),
+                        'logistics_assigned_by'   => $user->id,
+                        'logistics_assigned_to'   => $user->id,
+                        'logistics_assigned_at'   => now(),
+                        'completed_by'            => $user->id,
+                        'completed_at'            => now(),
+                        'status'                  => 'completed',
+                    ]);
+
+                    if (!$transfer->executeStockMovement()) {
+                        $label = $type === 'book'
+                            ? ('Book #' . $itemId)
+                            : ($type === 'index' ? ('Index #' . $itemId) : ('Bundle #' . $itemId));
+                        $errors[] = "Failed to move stock for {$label}";
+                        continue;
+                    }
+                } else {
+                    $transfer = StockTransfer::create([
+                        'from_site_id'      => $request->from_site_id,
+                        'to_site_id'        => $request->to_site_id,
+                        'book_id'           => $type === 'book'   ? $itemId : null,
+                        'book_index_id'     => $type === 'index'  ? $itemId : null,
+                        'book_bundle_id'    => $type === 'bundle' ? $itemId : null,
+                        'quantity'          => $quantity,
+                        'approval_division' => $approvalDivision,
+                        'notes'             => $request->notes,
+                        'batch_id'          => $batchId,
+                        'created_by'        => $user->id,
+                        'status'            => 'pending',
+                    ]);
+                }
 
                 $created[] = $transfer;
             }
@@ -276,7 +357,10 @@ class SiteController extends Controller
 
             DB::commit();
 
-            $msg = count($created) . ' item(s) transfer request submitted for ' . $approvalDivision . ' approval.';
+            $msg = $isSuperAdmin
+                ? (count($created) . ' item(s) stock transfer completed immediately (Direct Transfer).')
+                : (count($created) . ' item(s) transfer request submitted for ' . $approvalDivision . ' approval.');
+
             if (!empty($errors)) {
                 $msg .= ' Skipped: ' . implode('; ', $errors);
             }

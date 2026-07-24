@@ -245,12 +245,8 @@ class StockTransfer extends Model
         return true;
     }
 
-    public function completeStockMovement()
+    public function executeStockMovement()
     {
-        if ($this->status !== 'logistics_assigned') {
-            return false;
-        }
-
         // Check if source site has enough stock
         $sourceQuery = SiteInventory::where('site_id', $this->from_site_id);
         if ($this->book_id) {
@@ -292,6 +288,36 @@ class StockTransfer extends Model
                 'book_bundle_id' => $this->book_bundle_id,
                 'quantity' => $this->quantity
             ]);
+        }
+
+        // If transferring a master book to or from Main Warehouse, update books table stock
+        if ($this->book_id) {
+            $book = \App\Models\Book::find($this->book_id);
+            if ($book) {
+                $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+                $mainWarehouseId = $mainWarehouse ? $mainWarehouse->id : 1;
+
+                if ((int)$this->from_site_id === (int)$mainWarehouseId) {
+                    $book->stock = max(0, $book->stock - $this->quantity);
+                    $book->saveQuietly();
+                } elseif ((int)$this->to_site_id === (int)$mainWarehouseId) {
+                    $book->stock += $this->quantity;
+                    $book->saveQuietly();
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public function completeStockMovement()
+    {
+        if ($this->status !== 'logistics_assigned') {
+            return false;
+        }
+
+        if (!$this->executeStockMovement()) {
+            return false;
         }
 
         // Mark transfer as completed
