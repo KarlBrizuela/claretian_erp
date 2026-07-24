@@ -63,7 +63,7 @@
                                         <td>{{ $item->reference_number ?? '-' }}</td>
                                         <td>{{ $item->supplier ?? ucfirst($item->source) }}</td>
                                         <td>{{ $item->transaction_date ? \Carbon\Carbon::parse($item->transaction_date)->format('Y-m-d') : $item->created_at->format('Y-m-d') }}</td>
-                                        <td>{{ $item->book->name }} ({{ $item->book->sku }})</td>
+                                        <td>{{ $item->book->name ?? 'Bundle / Non-Book' }} {{ isset($item->book->sku) ? '(' . $item->book->sku . ')' : '' }}</td>
                                         <td>{{ $item->quantity }}</td>
                                         <td>₱{{ number_format($item->total_cost, 2) }}</td>
                                         <td>

@@ -7,6 +7,8 @@ use App\Models\Site;
 use App\Models\SiteInventory;
 use App\Models\StockTransfer;
 use App\Models\Book;
+use App\Models\BookIndex;
+use App\Models\BookBundle;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -123,7 +125,9 @@ class SiteController extends Controller
         $request->validate([
             'from_site_id' => 'required|exists:sites,id',
             'to_site_id' => 'required|exists:sites,id',
-            'book_id' => 'required|exists:books,id',
+            'book_id' => 'nullable|exists:books,id',
+            'book_index_id' => 'nullable|exists:book_indices,id',
+            'book_bundle_id' => 'nullable|exists:book_bundles,id',
             'quantity' => 'required|integer|min:1',
             'notes' => 'nullable|string'
         ]);
@@ -136,11 +140,29 @@ class SiteController extends Controller
             ], 422);
         }
 
+        $hasBook = $request->filled('book_id');
+        $hasIndex = $request->filled('book_index_id');
+        $hasBundle = $request->filled('book_bundle_id');
+
+        if (($hasBook ? 1 : 0) + ($hasIndex ? 1 : 0) + ($hasBundle ? 1 : 0) !== 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please provide exactly one of: Book, Book Index, or Book Bundle'
+            ], 422);
+        }
+
         try {
             // Check if source has enough stock
-            $sourceInventory = SiteInventory::where('site_id', $request->from_site_id)
-                ->where('book_id', $request->book_id)
-                ->first();
+            $invQuery = SiteInventory::where('site_id', $request->from_site_id);
+            if ($hasBook) {
+                $invQuery->where('book_id', $request->book_id);
+            } elseif ($hasIndex) {
+                $invQuery->where('book_index_id', $request->book_index_id);
+            } elseif ($hasBundle) {
+                $invQuery->where('book_bundle_id', $request->book_bundle_id);
+            }
+            
+            $sourceInventory = $invQuery->first();
 
             if (!$sourceInventory || $sourceInventory->quantity < $request->quantity) {
                 return response()->json([
@@ -154,6 +176,8 @@ class SiteController extends Controller
                 'from_site_id' => $request->from_site_id,
                 'to_site_id' => $request->to_site_id,
                 'book_id' => $request->book_id,
+                'book_index_id' => $request->book_index_id,
+                'book_bundle_id' => $request->book_bundle_id,
                 'quantity' => $request->quantity,
                 'approval_division' => StockTransfer::approvalDivisionForUser(auth()->user()),
                 'notes' => $request->notes,
@@ -170,6 +194,107 @@ class SiteController extends Controller
                 'success' => false,
                 'message' => 'Error creating transfer: ' . $e->getMessage()
             ], 422);
+        }
+    }
+
+    public function transferBatch(Request $request)
+    {
+        $request->validate([
+            'from_site_id'  => 'required|exists:sites,id',
+            'to_site_id'    => 'required|exists:sites,id',
+            'notes'         => 'nullable|string',
+            'items'         => 'required|array|min:1',
+            'items.*.type'          => 'required|in:book,index,bundle',
+            'items.*.item_id'       => 'required|integer|min:1',
+            'items.*.quantity'      => 'required|integer|min:1',
+        ]);
+
+        if ($request->from_site_id == $request->to_site_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Source and destination sites cannot be the same'
+            ], 422);
+        }
+
+        $batchId = \Illuminate\Support\Str::uuid()->toString();
+        $approvalDivision = StockTransfer::approvalDivisionForUser(auth()->user());
+        $errors = [];
+        $created = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($request->items as $index => $item) {
+                $type     = $item['type'];
+                $itemId   = $item['item_id'];
+                $quantity = $item['quantity'];
+
+                // Build the source inventory query
+                $invQuery = SiteInventory::where('site_id', $request->from_site_id);
+                if ($type === 'book') {
+                    $invQuery->where('book_id', $itemId);
+                } elseif ($type === 'index') {
+                    $invQuery->where('book_index_id', $itemId);
+                } elseif ($type === 'bundle') {
+                    $invQuery->where('book_bundle_id', $itemId);
+                }
+
+                $sourceInventory = $invQuery->lockForUpdate()->first();
+
+                if (!$sourceInventory || $sourceInventory->quantity < $quantity) {
+                    $label = $type === 'book'
+                        ? ('Book #' . $itemId)
+                        : ($type === 'index' ? ('Index #' . $itemId) : ('Bundle #' . $itemId));
+                    $errors[] = "Insufficient stock for {$label} (have " . ($sourceInventory->quantity ?? 0) . ", need {$quantity})";
+                    continue;
+                }
+
+                // Create transfer record
+                $transfer = StockTransfer::create([
+                    'from_site_id'      => $request->from_site_id,
+                    'to_site_id'        => $request->to_site_id,
+                    'book_id'           => $type === 'book'   ? $itemId : null,
+                    'book_index_id'     => $type === 'index'  ? $itemId : null,
+                    'book_bundle_id'    => $type === 'bundle' ? $itemId : null,
+                    'quantity'          => $quantity,
+                    'approval_division' => $approvalDivision,
+                    'notes'             => $request->notes,
+                    'batch_id'          => $batchId,
+                    'created_by'        => auth()->id(),
+                    'status'            => 'pending',
+                ]);
+
+                $created[] = $transfer;
+            }
+
+            if (!empty($errors) && empty($created)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => implode('; ', $errors)
+                ], 422);
+            }
+
+            DB::commit();
+
+            $msg = count($created) . ' item(s) transfer request submitted for ' . $approvalDivision . ' approval.';
+            if (!empty($errors)) {
+                $msg .= ' Skipped: ' . implode('; ', $errors);
+            }
+
+            return response()->json([
+                'success'    => true,
+                'message'    => $msg,
+                'batch_id'   => $batchId,
+                'created'    => count($created),
+                'skipped'    => count($errors),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Batch transfer failed: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -318,7 +443,7 @@ class SiteController extends Controller
 
             DB::transaction(function () use ($transfer) {
                 if (!$transfer->completeStockMovement()) {
-                    throw new \Exception('Transfer is not assigned or source stock is insufficient');
+                    throw new \Exception('Insufficient stock at source site or invalid state');
                 }
             });
 
@@ -381,15 +506,35 @@ class SiteController extends Controller
             
             // Get real-time site-specific inventory only
             $inventory = SiteInventory::where('site_id', $siteId)
-                ->with('book')
+                ->with(['book', 'bookIndex.book', 'bookBundle'])
                 ->where('quantity', '>', 0)
                 ->get()
                 ->map(function($item) {
+                    $type = 'book';
+                    $itemId = $item->book_id;
+                    $name = $item->book->name ?? 'Unknown';
+
+                    if ($item->book_index_id) {
+                        $type = 'index';
+                        $itemId = $item->book_index_id;
+                        $bookName = $item->bookIndex->book->name ?? 'Unknown';
+                        $name = $bookName . ' ' . ($item->bookIndex->index_value ?? '');
+                    } elseif ($item->book_bundle_id) {
+                        $type = 'bundle';
+                        $itemId = $item->book_bundle_id;
+                        $name = $item->bookBundle->name ?? 'Unknown Bundle';
+                    }
+
                     return [
                         'book_id' => $item->book_id,
+                        'book_index_id' => $item->book_index_id,
+                        'book_bundle_id' => $item->book_bundle_id,
+                        'item_id' => $itemId,
+                        'type' => $type,
+                        'name' => $name,
                         'book' => [
-                            'id' => $item->book->id ?? null,
-                            'name' => $item->book->name ?? 'Unknown'
+                            'id' => $item->book_id,
+                            'name' => $name
                         ],
                         'quantity' => $item->quantity
                     ];

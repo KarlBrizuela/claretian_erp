@@ -112,6 +112,14 @@ class Book extends Model
     }
 
     /**
+     * Get the inventory items for this book across different sites.
+     */
+    public function inventory(): HasMany
+    {
+        return $this->hasMany(SiteInventory::class);
+    }
+
+    /**
      * Get history of stock movements.
      */
     public function transactions(): HasMany

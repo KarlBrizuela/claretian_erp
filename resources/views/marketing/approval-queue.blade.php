@@ -378,7 +378,7 @@
                                                     data-id="{{ $transfer->id }}"
                                                     data-from-site="{{ $transfer->fromSite->name }}"
                                                     data-to-site="{{ $transfer->toSite->name }}"
-                                                    data-book-name="{{ $transfer->book->name }}"
+                                                    data-book-name="{{ $transfer->item_name }}"
                                                     data-quantity="{{ $transfer->quantity }}">
                                                 <i class="las la-eye"></i> Review
                                             </button>
@@ -650,7 +650,7 @@
                                                 data-id="{{ $transfer->id }}"
                                                 data-from-site="{{ $transfer->fromSite->name }}"
                                                 data-to-site="{{ $transfer->toSite->name }}"
-                                                data-book-name="{{ $transfer->book->name }}"
+                                                data-book-name="{{ $transfer->item_name }}"
                                                 data-quantity="{{ $transfer->quantity }}">
                                             <i class="las la-eye"></i> Review
                                         </button>

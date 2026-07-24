@@ -36,4 +36,20 @@ class BookIndex extends Model
         }
         return $this->book->name . ' ' . $this->index_value;
     }
+
+    /**
+     * Get the inventory items for this index across different sites.
+     */
+    public function inventory()
+    {
+        return $this->hasMany(SiteInventory::class, 'book_index_id');
+    }
+
+    /**
+     * Get the stock transfers for this index.
+     */
+    public function stockTransfers()
+    {
+        return $this->hasMany(StockTransfer::class, 'book_index_id');
+    }
 }

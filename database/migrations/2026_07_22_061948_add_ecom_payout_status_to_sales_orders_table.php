@@ -13,9 +13,11 @@ class AddEcomPayoutStatusToSalesOrdersTable extends Migration
      */
     public function up()
     {
-        Schema::table('sales_orders', function (Blueprint $table) {
-            $table->string('ecom_payout_status')->default('pending')->after('status');
-        });
+        if (!Schema::hasColumn('sales_orders', 'ecom_payout_status')) {
+            Schema::table('sales_orders', function (Blueprint $table) {
+                $table->string('ecom_payout_status')->default('pending')->after('status');
+            });
+        }
     }
 
     /**

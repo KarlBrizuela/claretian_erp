@@ -357,6 +357,116 @@
             const modal = new bootstrap.Modal(document.getElementById('genericCoaModal'));
             modal.show();
         }
+
+        // --- CLIENT-SIDE TABLE PAGINATION FOR CARD LEDGER MODALS ---
+        function initTablePagination(tableElement, itemsPerPage = 10) {
+            const tbody = tableElement.querySelector('tbody');
+            if (!tbody) return;
+            
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            // Check if there are no items or only an empty row
+            if (rows.length === 1 && rows[0].querySelector('td[colspan]')) return;
+            if (rows.length <= itemsPerPage) return;
+            
+            const totalItems = rows.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            let currentPage = 1;
+            
+            // Create pagination container
+            const nav = document.createElement('nav');
+            nav.className = 'd-flex justify-content-between align-items-center mt-3';
+            
+            const info = document.createElement('div');
+            info.className = 'small text-muted';
+            
+            const ul = document.createElement('ul');
+            ul.className = 'pagination pagination-xs mb-0';
+            
+            nav.appendChild(info);
+            nav.appendChild(ul);
+            
+            // Insert after table wrapper
+            const wrapper = tableElement.closest('.table-responsive') || tableElement;
+            wrapper.parentNode.appendChild(nav);
+            
+            function showPage(page) {
+                currentPage = page;
+                const start = (page - 1) * itemsPerPage;
+                const end = start + itemsPerPage;
+                
+                rows.forEach((row, idx) => {
+                    if (idx >= start && idx < end) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                info.textContent = `Showing ${start + 1} to ${Math.min(end, totalItems)} of ${totalItems} entries`;
+                
+                ul.innerHTML = '';
+                
+                // Prev
+                const prevLi = document.createElement('li');
+                prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+                prevLi.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; margin-right: 4px; padding: 4px 8px; font-size: 0.75rem;">&laquo;</a>`;
+                prevLi.querySelector('a').onclick = (e) => {
+                    e.preventDefault();
+                    if (currentPage > 1) showPage(currentPage - 1);
+                };
+                ul.appendChild(prevLi);
+                
+                // Numbers
+                for (let i = 1; i <= totalPages; i++) {
+                    if (totalPages > 5) {
+                        if (i !== 1 && i !== totalPages && Math.abs(i - currentPage) > 1) {
+                            if (i === 2 || i === totalPages - 1) {
+                                const dotsLi = document.createElement('li');
+                                dotsLi.className = 'page-item disabled';
+                                dotsLi.innerHTML = '<span class="page-link" style="border: none; padding: 4px 8px; font-size: 0.75rem;">...</span>';
+                                ul.appendChild(dotsLi);
+                            }
+                            continue;
+                        }
+                    }
+                    
+                    const li = document.createElement('li');
+                    li.className = `page-item ${currentPage === i ? 'active' : ''}`;
+                    
+                    let activeStyles = '';
+                    if (currentPage === i) {
+                        activeStyles = 'background-color: #D9251C; border-color: #D9251C; color: #fff;';
+                    }
+                    
+                    li.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; margin-right: 4px; padding: 4px 8px; font-size: 0.75rem; ${activeStyles}">${i}</a>`;
+                    li.querySelector('a').onclick = (e) => {
+                        e.preventDefault();
+                        showPage(i);
+                    };
+                    ul.appendChild(li);
+                }
+                
+                // Next
+                const nextLi = document.createElement('li');
+                nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+                nextLi.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; padding: 4px 8px; font-size: 0.75rem;">&raquo;</a>`;
+                nextLi.querySelector('a').onclick = (e) => {
+                    e.preventDefault();
+                    if (currentPage < totalPages) showPage(currentPage + 1);
+                };
+                ul.appendChild(nextLi);
+            }
+            
+            showPage(1);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalTables = document.querySelectorAll('.modal .modal-body table');
+            modalTables.forEach(table => {
+                if (table.closest('#genericCoaModal')) return;
+                initTablePagination(table, 10);
+            });
+        });
     </script>
     @endpush
 </x-app-layout>

@@ -1,4 +1,54 @@
 <x-app-layout :title="'Inventory Overview'" :sidebar="'production'">
+    <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
+    <style>
+        /* Select2 Bootstrap 5 & Modal Integration Styling */
+        .select2-container--default .select2-selection--single {
+            height: 42px !important;
+            padding: 6px 12px !important;
+            border: 1px solid #ced4da !important;
+            border-radius: 0.375rem !important;
+            display: flex !important;
+            align-items: center !important;
+            background-color: #fff !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 28px !important;
+            color: #495057 !important;
+            padding-left: 0 !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 40px !important;
+            right: 8px !important;
+        }
+        .select2-dropdown {
+            border-color: #ced4da !important;
+            border-radius: 0.375rem !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+            z-index: 10060 !important;
+        }
+        .select2-search--dropdown {
+            padding: 8px !important;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        .select2-search--dropdown .select2-search__field {
+            border: 1px solid #ced4da !important;
+            border-radius: 0.25rem !important;
+            padding: 6px 10px !important;
+            outline: none !important;
+            width: 100% !important;
+            font-size: 14px !important;
+            display: block !important;
+            visibility: visible !important;
+            height: 34px !important;
+            box-sizing: border-box !important;
+            opacity: 1 !important;
+        }
+        .select2-container--open .select2-search--dropdown {
+            display: block !important;
+        }
+    </style>
     <div class="container-fluid">
         <!-- Add Project Modal -->
         <div class="modal fade" id="addProjectSidebar">
@@ -130,13 +180,35 @@
                     </div>
                 </div>
         
-                <!-- Product Inventory Table -->
+                <!-- Product Inventory Table with Sub-Tabs -->
                 <div class="row">
                     <div class="col-xl-12 col-xxl-12">
                         <div class="card">
                             <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between flex-wrap gap-3">
-                                <div>
-                                    <h4 class="fs-20 mb-0 text-black">Master Book Registry</h4>
+                                <div class="d-flex align-items-center flex-wrap gap-3">
+                                    <h4 class="fs-20 mb-0 text-black">Master Registry</h4>
+                                    <ul class="nav nav-tabs card-header-tabs border-0" role="tablist" style="margin-bottom: -15px;">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active font-w600" id="registry-books-tab" data-bs-toggle="tab" data-bs-target="#registry-books-content" type="button" role="tab" aria-controls="registry-books-content" aria-selected="true">
+                                                <i class="las la-book me-1"></i>Books
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link font-w600" id="registry-nonbooks-tab" data-bs-toggle="tab" data-bs-target="#registry-nonbooks-content" type="button" role="tab" aria-controls="registry-nonbooks-content" aria-selected="false">
+                                                <i class="las la-gift me-1"></i>Non-Books
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link font-w600" id="registry-indices-tab" data-bs-toggle="tab" data-bs-target="#registry-indices-content" type="button" role="tab" aria-controls="registry-indices-content" aria-selected="false">
+                                                <i class="las la-list me-1"></i>Indices
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link font-w600" id="registry-bundles-tab" data-bs-toggle="tab" data-bs-target="#registry-bundles-content" type="button" role="tab" aria-controls="registry-bundles-content" aria-selected="false">
+                                                <i class="las la-boxes me-1"></i>Bundles
+                                            </button>
+                                        </li>
+                                    </ul>
                                 </div>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
                                     <!-- Search Form -->
@@ -144,7 +216,7 @@
                                         <div style="width: 250px; height: 38px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa; padding: 0 12px; box-sizing: border-box;">
                                             <span class="las la-search text-muted me-2" style="font-size: 1.1rem; line-height: 1;"></span>
                                             <input type="text" name="search" class="form-control" 
-                                                   placeholder="Search books..." value="{{ request('search') }}" 
+                                                   placeholder="Search registry..." value="{{ request('search') }}" 
                                                    style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.85rem; color: #333; outline: none !important; box-shadow: none !important;">
                                             @if(request('search'))
                                                 <a href="{{ route('production.inventory.overview') }}" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
@@ -164,74 +236,289 @@
                                 </div>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-responsive-md">
-                                        <thead>
-                                            <tr>
-                                                <th><strong>BOOK ID</strong></th>
-                                                <th><strong>TITLE</strong></th>
-                                                <th><strong>CATEGORY</strong></th>
-                                                <th><strong>UNIT COST</strong></th>
-                                                <th><strong>STOCK</strong></th>
-                                                <th><strong>MAX STOCK</strong></th>
-                                                <th><strong>STATUS</strong></th>
-                                                <th><strong>ACTION</strong></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @forelse($books as $book)
-                                            @php
-                                                // Get Main Warehouse inventory for this book
-                                                $mainWarehouseQuantity = 0;
-                                                if($mainWarehouse) {
-                                                    $mainWarehouseQuantity = $mainWarehouse->inventory()
-                                                        ->where('book_id', $book->id)
-                                                        ->sum('quantity');
-                                                }
-                                            @endphp
-                                            <tr>
-                                                <td><strong>#{{ $book->sku }}</strong></td>
-                                                <td>{{ $book->name }}</td>
-                                                <td>{{ $book->category }}</td>
-                                                <td>₱{{ number_format($book->cost, 2) }}</td>
-                                                <td><strong>{{ $mainWarehouseQuantity }}</strong></td>
-                                                <td><strong>{{ $book->max_stock ?? 'N/A' }}</strong></td>
-                                                <td>
-                                                    @if($mainWarehouseQuantity == 0)
-                                                        <div class="d-flex align-items-center">
-                                                            <i class="fa fa-circle text-danger me-1"></i> Out of Stock
-                                                        </div>
-                                                    @elseif($mainWarehouseQuantity <= ($book->reorder_point ?? 0))
-                                                        <div class="d-flex align-items-center">
-                                                            <i class="fa fa-circle text-warning me-1"></i> Low Stock
-                                                        </div>
-                                                    @else
-                                                        <div class="d-flex align-items-center">
-                                                            <i class="fa fa-circle text-success me-1"></i> In Stock
-                                                        </div>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    <button class="btn btn-sm btn-danger" onclick="openStockManagementModal({{ $book->id }}, '{{ addslashes($book->name) }}', {{ $book->stock }}, {{ $book->max_stock ?? 0 }})">
-                                                        <i class="las la-pen"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            @empty
-                                            <tr>
-                                                <td colspan="8" class="text-center">No master books found.您
-                                            </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mt-4">
-                                    <div class="pagination-info">
-                                        Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
+                                <div class="tab-content">
+                                    
+                                    <!-- Books Registry Tab Pane -->
+                                    <div class="tab-pane fade show active" id="registry-books-content" role="tabpanel" aria-labelledby="registry-books-tab">
+                                        <div class="table-responsive">
+                                            <table class="table table-responsive-md">
+                                                <thead>
+                                                    <tr>
+                                                        <th><strong>BOOK ID</strong></th>
+                                                        <th><strong>TITLE</strong></th>
+                                                        <th><strong>CATEGORY</strong></th>
+                                                        <th><strong>UNIT COST</strong></th>
+                                                        <th><strong>STOCK</strong></th>
+                                                        <th><strong>MAX STOCK</strong></th>
+                                                        <th><strong>STATUS</strong></th>
+                                                        <th><strong>ACTION</strong></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($books as $book)
+                                                    @php
+                                                        // Get Main Warehouse inventory for this book
+                                                        $mainWarehouseQuantity = 0;
+                                                        if($mainWarehouse) {
+                                                            $mainWarehouseQuantity = $mainWarehouse->inventory()
+                                                                ->where('book_id', $book->id)
+                                                                ->sum('quantity');
+                                                        }
+                                                    @endphp
+                                                    <tr>
+                                                        <td><strong>#{{ $book->sku }}</strong></td>
+                                                        <td>{{ $book->name }}</td>
+                                                        <td>{{ $book->category }}</td>
+                                                        <td>₱{{ number_format($book->cost, 2) }}</td>
+                                                        <td><strong>{{ $mainWarehouseQuantity }}</strong></td>
+                                                        <td><strong>{{ $book->max_stock ?? 'N/A' }}</strong></td>
+                                                        <td>
+                                                            @if($mainWarehouseQuantity == 0)
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-danger me-1"></i> Out of Stock
+                                                                </div>
+                                                            @elseif($mainWarehouseQuantity <= ($book->reorder_point ?? 0))
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-warning me-1"></i> Low Stock
+                                                                </div>
+                                                            @else
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-success me-1"></i> In Stock
+                                                                </div>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-danger" onclick="openStockManagementModal({{ $book->id }}, '{{ addslashes($book->name) }}', {{ $book->stock }}, {{ $book->max_stock ?? 0 }})">
+                                                                <i class="las la-pen"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                    @empty
+                                                    <tr>
+                                                        <td colspan="8" class="text-center">No master books found.</td>
+                                                    </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-4">
+                                            <div class="pagination-info">
+                                                Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
+                                            </div>
+                                            <nav>
+                                                {{ $books->appends(['search' => request('search')])->links() }}
+                                        </div>
                                     </div>
-                                    <nav>
-                                        {{ $books->appends(['search' => request('search')])->links() }}
-                                    </nav>
+
+                                    <!-- Non-Books Registry Tab Pane -->
+                                    <div class="tab-pane fade" id="registry-nonbooks-content" role="tabpanel" aria-labelledby="registry-nonbooks-tab">
+                                        <div class="table-responsive">
+                                            <table class="table table-responsive-md">
+                                                <thead>
+                                                    <tr>
+                                                        <th><strong>ITEM ID</strong></th>
+                                                        <th><strong>NAME</strong></th>
+                                                        <th><strong>CATEGORY</strong></th>
+                                                        <th><strong>UNIT COST</strong></th>
+                                                        <th><strong>STOCK</strong></th>
+                                                        <th><strong>MAX STOCK</strong></th>
+                                                        <th><strong>STATUS</strong></th>
+                                                        <th><strong>ACTION</strong></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($nonBooks as $item)
+                                                    @php
+                                                        // Get Main Warehouse inventory for this non-book
+                                                        $mainWarehouseQuantity = 0;
+                                                        if($mainWarehouse) {
+                                                            $mainWarehouseQuantity = $mainWarehouse->inventory()
+                                                                ->where('book_id', $item->id)
+                                                                ->sum('quantity');
+                                                        }
+                                                    @endphp
+                                                    <tr>
+                                                        <td><strong>#{{ $item->sku }}</strong></td>
+                                                        <td>{{ $item->name }}</td>
+                                                        <td>{{ $item->category }}</td>
+                                                        <td>₱{{ number_format($item->cost, 2) }}</td>
+                                                        <td><strong>{{ $mainWarehouseQuantity }}</strong></td>
+                                                        <td><strong>{{ $item->max_stock ?? 'N/A' }}</strong></td>
+                                                        <td>
+                                                            @if($mainWarehouseQuantity == 0)
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-danger me-1"></i> Out of Stock
+                                                                </div>
+                                                            @elseif($mainWarehouseQuantity <= ($item->reorder_point ?? 0))
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-warning me-1"></i> Low Stock
+                                                                </div>
+                                                            @else
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-success me-1"></i> In Stock
+                                                                </div>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-danger" onclick="openStockManagementModal({{ $item->id }}, '{{ addslashes($item->name) }}', {{ $item->stock }}, {{ $item->max_stock ?? 0 }})">
+                                                                <i class="las la-pen"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                    @empty
+                                                    <tr>
+                                                        <td colspan="8" class="text-center">No non-books found.</td>
+                                                    </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-4">
+                                            <div class="pagination-info">
+                                                Showing {{ $nonBooks->firstItem() ?? 0 }} to {{ $nonBooks->lastItem() ?? 0 }} of {{ $nonBooks->total() }} entries
+                                            </div>
+                                            <nav>
+                                                {{ $nonBooks->appends(['search' => request('search')])->links() }}
+                                            </nav>
+                                        </div>
+                                    </div>
+
+                                    <!-- Indices Registry Tab Pane -->
+                                    <div class="tab-pane fade" id="registry-indices-content" role="tabpanel" aria-labelledby="registry-indices-tab">
+                                        <div class="table-responsive">
+                                            <table class="table table-responsive-md">
+                                                <thead>
+                                                    <tr>
+                                                        <th><strong>ID</strong></th>
+                                                        <th><strong>BOOK TITLE</strong></th>
+                                                        <th><strong>INDEX VALUE</strong></th>
+                                                        <th><strong>STOCK</strong></th>
+                                                        <th><strong>STATUS</strong></th>
+                                                        <th><strong>ACTION</strong></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($indices as $index)
+                                                    @php
+                                                        $mainWarehouseQty = 0;
+                                                        if($mainWarehouse) {
+                                                            $mainWarehouseQty = $mainWarehouse->inventory()
+                                                                ->where('book_index_id', $index->id)
+                                                                ->sum('quantity');
+                                                        }
+                                                    @endphp
+                                                    <tr>
+                                                        <td><strong>#IDX-{{ str_pad($index->id, 4, '0', STR_PAD_LEFT) }}</strong></td>
+                                                        <td>{{ $index->book->name ?? 'N/A' }}</td>
+                                                        <td><span class="badge badge-info light">{{ $index->index_value }}</span></td>
+                                                        <td><strong>{{ $mainWarehouseQty }}</strong></td>
+                                                        <td>
+                                                            @if($mainWarehouseQty == 0)
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-danger me-1"></i> Out of Stock
+                                                                </div>
+                                                            @else
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-success me-1"></i> In Stock
+                                                                </div>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-danger" onclick="openIndexStockModal({{ $index->id }}, '{{ addslashes($index->book->name ?? 'N/A') }}', '{{ addslashes($index->index_value) }}', {{ $mainWarehouseQty }})">
+                                                                <i class="las la-pen"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                    @empty
+                                                    <tr>
+                                                        <td colspan="6" class="text-center">No book indices found.</td>
+                                                    </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-4">
+                                            <div class="pagination-info">
+                                                Showing {{ $indices->firstItem() ?? 0 }} to {{ $indices->lastItem() ?? 0 }} of {{ $indices->total() }} entries
+                                            </div>
+                                            <nav>
+                                                {{ $indices->appends(['search' => request('search')])->links() }}
+                                            </nav>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bundles Registry Tab Pane -->
+                                    <div class="tab-pane fade" id="registry-bundles-content" role="tabpanel" aria-labelledby="registry-bundles-tab">
+                                        <div class="table-responsive">
+                                            <table class="table table-responsive-md">
+                                                <thead>
+                                                    <tr>
+                                                        <th><strong>BUNDLE SKU</strong></th>
+                                                        <th><strong>NAME</strong></th>
+                                                        <th><strong>CONSTITUENT BOOKS</strong></th>
+                                                        <th><strong>PRICE</strong></th>
+                                                        <th><strong>STOCK</strong></th>
+                                                        <th><strong>STATUS</strong></th>
+                                                        <th><strong>ACTION</strong></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($bundles as $bundle)
+                                                    @php
+                                                        $mainWarehouseQty = 0;
+                                                        if($mainWarehouse) {
+                                                            $mainWarehouseQty = $mainWarehouse->inventory()
+                                                                ->where('book_bundle_id', $bundle->id)
+                                                                ->sum('quantity');
+                                                        }
+                                                    @endphp
+                                                    <tr>
+                                                        <td><strong>#{{ $bundle->sku ?? 'N/A' }}</strong></td>
+                                                        <td>{{ $bundle->name }}</td>
+                                                        <td>
+                                                            <ul class="mb-0 list-unstyled">
+                                                                @foreach($bundle->books as $b)
+                                                                    <li><small>• {{ $b->name }} (Qty: {{ $b->pivot->quantity }})</small></li>
+                                                                @endforeach
+                                                            </ul>
+                                                        </td>
+                                                        <td>₱{{ number_format($bundle->price, 2) }}</td>
+                                                        <td><strong>{{ $mainWarehouseQty }}</strong></td>
+                                                        <td>
+                                                            @if($mainWarehouseQty == 0)
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-danger me-1"></i> Out of Stock
+                                                                </div>
+                                                            @else
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fa fa-circle text-success me-1"></i> In Stock
+                                                                </div>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-danger" onclick="openBundleStockModal({{ $bundle->id }}, '{{ addslashes($bundle->name) }}', {{ $mainWarehouseQty }})">
+                                                                <i class="las la-pen"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                    @empty
+                                                    <tr>
+                                                        <td colspan="7" class="text-center">No book bundles found.</td>
+                                                    </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-4">
+                                            <div class="pagination-info">
+                                                Showing {{ $bundles->firstItem() ?? 0 }} to {{ $bundles->lastItem() ?? 0 }} of {{ $bundles->total() }} entries
+                                            </div>
+                                            <nav>
+                                                {{ $bundles->appends(['search' => request('search')])->links() }}
+                                            </nav>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -392,7 +679,7 @@
                                             <tr>
                                                 <th><strong>FROM</strong></th>
                                                 <th><strong>TO</strong></th>
-                                                <th><strong>BOOK</strong></th>
+                                                <th><strong>ITEM</strong></th>
                                                 <th><strong>QUANTITY</strong></th>
                                                 <th><strong>APPROVER</strong></th>
                                                 <th><strong>STATUS</strong></th>
@@ -404,7 +691,7 @@
                                             <tr>
                                                 <td>{{ $transfer->fromSite->name }}</td>
                                                 <td>{{ $transfer->toSite->name }}</td>
-                                                <td>{{ $transfer->book->name }}</td>
+                                                <td>{{ $transfer->item_name }}</td>
                                                 <td><strong>{{ $transfer->quantity }}</strong></td>
                                                 <td>{{ $transfer->approval_division ?? 'Production' }} Manager/Supervisor</td>
                                                 <td>
@@ -461,7 +748,7 @@
                                             <tr>
                                                 <th><strong>REF</strong></th>
                                                 <th><strong>FROM / TO</strong></th>
-                                                <th><strong>BOOK</strong></th>
+                                                <th><strong>ITEM</strong></th>
                                                 <th><strong>QTY</strong></th>
                                                 <th><strong>REQUESTED BY</strong></th>
                                                 <th><strong>ASSIGNED LOGISTICS</strong></th>
@@ -477,7 +764,7 @@
                                                     <div>{{ $transfer->fromSite->name ?? 'N/A' }}</div>
                                                     <small class="text-muted">to {{ $transfer->toSite->name ?? 'N/A' }}</small>
                                                 </td>
-                                                <td>{{ $transfer->book->name ?? 'N/A' }}</td>
+                                                <td>{{ $transfer->item_name ?? 'N/A' }}</td>
                                                 <td><strong>{{ $transfer->quantity }}</strong></td>
                                                 <td>{{ $transfer->createdBy->name ?? 'N/A' }}</td>
                                                 <td>{{ $transfer->logisticsAssignedTo->name ?? 'Not assigned' }}</td>
@@ -551,46 +838,162 @@
     @forelse($sites ?? [] as $site)
         <!-- View Site Inventory Modal -->
         <div class="modal fade" id="viewSiteInventory{{ $site->id }}" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                 <div class="modal-content">
                     <div class="modal-header bg-info text-white">
-                        <h6 class="modal-title text-white">Inventory at {{ $site->name }}</h6>
+                        <h6 class="modal-title text-white"><i class="las la-boxes me-2"></i>Inventory at {{ $site->name }}</h6>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        @php
+                            $booksInv = $site->inventory->filter(fn($inv) => !empty($inv->book_id) && empty($inv->book_index_id) && empty($inv->book_bundle_id));
+                            $indicesInv = $site->inventory->filter(fn($inv) => !empty($inv->book_index_id));
+                            $bundlesInv = $site->inventory->filter(fn($inv) => !empty($inv->book_bundle_id));
+                        @endphp
+
                         @if($site->inventory->count() > 0)
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Book Title</th>
-                                            <th>Quantity</th>
-                                            <th>Reorder Point</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($site->inventory as $inv)
-                                        <tr>
-                                            <td>{{ $inv->book->name ?? 'Unknown' }}</td>
-                                            <td><strong>{{ $inv->quantity }}</strong></td>
-                                            <td>{{ $inv->reorder_point ?? 'N/A' }}</td>
-                                            <td>
-                                                @if($inv->getStockStatus() == 'out_of_stock')
-                                                    <span class="badge light badge-danger">Out of Stock</span>
-                                                @elseif($inv->getStockStatus() == 'low_stock')
-                                                    <span class="badge light badge-warning">Low Stock</span>
-                                                @else
-                                                    <span class="badge light badge-success">In Stock</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                            <!-- Nav tabs inside modal -->
+                            <ul class="nav nav-tabs nav-tabs-primary mb-3" role="tablist">
+                                <li class="nav-item">
+                                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#site-books-{{ $site->id }}" type="button">
+                                        <i class="las la-book me-1"></i> Books <span class="badge bg-primary text-white ms-1">{{ $booksInv->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-indices-{{ $site->id }}" type="button">
+                                        <i class="las la-bookmark me-1"></i> Indices <span class="badge bg-info text-white ms-1">{{ $indicesInv->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-bundles-{{ $site->id }}" type="button">
+                                        <i class="las la-boxes me-1"></i> Bundles <span class="badge bg-warning text-white ms-1">{{ $bundlesInv->count() }}</span>
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content">
+                                <!-- Books Tab -->
+                                <div class="tab-pane fade show active" id="site-books-{{ $site->id }}">
+                                    @if($booksInv->count() > 0)
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle" id="site-books-table-{{ $site->id }}">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Book Title</th>
+                                                        <th>Quantity</th>
+                                                        <th>Reorder Point</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($booksInv as $inv)
+                                                    <tr class="paginate-row">
+                                                        <td>{{ $inv->book->name ?? 'Unknown' }}</td>
+                                                        <td><strong>{{ $inv->quantity }}</strong></td>
+                                                        <td>{{ $inv->reorder_point ?? 'N/A' }}</td>
+                                                        <td>
+                                                            @if($inv->getStockStatus() == 'out_of_stock')
+                                                                <span class="badge light badge-danger">Out of Stock</span>
+                                                            @elseif($inv->getStockStatus() == 'low_stock')
+                                                                <span class="badge light badge-warning">Low Stock</span>
+                                                            @else
+                                                                <span class="badge light badge-success">In Stock</span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <div class="alert alert-light text-center my-3 text-muted">No books inventory at this site</div>
+                                    @endif
+                                </div>
+
+                                <!-- Indices Tab -->
+                                <div class="tab-pane fade" id="site-indices-{{ $site->id }}">
+                                    @if($indicesInv->count() > 0)
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle" id="site-indices-table-{{ $site->id }}">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Index Name</th>
+                                                        <th>Quantity</th>
+                                                        <th>Reorder Point</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($indicesInv as $inv)
+                                                    <tr class="paginate-row">
+                                                        <td>
+                                                            {{ $inv->bookIndex->book->name ?? 'Unknown Book' }}
+                                                            <span class="badge bg-info light text-info ms-1">{{ $inv->bookIndex->index_value ?? 'Index' }}</span>
+                                                        </td>
+                                                        <td><strong>{{ $inv->quantity }}</strong></td>
+                                                        <td>{{ $inv->reorder_point ?? 'N/A' }}</td>
+                                                        <td>
+                                                            @if($inv->getStockStatus() == 'out_of_stock')
+                                                                <span class="badge light badge-danger">Out of Stock</span>
+                                                            @elseif($inv->getStockStatus() == 'low_stock')
+                                                                <span class="badge light badge-warning">Low Stock</span>
+                                                            @else
+                                                                <span class="badge light badge-success">In Stock</span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <div class="alert alert-light text-center my-3 text-muted">No index inventory at this site</div>
+                                    @endif
+                                </div>
+
+                                <!-- Bundles Tab -->
+                                <div class="tab-pane fade" id="site-bundles-{{ $site->id }}">
+                                    @if($bundlesInv->count() > 0)
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle" id="site-bundles-table-{{ $site->id }}">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Bundle Name</th>
+                                                        <th>Quantity</th>
+                                                        <th>Reorder Point</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($bundlesInv as $inv)
+                                                    <tr class="paginate-row">
+                                                        <td>
+                                                            {{ $inv->bookBundle->name ?? 'Unknown Bundle' }}
+                                                            <span class="badge bg-warning light text-warning ms-1">Bundle</span>
+                                                        </td>
+                                                        <td><strong>{{ $inv->quantity }}</strong></td>
+                                                        <td>{{ $inv->reorder_point ?? 'N/A' }}</td>
+                                                        <td>
+                                                            @if($inv->getStockStatus() == 'out_of_stock')
+                                                                <span class="badge light badge-danger">Out of Stock</span>
+                                                            @elseif($inv->getStockStatus() == 'low_stock')
+                                                                <span class="badge light badge-warning">Low Stock</span>
+                                                            @else
+                                                                <span class="badge light badge-success">In Stock</span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <div class="alert alert-light text-center my-3 text-muted">No bundle inventory at this site</div>
+                                    @endif
+                                </div>
                             </div>
                         @else
-                            <div class="alert alert-info">No inventory at this site</div>
+                            <div class="alert alert-info text-center my-3">No inventory at this site</div>
                         @endif
                     </div>
                 </div>
@@ -716,6 +1119,134 @@
         </div>
     </div>
 
+    <!-- Index Stock Management Modal -->
+    <div class="modal fade" id="indexStockModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h6 class="modal-title m-0 text-white"><i class="las la-pen me-2"></i>Index Stock Management</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label font-w600">Book Name</label>
+                        <input type="text" class="form-control" id="mgmtIndexBookName" disabled>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label font-w600">Index Value</label>
+                            <input type="text" class="form-control" id="mgmtIndexValue" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label font-w600">Current Stock</label>
+                            <input type="number" class="form-control" id="mgmtIndexCurrentStock" disabled>
+                        </div>
+                    </div>
+
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="idxAddTab" data-bs-toggle="tab" data-bs-target="#idxAddTabContent" type="button" role="tab" aria-controls="idxAddTabContent" aria-selected="true">
+                                <i class="las la-plus me-1"></i>Add Stock
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="idxEditTab" data-bs-toggle="tab" data-bs-target="#idxEditTabContent" type="button" role="tab" aria-controls="idxEditTabContent" aria-selected="false">
+                                <i class="las la-edit me-1"></i>Edit Stock
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="idxAddTabContent" role="tabpanel" aria-labelledby="idxAddTab">
+                            <div class="mb-3">
+                                <label class="form-label font-w600">Quantity to Add *</label>
+                                <input type="number" class="form-control" id="mgmtIndexAddQuantity" placeholder="Enter quantity" min="1">
+                            </div>
+                            <div class="alert alert-info" id="mgmtIndexAddPreview" style="display:none;">
+                                <small><strong>New Stock:</strong> <span id="mgmtIndexAddNewStock">0</span></small>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="idxEditTabContent" role="tabpanel" aria-labelledby="idxEditTab">
+                            <div class="mb-3">
+                                <label class="form-label font-w600">Set Stock to *</label>
+                                <input type="number" class="form-control" id="mgmtIndexEditQuantity" placeholder="Enter new stock value" min="0">
+                            </div>
+                            <div class="alert alert-info" id="mgmtIndexEditPreview" style="display:none;">
+                                <small><strong>Change from:</strong> <span id="mgmtIndexEditOldStock">0</span> to <span id="mgmtIndexEditNewStock">0</span></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="mgmtIndexSaveBtn" onclick="saveIndexStockManagement()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bundle Stock Management Modal -->
+    <div class="modal fade" id="bundleStockModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h6 class="modal-title m-0 text-white"><i class="las la-pen me-2"></i>Bundle Stock Management</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label font-w600">Bundle Name</label>
+                        <input type="text" class="form-control" id="mgmtBundleName" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-w600">Current Stock</label>
+                        <input type="number" class="form-control" id="mgmtBundleCurrentStock" disabled>
+                    </div>
+
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="bndlAddTab" data-bs-toggle="tab" data-bs-target="#bndlAddTabContent" type="button" role="tab" aria-controls="bndlAddTabContent" aria-selected="true">
+                                <i class="las la-plus me-1"></i>Add Stock
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="bndlEditTab" data-bs-toggle="tab" data-bs-target="#bndlEditTabContent" type="button" role="tab" aria-controls="bndlEditTabContent" aria-selected="false">
+                                <i class="las la-edit me-1"></i>Edit Stock
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="bndlAddTabContent" role="tabpanel" aria-labelledby="bndlAddTab">
+                            <div class="mb-3">
+                                <label class="form-label font-w600">Quantity to Add *</label>
+                                <input type="number" class="form-control" id="mgmtBundleAddQuantity" placeholder="Enter quantity" min="1">
+                            </div>
+                            <div class="alert alert-info" id="mgmtBundleAddPreview" style="display:none;">
+                                <small><strong>New Stock:</strong> <span id="mgmtBundleAddNewStock">0</span></small>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="bndlEditTabContent" role="tabpanel" aria-labelledby="bndlEditTab">
+                            <div class="mb-3">
+                                <label class="form-label font-w600">Set Stock to *</label>
+                                <input type="number" class="form-control" id="mgmtBundleEditQuantity" placeholder="Enter new stock value" min="0">
+                            </div>
+                            <div class="alert alert-info" id="mgmtBundleEditPreview" style="display:none;">
+                                <small><strong>Change from:</strong> <span id="mgmtBundleEditOldStock">0</span> to <span id="mgmtBundleEditNewStock">0</span></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="mgmtBundleSaveBtn" onclick="saveBundleStockManagement()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Site Modal -->
     <div class="modal fade" id="addSiteModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -755,7 +1286,7 @@
 
     <!-- Transfer Stock Modal -->
     <div class="modal fade" id="transferStockModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header text-white d-flex justify-content-between align-items-center" style="background-color: #dc3545;">
                     <h6 class="modal-title text-white m-0"><i class="las la-exchange-alt me-2"></i>Transfer Stock (Multiple Books)</h6>
@@ -777,53 +1308,64 @@
 
                         <!-- Multiple Books to Transfer Section -->
                         <div class="mb-4">
-                            <label class="form-label font-w600">Books to Transfer</label>
-                            <div class="table-responsive">
-                                <table class="table table-bordered" id="transferBooksTable">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="width: 40%;">Book</th>
-                                            <th style="width: 25%;">Quantity</th>
-                                            <th style="width: 25%;">Available</th>
-                                            <th style="width: 10%;" class="text-center">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="transferBooksBody">
-                                        <tr id="emptyBooksRow">
-                                            <td colspan="4" class="text-center text-muted py-3">Select a source site above, then click "Add Book" to start.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <label class="form-label font-w600">Items to Transfer</label>
+                            <table class="table table-bordered" id="transferBooksTable" style="width:100%;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40%;">Item</th>
+                                        <th style="width: 25%;">Quantity</th>
+                                        <th style="width: 25%;">Available</th>
+                                        <th style="width: 10%;" class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transferBooksBody">
+                                    <tr id="emptyBooksRow">
+                                        <td colspan="4" class="text-center text-muted py-3">Select a source site above, then click an Add button to start.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
 
-                        <!-- Add Book Button -->
-                        <div class="mb-4">
-                            <button type="button" class="btn btn-primary" id="showAddBookBtn" disabled>
+                        <!-- Add Item Buttons -->
+                        <div class="mb-4 d-flex flex-wrap gap-2" style="position: relative; z-index: 1;">
+                            <button type="button" class="btn btn-primary" id="showAddBookBtn" disabled style="pointer-events: auto;">
                                 <i class="las la-plus me-1"></i>Add Book
+                            </button>
+                            <button type="button" class="btn btn-info text-white" id="showAddIndexBtn" disabled style="pointer-events: auto;">
+                                <i class="las la-plus me-1"></i>Add Index
+                            </button>
+                            <button type="button" class="btn btn-warning text-white" id="showAddBundleBtn" disabled style="pointer-events: auto;">
+                                <i class="las la-plus me-1"></i>Add Bundle
                             </button>
                         </div>
 
-                        <!-- Dynamic Add Book Form (Hidden by default) -->
-                        <div id="addBookForm" style="display: none;" class="mb-4 p-3 bg-light rounded">
+                        <!-- Dynamic Add Item Form (Hidden by default) -->
+                        <div id="addBookForm" style="display: none; position: relative; z-index: 1;" class="mb-4 p-3 bg-light rounded">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="mb-0"><i class="las la-book me-2"></i>Add New Book</h6>
+                                <h6 class="mb-0" id="addBookFormTitle"><i class="las la-plus-circle me-2"></i>Add New Book</h6>
                                 <button type="button" class="btn-close" id="closeAddBookForm"></button>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-7">
-                                    <label class="form-label font-w600">Select Book *</label>
-                                    <select id="bookSelect" class="form-control">
-                                        <option value="">-- Select a Book --</option>
+                                <!-- Hidden type select (value set by Javascript buttons) -->
+                                <select id="itemTypeSelect" style="display: none !important;">
+                                    <option value="book">Book / Non-Book</option>
+                                    <option value="index">Book Index</option>
+                                    <option value="bundle">Book Bundle</option>
+                                </select>
+                                
+                                <div class="col-md-8">
+                                    <label class="form-label font-w600" id="itemSelectLabel">Select Item *</label>
+                                    <select id="bookSelect" class="form-control select2-single" style="width: 100%;">
+                                        <option value="">-- Select an Item --</option>
                                     </select>
                                 </div>
-                                <div class="col-md-5">
+                                <div class="col-md-4">
                                     <label class="form-label font-w600">Quantity *</label>
-                                    <input type="number" id="bookQuantity" class="form-control" placeholder="Enter quantity" min="1" disabled>
+                                    <input type="number" id="bookQuantity" class="form-control" placeholder="Qty" min="1" disabled>
                                 </div>
                                 <div class="col-12">
-                                    <button type="button" id="confirmAddBookBtn" class="btn btn-success" style="display: block !important; width: 100% !important; max-width: 100% !important; min-width: 150px !important; padding: 0.75rem 1rem !important; font-size: 0.95rem !important; line-height: 1.2 !important; background-color: #68CF29 !important; border-color: #68CF29 !important; color: #000 !important; -webkit-text-fill-color: #000 !important; text-shadow: none !important; box-shadow: none !important; position: relative !important; z-index: 10000 !important;">
-                                        ADD BOOK
+                                    <button type="button" id="confirmAddBookBtn" class="btn btn-success w-100" style="padding: 0.75rem 1rem; font-size: 0.95rem; background-color: #68CF29; border-color: #68CF29; color: #000; font-weight: 600;">
+                                        ADD TO TRANSFER
                                     </button>
                                 </div>
                                 <div class="col-12">
@@ -1307,9 +1849,11 @@
                 {{ $site->id }}: [
                     @foreach($site->inventory ?? [] as $inv)
                         {
-                            book_id: {{ $inv->book_id }},
-                            book: { name: '{{ addslashes($inv->book->name ?? 'Unknown') }}' },
-                            quantity: {{ $inv->quantity }},
+                            book_id: {{ $inv->book_id ?? 'null' }},
+                            book_index_id: {{ $inv->book_index_id ?? 'null' }},
+                            book_bundle_id: {{ $inv->book_bundle_id ?? 'null' }},
+                            book: { name: '{{ addslashes($inv->book->name ?? ($inv->bookIndex->index_value ?? ($inv->bookBundle->name ?? 'Unknown'))) }}' },
+                            quantity: {{ $inv->quantity ?? 0 }},
                             reorder_point: {{ $inv->reorder_point ?? 'null' }},
                             max_stock: {{ $inv->max_stock ?? 'null' }}
                         }{{ !$loop->last ? ',' : '' }}
@@ -1329,17 +1873,31 @@
             const notesTextarea = document.querySelector('textarea[name="notes"]');
             if (notesTextarea) notesTextarea.value = '';
             
+            const itemTypeSelect = document.getElementById('itemTypeSelect');
+            if (itemTypeSelect) itemTypeSelect.value = 'book';
+
             const addBookForm = document.getElementById('addBookForm');
             const showAddBookBtn = document.getElementById('showAddBookBtn');
+            const showAddIndexBtn = document.getElementById('showAddIndexBtn');
+            const showAddBundleBtn = document.getElementById('showAddBundleBtn');
+            
             if (addBookForm) addBookForm.style.display = 'none';
             if (showAddBookBtn) {
                 showAddBookBtn.disabled = true;
                 showAddBookBtn.style.display = 'block';
             }
+            if (showAddIndexBtn) {
+                showAddIndexBtn.disabled = true;
+                showAddIndexBtn.style.display = 'block';
+            }
+            if (showAddBundleBtn) {
+                showAddBundleBtn.disabled = true;
+                showAddBundleBtn.style.display = 'block';
+            }
             
             const bookSelect = document.getElementById('bookSelect');
             const quantityInput = document.getElementById('bookQuantity');
-            if (bookSelect) bookSelect.innerHTML = '<option value="">-- Select a Book --</option>';
+            if (bookSelect) bookSelect.innerHTML = '<option value="">-- Select an Item --</option>';
             if (quantityInput) {
                 quantityInput.value = '';
                 quantityInput.disabled = true;
@@ -1349,81 +1907,79 @@
             updateSubmitButton();
         };
 
-        // Transfer Stock Functions
+        // Transfer Stock Functions — Batch Submit
         document.getElementById('transferStockForm')?.addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            const bookIds = Object.keys(selectedBooksMap);
-            if (bookIds.length === 0) {
-                showNotification('Please add at least one book', 'error');
+
+            const keys = Object.keys(selectedBooksMap);
+            if (keys.length === 0) {
+                showNotification('Please add at least one item', 'error');
                 return;
             }
 
             const fromSiteId = document.getElementById('fromSiteSelect').value;
-            const toSiteId = document.getElementById('toSiteSelect').value;
-            
+            const toSiteId   = document.getElementById('toSiteSelect').value;
+
             if (!fromSiteId) {
                 showNotification('Please select source site', 'error');
                 return;
             }
-            
             if (!toSiteId) {
                 showNotification('Please select destination site', 'error');
                 return;
             }
-            
             if (fromSiteId === toSiteId) {
                 showNotification('Source and destination sites cannot be the same', 'error');
                 return;
             }
 
-            const transfers = bookIds.map(bookId => ({
-                from_site_id: fromSiteId,
-                to_site_id: toSiteId,
-                book_id: parseInt(bookId),
-                quantity: selectedBooksMap[bookId].quantity,
-                notes: document.querySelector('textarea[name="notes"]')?.value || ''
-            }));
+            // Build items array — books, indices & bundles all together
+            const items = keys.map(key => {
+                const item = selectedBooksMap[key];
+                return {
+                    type:     item.type,      // 'book' | 'index' | 'bundle'
+                    item_id:  item.itemId,
+                    quantity: item.quantity
+                };
+            });
 
-            const submitBtn = document.getElementById('submitTransferBtn');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="las la-spinner la-spin me-1"></i>Processing...';
-            submitBtn.disabled = true;
+            const submitBtn   = document.getElementById('submitTransferBtn');
+            const originalTxt = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="las la-spinner la-spin me-1"></i>Submitting…';
+            submitBtn.disabled  = true;
 
-            Promise.all(transfers.map(transfer => {
-                const formData = new FormData();
-                formData.append('from_site_id', transfer.from_site_id);
-                formData.append('to_site_id', transfer.to_site_id);
-                formData.append('book_id', transfer.book_id);
-                formData.append('quantity', transfer.quantity);
-                formData.append('notes', transfer.notes);
-
-                return fetch('/production/sites/transfer', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    },
-                    body: formData
-                }).then(response => response.json());
-            }))
-            .then(results => {
-                const allSuccessful = results.every(r => r.success);
-                if (allSuccessful) {
-                    showNotification(`${results.length} transfer request(s) submitted successfully!`, 'success');
+            fetch('/production/sites/transfer-batch', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Content-Type': 'application/json',
+                    'Accept':       'application/json'
+                },
+                body: JSON.stringify({
+                    from_site_id: fromSiteId,
+                    to_site_id:   toSiteId,
+                    notes:        document.querySelector('textarea[name="notes"]')?.value || '',
+                    items:        items
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const skippedMsg = data.skipped > 0 ? ` (${data.skipped} skipped due to insufficient stock)` : '';
+                    showNotification(`${data.created} item(s) transfer submitted!${skippedMsg}`, data.skipped > 0 ? 'warning' : 'success');
                     bootstrap.Modal.getInstance(document.getElementById('transferStockModal')).hide();
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    const failed = results.filter(r => !r.success).length;
-                    showNotification(`${failed} transfer(s) failed. Please check stock availability.`, 'error');
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
+                    showNotification(data.message || 'Transfer failed', 'error');
+                    submitBtn.innerHTML = originalTxt;
+                    submitBtn.disabled  = false;
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('An error occurred', 'error');
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
+            .catch(err => {
+                console.error('Batch transfer error:', err);
+                showNotification('Network error. Please try again.', 'error');
+                submitBtn.innerHTML = originalTxt;
+                submitBtn.disabled  = false;
             });
         });
 
@@ -1431,6 +1987,8 @@
         document.getElementById('fromSiteSelect')?.addEventListener('change', function() {
             const siteId = this.value;
             const showAddBookBtn = document.getElementById('showAddBookBtn');
+            const showAddIndexBtn = document.getElementById('showAddIndexBtn');
+            const showAddBundleBtn = document.getElementById('showAddBundleBtn');
             
             if (siteId) {
                 selectedBooksMap = {};
@@ -1439,11 +1997,15 @@
                 updateSubmitButton();
                 
                 loadBooksForSite(siteId);
-                showAddBookBtn.disabled = false;
+                if (showAddBookBtn) showAddBookBtn.disabled = false;
+                if (showAddIndexBtn) showAddIndexBtn.disabled = false;
+                if (showAddBundleBtn) showAddBundleBtn.disabled = false;
             } else {
-                showAddBookBtn.disabled = true;
+                if (showAddBookBtn) showAddBookBtn.disabled = true;
+                if (showAddIndexBtn) showAddIndexBtn.disabled = true;
+                if (showAddBundleBtn) showAddBundleBtn.disabled = true;
                 const bookSelect = document.getElementById('bookSelect');
-                if (bookSelect) bookSelect.innerHTML = '<option value="">-- Select a Book --</option>';
+                if (bookSelect) bookSelect.innerHTML = '<option value="">-- Select an Item --</option>';
             }
         });
 
@@ -1482,69 +2044,146 @@
             });
         }
 
+        document.getElementById('itemTypeSelect')?.addEventListener('change', function() {
+            const siteId = document.getElementById('fromSiteSelect').value;
+            if (siteId) {
+                populateBookSelect(parseInt(siteId));
+            }
+        });
+
         function populateBookSelect(siteId) {
             const select = document.getElementById('bookSelect');
             if (!select) return;
             
+            const itemType = document.getElementById('itemTypeSelect')?.value || 'book';
             const inventory = siteBooks[siteId] || [];
-            console.log('Populating dropdown with inventory:', inventory);
+            console.log('Populating dropdown with inventory:', inventory, 'filtered by type:', itemType);
             
-            const availableBooks = inventory.filter(item => !selectedBooksMap[item.book_id]);
+            // Filter by item type
+            const typeFiltered = inventory.filter(item => item.type === itemType);
             
-            select.innerHTML = '<option value="">-- Select a Book --</option>';
-            
-            if (availableBooks.length === 0) {
-                if (inventory.length === 0) {
-                    select.innerHTML = '<option value="">-- No books available --</option>';
-                } else {
-                    select.innerHTML = '<option value="">-- All books added --</option>';
-                }
-                return;
-            }
-
-            availableBooks.forEach(item => {
-                const bookName = item.book && item.book.name ? item.book.name : 'Unknown Book';
-                const option = document.createElement('option');
-                option.value = item.book_id;
-                option.textContent = `${bookName} (Available: ${item.quantity})`;
-                option.dataset.available = item.quantity;
-                option.dataset.name = bookName;
-                select.appendChild(option);
-                console.log('Added option:', bookName, 'Qty:', item.quantity);
+            // Filter out items already in the selectedBooksMap
+            const availableItems = typeFiltered.filter(item => {
+                const key = itemType + '_' + item.item_id;
+                return !selectedBooksMap[key];
             });
 
-            select.onchange = function() {
-                const selected = this.options[this.selectedIndex];
-                const availableSpan = document.getElementById('selectedBookAvailable');
-                const quantityInput = document.getElementById('bookQuantity');
-                
-                if (selected && selected.value) {
-                    if (availableSpan) availableSpan.textContent = selected.dataset.available;
-                    if (quantityInput) {
-                        quantityInput.max = selected.dataset.available;
-                        quantityInput.value = '';
-                        quantityInput.disabled = false;
-                    }
-                } else {
-                    if (availableSpan) availableSpan.textContent = '0';
-                    if (quantityInput) {
-                        quantityInput.max = 1;
-                        quantityInput.disabled = true;
-                    }
-                }
-            };
+            const placeholderText = `-- Select a ${itemType.charAt(0).toUpperCase() + itemType.slice(1)} --`;
+            select.innerHTML = `<option value="">${placeholderText}</option>`;
             
-            if (select.onchange) select.onchange();
+            if (availableItems.length === 0) {
+                if (typeFiltered.length === 0) {
+                    select.innerHTML = `<option value="">-- No ${itemType}s available --</option>`;
+                } else {
+                    select.innerHTML = `<option value="">-- All ${itemType}s added --</option>`;
+                }
+            } else {
+                availableItems.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.item_id;
+                    option.textContent = `${item.name} (Available: ${item.quantity})`;
+                    option.dataset.available = item.quantity;
+                    option.dataset.name = item.name;
+                    option.dataset.itemId = item.item_id;
+                    option.dataset.type = item.type;
+                    select.appendChild(option);
+                });
+            }
+
+            // Initialize or Refresh Select2 (with integrated search)
+            if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
+                const $select = $('#bookSelect');
+                if ($select.data('select2')) {
+                    $select.select2('destroy');
+                }
+                $select.select2({
+                    dropdownParent: $('#transferStockModal'),
+                    placeholder: placeholderText,
+                    allowClear: true,
+                    width: '100%',
+                    minimumResultsForSearch: 0
+                });
+
+                $select.off('change.itemSelect').on('change.itemSelect', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const availableSpan = document.getElementById('selectedBookAvailable');
+                    const quantityInput = document.getElementById('bookQuantity');
+                    
+                    if (selectedOption && selectedOption.value) {
+                        if (availableSpan) availableSpan.textContent = selectedOption.dataset.available || '0';
+                        if (quantityInput) {
+                            quantityInput.max = selectedOption.dataset.available || 1;
+                            quantityInput.value = '';
+                            quantityInput.disabled = false;
+                        }
+                    } else {
+                        if (availableSpan) availableSpan.textContent = '0';
+                        if (quantityInput) {
+                            quantityInput.max = 1;
+                            quantityInput.value = '';
+                            quantityInput.disabled = true;
+                        }
+                    }
+                });
+            } else {
+                select.onchange = function() {
+                    const selected = this.options[this.selectedIndex];
+                    const availableSpan = document.getElementById('selectedBookAvailable');
+                    const quantityInput = document.getElementById('bookQuantity');
+                    
+                    if (selected && selected.value) {
+                        if (availableSpan) availableSpan.textContent = selected.dataset.available || '0';
+                        if (quantityInput) {
+                            quantityInput.max = selected.dataset.available || 1;
+                            quantityInput.value = '';
+                            quantityInput.disabled = false;
+                        }
+                    } else {
+                        if (availableSpan) availableSpan.textContent = '0';
+                        if (quantityInput) {
+                            quantityInput.max = 1;
+                            quantityInput.value = '';
+                            quantityInput.disabled = true;
+                        }
+                    }
+                };
+                if (select.onchange) select.onchange();
+            }
         }
 
-        document.getElementById('showAddBookBtn')?.addEventListener('click', function() {
+        function openAddItemSubForm(type) {
             const addBookForm = document.getElementById('addBookForm');
             const showAddBookBtn = document.getElementById('showAddBookBtn');
-            addBookForm.style.display = 'block';
-            showAddBookBtn.style.display = 'none';
+            const showAddIndexBtn = document.getElementById('showAddIndexBtn');
+            const showAddBundleBtn = document.getElementById('showAddBundleBtn');
             
+            if (addBookForm) addBookForm.style.display = 'block';
+            if (showAddBookBtn) showAddBookBtn.style.display = 'none';
+            if (showAddIndexBtn) showAddIndexBtn.style.display = 'none';
+            if (showAddBundleBtn) showAddBundleBtn.style.display = 'none';
+            
+            // Set type select value
+            const itemTypeSelect = document.getElementById('itemTypeSelect');
+            if (itemTypeSelect) itemTypeSelect.value = type;
+            
+            // Update title & select label
+            const titleEl = document.getElementById('addBookFormTitle');
+            const labelEl = document.getElementById('itemSelectLabel');
+
+            if (type === 'book') {
+                if (titleEl) titleEl.innerHTML = '<i class="las la-book me-2"></i>Add New Book';
+                if (labelEl) labelEl.textContent = 'Select Book *';
+            } else if (type === 'index') {
+                if (titleEl) titleEl.innerHTML = '<i class="las la-pen me-2"></i>Add New Index';
+                if (labelEl) labelEl.textContent = 'Select Index *';
+            } else if (type === 'bundle') {
+                if (titleEl) titleEl.innerHTML = '<i class="las la-cubes me-2"></i>Add New Bundle';
+                if (labelEl) labelEl.textContent = 'Select Bundle *';
+            }
+
             const bookSelect = document.getElementById('bookSelect');
             const quantityInput = document.getElementById('bookQuantity');
+            
             if (bookSelect) bookSelect.value = '';
             if (quantityInput) {
                 quantityInput.value = '';
@@ -1552,13 +2191,33 @@
             }
             const availableSpan = document.getElementById('selectedBookAvailable');
             if (availableSpan) availableSpan.textContent = '0';
+            
+            const fromSiteId = document.getElementById('fromSiteSelect').value;
+            if (fromSiteId) {
+                populateBookSelect(parseInt(fromSiteId));
+            }
+        }
+
+        document.getElementById('showAddBookBtn')?.addEventListener('click', function() {
+            openAddItemSubForm('book');
+        });
+        document.getElementById('showAddIndexBtn')?.addEventListener('click', function() {
+            openAddItemSubForm('index');
+        });
+        document.getElementById('showAddBundleBtn')?.addEventListener('click', function() {
+            openAddItemSubForm('bundle');
         });
 
         document.getElementById('closeAddBookForm')?.addEventListener('click', function() {
             const addBookForm = document.getElementById('addBookForm');
             const showAddBookBtn = document.getElementById('showAddBookBtn');
-            addBookForm.style.display = 'none';
-            showAddBookBtn.style.display = 'block';
+            const showAddIndexBtn = document.getElementById('showAddIndexBtn');
+            const showAddBundleBtn = document.getElementById('showAddBundleBtn');
+            
+            if (addBookForm) addBookForm.style.display = 'none';
+            if (showAddBookBtn) showAddBookBtn.style.display = 'block';
+            if (showAddIndexBtn) showAddIndexBtn.style.display = 'block';
+            if (showAddBundleBtn) showAddBundleBtn.style.display = 'block';
             
             const bookSelect = document.getElementById('bookSelect');
             const quantityInput = document.getElementById('bookQuantity');
@@ -1574,7 +2233,7 @@
             const quantityInput = document.getElementById('bookQuantity');
 
             if (!bookSelect || !bookSelect.value) {
-                showNotification('Please select a book', 'error');
+                showNotification('Please select an item', 'error');
                 return;
             }
 
@@ -1583,10 +2242,11 @@
                 return;
             }
 
-            const bookId = parseInt(bookSelect.value);
+            const itemId = parseInt(bookSelect.value);
             const selectedOption = bookSelect.options[bookSelect.selectedIndex];
             const bookName = selectedOption.dataset.name;
             const available = parseInt(selectedOption.dataset.available);
+            const type = selectedOption.dataset.type;
             const quantity = parseInt(quantityInput.value);
 
             if (quantity > available) {
@@ -1594,7 +2254,7 @@
                 return;
             }
 
-            addBookToTransfer(bookId, bookName, quantity, available);
+            addBookToTransfer(itemId, type, bookName, quantity, available);
 
             bookSelect.value = '';
             quantityInput.value = '';
@@ -1604,8 +2264,12 @@
             
             const addBookForm = document.getElementById('addBookForm');
             const showAddBookBtn = document.getElementById('showAddBookBtn');
+            const showAddIndexBtn = document.getElementById('showAddIndexBtn');
+            const showAddBundleBtn = document.getElementById('showAddBundleBtn');
             if (addBookForm) addBookForm.style.display = 'none';
             if (showAddBookBtn) showAddBookBtn.style.display = 'block';
+            if (showAddIndexBtn) showAddIndexBtn.style.display = 'block';
+            if (showAddBundleBtn) showAddBundleBtn.style.display = 'block';
             
             const fromSiteId = document.getElementById('fromSiteSelect').value;
             if (fromSiteId) {
@@ -1613,13 +2277,16 @@
             }
         });
 
-        function addBookToTransfer(bookId, bookName, quantity, available) {
-            if (selectedBooksMap[bookId]) {
-                showNotification('This book is already added', 'error');
+        function addBookToTransfer(itemId, type, bookName, quantity, available) {
+            const key = type + '_' + itemId;
+            if (selectedBooksMap[key]) {
+                showNotification('This item is already added', 'error');
                 return;
             }
 
-            selectedBooksMap[bookId] = {
+            selectedBooksMap[key] = {
+                itemId: itemId,
+                type: type,
                 name: bookName,
                 quantity: quantity,
                 available: available,
@@ -1631,8 +2298,8 @@
             showNotification(`${bookName} added to transfer list`, 'success');
         }
 
-        window.removeBookFromTransfer = function(bookId) {
-            delete selectedBooksMap[bookId];
+        window.removeBookFromTransfer = function(key) {
+            delete selectedBooksMap[key];
             renderSelectedBooks();
             updateSubmitButton();
             
@@ -1642,8 +2309,8 @@
             }
         };
         
-        window.updateBookQuantity = function(bookId, newQuantity) {
-            const book = selectedBooksMap[bookId];
+        window.updateBookQuantity = function(key, newQuantity) {
+            const book = selectedBooksMap[key];
             if (!book) return;
             
             if (newQuantity < 1) {
@@ -1666,13 +2333,13 @@
             if (!tbody) return;
 
             if (Object.keys(selectedBooksMap).length === 0) {
-                tbody.innerHTML = '<tr id="emptyBooksRow"><td colspan="4" class="text-center text-muted py-3">No books added. Click "Add Book" to start.您</td></tr>';
+                tbody.innerHTML = '<tr id="emptyBooksRow"><td colspan="4" class="text-center text-muted py-3">No items added. Click "Add Book" to start.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = Object.entries(selectedBooksMap).map(([bookId, book]) => `
-                <tr data-book-id="${bookId}">
-                    <td><strong>${escapeHtml(book.name)}</strong></td>
+            tbody.innerHTML = Object.entries(selectedBooksMap).map(([key, book]) => `
+                <tr data-key="${key}">
+                    <td><strong>${escapeHtml(book.name)} <span class="badge badge-xs bg-secondary text-uppercase">${book.type}</span></strong></td>
                     <td>
                         <input type="number" 
                                class="form-control form-control-sm" 
@@ -1680,11 +2347,11 @@
                                min="1" 
                                max="${book.available}"
                                style="width: 100px;"
-                               onchange="updateBookQuantity(${bookId}, parseInt(this.value))">
+                               onchange="updateBookQuantity('${key}', parseInt(this.value))">
                     </td>
                     <td><span class="badge bg-info">${book.available} available</span></td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-danger" onclick="removeBookFromTransfer(${bookId})" title="Remove">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeBookFromTransfer('${key}')" title="Remove">
                             <i class="las la-trash"></i>
                         </button>
                     </td>
@@ -1700,7 +2367,7 @@
             
             if (submitBtn) {
                 submitBtn.disabled = bookCount === 0 || !fromSiteId || !toSiteId || fromSiteId === toSiteId;
-                submitBtn.innerHTML = `<i class="las la-check me-1"></i>Request Transfer (${bookCount} book${bookCount !== 1 ? 's' : ''})`;
+                submitBtn.innerHTML = `<i class="las la-check me-1"></i>Request Transfer (${bookCount} item${bookCount !== 1 ? 's' : ''})`;
             }
         }
         
@@ -1839,5 +2506,385 @@
                 });
             }
         };
+
+        // --- BOOK INDEX STOCK MANAGEMENT ---
+        let currentIndexId = null;
+        let currentIndexStock = 0;
+
+        window.openIndexStockModal = function(indexId, bookName, indexValue, stock) {
+            console.log("openIndexStockModal called", {indexId, bookName, indexValue, stock});
+            try {
+                currentIndexId = indexId;
+                currentIndexStock = stock;
+
+                const bookNameInput = document.getElementById('mgmtIndexBookName');
+                if (bookNameInput) bookNameInput.value = bookName;
+
+                const indexValueInput = document.getElementById('mgmtIndexValue');
+                if (indexValueInput) indexValueInput.value = indexValue;
+
+                const currentStockInput = document.getElementById('mgmtIndexCurrentStock');
+                if (currentStockInput) currentStockInput.value = stock;
+
+                const addQtyInput = document.getElementById('mgmtIndexAddQuantity');
+                if (addQtyInput) addQtyInput.value = '';
+
+                const addPreview = document.getElementById('mgmtIndexAddPreview');
+                if (addPreview) addPreview.style.display = 'none';
+
+                const editQtyInput = document.getElementById('mgmtIndexEditQuantity');
+                if (editQtyInput) editQtyInput.value = '';
+
+                const editPreview = document.getElementById('mgmtIndexEditPreview');
+                if (editPreview) editPreview.style.display = 'none';
+
+                // Hook preview events
+                if (addQtyInput) {
+                    addQtyInput.oninput = function() {
+                        const qty = parseInt(this.value) || 0;
+                        const preview = document.getElementById('mgmtIndexAddPreview');
+                        if (qty > 0) {
+                            if (preview) preview.style.display = 'block';
+                            const addNewStock = document.getElementById('mgmtIndexAddNewStock');
+                            if (addNewStock) addNewStock.textContent = currentIndexStock + qty;
+                        } else {
+                            if (preview) preview.style.display = 'none';
+                        }
+                    };
+                }
+
+                if (editQtyInput) {
+                    editQtyInput.oninput = function() {
+                        const val = parseInt(this.value);
+                        const preview = document.getElementById('mgmtIndexEditPreview');
+                        if (!isNaN(val) && val >= 0) {
+                            if (preview) preview.style.display = 'block';
+                            const editOldStock = document.getElementById('mgmtIndexEditOldStock');
+                            if (editOldStock) editOldStock.textContent = currentIndexStock;
+                            const editNewStock = document.getElementById('mgmtIndexEditNewStock');
+                            if (editNewStock) editNewStock.textContent = val;
+                        } else {
+                            if (preview) preview.style.display = 'none';
+                        }
+                    };
+                }
+
+                const modalEl = document.getElementById('indexStockModal');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                    console.log("indexStockModal show called successfully");
+                } else {
+                    console.error("indexStockModal element not found in DOM");
+                }
+            } catch (err) {
+                console.error("Error in openIndexStockModal:", err);
+            }
+        };
+
+        window.saveIndexStockManagement = function() {
+            const activeTab = document.querySelector('#indexStockModal .nav-link.active');
+            let action = 'add';
+            let qty = 0;
+            let newStock = 0;
+
+            if (activeTab && activeTab.id === 'idxAddTab') {
+                action = 'add';
+                qty = parseInt(document.getElementById('mgmtIndexAddQuantity').value);
+                if (!qty || qty < 1) {
+                    showNotification('Please enter a valid quantity to add', 'warning');
+                    return;
+                }
+            } else {
+                action = 'set';
+                newStock = parseInt(document.getElementById('mgmtIndexEditQuantity').value);
+                if (isNaN(newStock) || newStock < 0) {
+                    showNotification('Please enter a valid new stock value', 'warning');
+                    return;
+                }
+            }
+
+            const saveBtn = document.getElementById('mgmtIndexSaveBtn');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="las la-spinner la-spin"></i> Saving...';
+
+            fetch(`/production/inventory/update-index-stock/${currentIndexId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({
+                    action: action,
+                    quantity: qty,
+                    new_stock: newStock
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message || 'Index stock updated successfully!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('indexStockModal')).hide();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification('Error: ' + data.message, 'error');
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred', 'error');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+            });
+        };
+
+        // --- BOOK BUNDLE STOCK MANAGEMENT ---
+        let currentBundleId = null;
+        let currentBundleStock = 0;
+
+        window.openBundleStockModal = function(bundleId, bundleName, stock) {
+            console.log("openBundleStockModal called", {bundleId, bundleName, stock});
+            try {
+                currentBundleId = bundleId;
+                currentBundleStock = stock;
+
+                const bundleNameInput = document.getElementById('mgmtBundleName');
+                if (bundleNameInput) bundleNameInput.value = bundleName;
+
+                const currentStockInput = document.getElementById('mgmtBundleCurrentStock');
+                if (currentStockInput) currentStockInput.value = stock;
+
+                const addQtyInput = document.getElementById('mgmtBundleAddQuantity');
+                if (addQtyInput) addQtyInput.value = '';
+
+                const addPreview = document.getElementById('mgmtBundleAddPreview');
+                if (addPreview) addPreview.style.display = 'none';
+
+                const editQtyInput = document.getElementById('mgmtBundleEditQuantity');
+                if (editQtyInput) editQtyInput.value = '';
+
+                const editPreview = document.getElementById('mgmtBundleEditPreview');
+                if (editPreview) editPreview.style.display = 'none';
+
+                // Hook preview events
+                if (addQtyInput) {
+                    addQtyInput.oninput = function() {
+                        const qty = parseInt(this.value) || 0;
+                        const preview = document.getElementById('mgmtBundleAddPreview');
+                        if (qty > 0) {
+                            if (preview) preview.style.display = 'block';
+                            const addNewStock = document.getElementById('mgmtBundleAddNewStock');
+                            if (addNewStock) addNewStock.textContent = currentBundleStock + qty;
+                        } else {
+                            if (preview) preview.style.display = 'none';
+                        }
+                    };
+                }
+
+                if (editQtyInput) {
+                    editQtyInput.oninput = function() {
+                        const val = parseInt(this.value);
+                        const preview = document.getElementById('mgmtBundleEditPreview');
+                        if (!isNaN(val) && val >= 0) {
+                            if (preview) preview.style.display = 'block';
+                            const editOldStock = document.getElementById('mgmtBundleEditOldStock');
+                            if (editOldStock) editOldStock.textContent = currentBundleStock;
+                            const editNewStock = document.getElementById('mgmtBundleEditNewStock');
+                            if (editNewStock) editNewStock.textContent = val;
+                        } else {
+                            if (preview) preview.style.display = 'none';
+                        }
+                    };
+                }
+
+                const modalEl = document.getElementById('bundleStockModal');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                    console.log("bundleStockModal show called successfully");
+                } else {
+                    console.error("bundleStockModal element not found in DOM");
+                }
+            } catch (err) {
+                console.error("Error in openBundleStockModal:", err);
+            }
+        };
+
+        window.saveBundleStockManagement = function() {
+            const activeTab = document.querySelector('#bundleStockModal .nav-link.active');
+            let action = 'add';
+            let qty = 0;
+            let newStock = 0;
+
+            if (activeTab && activeTab.id === 'bndlAddTab') {
+                action = 'add';
+                qty = parseInt(document.getElementById('mgmtBundleAddQuantity').value);
+                if (!qty || qty < 1) {
+                    showNotification('Please enter a valid quantity to add', 'warning');
+                    return;
+                }
+            } else {
+                action = 'set';
+                newStock = parseInt(document.getElementById('mgmtBundleEditQuantity').value);
+                if (isNaN(newStock) || newStock < 0) {
+                    showNotification('Please enter a valid new stock value', 'warning');
+                    return;
+                }
+            }
+
+            const saveBtn = document.getElementById('mgmtBundleSaveBtn');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="las la-spinner la-spin"></i> Saving...';
+
+            fetch(`/production/inventory/update-bundle-stock/${currentBundleId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({
+                    action: action,
+                    quantity: qty,
+                    new_stock: newStock
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message || 'Bundle stock updated successfully!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('bundleStockModal')).hide();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification('Error: ' + data.message, 'error');
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred', 'error');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+            });
+        };
+
+        // --- TAB STATE PERSISTENCE ---
+        document.addEventListener('DOMContentLoaded', function() {
+            // Page-level tabs configuration
+            const pageTabs = ['stocks-tab', 'sites-tab', 'transfer-workflow-tab'];
+            pageTabs.forEach(tabId => {
+                const button = document.getElementById(tabId);
+                button?.addEventListener('shown.bs.tab', function(event) {
+                    localStorage.setItem('active_inventory_overview_tab', event.target.id);
+                });
+            });
+
+            // Restore page-level tab
+            const savedPageTabId = localStorage.getItem('active_inventory_overview_tab');
+            if (savedPageTabId && pageTabs.includes(savedPageTabId)) {
+                const tabButton = document.getElementById(savedPageTabId);
+                if (tabButton) {
+                    const tab = new bootstrap.Tab(tabButton);
+                    tab.show();
+                }
+            }
+
+            // Card-level nested registry tabs configuration
+            const registryTabs = ['registry-books-tab', 'registry-nonbooks-tab', 'registry-indices-tab', 'registry-bundles-tab'];
+            registryTabs.forEach(tabId => {
+                const button = document.getElementById(tabId);
+                button?.addEventListener('shown.bs.tab', function(event) {
+                    localStorage.setItem('active_inventory_registry_tab', event.target.id);
+                });
+            });
+
+            // Restore card-level nested registry tab
+            const savedRegistryTabId = localStorage.getItem('active_inventory_registry_tab');
+            if (savedRegistryTabId && registryTabs.includes(savedRegistryTabId)) {
+                const tabButton = document.getElementById(savedRegistryTabId);
+                if (tabButton) {
+                    const tab = new bootstrap.Tab(tabButton);
+                    tab.show();
+                }
+            }
+
+            // Site Inventory Modal Client-side Pagination
+            function initSiteTablePagination(tableId, pageSize = 5) {
+                const table = document.getElementById(tableId);
+                if (!table) return;
+                const tbody = table.querySelector('tbody');
+                if (!tbody) return;
+                const rows = Array.from(tbody.querySelectorAll('tr.paginate-row'));
+                if (rows.length === 0) return;
+
+                let currentPage = 1;
+                const totalPages = Math.ceil(rows.length / pageSize);
+
+                let container = document.getElementById(tableId + '_pagination');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = tableId + '_pagination';
+                    container.className = 'd-flex justify-content-between align-items-center mt-3 pt-2 border-top';
+                    table.parentNode.appendChild(container);
+                }
+
+                function render() {
+                    const start = (currentPage - 1) * pageSize;
+                    const end = start + pageSize;
+
+                    rows.forEach((row, idx) => {
+                        row.style.display = (idx >= start && idx < end) ? '' : 'none';
+                    });
+
+                    const showingStart = Math.min(start + 1, rows.length);
+                    const showingEnd = Math.min(end, rows.length);
+
+                    let html = `<small class="text-muted">Showing ${showingStart} to ${showingEnd} of ${rows.length} entries</small>`;
+                    if (totalPages > 1) {
+                        html += `<ul class="pagination pagination-sm m-0">`;
+                        html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                            <button class="page-link py-1 px-2" type="button" data-page="${currentPage - 1}">Previous</button>
+                        </li>`;
+                        for (let i = 1; i <= totalPages; i++) {
+                            html += `<li class="page-item ${currentPage === i ? 'active' : ''}">
+                                <button class="page-link py-1 px-2" type="button" data-page="${i}">${i}</button>
+                            </li>`;
+                        }
+                        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                            <button class="page-link py-1 px-2" type="button" data-page="${currentPage + 1}">Next</button>
+                        </li>`;
+                        html += `</ul>`;
+                    }
+                    container.innerHTML = html;
+
+                    container.querySelectorAll('button.page-link').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const p = parseInt(this.getAttribute('data-page'));
+                            if (p >= 1 && p <= totalPages) {
+                                currentPage = p;
+                                render();
+                            }
+                        });
+                    });
+                }
+
+                render();
+            }
+
+            document.querySelectorAll('[id^="viewSiteInventory"]').forEach(modalEl => {
+                modalEl.addEventListener('shown.bs.modal', function() {
+                    const siteId = this.id.replace('viewSiteInventory', '');
+                    initSiteTablePagination(`site-books-table-${siteId}`, 5);
+                    initSiteTablePagination(`site-indices-table-${siteId}`, 5);
+                    initSiteTablePagination(`site-bundles-table-${siteId}`, 5);
+                });
+            });
+        });
     </script>
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
 </x-app-layout>

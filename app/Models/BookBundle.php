@@ -33,4 +33,20 @@ class BookBundle extends Model
                     ->withPivot('quantity')
                     ->withTimestamps();
     }
+
+    /**
+     * Get the inventory items for this bundle across different sites.
+     */
+    public function inventory()
+    {
+        return $this->hasMany(SiteInventory::class, 'book_bundle_id');
+    }
+
+    /**
+     * Get the stock transfers for this bundle.
+     */
+    public function stockTransfers()
+    {
+        return $this->hasMany(StockTransfer::class, 'book_bundle_id');
+    }
 }

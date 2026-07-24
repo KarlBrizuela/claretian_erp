@@ -66,8 +66,8 @@ class ProductionController extends Controller
             : collect();
 
         $pendingTransfers = $isAuthorized
-            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'createdBy', 'logisticsAssignedTo')
-                ->whereIn('status', ['pending', 'logistics_assignment', 'logistics_assigned'])
+            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'bookIndex.book', 'bookBundle', 'createdBy', 'logisticsAssignedTo')
+                ->whereIn('status', ['logistics_assignment', 'logistics_assigned', 'completed'])
                 ->where(function ($query) use ($user) {
                     $query->where('created_by', $user->id)
                         ->orWhere('approval_division', 'Production')

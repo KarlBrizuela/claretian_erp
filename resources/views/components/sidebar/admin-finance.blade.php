@@ -141,6 +141,37 @@
 	</div>
 	@endif
 
+	<!-- Sales Management -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/sales-management*') ? 'active' : '' }}">
+		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="sales-management">
+			<div class="modern-nav-icon">
+				<i class="las la-chart-bar"></i>
+			</div>
+			<span class="modern-nav-label">Sales Management</span>
+			<i class="modern-nav-arrow las la-chevron-right"></i>
+		</a>
+		<div class="modern-nav-submenu" data-submenu="sales-management">
+			<a href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'bookstore']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'bookstore' ? 'active' : '' }}">Bookstore</a>
+			<a href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'areasales']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'areasales' ? 'active' : '' }}">Area Sales</a>
+			<a href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'ecom']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'ecom' ? 'active' : '' }}">E-Commerce</a>
+			<a href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'wholesale']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'wholesale' ? 'active' : '' }}">Wholesale</a>
+		</div>
+	</div>
+	@endif
+
+	<!-- Accounts Receivable -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/accounts-receivable*') ? 'active' : '' }}">
+		<a href="{{ route('admin-finance.accounting.accounts-receivable') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-file-invoice-dollar"></i>
+			</div>
+			<span class="modern-nav-label">Accounts Receivable</span>
+		</a>
+	</div>
+	@endif
+
 	<!-- Credit and Collection -->
     @if($hasCreditCollection)
 	<div class="modern-nav-group {{ request()->is('admin-finance/credit-collection*') ? 'active' : '' }}">

@@ -181,7 +181,8 @@ class LogisticController extends Controller
                         $book = $soItem->book;
                         $deductedQty = $plItem->picked_qty;
                         if ($deductedQty > 0) {
-                            $book->decrement('stock', $deductedQty);
+                            $book->stock -= $deductedQty;
+                            $book->save();
 
                             // Record Inventory Transaction for audit trail
                             \App\Models\InventoryTransaction::create([

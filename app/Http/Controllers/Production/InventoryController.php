@@ -23,17 +23,54 @@ class InventoryController extends Controller
         // Fetch sites and stock transfers first
         $sites = Site::where('is_active', true)
             ->with(['inventory' => function ($q) {
-                $q->where('quantity', '>', 0)->with('book');
+                $q->where('quantity', '>', 0)->with(['book', 'bookIndex.book', 'bookBundle']);
             }])
             ->get();
 
         // Get Main Warehouse specifically
         $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
 
+        // Auto-sync: ensure all indices/bundles with stock > 0 are in site_inventory for Main Warehouse
+        if ($mainWarehouse) {
+            // Sync BookIndex stocks
+            \App\Models\BookIndex::where('stock', '>', 0)->each(function($idx) use ($mainWarehouse) {
+                $existing = \App\Models\SiteInventory::where('site_id', $mainWarehouse->id)
+                    ->where('book_index_id', $idx->id)->first();
+                if (!$existing) {
+                    \App\Models\SiteInventory::create([
+                        'site_id'        => $mainWarehouse->id,
+                        'book_index_id'  => $idx->id,
+                        'book_id'        => null,
+                        'book_bundle_id' => null,
+                        'quantity'       => $idx->stock,
+                    ]);
+                } elseif ($existing->quantity !== $idx->stock) {
+                    $existing->update(['quantity' => $idx->stock]);
+                }
+            });
+
+            // Sync BookBundle stocks
+            \App\Models\BookBundle::where('stock', '>', 0)->each(function($bundle) use ($mainWarehouse) {
+                $existing = \App\Models\SiteInventory::where('site_id', $mainWarehouse->id)
+                    ->where('book_bundle_id', $bundle->id)->first();
+                if (!$existing) {
+                    \App\Models\SiteInventory::create([
+                        'site_id'        => $mainWarehouse->id,
+                        'book_bundle_id' => $bundle->id,
+                        'book_id'        => null,
+                        'book_index_id'  => null,
+                        'quantity'       => $bundle->stock,
+                    ]);
+                } elseif ($existing->quantity !== $bundle->stock) {
+                    $existing->update(['quantity' => $bundle->stock]);
+                }
+            });
+        }
+
         // Get all books
         $allBooks = Book::all();
         
-        $query = Book::latest();
+        $query = Book::where('is_book', true)->latest();
         if (!empty($search)) {
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
@@ -42,7 +79,18 @@ class InventoryController extends Controller
                   ->orWhere('publisher', 'like', '%' . $search . '%');
             });
         }
-        $books = $query->paginate(10)->withQueryString();
+        $books = $query->paginate(10, ['*'], 'books_page')->withQueryString();
+
+        $nonBooksQuery = Book::where('is_book', false)->latest();
+        if (!empty($search)) {
+            $nonBooksQuery->where(function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('sku', 'like', '%' . $search . '%')
+                  ->orWhere('author', 'like', '%' . $search . '%')
+                  ->orWhere('publisher', 'like', '%' . $search . '%');
+            });
+        }
+        $nonBooks = $nonBooksQuery->paginate(10, ['*'], 'nonbooks_page')->withQueryString();
 
         // Calculate statistics based on MAIN WAREHOUSE ONLY
         $totalBooks = 0;
@@ -87,7 +135,7 @@ class InventoryController extends Controller
             || str_contains(strtolower($user->position ?? ''), 'supervisor')
         );
 
-        $pendingTransfers = StockTransfer::where('status', 'pending')
+        $pendingTransfers = StockTransfer::whereIn('status', ['logistics_assignment', 'logistics_assigned', 'completed'])
             ->with(['fromSite', 'toSite', 'book', 'createdBy'])
             ->when(!$user?->isSuperAdmin(), function ($query) use ($user, $userApprovalDivision, $isTransferApprover) {
                 $query->where(function ($scope) use ($user, $userApprovalDivision, $isTransferApprover) {
@@ -113,8 +161,6 @@ class InventoryController extends Controller
                 'completedBy',
             ])
             ->whereIn('status', [
-                'pending',
-                'accounting_review',
                 'logistics_assignment',
                 'logistics_assigned',
                 'completed',
@@ -149,12 +195,36 @@ class InventoryController extends Controller
         $isAccountingReviewer = $this->isAccountingReviewer($user);
         $isLogisticsAssigner = $this->isLogisticsAssigner($user);
 
+        // Fetch book indices
+        $indicesQuery = \App\Models\BookIndex::with('book')->latest();
+        if (!empty($search)) {
+            $indicesQuery->where(function($q) use ($search) {
+                $q->where('index_value', 'like', '%' . $search . '%')
+                  ->orWhereHas('book', function($bq) use ($search) {
+                      $bq->where('name', 'like', '%' . $search . '%')
+                         ->orWhere('sku', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+        $indices = $indicesQuery->paginate(10, ['*'], 'indices_page')->withQueryString();
+
+        // Fetch book bundles
+        $bundlesQuery = \App\Models\BookBundle::with('books')->latest();
+        if (!empty($search)) {
+            $bundlesQuery->where(function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('sku', 'like', '%' . $search . '%');
+            });
+        }
+        $bundles = $bundlesQuery->paginate(10, ['*'], 'bundles_page')->withQueryString();
+
         return view('production.inventory.overview', compact(
             'totalBooks', 
             'lowStock', 
             'outOfStock', 
             'inventoryValue',
             'books',
+            'nonBooks',
             'allBooks',
             'recentMovements',
             'totalMovements',
@@ -164,7 +234,9 @@ class InventoryController extends Controller
             'stockTransferWorkflow',
             'logisticsUsers',
             'isAccountingReviewer',
-            'isLogisticsAssigner'
+            'isLogisticsAssigner',
+            'indices',
+            'bundles'
         ));
     }
 
@@ -525,6 +597,156 @@ class InventoryController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update stock: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateIndexStockDirectly(Request $request, $indexId)
+    {
+        $request->validate([
+            'action' => 'required|in:add,set',
+            'quantity' => 'nullable|integer|min:1',
+            'new_stock' => 'nullable|integer|min:0',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $index = \App\Models\BookIndex::findOrFail($indexId);
+            $oldStock = $index->stock;
+            $newStock = $oldStock;
+
+            if ($request->action === 'add') {
+                $quantity = $request->quantity ?? 0;
+                $newStock = $oldStock + $quantity;
+            } elseif ($request->action === 'set') {
+                $newStock = $request->new_stock ?? $oldStock;
+            }
+
+            $index->stock = $newStock;
+            $index->save();
+
+            // Sync with Main Warehouse site inventory
+            $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+            if ($mainWarehouse) {
+                $siteInv = SiteInventory::where('site_id', $mainWarehouse->id)
+                    ->where('book_index_id', $index->id)
+                    ->first();
+                if (!$siteInv) {
+                    $siteInv = new SiteInventory();
+                    $siteInv->site_id = $mainWarehouse->id;
+                    $siteInv->book_index_id = $index->id;
+                    $siteInv->book_id = null;
+                    $siteInv->book_bundle_id = null;
+                }
+                $siteInv->quantity = $newStock;
+                $siteInv->save();
+            }
+
+            // Create inventory transaction record for auditing
+            $transaction = new InventoryTransaction();
+            $transaction->book_id = $index->book_id;
+            $transaction->type = $newStock > $oldStock ? 'in' : ($newStock < $oldStock ? 'out' : 'adjustment');
+            $transaction->quantity = abs($newStock - $oldStock);
+            $transaction->location = 'Main Warehouse';
+            $transaction->source = 'Manual Index Adjustment';
+            $transaction->notes = "Index: {$index->index_value}. " . ($request->action === 'add' 
+                ? "Added {$request->quantity} units to Index Stock via inventory overview"
+                : "Manually set Index Stock from {$oldStock} to {$newStock}");
+            $transaction->user_id = Auth::id();
+            $transaction->transaction_date = now();
+            $transaction->status = 'completed';
+            $transaction->save();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Index stock updated successfully',
+                'old_stock' => $oldStock,
+                'new_stock' => $newStock,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update index stock: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateBundleStockDirectly(Request $request, $bundleId)
+    {
+        $request->validate([
+            'action' => 'required|in:add,set',
+            'quantity' => 'nullable|integer|min:1',
+            'new_stock' => 'nullable|integer|min:0',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $bundle = \App\Models\BookBundle::findOrFail($bundleId);
+            $oldStock = $bundle->stock;
+            $newStock = $oldStock;
+
+            if ($request->action === 'add') {
+                $quantity = $request->quantity ?? 0;
+                $newStock = $oldStock + $quantity;
+            } elseif ($request->action === 'set') {
+                $newStock = $request->new_stock ?? $oldStock;
+            }
+
+            $bundle->stock = $newStock;
+            $bundle->save();
+
+            // Sync with Main Warehouse site inventory
+            $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+            if ($mainWarehouse) {
+                $siteInv = SiteInventory::where('site_id', $mainWarehouse->id)
+                    ->where('book_bundle_id', $bundle->id)
+                    ->first();
+                if (!$siteInv) {
+                    $siteInv = new SiteInventory();
+                    $siteInv->site_id = $mainWarehouse->id;
+                    $siteInv->book_bundle_id = $bundle->id;
+                    $siteInv->book_id = null;
+                    $siteInv->book_index_id = null;
+                }
+                $siteInv->quantity = $newStock;
+                $siteInv->save();
+            }
+
+            // Create inventory transaction record (book_id = null for bundle-level adjustment)
+            $transaction = new InventoryTransaction();
+            $transaction->book_id = null;
+            $transaction->type = $newStock > $oldStock ? 'in' : ($newStock < $oldStock ? 'out' : 'adjustment');
+            $transaction->quantity = abs($newStock - $oldStock);
+            $transaction->location = 'Main Warehouse';
+            $transaction->source = 'Manual Bundle Adjustment';
+            $transaction->notes = "Bundle: {$bundle->name}. " . ($request->action === 'add' 
+                ? "Added {$request->quantity} units to Bundle Stock via inventory overview"
+                : "Manually set Bundle Stock from {$oldStock} to {$newStock}");
+            $transaction->user_id = Auth::id();
+            $transaction->transaction_date = now();
+            $transaction->status = 'completed';
+            $transaction->save();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Bundle stock updated successfully',
+                'old_stock' => $oldStock,
+                'new_stock' => $newStock,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update bundle stock: ' . $e->getMessage()
             ], 500);
         }
     }

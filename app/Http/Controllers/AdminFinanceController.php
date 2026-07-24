@@ -504,7 +504,7 @@ class AdminFinanceController extends Controller
     $jvPending = $jvPendingQuery->orderBy('created_at', 'desc')->get();
 
     // Stock Transfers awaiting Accounting/Admin & Finance review
-    $stockTransfers = StockTransfer::with(['fromSite', 'toSite', 'book', 'createdBy', 'approvedBy'])
+    $stockTransfers = StockTransfer::with(['fromSite', 'toSite', 'book', 'bookIndex.book', 'bookBundle', 'createdBy', 'approvedBy'])
       ->where('status', 'accounting_review')
       ->orderBy('created_at', 'desc')
       ->get()
@@ -686,8 +686,8 @@ class AdminFinanceController extends Controller
         'reference_no' => 'ST-' . str_pad($transfer->id, 5, '0', STR_PAD_LEFT),
         'submitted_by' => $transfer->createdBy->name ?? 'Unknown',
         'submitted_date' => $transfer->created_at->format('M. d, Y'),
-        'description' => ($transfer->book->name ?? 'Unknown Book') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A'),
-        'full_description' => 'Transfer ' . $transfer->quantity . ' unit(s) of ' . ($transfer->book->name ?? 'Unknown Book') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A') . '.',
+        'description' => ($transfer->item_name ?? 'Unknown Item') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A'),
+        'full_description' => 'Transfer ' . $transfer->quantity . ' unit(s) of ' . ($transfer->item_name ?? 'Unknown Item') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A') . '.',
         'department' => 'Admin & Finance',
         'status' => $transfer->status,
         'amount' => $transfer->quantity . ' units',
@@ -3052,4 +3052,172 @@ public function checkVoucher()
         ]);
     }
 
+    public function salesManagement(Request $request)
+    {
+        $tab = $request->query('tab', 'bookstore');
+        $user = auth()->user();
+
+        // 1. Bookstore data
+        $bookstoreDailySales = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+            ->whereDate('created_at', today())
+            ->sum('total_amount') ?: 0.00;
+        
+        $bookstoreCashSales = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+            ->where('payment_method', 'cash')
+            ->sum('total_amount') ?: 0.00;
+            
+        $bookstoreGcashSales = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+            ->whereIn('payment_method', ['gcash', 'qr_ph', 'ewallet', 'GCash'])
+            ->sum('total_amount') ?: 0.00;
+            
+        $bookstoreCardSales = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+            ->whereIn('payment_method', ['credit_card', 'card', 'Credit Card'])
+            ->sum('total_amount') ?: 0.00;
+            
+        $bookstoreChargeSales = \App\Models\SalesOrder::where('type', 'charge')
+            ->sum('total_amount') ?: 0.00;
+
+        // Bookstore Detail Lists
+        $bookstoreDailyOrders = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+            ->latest()
+            ->get();
+        
+        $bookstoreCashOrders = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+            ->where('payment_method', 'cash')
+            ->latest()
+            ->get();
+
+        $bookstoreGcashOrders = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+            ->whereIn('payment_method', ['gcash', 'qr_ph', 'ewallet', 'GCash'])
+            ->latest()
+            ->get();
+
+        $bookstoreCardOrders = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+            ->whereIn('payment_method', ['credit_card', 'card', 'Credit Card'])
+            ->latest()
+            ->get();
+
+        $bookstoreChargeOrders = \App\Models\SalesOrder::where('type', 'charge')
+            ->latest()
+            ->get();
+
+        // 2. E-Commerce Platform Data
+        $ecomWebsiteSales = \App\Models\SalesOrder::where('platform', 'website')->sum('total_amount') ?: 0.00;
+        $ecomShopeeSales = \App\Models\SalesOrder::where('platform', 'shopee')->sum('total_amount') ?: 0.00;
+        $ecomLazadaSales = \App\Models\SalesOrder::where('platform', 'lazada')->sum('total_amount') ?: 0.00;
+        $ecomFacebookSales = \App\Models\SalesOrder::where('platform', 'facebook')->sum('total_amount') ?: 0.00;
+        $ecomTiktokSales = \App\Models\SalesOrder::where('platform', 'tiktok')->sum('total_amount') ?: 0.00;
+        
+        $ecomWebsiteOrders = \App\Models\SalesOrder::where('platform', 'website')->latest()->get();
+        $ecomShopeeOrders = \App\Models\SalesOrder::where('platform', 'shopee')->latest()->get();
+        $ecomLazadaOrders = \App\Models\SalesOrder::where('platform', 'lazada')->latest()->get();
+        $ecomFacebookOrders = \App\Models\SalesOrder::where('platform', 'facebook')->latest()->get();
+        $ecomTiktokOrders = \App\Models\SalesOrder::where('platform', 'tiktok')->latest()->get();
+
+        // 3. Area Sales Data
+        $areaRepSales = \App\Models\SalesOrder::whereNotNull('area_sales_staff_id')->sum('total_amount') ?: 0.00;
+        $areaOrders = \App\Models\SalesOrder::whereNotNull('area_sales_staff_id')
+            ->with(['createdBy', 'customer'])
+            ->latest()
+            ->get();
+
+        return view('admin-finance.accounting.sales-management', [
+            'title' => 'Sales Management - ' . ucfirst($tab),
+            'role' => $user ? $user->position : 'Staff',
+            'sidebar' => 'admin-finance',
+            'tab' => $tab,
+            
+            // Bookstore metrics
+            'bookstoreDailySales' => $bookstoreDailySales,
+            'bookstoreCashSales' => $bookstoreCashSales,
+            'bookstoreGcashSales' => $bookstoreGcashSales,
+            'bookstoreCardSales' => $bookstoreCardSales,
+            'bookstoreChargeSales' => $bookstoreChargeSales,
+            
+            // Bookstore lists
+            'bookstoreDailyOrders' => $bookstoreDailyOrders,
+            'bookstoreCashOrders' => $bookstoreCashOrders,
+            'bookstoreGcashOrders' => $bookstoreGcashOrders,
+            'bookstoreCardOrders' => $bookstoreCardOrders,
+            'bookstoreChargeOrders' => $bookstoreChargeOrders,
+            
+            // Ecom metrics
+            'ecomWebsiteSales' => $ecomWebsiteSales,
+            'ecomShopeeSales' => $ecomShopeeSales,
+            'ecomLazadaSales' => $ecomLazadaSales,
+            'ecomFacebookSales' => $ecomFacebookSales,
+            'ecomTiktokSales' => $ecomTiktokSales,
+            
+            // Ecom lists
+            'ecomWebsiteOrders' => $ecomWebsiteOrders,
+            'ecomShopeeOrders' => $ecomShopeeOrders,
+            'ecomLazadaOrders' => $ecomLazadaOrders,
+            'ecomFacebookOrders' => $ecomFacebookOrders,
+            'ecomTiktokOrders' => $ecomTiktokOrders,
+
+            // Area sales
+            'areaRepSales' => $areaRepSales,
+            'areaOrders' => $areaOrders,
+        ]);
+    }
+
+    public function accountsReceivable(Request $request)
+    {
+        $user = auth()->user();
+        
+        $dbCustomers = \App\Models\Customer::orderBy('customer_name')->get();
+        $customers = collect();
+
+        foreach ($dbCustomers as $cust) {
+            $unpaidOrders = \App\Models\SalesOrder::where('customer_id', $cust->customer_id)
+                ->where('payment_status', '!=', 'paid')
+                ->get();
+
+            $outstanding = $unpaidOrders->sum('total_amount') ?: 0.00;
+            
+            $customers->push((object)[
+                'customer_id' => $cust->customer_id,
+                'customer_name' => $cust->customer_name,
+                'company_name' => $cust->company_name ?: $cust->customer_name,
+                'account_number' => $cust->account_number ?: 'ACC-' . str_pad($cust->customer_id, 4, '0', STR_PAD_LEFT),
+                'credit_limit' => $cust->credit_limit ?: 0.00,
+                'payment_terms' => $cust->payment_terms ?: 'Due on receipt',
+                'outstanding_balance' => $outstanding,
+                'credit_rating' => $cust->credit_limit >= 200000 ? 'AAA' : ($cust->credit_limit >= 100000 ? 'AA' : 'A'),
+                'rep' => $cust->rep,
+                'sales_rep' => $cust->rep === 'CLE' ? 'Xavier Almocera' : ($cust->rep === 'MKT' ? 'Kerwin Morfe' : 'N/A'),
+                'main_phone' => $cust->mobile ?: ($cust->main_phone ?: 'N/A'),
+                'main_email' => $cust->main_email ?: 'N/A',
+                'billing_address' => $cust->billing_address ?: 'N/A',
+                'interest_rate' => 1.5,
+                'overdue_amount' => 0.00,
+                'bad_debts' => 0.00,
+                'accrued_interest' => 0.00
+            ]);
+        }
+
+        return view('admin-finance.accounting.accounts-receivable', [
+            'title' => 'Accounts Receivable Ledger',
+            'role' => $user ? $user->position : 'Staff',
+            'sidebar' => 'admin-finance',
+            'customers' => $customers,
+        ]);
+    }
+
+    public function updateCustomerRep(Request $request, $id)
+    {
+        $customer = \App\Models\Customer::findOrFail($id);
+        
+        $request->validate([
+            'rep' => 'nullable|string|in:CLE,MKT'
+        ]);
+
+        $customer->rep = $request->rep ?: null;
+        $customer->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Sales Representative updated successfully.'
+        ]);
+    }
 }

@@ -58,7 +58,7 @@ class POSController extends Controller
 
             if (!empty($item['bundle_id'])) {
                 // --- Bundle item ---
-                $bundle = \App\Models\BookBundle::with(['books' => fn($q) => $q->withPivot('quantity')])
+                $bundle = \App\Models\BookBundle::with(['books' => fn($q) => $q->withPivot('quantity')->withSum('inventory as stock', 'quantity')])
                             ->find($item['bundle_id']);
 
                 if (!$bundle || $bundle->stock < $qty) {
@@ -76,7 +76,7 @@ class POSController extends Controller
                 }
             } else {
                 // --- Regular book item ---
-                $book = Book::find($item['product_id']);
+                $book = Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
                 if (!$book || $book->stock < $qty) {
                     $bookName  = $book ? $book->name : "Product #{$item['product_id']}";
                     $available = $book ? $book->stock : 0;
@@ -170,7 +170,11 @@ class POSController extends Controller
                     foreach ($bundle->books as $book) {
                         $bookQtyToDeduct = $book->pivot->quantity * $qty;
 
-                        Book::where('id', $book->id)->decrement('stock', $bookQtyToDeduct);
+                        $bookModel = Book::find($book->id);
+                        if ($bookModel) {
+                            $bookModel->stock -= $bookQtyToDeduct;
+                            $bookModel->save();
+                        }
 
                         \App\Models\InventoryTransaction::create([
                             'book_id'          => $book->id,
@@ -203,7 +207,11 @@ class POSController extends Controller
                         'source_price_at_sale'=> $book ? $book->source_price : 0,
                     ]);
 
-                    Book::where('id', $item['product_id'])->decrement('stock', $qty);
+                    $bookModel = Book::find($item['product_id']);
+                    if ($bookModel) {
+                        $bookModel->stock -= $qty;
+                        $bookModel->save();
+                    }
 
                     if ($book) {
                         \App\Models\InventoryTransaction::create([
@@ -357,7 +365,7 @@ class POSController extends Controller
         // STOCK VALIDATION: Check if all items have sufficient stock
         $insufficientItems = [];
         foreach ($validated['items'] as $item) {
-            $book = Book::find($item['product_id']);
+            $book = Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
             if (!$book || $book->stock < $item['quantity']) {
                 $bookName = $book ? $book->name : "Product #{$item['product_id']}";
                 $availableStock = $book ? $book->stock : 0;
@@ -445,7 +453,11 @@ class POSController extends Controller
                 ]);
 
                 // Decrement book stock for E-com order
-                Book::where('id', $item['product_id'])->decrement('stock', $item['quantity']);
+                $bookModel = Book::find($item['product_id']);
+                if ($bookModel) {
+                    $bookModel->stock -= $item['quantity'];
+                    $bookModel->save();
+                }
 
                 // Record inventory transaction
                 if ($book) {

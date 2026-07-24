@@ -10,10 +10,13 @@ class StockTransfer extends Model
         'from_site_id',
         'to_site_id',
         'book_id',
+        'book_index_id',
+        'book_bundle_id',
         'quantity',
         'status',
         'approval_division',
         'notes',
+        'batch_id',
         'rejection_reason',
         'created_by',
         'approved_by',
@@ -49,9 +52,47 @@ class StockTransfer extends Model
         return $this->belongsTo(Book::class);
     }
 
+    public function bookIndex()
+    {
+        return $this->belongsTo(BookIndex::class, 'book_index_id');
+    }
+
+    public function bookBundle()
+    {
+        return $this->belongsTo(BookBundle::class, 'book_bundle_id');
+    }
+
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function getItemNameAttribute()
+    {
+        if ($this->book_id && $this->book) {
+            return $this->book->name;
+        }
+        if ($this->book_index_id && $this->bookIndex) {
+            return ($this->bookIndex->book->name ?? 'Unknown Book') . ' ' . $this->bookIndex->index_value;
+        }
+        if ($this->book_bundle_id && $this->bookBundle) {
+            return $this->bookBundle->name;
+        }
+        return 'Unknown Item';
+    }
+
+    public function getItemTypeAttribute()
+    {
+        if ($this->book_id) {
+            return 'Book';
+        }
+        if ($this->book_index_id) {
+            return 'Index';
+        }
+        if ($this->book_bundle_id) {
+            return 'Bundle';
+        }
+        return 'Unknown';
     }
 
     public function approvedBy()
@@ -146,6 +187,10 @@ class StockTransfer extends Model
             return true;
         }
 
+        if ($this->status !== 'accounting_review') {
+            return false;
+        }
+
         $values = collect([$user->division, $user->department, $user->position])
             ->filter()
             ->map(fn ($value) => strtolower($value));
@@ -153,6 +198,11 @@ class StockTransfer extends Model
         return $values->contains(fn ($value) => str_contains($value, 'accounting')
             || str_contains($value, 'finance')
             || str_contains($value, 'admin & finance'));
+    }
+
+    public function canBeSeenByProduction(): bool
+    {
+        return in_array($this->status, ['logistics_assignment', 'logistics_assigned', 'completed'], true);
     }
 
     public function canBeAssignedBy(?User $user): bool
@@ -202,10 +252,16 @@ class StockTransfer extends Model
         }
 
         // Check if source site has enough stock
-        $sourceInventory = SiteInventory::where('site_id', $this->from_site_id)
-            ->where('book_id', $this->book_id)
-            ->lockForUpdate()
-            ->first();
+        $sourceQuery = SiteInventory::where('site_id', $this->from_site_id);
+        if ($this->book_id) {
+            $sourceQuery->where('book_id', $this->book_id);
+        } elseif ($this->book_index_id) {
+            $sourceQuery->where('book_index_id', $this->book_index_id);
+        } elseif ($this->book_bundle_id) {
+            $sourceQuery->where('book_bundle_id', $this->book_bundle_id);
+        }
+        
+        $sourceInventory = $sourceQuery->lockForUpdate()->first();
 
         if (!$sourceInventory || $sourceInventory->quantity < $this->quantity) {
             return false;
@@ -215,9 +271,16 @@ class StockTransfer extends Model
         $sourceInventory->decrement('quantity', $this->quantity);
 
         // Add to destination
-        $destInventory = SiteInventory::where('site_id', $this->to_site_id)
-            ->where('book_id', $this->book_id)
-            ->first();
+        $destQuery = SiteInventory::where('site_id', $this->to_site_id);
+        if ($this->book_id) {
+            $destQuery->where('book_id', $this->book_id);
+        } elseif ($this->book_index_id) {
+            $destQuery->where('book_index_id', $this->book_index_id);
+        } elseif ($this->book_bundle_id) {
+            $destQuery->where('book_bundle_id', $this->book_bundle_id);
+        }
+        
+        $destInventory = $destQuery->first();
 
         if ($destInventory) {
             $destInventory->increment('quantity', $this->quantity);
@@ -225,6 +288,8 @@ class StockTransfer extends Model
             SiteInventory::create([
                 'site_id' => $this->to_site_id,
                 'book_id' => $this->book_id,
+                'book_index_id' => $this->book_index_id,
+                'book_bundle_id' => $this->book_bundle_id,
                 'quantity' => $this->quantity
             ]);
         }

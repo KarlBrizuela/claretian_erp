@@ -98,7 +98,7 @@ class MarketingController extends Controller
 
         // 3. Pending Stock Transfers (Marketing Manager approves Marketing-origin requests)
         $pendingTransfers = $isAuthorized
-            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'createdBy')
+            ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'bookIndex.book', 'bookBundle', 'createdBy')
                 ->where('status', 'pending')
                 ->where(function ($query) {
                     $query->where('approval_division', 'Marketing')
@@ -265,6 +265,7 @@ class MarketingController extends Controller
         
         $query = Book::where('is_book', true)
             ->with(['product', 'bookCategory', 'bookSubCategory'])
+            ->withSum('inventory as stock', 'quantity')
             ->orderBy('created_at', 'desc');
 
         if (!empty($search)) {
@@ -295,6 +296,7 @@ class MarketingController extends Controller
         
         $query = Book::where('is_book', false)
             ->with(['product', 'bookCategory', 'bookSubCategory'])
+            ->withSum('inventory as stock', 'quantity')
             ->orderBy('created_at', 'desc');
 
         if (!empty($search)) {
@@ -1368,7 +1370,7 @@ class MarketingController extends Controller
             // STOCK VALIDATION: Check if all items have sufficient stock
             $insufficientItems = [];
             foreach ($request->items ?? [] as $item) {
-                $book = \App\Models\Book::find($item['product_id']);
+                $book = \App\Models\Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
                 if (!$book || $book->stock < $item['quantity']) {
                     $bookName = $book ? $book->name : "Product #{$item['product_id']}";
                     $availableStock = $book ? $book->stock : 0;
@@ -1743,7 +1745,7 @@ class MarketingController extends Controller
         // STOCK VALIDATION: Check if all items have sufficient stock
         $insufficientItems = [];
         foreach ($request->items as $item) {
-            $book = Book::find($item['product_id']);
+            $book = Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
             if (!$book || $book->stock < $item['quantity']) {
                 $bookName = $book ? $book->name : "Product #{$item['product_id']}";
                 $availableStock = $book ? $book->stock : 0;
@@ -1924,7 +1926,7 @@ class MarketingController extends Controller
         // STOCK VALIDATION: Check if all items have sufficient stock
         $insufficientItems = [];
         foreach ($request->items as $item) {
-            $book = Book::find($item['product_id']);
+            $book = Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
             if (!$book || $book->stock < $item['quantity']) {
                 $bookName = $book ? $book->name : "Product #{$item['product_id']}";
                 $availableStock = $book ? $book->stock : 0;
@@ -2165,6 +2167,7 @@ class MarketingController extends Controller
     public function posSale()
     {
         $products = Book::where('is_active', true)
+            ->withSum('inventory as stock', 'quantity')
             ->orderBy('name', 'asc')
             ->get()
             ->map(function($p) {
@@ -2183,8 +2186,8 @@ class MarketingController extends Controller
 
         $bundles = \App\Models\BookBundle::where('is_active', true)
             ->with(['books' => function ($q) {
-                $q->select('books.id', 'books.name', 'books.stock', 'books.cost')
-                  ->withPivot('quantity');
+                $q->withPivot('quantity')
+                  ->withSum('inventory as stock', 'quantity');
             }])
             ->orderBy('name', 'asc')
             ->get()
@@ -2221,7 +2224,9 @@ class MarketingController extends Controller
     public function posProducts()
     {
         // Fetch all books for POS management
-        $products = Book::orderBy('name', 'asc')->get();
+        $products = Book::withSum('inventory as stock', 'quantity')
+            ->orderBy('name', 'asc')
+            ->get();
 
         return view('marketing.direct-sales.products', [
             'products' => $products,
@@ -2235,6 +2240,7 @@ class MarketingController extends Controller
     public function ecomPos()
     {
         $products = Book::where('is_active', true)
+            ->withSum('inventory as stock', 'quantity')
             ->orderBy('name', 'asc')
             ->get()
             ->map(function($p) {

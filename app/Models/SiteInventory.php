@@ -11,6 +11,8 @@ class SiteInventory extends Model
     protected $fillable = [
         'site_id',
         'book_id',
+        'book_index_id',
+        'book_bundle_id',
         'quantity',
         'reorder_point',
         'max_stock'
@@ -26,6 +28,16 @@ class SiteInventory extends Model
         return $this->belongsTo(Book::class);
     }
 
+    public function bookIndex()
+    {
+        return $this->belongsTo(BookIndex::class, 'book_index_id');
+    }
+
+    public function bookBundle()
+    {
+        return $this->belongsTo(BookBundle::class, 'book_bundle_id');
+    }
+
     public function getStockStatus()
     {
         if ($this->quantity == 0) {
@@ -39,6 +51,12 @@ class SiteInventory extends Model
 
     public function getInventoryValue()
     {
-        return ($this->book->cost ?? 0) * $this->quantity;
+        if ($this->book) {
+            return ($this->book->cost ?? 0) * $this->quantity;
+        }
+        if ($this->bookIndex && $this->bookIndex->book) {
+            return ($this->bookIndex->book->cost ?? 0) * $this->quantity;
+        }
+        return 0;
     }
 }

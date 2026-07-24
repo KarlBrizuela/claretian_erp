@@ -58,6 +58,8 @@ Route::middleware(['auth'])->group(function () {
       Route::delete('/destroy-product/{id}', [InventoryController::class, 'destroyProduct'])->name('destroy-product');
       Route::post('/process-add-stock', [InventoryController::class, 'processAddStock'])->name('process-add-stock');
       Route::post('/update-stock/{bookId}', [InventoryController::class, 'updateStockDirectly'])->name('update-stock');
+      Route::post('/update-index-stock/{indexId}', [InventoryController::class, 'updateIndexStockDirectly'])->name('update-index-stock');
+      Route::post('/update-bundle-stock/{bundleId}', [InventoryController::class, 'updateBundleStockDirectly'])->name('update-bundle-stock');
     });
 
     // Site Management Routes
@@ -68,6 +70,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/delete/{id}', [App\Http\Controllers\Production\SiteController::class, 'deleteSite'])->name('delete');
       Route::get('/{siteId}/inventory', [App\Http\Controllers\Production\SiteController::class, 'getInventory'])->name('inventory');
       Route::post('/transfer', [App\Http\Controllers\Production\SiteController::class, 'transfer'])->name('transfer');
+      Route::post('/transfer-batch', [App\Http\Controllers\Production\SiteController::class, 'transferBatch'])->name('transfer-batch');
       Route::post('/approve-transfer/{id}', [App\Http\Controllers\Production\SiteController::class, 'approveTransfer'])->name('approve-transfer');
       Route::post('/reject-transfer/{id}', [App\Http\Controllers\Production\SiteController::class, 'rejectTransfer'])->name('reject-transfer');
     });
@@ -464,6 +467,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Chart of Accounts
     Route::get('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'chartOfAccounts'])->name('admin-finance.accounting.chart-of-accounts');
+    Route::get('/sales-management', [App\Http\Controllers\AdminFinanceController::class, 'salesManagement'])->name('admin-finance.accounting.sales-management');
+    Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');
+    Route::post('/customers/{id}/update-rep', [App\Http\Controllers\AdminFinanceController::class, 'updateCustomerRep'])->name('admin-finance.customers.update-rep');
 
     // Credit Collection
     Route::prefix('credit-collection')->group(function () {
