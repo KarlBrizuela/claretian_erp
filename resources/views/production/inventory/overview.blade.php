@@ -629,7 +629,7 @@
                     <div class="col-xl-12">
                         <div class="card">
                             <div class="card-header border-0 d-flex justify-content-between align-items-center">
-                                <h4 class="fs-20 mb-0 text-black">Warehouse/Sites Management</h4>
+                                <h4 class="fs-20 mb-0 text-black">Site Management</h4>
                                 <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSiteModal">
                                     <i class="las la-plus me-2"></i>Add Site
                                 </button>
@@ -1079,7 +1079,7 @@
                         <input type="text" class="form-control" id="mgmtBookName" disabled>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label font-w600">Site/Warehouse *</label>
+                        <label class="form-label font-w600">Site *</label>
                         <select class="form-control" id="mgmtSiteSelect" onchange="onStockMgmtSiteChange()">
                             @foreach($sites ?? [] as $site)
                                 <option value="{{ $site->id }}">{{ $site->name }}</option>
@@ -1275,7 +1275,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
-                    <h6 class="modal-title text-white"><i class="las la-plus me-2"></i>Add New Site/Warehouse</h6>
+                    <h6 class="modal-title text-white"><i class="las la-plus me-2"></i>Add New Site</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="addSiteForm">
@@ -1291,7 +1291,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label font-w600">Location</label>
-                            <input type="text" name="location" class="form-control" placeholder="e.g., Makati City">
+                            <input type="text" name="location" class="form-control" placeholder="e.g., Quezon City">
                         </div>
                         <div class="mb-0">
                             <label class="form-label font-w600">Description</label>
@@ -1439,8 +1439,8 @@
                     <div class="timeline-item mb-4">
                         <div class="timeline-marker bg-primary"><strong>1</strong></div>
                         <div class="timeline-content">
-                            <h6 class="font-w600">Create Warehouse/Site</h6>
-                            <p class="text-muted mb-0">Click "Add New Site" to create a new warehouse location. Set the name, code, location, and description.</p>
+                            <h6 class="font-w600">Create Site</h6>
+                            <p class="text-muted mb-0">Click "Add Site" to create a new site location. Set the name, code, location, and description.</p>
                         </div>
                     </div>
 
@@ -1492,24 +1492,31 @@
     </div>
 
     <!-- Toast Notification Container -->
+    <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px;"></div>
 @push('scripts')
     <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
         function showNotification(message, type = 'success') {
-            const toastContainer = document.getElementById('toastContainer');
-            const toastId = 'toast-' + Date.now();
+            let toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toastContainer';
+                toastContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px;';
+                document.body.appendChild(toastContainer);
+            }
             
+            const toastId = 'toast-' + Date.now();
             const bgColor = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-warning';
             const icon = type === 'success' ? 'la-check-circle' : type === 'error' ? 'la-exclamation-circle' : 'la-info-circle';
             
             const toastHTML = `
-                <div id="${toastId}" class="toast show" role="alert" style="min-width: 300px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                    <div class="toast-header ${bgColor} text-white">
+                <div id="${toastId}" class="toast show text-white ${bgColor}" role="alert" style="min-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: none;">
+                    <div class="toast-header ${bgColor} text-white border-0">
                         <i class="las ${icon} me-2"></i>
                         <strong class="me-auto">${type.charAt(0).toUpperCase() + type.slice(1)}</strong>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
                     </div>
-                    <div class="toast-body">
+                    <div class="toast-body pt-0">
                         ${message}
                     </div>
                 </div>
@@ -1518,12 +1525,37 @@
             toastContainer.insertAdjacentHTML('beforeend', toastHTML);
             
             const toastElement = document.getElementById(toastId);
-            const bsToast = new bootstrap.Toast(toastElement);
-            bsToast.show();
+            if (toastElement && typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+                try {
+                    const bsToast = new bootstrap.Toast(toastElement);
+                    bsToast.show();
+                    toastElement.addEventListener('hidden.bs.toast', function() {
+                        toastElement.remove();
+                    });
+                } catch(e) {}
+            }
             
-            toastElement.addEventListener('hidden.bs.toast', function() {
-                toastElement.remove();
-            });
+            setTimeout(() => {
+                toastElement?.remove();
+            }, 4000);
+        }
+
+        function closeModal(modalId) {
+            const modalEl = document.getElementById(modalId);
+            if (!modalEl) return;
+            try {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                    if (inst) inst.hide();
+                }
+                if (window.jQuery && typeof jQuery.fn.modal === 'function') {
+                    $(modalEl).modal('hide');
+                }
+            } catch (e) {}
+            modalEl.classList.remove('show');
+            modalEl.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
         }
 
         let currentBookName = null;
@@ -1590,6 +1622,28 @@
             document.getElementById('mgmtEditWarning').innerHTML = '';
             document.getElementById('mgmtEditPreview').style.display = 'none';
 
+            const saveBtn = document.getElementById('mgmtSaveBtn');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = 'Save Changes';
+            }
+
+            // Force visual and functional reset of active tab to "Add Stock"
+            const addTabBtn = document.getElementById('addTab');
+            const editTabBtn = document.getElementById('editTab');
+            const addTabPane = document.getElementById('addTabContent');
+            const editTabPane = document.getElementById('editTabContent');
+
+            if (addTabBtn && editTabBtn && addTabPane && editTabPane) {
+                addTabBtn.classList.add('active');
+                addTabBtn.setAttribute('aria-selected', 'true');
+                editTabBtn.classList.remove('active');
+                editTabBtn.setAttribute('aria-selected', 'false');
+
+                addTabPane.classList.add('show', 'active');
+                editTabPane.classList.remove('show', 'active');
+            }
+
             if (stockMgmtAddHandler) {
                 document.getElementById('mgmtAddQuantity').removeEventListener('input', stockMgmtAddHandler);
             }
@@ -1609,14 +1663,15 @@
 
                     if (maxStock && newStock > maxStock) {
                         warning.innerHTML = `<span class="text-danger"><i class="las la-exclamation-circle"></i> Warning: New stock (${newStock}) exceeds max stock (${maxStock})</span>`;
-                        document.getElementById('mgmtSaveBtn').disabled = true;
+                        if (saveBtn) saveBtn.disabled = true;
                     } else {
                         warning.innerHTML = '';
-                        document.getElementById('mgmtSaveBtn').disabled = false;
+                        if (saveBtn) saveBtn.disabled = false;
                     }
                 } else {
                     preview.style.display = 'none';
                     warning.innerHTML = '';
+                    if (saveBtn) saveBtn.disabled = false;
                 }
             };
 
@@ -1632,14 +1687,15 @@
 
                     if (maxStock && newStock > maxStock) {
                         warning.innerHTML = `<span class="text-danger"><i class="las la-exclamation-circle"></i> Warning: New stock (${newStock}) exceeds max stock (${maxStock})</span>`;
-                        document.getElementById('mgmtSaveBtn').disabled = true;
+                        if (saveBtn) saveBtn.disabled = true;
                     } else {
                         warning.innerHTML = '';
-                        document.getElementById('mgmtSaveBtn').disabled = false;
+                        if (saveBtn) saveBtn.disabled = false;
                     }
                 } else {
                     preview.style.display = 'none';
                     warning.innerHTML = '';
+                    if (saveBtn) saveBtn.disabled = false;
                 }
             };
 
@@ -1651,108 +1707,188 @@
         }
 
         function saveStockManagement() {
-            const activeTab = document.querySelector('#stockManagementModal .nav-link.active');
-            if (activeTab && activeTab.id === 'addTab') {
+            const addPane = document.getElementById('addTabContent');
+            const editPane = document.getElementById('editTabContent');
+            
+            const isAddActive = addPane && (addPane.classList.contains('active') || addPane.classList.contains('show'));
+            const isEditActive = editPane && (editPane.classList.contains('active') || editPane.classList.contains('show'));
+
+            const addQtyVal = document.getElementById('mgmtAddQuantity')?.value;
+            const editQtyVal = document.getElementById('mgmtEditQuantity')?.value;
+
+            if (isAddActive || (addQtyVal && !editQtyVal)) {
                 saveAddStock();
-            } else if (activeTab && activeTab.id === 'editTab') {
+            } else if (isEditActive || editQtyVal) {
                 saveEditStock();
+            } else {
+                saveAddStock();
             }
         }
 
         function saveAddStock() {
-            const quantity = parseInt(document.getElementById('mgmtAddQuantity').value);
-            const siteId = document.getElementById('mgmtSiteSelect').value;
+            const saveBtn = document.getElementById('mgmtSaveBtn');
+            const originalText = saveBtn ? saveBtn.innerHTML : 'Save Changes';
 
-            if (!siteId) {
-                showNotification('Please select a site/warehouse', 'warning');
-                return;
-            }
+            try {
+                const quantityInput = document.getElementById('mgmtAddQuantity');
+                const quantity = parseInt(quantityInput ? quantityInput.value : '');
+                const siteId = document.getElementById('mgmtSiteSelect')?.value;
 
-            if (!quantity || quantity < 1) {
-                showNotification('Please enter a valid quantity', 'warning');
-                return;
-            }
-
-            const newStock = currentStock + quantity;
-            if (maxStock && newStock > maxStock) {
-                showNotification(`Cannot add stock. New total (${newStock}) would exceed max stock (${maxStock})`, 'error');
-                return;
-            }
-
-            fetch(`/production/inventory/update-stock/${currentBookId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({
-                    action: 'add',
-                    site_id: siteId,
-                    quantity: quantity,
-                    new_stock: newStock
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('Stock added successfully!', 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('stockManagementModal')).hide();
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    showNotification('Error: ' + data.message, 'error');
+                if (!siteId) {
+                    showNotification('Please select a site', 'warning');
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('An error occurred', 'error');
-            });
+
+                if (!quantity || isNaN(quantity) || quantity < 1) {
+                    showNotification('Please enter a valid quantity to add', 'warning');
+                    return;
+                }
+
+                const newStock = currentStock + quantity;
+                if (maxStock && newStock > maxStock) {
+                    showNotification(`Cannot add stock. New total (${newStock}) would exceed max stock (${maxStock})`, 'error');
+                    return;
+                }
+
+                if (!currentBookId) {
+                    showNotification('No item selected', 'error');
+                    return;
+                }
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<i class="las la-spinner la-spin me-1"></i>Saving...';
+                }
+
+                fetch(`/production/inventory/update-stock/${currentBookId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'add',
+                        site_id: siteId,
+                        quantity: quantity,
+                        new_stock: newStock
+                    })
+                })
+                .then(async response => {
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        showNotification(data.message || 'Stock added successfully!', 'success');
+                        closeModal('stockManagementModal');
+                        setTimeout(() => location.reload(), 200);
+                    } else {
+                        showNotification('Error: ' + (data.message || 'Failed to update stock'), 'error');
+                        if (saveBtn) {
+                            saveBtn.disabled = false;
+                            saveBtn.innerHTML = originalText;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    showNotification('An error occurred while adding stock', 'error');
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                    }
+                });
+
+            } catch (err) {
+                console.error('saveAddStock exception:', err);
+                showNotification('An unexpected error occurred', 'error');
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalText;
+                }
+            }
         }
 
         function saveEditStock() {
-            const newStock = parseInt(document.getElementById('mgmtEditQuantity').value);
-            const siteId = document.getElementById('mgmtSiteSelect').value;
+            const saveBtn = document.getElementById('mgmtSaveBtn');
+            const originalText = saveBtn ? saveBtn.innerHTML : 'Save Changes';
 
-            if (!siteId) {
-                showNotification('Please select a site/warehouse', 'warning');
-                return;
-            }
+            try {
+                const editInput = document.getElementById('mgmtEditQuantity');
+                const newStock = parseInt(editInput ? editInput.value : '');
+                const siteId = document.getElementById('mgmtSiteSelect')?.value;
 
-            if (isNaN(newStock)) {
-                showNotification('Please enter a valid stock value', 'warning');
-                return;
-            }
-
-            if (maxStock && newStock > maxStock) {
-                showNotification(`Cannot set stock. New value (${newStock}) exceeds max stock (${maxStock})`, 'error');
-                return;
-            }
-
-            fetch(`/production/inventory/update-stock/${currentBookId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({
-                    action: 'set',
-                    site_id: siteId,
-                    new_stock: newStock
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('Stock updated successfully!', 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('stockManagementModal')).hide();
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    showNotification('Error: ' + data.message, 'error');
+                if (!siteId) {
+                    showNotification('Please select a site', 'warning');
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('An error occurred', 'error');
-            });
+
+                if (isNaN(newStock) || newStock < 0) {
+                    showNotification('Please enter a valid stock value', 'warning');
+                    return;
+                }
+
+                if (maxStock && newStock > maxStock) {
+                    showNotification(`Cannot set stock. New value (${newStock}) exceeds max stock (${maxStock})`, 'error');
+                    return;
+                }
+
+                if (!currentBookId) {
+                    showNotification('No item selected', 'error');
+                    return;
+                }
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<i class="las la-spinner la-spin me-1"></i>Saving...';
+                }
+
+                fetch(`/production/inventory/update-stock/${currentBookId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'set',
+                        site_id: siteId,
+                        new_stock: newStock
+                    })
+                })
+                .then(async response => {
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        showNotification(data.message || 'Stock updated successfully!', 'success');
+                        closeModal('stockManagementModal');
+                        setTimeout(() => location.reload(), 200);
+                    } else {
+                        showNotification('Error: ' + (data.message || 'Failed to update stock'), 'error');
+                        if (saveBtn) {
+                            saveBtn.disabled = false;
+                            saveBtn.innerHTML = originalText;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    showNotification('An error occurred while updating stock', 'error');
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                    }
+                });
+
+            } catch (err) {
+                console.error('saveEditStock exception:', err);
+                showNotification('An unexpected error occurred', 'error');
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalText;
+                }
+            }
         }
 
         // Site Management Functions

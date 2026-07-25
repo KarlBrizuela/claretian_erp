@@ -49,9 +49,19 @@
     </a>
     @endif
 	
+	<!-- Master Inventory -->
+	@if($hasInventory)
+	<a href="{{ route('production.inventory.master') }}" class="modern-nav-item {{ request()->routeIs('production.inventory.master') ? 'active' : '' }}">
+		<div class="modern-nav-icon">
+			<i class="las la-boxes"></i>
+		</div>
+		<span class="modern-nav-label">Master Inventory</span>
+	</a>
+	@endif
+
 	<!-- Inventory Management -->
 	@if($hasInventory)
-	<div class="modern-nav-group {{ request()->is('production/inventory*') ? 'active' : '' }}">
+	<div class="modern-nav-group {{ (request()->is('production/inventory*') && !request()->routeIs('production.inventory.master')) ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="inventory">
 			<div class="modern-nav-icon">
 				<i class="las la-warehouse"></i>
@@ -60,7 +70,6 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="inventory">
-			<a href="{{ route('production.inventory.master') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.master') ? 'active' : '' }}">Master Inventory</a>
 			@if($user->hasPermission('production.inventory.overview'))
 			<a href="{{ route('production.inventory.overview') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.overview') ? 'active' : '' }}">Inventory Overview</a>
 			@endif

@@ -134,10 +134,13 @@
 
     {{-- Production Sections --}}
     @if($hasInv)
-    <div class="modern-nav-group">
+    <a href="{{ route('production.inventory.master') }}" class="modern-nav-item {{ request()->routeIs('production.inventory.master') ? 'active' : '' }}">
+        <div class="modern-nav-icon"><i class="las la-boxes"></i></div>
+        <span class="modern-nav-label">Master Inventory</span>
+    </a>
+    <div class="modern-nav-group {{ (request()->is('production/inventory*') && !request()->routeIs('production.inventory.master')) ? 'active' : '' }}">
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-warehouse"></i></div><span class="modern-nav-label">Inventory Management</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu">
-            <a href="{{ route('production.inventory.master') }}" class="modern-nav-subitem">Master Inventory</a>
             <a href="{{ route('production.inventory.overview') }}" class="modern-nav-subitem">Inventory Overview</a>
             <a href="{{ route('production.inventory.add-stock') }}" class="modern-nav-subitem">Add Stock</a>
             <a href="{{ route('production.inventory.received') }}" class="modern-nav-subitem">Received Items</a>

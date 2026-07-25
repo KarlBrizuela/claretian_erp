@@ -75,30 +75,6 @@
             </div>
         </div>
 
-        <!-- Executive System Risk Alerts Feed -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm p-3" style="border-radius: 14px; background: #fff;">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="fw-bold text-dark fs-15"><i class="las la-bell me-1" style="color: #D9251C;"></i>Executive Risk & Operations Alerts</span>
-                        <span class="badge bg-light text-dark border">{{ count($executiveAlerts) }} System Warnings</span>
-                    </div>
-                    <div class="row g-2">
-                        @foreach($executiveAlerts as $alt)
-                        <div class="col-md-3">
-                            <div class="p-2.5 rounded border border-{{ $alt['type'] }}-subtle bg-{{ $alt['type'] }}-subtle text-{{ $alt['type'] }} d-flex align-items-start gap-2">
-                                <i class="las la-exclamation-circle fs-20 mt-0.5"></i>
-                                <div>
-                                    <strong class="d-block small">{{ $alt['title'] }}</strong>
-                                    <span class="small opacity-75" style="font-size: 0.78rem;">{{ $alt['desc'] }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- 14 Hero Executive Large KPI Cards (Interactive & Drill-Down) -->
         <div class="row g-3 mb-4">
@@ -261,8 +237,8 @@
                 <div class="hero-kpi-card">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="text-muted small fw-bold text-uppercase">Forecasted Cash (30D)</span>
-                        <div class="hero-kpi-icon text-white" style="background-color: #D9251C;">
-                            <i class="las la-crystal-ball"></i>
+                        <div class="hero-kpi-icon bg-danger-subtle text-danger">
+                            <i class="las la-chart-line"></i>
                         </div>
                     </div>
                     <h3 class="fw-bold mb-1" style="color: #D9251C;">₱{{ number_format($kpis['forecasted_cash'], 2) }}</h3>

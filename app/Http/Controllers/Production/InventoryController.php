@@ -59,8 +59,22 @@ class InventoryController extends Controller
             });
         }
 
-        // Fetch sites with fresh inventory after any sync
+        // Virtual category warehouses dedicated strictly to Master Inventory
+        $masterCategoryWarehouseNames = [
+            'Bookstore Warehouse',
+            'Area Sales Warehouse',
+            'Consignment Warehouse',
+            'Reserved Warehouse',
+            'Book Sale Warehouse',
+            'E-commerce Warehouse',
+            'Damaged Stock Warehouse',
+            'Returned Stock Warehouse',
+            'In Transit Warehouse',
+        ];
+
+        // Fetch physical sites with fresh inventory after any sync
         $sites = Site::where('is_active', true)
+            ->whereNotIn('name', $masterCategoryWarehouseNames)
             ->with(['inventory' => function ($q) {
                 $q->where('quantity', '>', 0)->with(['book', 'bookIndex.book', 'bookBundle']);
             }])
