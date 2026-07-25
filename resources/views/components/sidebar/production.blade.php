@@ -23,6 +23,12 @@
 		</div>
 		<span class="modern-nav-label">Dashboard</span>
 	</a>
+	<a href="{{ route('production.executive-dashboard.index') }}" class="modern-nav-item {{ request()->is('production/executive-dashboard*') ? 'active' : '' }}">
+		<div class="modern-nav-icon">
+			<i class="las la-chart-bar"></i>
+		</div>
+		<span class="modern-nav-label">Executive Dashboard</span>
+	</a>
     @endif
     
     @if($hasMyRequests)
@@ -54,6 +60,7 @@
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu" data-submenu="inventory">
+			<a href="{{ route('production.inventory.master') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.master') ? 'active' : '' }}">Master Inventory</a>
 			@if($user->hasPermission('production.inventory.overview'))
 			<a href="{{ route('production.inventory.overview') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.overview') ? 'active' : '' }}">Inventory Overview</a>
 			@endif
@@ -66,6 +73,26 @@
 		</div>
 	</div>
 	@endif
+
+	<!-- Production Costing -->
+	<div class="modern-nav-group {{ request()->is('production/costing*') ? 'active' : '' }}">
+		<a href="{{ route('production.costing.index') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-calculator"></i>
+			</div>
+			<span class="modern-nav-label">Production Costing</span>
+		</a>
+	</div>
+
+	<!-- Fixed Assets -->
+	<div class="modern-nav-group {{ request()->is('production/assets*') ? 'active' : '' }}">
+		<a href="{{ route('production.assets.index') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-tools"></i>
+			</div>
+			<span class="modern-nav-label">Fixed Assets</span>
+		</a>
+	</div>
 
 	<!-- Logistics -->
 	@if($hasLogistics)

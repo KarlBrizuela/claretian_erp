@@ -3220,4 +3220,988 @@ public function checkVoucher()
             'message' => 'Sales Representative updated successfully.'
         ]);
     }
+
+    public function accountsPayable(Request $request)
+    {
+        $user = auth()->user();
+
+        $categories = [
+            'Paper Suppliers',
+            'Ink Suppliers',
+            'Freight',
+            'Utilities',
+            'Outside Printers',
+            'Government',
+            'Professional Services',
+        ];
+
+        $selectedCategory = $request->query('category');
+        $search = $request->query('search');
+
+        $query = \App\Models\Supplier::with(['purchaseOrders', 'receivingReports', 'invoices', 'payments']);
+
+        if ($selectedCategory && $selectedCategory !== 'All') {
+            $query->where('category', $selectedCategory);
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('company_name', 'like', "%{$search}%")
+                  ->orWhere('supplier_code', 'like', "%{$search}%")
+                  ->orWhere('contact_person', 'like', "%{$search}%");
+            });
+        }
+
+        $suppliers = $query->orderBy('company_name')->get();
+
+        // Calculate summary metrics across all suppliers
+        $allInvoices = \App\Models\SupplierInvoice::with('supplier')->get();
+        $allPayments = \App\Models\SupplierPayment::with(['supplier', 'invoice'])->get();
+        $allPOs = \App\Models\PurchaseOrder::with('supplier')->get();
+        $allRRs = \App\Models\ReceivingReport::with(['supplier', 'purchaseOrder'])->get();
+
+        $totalApBalance = 0;
+        $totalOverdueAp = 0;
+        $totalWithheldTax = $allPayments->sum('withholding_tax_amount') + $allInvoices->sum('withholding_tax_amount');
+
+        $today = \Carbon\Carbon::today();
+
+        foreach ($allInvoices as $inv) {
+            $balance = max(0, $inv->total_amount - $inv->amount_paid);
+            if ($balance > 0) {
+                $totalApBalance += $balance;
+                if (\Carbon\Carbon::parse($inv->due_date)->lt($today)) {
+                    $totalOverdueAp += $balance;
+                    $inv->is_overdue = true;
+                } else {
+                    $inv->is_overdue = false;
+                }
+            } else {
+                $inv->is_overdue = false;
+            }
+        }
+
+        // Generate 1099 / Expanded Withholding Tax (EWT) Report data per supplier
+        $ewtReports = collect();
+        foreach ($suppliers as $supp) {
+            $suppInvoices = $allInvoices->where('supplier_id', $supp->id);
+            $suppPayments = $allPayments->where('supplier_id', $supp->id);
+
+            $grossBilled = $suppInvoices->sum('subtotal');
+            $taxWithheld = $suppPayments->sum('withholding_tax_amount') ?: $suppInvoices->sum('withholding_tax_amount');
+            $totalPaid = $suppPayments->sum('amount_paid');
+
+            $ewtReports->push((object)[
+                'supplier_id' => $supp->id,
+                'supplier_code' => $supp->supplier_code,
+                'company_name' => $supp->company_name,
+                'category' => $supp->category,
+                'tin' => $supp->tin ?: 'N/A',
+                'tax_rate' => $supp->tax_rate ?: 1.00,
+                'gross_amount' => $grossBilled,
+                'tax_withheld' => $taxWithheld,
+                'total_paid' => $totalPaid,
+            ]);
+        }
+
+        return view('admin-finance.accounting.accounts-payable', [
+            'title' => 'Accounts Payable Ledger',
+            'role' => $user ? $user->position : 'Staff',
+            'sidebar' => 'admin-finance',
+            'suppliers' => $suppliers,
+            'categories' => $categories,
+            'selectedCategory' => $selectedCategory ?: 'All',
+            'purchaseOrders' => $allPOs,
+            'receivingReports' => $allRRs,
+            'invoices' => $allInvoices,
+            'payments' => $allPayments,
+            'ewtReports' => $ewtReports,
+            'metrics' => [
+                'total_ap_balance' => $totalApBalance,
+                'total_overdue_ap' => $totalOverdueAp,
+                'total_withheld_tax' => $totalWithheldTax,
+                'active_suppliers_count' => $suppliers->where('status', 'active')->count(),
+            ],
+        ]);
+    }
+
+    public function storeSupplier(Request $request)
+    {
+        $request->validate([
+            'company_name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'contact_person' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:50',
+            'tin' => 'nullable|string|max:50',
+            'address' => 'nullable|string',
+            'tax_rate' => 'nullable|numeric|min:0|max:100',
+            'terms' => 'nullable|string|max:100',
+        ]);
+
+        $code = 'SUP-' . strtoupper(\Str::random(5));
+
+        \App\Models\Supplier::create([
+            'supplier_code' => $code,
+            'company_name' => $request->company_name,
+            'category' => $request->category,
+            'contact_person' => $request->contact_person,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'tin' => $request->tin,
+            'address' => $request->address,
+            'tax_rate' => $request->tax_rate ?: 1.00,
+            'terms' => $request->terms ?: '30 Days',
+            'status' => 'active',
+        ]);
+
+        return redirect()->back()->with('success', 'Supplier created successfully!');
+    }
+
+    public function storeSupplierInvoice(Request $request)
+    {
+        $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'invoice_number' => 'required|string|unique:supplier_invoices,invoice_number',
+            'invoice_date' => 'required|date',
+            'due_date' => 'required|date|after_or_equal:invoice_date',
+            'subtotal' => 'required|numeric|min:0',
+            'withholding_tax_rate' => 'nullable|numeric|min:0',
+            'purchase_order_id' => 'nullable|exists:purchase_orders,id',
+            'receiving_report_id' => 'nullable|exists:receiving_reports,id',
+            'notes' => 'nullable|string',
+        ]);
+
+        $supplier = \App\Models\Supplier::findOrFail($request->supplier_id);
+        $subtotal = (float) $request->subtotal;
+        $taxRate = $request->has('withholding_tax_rate') && $request->withholding_tax_rate !== null ? (float) $request->withholding_tax_rate : (float) ($supplier->tax_rate ?: 1.00);
+        $withholdingTaxAmount = round(($subtotal * $taxRate) / 100, 2);
+        $taxAmount = round($subtotal * 0.12, 2); // Standard VAT 12% if applicable
+        $totalAmount = ($subtotal + $taxAmount) - $withholdingTaxAmount;
+
+        \App\Models\SupplierInvoice::create([
+            'invoice_number' => $request->invoice_number,
+            'supplier_id' => $supplier->id,
+            'purchase_order_id' => $request->purchase_order_id,
+            'receiving_report_id' => $request->receiving_report_id,
+            'invoice_date' => $request->invoice_date,
+            'due_date' => $request->due_date,
+            'subtotal' => $subtotal,
+            'tax_amount' => $taxAmount,
+            'withholding_tax_rate' => $taxRate,
+            'withholding_tax_amount' => $withholdingTaxAmount,
+            'total_amount' => $totalAmount,
+            'amount_paid' => 0.00,
+            'status' => 'unpaid',
+            'notes' => $request->notes,
+        ]);
+
+        return redirect()->back()->with('success', 'Supplier Invoice recorded successfully!');
+    }
+
+    public function storeSupplierPayment(Request $request)
+    {
+        $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'supplier_invoice_id' => 'nullable|exists:supplier_invoices,id',
+            'payment_date' => 'required|date',
+            'amount_paid' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string',
+            'reference_number' => 'nullable|string|max:100',
+            'notes' => 'nullable|string',
+        ]);
+
+        $payNum = 'PAY-' . date('Ym') . '-' . rand(1000, 9999);
+        $amountPaid = (float) $request->amount_paid;
+
+        $invoice = null;
+        $withholdingTaxAmount = 0.00;
+
+        if ($request->supplier_invoice_id) {
+            $invoice = \App\Models\SupplierInvoice::findOrFail($request->supplier_invoice_id);
+            $withholdingTaxAmount = $invoice->withholding_tax_amount;
+
+            $newPaid = $invoice->amount_paid + $amountPaid;
+            $invoice->amount_paid = min($invoice->total_amount, $newPaid);
+            if ($invoice->amount_paid >= $invoice->total_amount) {
+                $invoice->status = 'paid';
+            } else {
+                $invoice->status = 'partially_paid';
+            }
+            $invoice->save();
+        }
+
+        \App\Models\SupplierPayment::create([
+            'payment_number' => $payNum,
+            'supplier_id' => $request->supplier_id,
+            'supplier_invoice_id' => $request->supplier_invoice_id,
+            'payment_date' => $request->payment_date,
+            'amount_paid' => $amountPaid,
+            'withholding_tax_amount' => $withholdingTaxAmount,
+            'payment_method' => $request->payment_method,
+            'reference_number' => $request->reference_number,
+            'status' => 'completed',
+            'notes' => $request->notes,
+        ]);
+
+        return redirect()->back()->with('success', 'Supplier payment recorded successfully!');
+    }
+
+    public function investments(Request $request)
+    {
+        $types = [
+            'Time Deposits',
+            'Stocks',
+            'Mutual Funds',
+            'Bonds',
+            'Money Market',
+        ];
+
+        $selectedType = $request->query('type', 'All');
+        $search = $request->query('search');
+
+        $query = \App\Models\Investment::with('transactions');
+
+        if ($selectedType && $selectedType !== 'All') {
+            $query->where('type', $selectedType);
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('portfolio_code', 'like', "%{$search}%")
+                  ->orWhere('institution', 'like', "%{$search}%");
+            });
+        }
+
+        $investments = $query->latest('acquisition_date')->get();
+
+        // Recalculate dynamic returns and ROI for all items
+        foreach ($investments as $inv) {
+            $inv->recalculatePerformance();
+            $inv->save();
+        }
+
+        $totalPrincipal = $investments->sum('principal_amount');
+        $totalCurrentVal = $investments->sum('current_value');
+        $totalDividendsAll = $investments->sum('total_dividends');
+        $totalInterestAll = $investments->sum('total_interest');
+        $totalReturnAll = $investments->sum('total_return');
+
+        $overallRoiPct = $totalPrincipal > 0 ? round(($totalReturnAll / $totalPrincipal) * 100, 2) : 0.00;
+
+        return view('admin-finance.accounting.investments', [
+            'title' => 'Investments Module',
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'types' => $types,
+            'selectedType' => $selectedType,
+            'search' => $search,
+            'investments' => $investments,
+            'metrics' => [
+                'total_principal' => $totalPrincipal,
+                'total_current_val' => $totalCurrentVal,
+                'total_dividends' => $totalDividendsAll,
+                'total_interest' => $totalInterestAll,
+                'total_return' => $totalReturnAll,
+                'overall_roi_pct' => $overallRoiPct,
+                'total_items_count' => $investments->count(),
+            ],
+        ]);
+    }
+
+    public function showInvestment($id)
+    {
+        $investment = \App\Models\Investment::with('transactions')->findOrFail($id);
+        $investment->recalculatePerformance();
+        $investment->save();
+
+        return view('admin-finance.accounting.investment-detail', [
+            'title' => 'Investment Profile: ' . $investment->name,
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'investment' => $investment,
+        ]);
+    }
+
+    public function storeInvestment(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|string',
+            'institution' => 'required|string|max:255',
+            'principal_amount' => 'required|numeric|min:0',
+            'current_value' => 'required|numeric|min:0',
+            'interest_rate' => 'nullable|numeric|min:0',
+            'acquisition_date' => 'required|date',
+            'maturity_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $code = 'INV-PORT-' . date('Ym') . '-' . rand(1000, 9999);
+
+        $investment = new \App\Models\Investment($request->all());
+        $investment->portfolio_code = $code;
+        $investment->interest_rate = $request->interest_rate ?: 0.00;
+        $investment->recalculatePerformance();
+        $investment->save();
+
+        return redirect()->route('admin-finance.investments.show', $investment->id)
+            ->with('success', "Investment portfolio '{$investment->name}' created successfully!");
+    }
+
+    public function storeInvestmentTransaction(Request $request)
+    {
+        $request->validate([
+            'investment_id' => 'required|exists:investments,id',
+            'transaction_type' => 'required|string', // Dividend, Interest, Valuation Update
+            'transaction_date' => 'required|date',
+            'amount' => 'required|numeric|min:0',
+            'reference_no' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        $tx = \App\Models\InvestmentTransaction::create($request->all());
+
+        $investment = \App\Models\Investment::findOrFail($request->investment_id);
+
+        if ($request->transaction_type === 'Valuation Update') {
+            $investment->current_value = $request->amount;
+        }
+
+        $investment->recalculatePerformance();
+        $investment->save();
+
+        return redirect()->back()->with('success', "{$request->transaction_type} payout recorded successfully!");
+    }
+
+    public function donations(Request $request)
+    {
+        $filterTabs = [
+            'All',
+            'Donor Database',
+            'Cash Donations',
+            'Book Donations',
+            'Equipment Donations',
+            'Restricted Funds',
+            'Projects Supported',
+            'Acknowledgement Receipts',
+            'Tax Documentation',
+            'Reports by Donor',
+            'Recurring Donors',
+            'Campaign Tracking',
+        ];
+
+        $selectedTab = $request->query('tab', 'All');
+        $search = $request->query('search');
+
+        // Fetch Donors & Campaigns for dropdowns
+        $donors = \App\Models\Donor::with('donations')->latest()->get();
+        $campaigns = \App\Models\DonationCampaign::with('donations')->latest()->get();
+
+        foreach ($donors as $dnr) {
+            $dnr->recalculateTotals();
+            $dnr->save();
+        }
+
+        foreach ($campaigns as $cmp) {
+            $cmp->recalculateRaised();
+            $cmp->save();
+        }
+
+        $query = \App\Models\Donation::with(['donor', 'campaign']);
+
+        // Apply Tab Filter
+        if ($selectedTab === 'Donor Database') {
+            // Handled in view
+        } elseif ($selectedTab === 'Cash Donations') {
+            $query->where('donation_type', 'Cash');
+        } elseif ($selectedTab === 'Book Donations') {
+            $query->where('donation_type', 'Books');
+        } elseif ($selectedTab === 'Equipment Donations') {
+            $query->where('donation_type', 'Equipment');
+        } elseif ($selectedTab === 'Restricted Funds') {
+            $query->where('is_restricted', true);
+        } elseif ($selectedTab === 'Projects Supported') {
+            $query->whereNotNull('project_supported');
+        } elseif ($selectedTab === 'Acknowledgement Receipts') {
+            $query->whereNotNull('receipt_number');
+        } elseif ($selectedTab === 'Tax Documentation') {
+            $query->where('tax_doc_issued', true);
+        } elseif ($selectedTab === 'Recurring Donors') {
+            $query->whereHas('donor', function($q) {
+                $q->where('is_recurring', true);
+            });
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('donation_no', 'like', "%{$search}%")
+                  ->orWhere('project_supported', 'like', "%{$search}%")
+                  ->orWhere('restricted_fund_purpose', 'like', "%{$search}%")
+                  ->orWhereHas('donor', function($dq) use ($search) {
+                      $dq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $donations = $query->latest('donation_date')->get();
+
+        $totalCashRaised = \App\Models\Donation::where('donation_type', 'Cash')->sum('amount');
+        $totalInKindCount = \App\Models\Donation::whereIn('donation_type', ['Books', 'Equipment'])->count();
+        $activeDonorsCount = \App\Models\Donor::where('status', 'Active')->count();
+        $totalCampaignRaised = \App\Models\DonationCampaign::sum('raised_amount');
+
+        return view('admin-finance.accounting.donations', [
+            'title' => 'Donations Module',
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'filterTabs' => $filterTabs,
+            'selectedTab' => $selectedTab,
+            'search' => $search,
+            'donations' => $donations,
+            'donors' => $donors,
+            'campaigns' => $campaigns,
+            'metrics' => [
+                'total_cash_raised' => $totalCashRaised,
+                'total_in_kind_count' => $totalInKindCount,
+                'active_donors_count' => $activeDonorsCount,
+                'total_campaign_raised' => $totalCampaignRaised,
+                'total_donations_count' => \App\Models\Donation::count(),
+            ],
+        ]);
+    }
+
+    public function showDonation($id)
+    {
+        $donation = \App\Models\Donation::with(['donor', 'campaign'])->findOrFail($id);
+
+        return view('admin-finance.accounting.donation-detail', [
+            'title' => 'Donation Receipt: ' . $donation->donation_no,
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'donation' => $donation,
+        ]);
+    }
+
+    public function storeDonor(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|string',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:100',
+            'tax_id' => 'nullable|string|max:100',
+            'is_recurring' => 'nullable|boolean',
+            'notes' => 'nullable|string',
+        ]);
+
+        $code = 'DNR-' . date('Ym') . '-' . rand(1000, 9999);
+
+        $donor = new \App\Models\Donor($request->all());
+        $donor->donor_code = $code;
+        $donor->is_recurring = $request->has('is_recurring') ? true : false;
+        $donor->save();
+
+        return redirect()->back()->with('success', "Donor '{$donor->name}' registered successfully!");
+    }
+
+    public function storeDonation(Request $request)
+    {
+        $request->validate([
+            'donor_id' => 'required|exists:donors,id',
+            'campaign_id' => 'nullable|exists:donation_campaigns,id',
+            'donation_type' => 'required|string', // Cash, Books, Equipment
+            'amount' => 'required|numeric|min:0',
+            'item_description' => 'nullable|string',
+            'is_restricted' => 'nullable|boolean',
+            'restricted_fund_purpose' => 'nullable|string',
+            'project_supported' => 'nullable|string',
+            'donation_date' => 'required|date',
+            'tax_doc_issued' => 'nullable|boolean',
+            'notes' => 'nullable|string',
+        ]);
+
+        $no = 'DON-' . date('Ym') . '-' . rand(1000, 9999);
+        $receipt = 'AR-DON-' . date('Ym') . '-' . rand(100, 999);
+        $taxCert = $request->has('tax_doc_issued') ? 'TAX-CERT-' . date('Ym') . '-' . rand(1000, 9999) : null;
+
+        $donation = new \App\Models\Donation($request->all());
+        $donation->donation_no = $no;
+        $donation->receipt_number = $receipt;
+        $donation->is_restricted = $request->has('is_restricted') ? true : false;
+        $donation->tax_doc_issued = $request->has('tax_doc_issued') ? true : false;
+        $donation->tax_cert_number = $taxCert;
+        $donation->save();
+
+        // Recalculate Donor & Campaign totals
+        $donor = \App\Models\Donor::find($request->donor_id);
+        if ($donor) {
+            $donor->recalculateTotals()->save();
+        }
+
+        if ($request->campaign_id) {
+            $campaign = \App\Models\DonationCampaign::find($request->campaign_id);
+            if ($campaign) {
+                $campaign->recalculateRaised()->save();
+            }
+        }
+
+        return redirect()->route('admin-finance.donations.show', $donation->id)
+            ->with('success', "Donation {$no} recorded and Acknowledgement Receipt {$receipt} issued!");
+    }
+
+    public function storeDonationCampaign(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'target_amount' => 'required|numeric|min:0',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $code = 'CMP-' . date('Ym') . '-' . rand(1000, 9999);
+
+        $cmp = new \App\Models\DonationCampaign($request->all());
+        $cmp->campaign_code = $code;
+        $cmp->save();
+
+        return redirect()->back()->with('success', "Fundraising campaign '{$cmp->title}' created successfully!");
+    }
+
+    public function budgeting(Request $request)
+    {
+        $divisions = [
+            'Production' => [
+                'Pre-Press Department',
+                'Press & Printing Department',
+                'Post-Press & Binding Department',
+                'Logistics & Warehouse Department',
+                'Quality Assurance Department',
+            ],
+            'Sales & Marketing' => [
+                'Area Sales Department',
+                'Bookstore Department',
+                'E-Commerce Department',
+                'Wholesale & Direct Sales Department',
+                'Ads & Promo Department',
+            ],
+            'Admin & Finance' => [
+                'Accounting & Treasury Department',
+                'Credit & Collection Department',
+                'General Services (GSD) Department',
+                'MIS & IT Department',
+                'HR & Personnel Department',
+            ],
+            'Executive' => [
+                'Board & Executive Management',
+                'Legal & Compliance Department',
+                'Strategic Planning Department',
+            ],
+        ];
+
+        $selectedDivision = $request->query('division', 'All');
+        $fiscalYear = $request->query('year', date('Y'));
+        $search = $request->query('search');
+
+        $query = \App\Models\DepartmentBudget::with('lineItems')->where('fiscal_year', $fiscalYear);
+
+        if ($selectedDivision && $selectedDivision !== 'All') {
+            $query->where('division', $selectedDivision);
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('department', 'like', "%{$search}%")
+                  ->orWhere('budget_code', 'like', "%{$search}%")
+                  ->orWhere('division', 'like', "%{$search}%");
+            });
+        }
+
+        $budgets = $query->get();
+
+        foreach ($budgets as $b) {
+            $b->recalculateMetrics();
+            $b->save();
+        }
+
+        $totalAllocated = $budgets->sum('allocated_budget');
+        $totalActual = $budgets->sum('actual_spend');
+        $totalVariance = $totalAllocated - $totalActual;
+        $overallPctUsed = $totalAllocated > 0 ? round(($totalActual / $totalAllocated) * 100, 2) : 0.00;
+        $totalForecast = $budgets->sum('forecasted_spend');
+
+        return view('admin-finance.accounting.budgeting', [
+            'title' => 'Budgeting Module',
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'divisions' => $divisions,
+            'selectedDivision' => $selectedDivision,
+            'fiscalYear' => $fiscalYear,
+            'search' => $search,
+            'budgets' => $budgets,
+            'metrics' => [
+                'total_allocated' => $totalAllocated,
+                'total_actual' => $totalActual,
+                'total_variance' => $totalVariance,
+                'overall_pct_used' => $overallPctUsed,
+                'total_forecast' => $totalForecast,
+                'total_departments_count' => $budgets->count(),
+            ],
+        ]);
+    }
+
+    public function showBudget($id)
+    {
+        $budget = \App\Models\DepartmentBudget::with('lineItems')->findOrFail($id);
+        $budget->recalculateMetrics();
+        $budget->save();
+
+        return view('admin-finance.accounting.budget-detail', [
+            'title' => 'Department Budget: ' . $budget->department,
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'budget' => $budget,
+        ]);
+    }
+
+    public function storeDepartmentBudget(Request $request)
+    {
+        $request->validate([
+            'fiscal_year' => 'required|integer|min:2020|max:2050',
+            'division' => 'required|string',
+            'department' => 'required|string',
+            'allocated_budget' => 'required|numeric|min:0',
+            'actual_spend' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
+
+        $divCode = strtoupper(substr(str_replace([' ', '&'], '', $request->division), 0, 4));
+        $code = 'BDG-' . $request->fiscal_year . '-' . $divCode . '-' . rand(1000, 9999);
+
+        $budget = \App\Models\DepartmentBudget::firstOrNew([
+            'fiscal_year' => $request->fiscal_year,
+            'division' => $request->division,
+            'department' => $request->department,
+        ]);
+
+        $budget->budget_code = $budget->exists ? $budget->budget_code : $code;
+        $budget->allocated_budget = $request->allocated_budget;
+        $budget->actual_spend = $request->actual_spend ?: 0.00;
+        $budget->notes = $request->notes;
+        $budget->recalculateMetrics();
+        $budget->save();
+
+        return redirect()->route('admin-finance.budgeting.show', $budget->id)
+            ->with('success', "Annual Budget for '{$budget->department}' saved successfully!");
+    }
+
+    public function storeBudgetLineItem(Request $request)
+    {
+        $request->validate([
+            'department_budget_id' => 'required|exists:department_budgets,id',
+            'account_category' => 'required|string|max:255',
+            'allocated_amount' => 'required|numeric|min:0',
+            'actual_amount' => 'required|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
+
+        $item = new \App\Models\BudgetLineItem($request->all());
+        $item->recalculateVariance();
+        $item->save();
+
+        $budget = \App\Models\DepartmentBudget::findOrFail($request->department_budget_id);
+        $budget->recalculateMetrics();
+        $budget->save();
+
+        return redirect()->back()->with('success', "Line item expense category '{$item->account_category}' recorded!");
+    }
+
+    public function cashManagement(Request $request)
+    {
+        $filterTabs = [
+            'Cash Position',
+            'Bank Accounts',
+            'Cash Flow',
+            'Petty Cash',
+            'Check Issuance',
+            'Deposits',
+            'Transfers',
+            'Bank Reconciliation',
+            'Projected Cash',
+        ];
+
+        $selectedTab = $request->query('tab', 'Cash Position');
+        $search = $request->query('search');
+
+        $bankAccounts = \App\Models\CompanyBankAccount::with('transactions')->get();
+
+        foreach ($bankAccounts as $acct) {
+            $acct->recalculateBalance();
+            $acct->save();
+        }
+
+        $query = \App\Models\CashTransaction::with(['bankAccount', 'destinationBankAccount']);
+
+        if ($selectedTab === 'Check Issuance') {
+            $query->where('transaction_type', 'Check Issuance');
+        } elseif ($selectedTab === 'Deposits') {
+            $query->where('transaction_type', 'Deposit');
+        } elseif ($selectedTab === 'Transfers') {
+            $query->where('transaction_type', 'Transfer');
+        } elseif ($selectedTab === 'Bank Reconciliation') {
+            $query->where('transaction_type', 'Reconciliation');
+        } elseif ($selectedTab === 'Petty Cash') {
+            $query->where('transaction_type', 'Petty Cash');
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('transaction_no', 'like', "%{$search}%")
+                  ->orWhere('reference_no', 'like', "%{$search}%")
+                  ->orWhere('payee_or_payer', 'like', "%{$search}%");
+            });
+        }
+
+        $transactions = $query->latest('transaction_date')->get();
+
+        $totalCashPosition = $bankAccounts->sum('current_balance');
+        $totalInflows = \App\Models\CashTransaction::where('category', 'Inflow')->where('status', '!=', 'Cancelled')->sum('amount');
+        $totalOutflows = \App\Models\CashTransaction::where('category', 'Outflow')->where('status', '!=', 'Cancelled')->sum('amount');
+        $netCashFlow = $totalInflows - $totalOutflows;
+
+        // Cash projection estimates (Mock/Dynamic based on cash position + pending AR/AP estimates)
+        $projected30Days = $totalCashPosition + ($totalCashPosition * 0.12);
+
+        return view('admin-finance.accounting.cash-management', [
+            'title' => 'Cash Management Module',
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'filterTabs' => $filterTabs,
+            'selectedTab' => $selectedTab,
+            'search' => $search,
+            'bankAccounts' => $bankAccounts,
+            'transactions' => $transactions,
+            'metrics' => [
+                'total_cash_position' => $totalCashPosition,
+                'total_inflows' => $totalInflows,
+                'total_outflows' => $totalOutflows,
+                'net_cash_flow' => $netCashFlow,
+                'projected_30_days' => $projected30Days,
+                'active_accounts_count' => $bankAccounts->where('status', 'Active')->count(),
+            ],
+        ]);
+    }
+
+    public function showCashManagementAccount($id)
+    {
+        $account = \App\Models\CompanyBankAccount::with('transactions')->findOrFail($id);
+        $account->recalculateBalance();
+        $account->save();
+
+        return view('admin-finance.accounting.cash-management-detail', [
+            'title' => 'Bank Account Statement: ' . $account->bank_name,
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'account' => $account,
+        ]);
+    }
+
+    public function storeCompanyBankAccount(Request $request)
+    {
+        $request->validate([
+            'bank_name' => 'required|string|max:255',
+            'account_name' => 'required|string|max:255',
+            'account_number' => 'required|string|max:255',
+            'account_type' => 'required|string',
+            'currency' => 'required|string',
+            'opening_balance' => 'required|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
+
+        $bankCode = strtoupper(substr(str_replace(' ', '', $request->bank_name), 0, 4));
+        $code = 'BANK-' . $bankCode . '-' . rand(100, 999);
+
+        $acct = new \App\Models\CompanyBankAccount($request->all());
+        $acct->account_code = $code;
+        $acct->current_balance = $request->opening_balance;
+        $acct->save();
+
+        return redirect()->back()->with('success', "Bank Account '{$acct->bank_name} - {$acct->account_number}' registered successfully!");
+    }
+
+    public function storeCashTransaction(Request $request)
+    {
+        $request->validate([
+            'bank_account_id' => 'required|exists:company_bank_accounts,id',
+            'to_bank_account_id' => 'nullable|exists:company_bank_accounts,id',
+            'transaction_type' => 'required|string', // Deposit, Check Issuance, Transfer, Reconciliation, Petty Cash
+            'category' => 'required|string', // Inflow, Outflow, Transfer
+            'amount' => 'required|numeric|min:0',
+            'reference_no' => 'nullable|string|max:255',
+            'payee_or_payer' => 'nullable|string|max:255',
+            'transaction_date' => 'required|date',
+            'status' => 'required|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        $no = 'CSH-' . date('Ym') . '-' . rand(1000, 9999);
+
+        $tx = new \App\Models\CashTransaction($request->all());
+        $tx->transaction_no = $no;
+        $tx->save();
+
+        // Recalculate source bank account balance
+        $src = \App\Models\CompanyBankAccount::find($request->bank_account_id);
+        if ($src) {
+            $src->recalculateBalance()->save();
+        }
+
+        // Recalculate destination bank account balance if transfer
+        if ($request->to_bank_account_id) {
+            $dst = \App\Models\CompanyBankAccount::find($request->to_bank_account_id);
+            if ($dst) {
+                $dst->recalculateBalance()->save();
+            }
+        }
+
+        return redirect()->back()->with('success', "{$request->transaction_type} transaction '{$no}' recorded successfully!");
+    }
+
+    public function financialReports(Request $request)
+    {
+        $reportsList = [
+            'Balance Sheet',
+            'Income Statement',
+            'Cash Flow',
+            'Trial Balance',
+            'General Ledger',
+            'Subsidiary Ledgers',
+            'Sales Reports',
+            'Expense Reports',
+            'Department Reports',
+            'Profit by Product',
+            'Profit by Customer',
+            'Profit by Branch',
+            'Profit by Salesperson',
+        ];
+
+        $selectedReport = $request->query('report', 'Balance Sheet');
+        $startDate = $request->query('start_date', date('Y-01-01'));
+        $endDate = $request->query('end_date', date('Y-12-31'));
+
+        // Aggregated live financial metrics from database
+        $totalAssets = \App\Models\CompanyBankAccount::sum('current_balance') + \App\Models\Investment::sum('current_value');
+        $totalRevenue = \App\Models\CashTransaction::where('category', 'Inflow')->sum('amount');
+        $totalExpenses = \App\Models\CashTransaction::where('category', 'Outflow')->sum('amount');
+        $netProfit = $totalRevenue - $totalExpenses;
+
+        // Sample data containers for 13 reports
+        $reportData = [];
+
+        if ($selectedReport === 'Balance Sheet') {
+            $reportData = [
+                'current_assets' => [
+                    ['account' => '1010 - Cash & Bank Balances', 'amount' => \App\Models\CompanyBankAccount::sum('current_balance')],
+                    ['account' => '1020 - Accounts Receivable', 'amount' => 450000.00],
+                    ['account' => '1030 - Production Master Inventory', 'amount' => 1250000.00],
+                    ['account' => '1040 - Short-term Time Deposits', 'amount' => \App\Models\Investment::where('type', 'Time Deposits')->sum('current_value')],
+                ],
+                'non_current_assets' => [
+                    ['account' => '1510 - Production Fixed Machinery', 'amount' => 3800000.00],
+                    ['account' => '1520 - Long-term Investments & Bonds', 'amount' => \App\Models\Investment::whereIn('type', ['Bonds', 'Stocks', 'Mutual Funds'])->sum('current_value')],
+                ],
+                'liabilities' => [
+                    ['account' => '2010 - Accounts Payable (Suppliers)', 'amount' => 320000.00],
+                    ['account' => '2020 - Accrued Operating Expenses', 'amount' => 85000.00],
+                    ['account' => '2030 - Withholding Tax Payable', 'amount' => 42000.00],
+                ],
+                'equity' => [
+                    ['account' => '3010 - Capital & Retained Earnings', 'amount' => $totalAssets - 447000.00],
+                ],
+            ];
+        } elseif ($selectedReport === 'Income Statement') {
+            $reportData = [
+                'revenue' => [
+                    ['category' => 'Bookstore Sales Revenue', 'amount' => 850000.00],
+                    ['category' => 'Area Sales Revenue', 'amount' => 1200000.00],
+                    ['category' => 'E-Commerce Website Sales', 'amount' => 420000.00],
+                    ['category' => 'Wholesale & Institution Direct Sales', 'amount' => 950000.00],
+                ],
+                'cogs' => [
+                    ['category' => 'Direct Production COGS (Paper, Ink, Labor)', 'amount' => 1420000.00],
+                    ['category' => 'Outside Printing & Freight', 'amount' => 280000.00],
+                ],
+                'operating_expenses' => [
+                    ['category' => 'Salaries & Personnel Expenses', 'amount' => 650000.00],
+                    ['category' => 'Electricity & Utility Bills', 'amount' => 180000.00],
+                    ['category' => 'Depreciation & Amortization', 'amount' => 120000.00],
+                    ['category' => 'Advertising & Promotions', 'amount' => 95000.00],
+                ],
+            ];
+        } elseif ($selectedReport === 'Profit by Product') {
+            $reportData = \App\Models\Book::select('name', 'sku', 'price', 'unit_cost')
+                ->take(15)
+                ->get()
+                ->map(function($bk) {
+                    $salesQty = rand(100, 1500);
+                    $rev = $bk->price * $salesQty;
+                    $cogs = $bk->unit_cost * $salesQty;
+                    $profit = $rev - $cogs;
+                    $margin = $rev > 0 ? round(($profit / $rev) * 100, 1) : 0;
+                    return [
+                        'sku' => $bk->sku ?: 'SKU-PUB',
+                        'name' => $bk->name,
+                        'sales_qty' => $salesQty,
+                        'revenue' => $rev,
+                        'cogs' => $cogs,
+                        'profit' => $profit,
+                        'margin_pct' => $margin,
+                    ];
+                });
+        } elseif ($selectedReport === 'Profit by Branch') {
+            $reportData = [
+                ['branch' => 'Main Bookstore - Manila', 'revenue' => 1250000.00, 'expenses' => 780000.00, 'profit' => 470000.00, 'margin' => 37.6],
+                ['branch' => 'Cebu Regional Hub', 'revenue' => 850000.00, 'expenses' => 540000.00, 'profit' => 310000.00, 'margin' => 36.5],
+                ['branch' => 'Davao Area Sales Branch', 'revenue' => 620000.00, 'expenses' => 390000.00, 'profit' => 230000.00, 'margin' => 37.1],
+                ['branch' => 'E-Commerce Central Warehouse', 'revenue' => 940000.00, 'expenses' => 480000.00, 'profit' => 460000.00, 'margin' => 48.9],
+            ];
+        } elseif ($selectedReport === 'Profit by Customer') {
+            $reportData = [
+                ['customer' => 'St. Paul College System', 'type' => 'Institutional', 'revenue' => 450000.00, 'cost' => 260000.00, 'net_profit' => 190000.00],
+                ['customer' => 'Ateneo de Manila University', 'type' => 'University', 'revenue' => 380000.00, 'cost' => 210000.00, 'net_profit' => 170000.00],
+                ['customer' => 'National Book Store Corporate', 'type' => 'Retail Chain', 'revenue' => 890000.00, 'cost' => 540000.00, 'net_profit' => 350000.00],
+                ['customer' => 'Diocese of Cubao Parishes', 'type' => 'Religious', 'revenue' => 290000.00, 'cost' => 160000.00, 'net_profit' => 130000.00],
+            ];
+        } elseif ($selectedReport === 'Profit by Salesperson') {
+            $reportData = [
+                ['salesperson' => 'Juan Dela Cruz', 'territory' => 'NCR North & Bulacan', 'quota' => 1000000.00, 'achieved' => 1150000.00, 'net_margin' => 420000.00],
+                ['salesperson' => 'Maria Santos', 'territory' => 'Visayas Region', 'quota' => 800000.00, 'achieved' => 880000.00, 'net_margin' => 310000.00],
+                ['salesperson' => 'Engr. Pedro Reyes', 'territory' => 'Mindanao Sales Hub', 'quota' => 750000.00, 'achieved' => 790000.00, 'net_margin' => 280000.00],
+            ];
+        }
+
+        return view('admin-finance.accounting.financial-reports', [
+            'title' => 'Financial Reports Module',
+            'role' => 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'reportsList' => $reportsList,
+            'selectedReport' => $selectedReport,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'reportData' => $reportData,
+            'metrics' => [
+                'total_assets' => $totalAssets,
+                'total_revenue' => $totalRevenue,
+                'total_expenses' => $totalExpenses,
+                'net_profit' => $netProfit,
+            ],
+        ]);
+    }
 }
+
+
+
+
+

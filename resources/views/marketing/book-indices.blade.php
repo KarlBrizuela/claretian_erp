@@ -111,6 +111,7 @@
                                     <th>Index Value</th>
                                     <th>Resulting Book Name</th>
                                     <th>Stock</th>
+                                    <th>Price (₱)</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -121,7 +122,8 @@
                                     <td>{{ $idx->book->name ?? 'N/A' }}</td>
                                     <td><span class="badge badge-outline-primary">{{ $idx->index_value }}</span></td>
                                     <td><strong class="text-success">{{ $idx->display_name }}</strong></td>
-                                    <td><span class="badge badge-light">{{ $idx->stock ?? 0 }}</span></td>
+                                    <td><span class="badge badge-light">{{ $idx->main_stock }}</span></td>
+                                    <td><strong class="text-dark">₱{{ number_format($idx->price ?? 0, 2) }}</strong></td>
                                     <td>
                                         <div class="d-flex">
                                             <a href="javascript:void(0);" class="btn btn-primary shadow btn-xs sharp me-1 edit-index-btn" 
@@ -133,7 +135,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="6" class="text-center">No book indices mapped.</td>
+                                    <td colspan="7" class="text-center">No book indices mapped.</td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -184,6 +186,10 @@
                         <div class="mb-3">
                             <label class="form-label small fw-bold">STOCK <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" name="stock" id="index_stock_field" required min="0" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">PRICE (₱)</label>
+                            <input type="number" step="0.01" class="form-control" name="price" id="index_price_field" min="0" value="0.00" placeholder="0.00">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -279,6 +285,7 @@
                 document.getElementById('modal_index_id').value = '';
                 document.getElementById('addIndexForm').reset();
                 document.getElementById('index_stock_field').value = 0;
+                document.getElementById('index_price_field').value = '0.00';
                 $('#index_book_id').val('').trigger('change');
                 document.getElementById('addIndexModalTitle').innerText = 'Add Book Index Mapping';
                 showCustomModal('addIndexModal');
@@ -305,7 +312,8 @@
                 const payload = {
                     book_id: formData.get('book_id'),
                     index_value: formData.get('index_value'),
-                    stock: formData.get('stock')
+                    stock: formData.get('stock'),
+                    price: formData.get('price') || 0
                 };
 
                 const indexId = document.getElementById('modal_index_id').value;
@@ -353,6 +361,7 @@
                         $('#index_book_id').val(data.book_id).trigger('change');
                         document.getElementById('index_value_field').value = data.index_value;
                         document.getElementById('index_stock_field').value = data.stock ?? 0;
+                        document.getElementById('index_price_field').value = data.price ?? '0.00';
                         document.getElementById('addIndexModalTitle').innerText = 'Edit Book Index Mapping';
                         showCustomModal('addIndexModal');
                     });

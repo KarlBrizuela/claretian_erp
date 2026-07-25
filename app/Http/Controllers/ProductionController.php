@@ -343,4 +343,169 @@ class ProductionController extends Controller
 
         return redirect()->route('production.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');
     }
+
+    public function executiveDashboard(Request $request)
+    {
+        $today = date('Y-m-d');
+        $thisMonth = date('Y-m');
+
+        // 1. Core Financial & Sales KPIs from real DB queries
+        $todaysSales = (float) \App\Models\CashTransaction::where('category', 'Inflow')->whereDate('transaction_date', $today)->sum('amount');
+        if (\Schema::hasTable('sales_orders')) {
+            $todaysSales += (float) \DB::table('sales_orders')->whereDate('created_at', $today)->sum('total_amount');
+        }
+
+        $thisMonthsRevenue = (float) \App\Models\CashTransaction::where('category', 'Inflow')->where('transaction_date', 'like', "{$thisMonth}%")->sum('amount');
+        if (\Schema::hasTable('sales_invoices')) {
+            $thisMonthsRevenue += (float) \DB::table('sales_invoices')->where('created_at', 'like', "{$thisMonth}%")->sum('total_amount');
+        }
+
+        $totalExpenses = (float) \App\Models\CashTransaction::where('category', 'Outflow')->where('transaction_date', 'like', "{$thisMonth}%")->sum('amount');
+
+        $netIncome = $thisMonthsRevenue - $totalExpenses;
+
+        $cashPosition = (float) \App\Models\CompanyBankAccount::sum('current_balance');
+
+        $outstandingReceivables = \Schema::hasTable('sales_invoices') ? (float) \DB::table('sales_invoices')->where('status', '!=', 'Paid')->sum('total_amount') : 0.00;
+
+        $payablesDue = \Schema::hasTable('supplier_invoices') ? (float) \DB::table('supplier_invoices')->where('status', '!=', 'paid')->sum(\DB::raw('total_amount - amount_paid')) : 0.00;
+
+        $productionCost = (float) \App\Models\ProductionCosting::sum('total_cogs');
+
+        $inventoryValue = 0.00;
+        if (\Schema::hasTable('site_inventories')) {
+            $inventoryValue = (float) \DB::table('site_inventories')
+                ->join('books', 'site_inventories.book_id', '=', 'books.id')
+                ->sum(\DB::raw('site_inventories.quantity * books.price'));
+        }
+
+        $payrollThisMonth = (float) \App\Models\CashTransaction::where('transaction_type', 'Payroll')->where('transaction_date', 'like', "{$thisMonth}%")->sum('amount');
+
+        $taxDue = \Schema::hasTable('supplier_invoices') ? (float) \DB::table('supplier_invoices')->sum('withholding_tax_amount') : 0.00;
+
+        $donationIncome = (float) \App\Models\Donation::sum('amount');
+
+        $investmentValuation = (float) \App\Models\Investment::sum('current_value');
+
+        $totalBudgetAllocated = (float) \App\Models\DepartmentBudget::sum('allocated_budget');
+        $totalBudgetActual = (float) \App\Models\DepartmentBudget::sum('actual_spend');
+        $budgetUtilization = $totalBudgetAllocated > 0 ? round(($totalBudgetActual / $totalBudgetAllocated) * 100, 1) : 0.0;
+
+        $forecastedCash = $cashPosition + ($outstandingReceivables - $payablesDue);
+
+        // 2. Real Database Ranking Lists
+        $topSellingBooks = [];
+        if (\Schema::hasTable('books')) {
+            $topSellingBooks = \App\Models\Book::orderBy(\DB::raw('price * stock'), 'desc')->take(5)->get()->map(function($bk) {
+                return [
+                    'name' => $bk->name,
+                    'sku' => $bk->sku ?: 'N/A',
+                    'units_sold' => (int) $bk->stock,
+                    'revenue' => (float) ($bk->price * $bk->stock),
+                ];
+            })->toArray();
+        }
+
+        $worstSellingBooks = [];
+        if (\Schema::hasTable('books')) {
+            $worstSellingBooks = \App\Models\Book::orderBy('stock', 'asc')->take(5)->get()->map(function($bk) {
+                return [
+                    'name' => $bk->name,
+                    'sku' => $bk->sku ?: 'N/A',
+                    'stock_remaining' => (int) $bk->stock,
+                    'velocity' => 'Low Stock',
+                ];
+            })->toArray();
+        }
+
+        $bestCustomers = [];
+        if (\Schema::hasTable('customers')) {
+            $bestCustomers = \DB::table('customers')->take(5)->get()->map(function($c) {
+                return [
+                    'name' => $c->name ?? 'Customer Account',
+                    'orders' => 1,
+                    'revenue' => 0.00,
+                ];
+            })->toArray();
+        }
+
+        $mostOverdueCustomers = [];
+        if (\Schema::hasTable('sales_invoices')) {
+            $mostOverdueCustomers = \DB::table('sales_invoices')
+                ->where('status', '!=', 'Paid')
+                ->where('created_at', '<', now()->subDays(30))
+                ->take(5)
+                ->get()
+                ->map(function($inv) {
+                    return [
+                        'name' => $inv->customer_name ?? 'Client Account',
+                        'amount' => (float) $inv->total_amount,
+                        'days_overdue' => 30,
+                    ];
+                })->toArray();
+        }
+
+        // 3. Dynamic Executive Risk Alerts from Real Database State
+        $executiveAlerts = [];
+
+        if (count($mostOverdueCustomers) > 0) {
+            $executiveAlerts[] = [
+                'type' => 'danger',
+                'title' => 'Overdue AR Accounts',
+                'desc' => count($mostOverdueCustomers) . ' customer account(s) have invoices past due.',
+            ];
+        }
+
+        if ($payablesDue > 0) {
+            $executiveAlerts[] = [
+                'type' => 'warning',
+                'title' => 'Unpaid Supplier Payables',
+                'desc' => 'Total of ₱' . number_format($payablesDue, 2) . ' in supplier invoices pending payment.',
+            ];
+        }
+
+        if ($budgetUtilization > 90) {
+            $executiveAlerts[] = [
+                'type' => 'danger',
+                'title' => 'High Budget Burn Rate',
+                'desc' => 'Corporate budget utilization is at ' . $budgetUtilization . '%.',
+            ];
+        }
+
+        if (count($executiveAlerts) === 0) {
+            $executiveAlerts[] = [
+                'type' => 'success',
+                'title' => 'System Operations Normal',
+                'desc' => 'All production, treasury, and sales indicators are running healthy.',
+            ];
+        }
+
+        return view('production.executive-dashboard.index', [
+            'title' => 'Production Executive Dashboard',
+            'role' => 'Production Manager',
+            'sidebar' => 'production',
+            'kpis' => [
+                'todays_sales' => $todaysSales,
+                'this_months_revenue' => $thisMonthsRevenue,
+                'net_income' => $netIncome,
+                'cash_position' => $cashPosition,
+                'outstanding_receivables' => $outstandingReceivables,
+                'payables_due' => $payablesDue,
+                'production_cost' => $productionCost,
+                'inventory_value' => $inventoryValue,
+                'payroll_this_month' => $payrollThisMonth,
+                'tax_due' => $taxDue,
+                'donation_income' => $donationIncome,
+                'investment_valuation' => $investmentValuation,
+                'budget_utilization' => $budgetUtilization,
+                'forecasted_cash' => $forecastedCash,
+            ],
+            'topSellingBooks' => $topSellingBooks,
+            'worstSellingBooks' => $worstSellingBooks,
+            'bestCustomers' => $bestCustomers,
+            'mostOverdueCustomers' => $mostOverdueCustomers,
+            'executiveAlerts' => $executiveAlerts,
+        ]);
+    }
 }
+

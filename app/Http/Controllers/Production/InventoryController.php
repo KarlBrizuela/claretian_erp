@@ -612,7 +612,14 @@ class InventoryController extends Controller
             DB::beginTransaction();
 
             $index = \App\Models\BookIndex::findOrFail($indexId);
-            $oldStock = $index->stock;
+            $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+            $mainWarehouseId = $mainWarehouse ? $mainWarehouse->id : 1;
+
+            $mainSiteInv = SiteInventory::where('site_id', $mainWarehouseId)
+                ->where('book_index_id', $index->id)
+                ->first();
+
+            $oldStock = $mainSiteInv ? (int)$mainSiteInv->quantity : (int)$index->stock;
             $newStock = $oldStock;
 
             if ($request->action === 'add') {
@@ -756,4 +763,224 @@ class InventoryController extends Controller
             ], 500);
         }
     }
+
+    public function masterInventory(Request $request)
+    {
+        $categories = [
+            'Raw Materials',
+            'Finished Books',
+            'Office Supplies',
+            'Warehouse',
+            'Bookstore',
+            'Consignment',
+            'Seasonals',
+            'Imported Books',
+            'Events',
+            'Book Sales',
+            'E-commerce',
+        ];
+
+        $rawMaterialSubcategories = [
+            'Paper',
+            'Ink',
+            'Glue',
+            'Packaging',
+            'Other',
+        ];
+
+        $warehouseNames = [
+            'Main Warehouse',
+            'Bookstore Warehouse',
+            'Area Sales Warehouse',
+            'Consignment Warehouse',
+            'Reserved Warehouse',
+            'Book Sale Warehouse',
+            'E-commerce Warehouse',
+            'Damaged Stock Warehouse',
+            'Returned Stock Warehouse',
+            'In Transit Warehouse',
+        ];
+
+        // Ensure all 10 warehouses exist in Site table
+        foreach ($warehouseNames as $name) {
+            \App\Models\Site::firstOrCreate(
+                ['name' => $name],
+                [
+                    'code' => 'WH-' . strtoupper(substr(str_replace(' ', '', $name), 0, 4)),
+                    'description' => "{$name} Stock Storage",
+                    'is_active' => true
+                ]
+            );
+        }
+
+        $warehouses = \App\Models\Site::whereIn('name', $warehouseNames)->get();
+
+        $selectedCategory = $request->query('category', 'All');
+        $selectedSubcategory = $request->query('subcategory', 'All');
+        $search = $request->query('search');
+
+        $query = \App\Models\InventoryCategoryItem::with(['warehouseStocks.site']);
+
+        if ($selectedCategory && $selectedCategory !== 'All') {
+            $query->where('category', $selectedCategory);
+        }
+
+        if ($selectedCategory === 'Raw Materials' && $selectedSubcategory && $selectedSubcategory !== 'All') {
+            $query->where('subcategory', $selectedSubcategory);
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $items = $query->orderBy('category')->orderBy('name')->get();
+
+        // Calculate statistics
+        $totalItems = $items->count();
+        $totalStockUnits = 0;
+        $totalValuation = 0;
+        $lowStockCount = 0;
+        $damagedStockCount = 0;
+
+        $damagedWarehouse = $warehouses->where('name', 'Damaged Stock Warehouse')->first();
+        $returnedWarehouse = $warehouses->where('name', 'Returned Stock Warehouse')->first();
+
+        foreach ($items as $item) {
+            $itemTotalStock = $item->warehouseStocks->sum('quantity');
+            $totalStockUnits += $itemTotalStock;
+            $totalValuation += ($itemTotalStock * (float)$item->unit_cost);
+
+            if ($itemTotalStock <= $item->reorder_point) {
+                $lowStockCount++;
+            }
+
+            if ($damagedWarehouse) {
+                $damagedStockCount += $item->warehouseStocks->where('site_id', $damagedWarehouse->id)->sum('quantity');
+            }
+            if ($returnedWarehouse) {
+                $damagedStockCount += $item->warehouseStocks->where('site_id', $returnedWarehouse->id)->sum('quantity');
+            }
+        }
+
+        return view('production.inventory.master-inventory', [
+            'title' => 'Production Master Inventory',
+            'role' => auth()->user() ? auth()->user()->position : 'Staff',
+            'sidebar' => 'production',
+            'categories' => $categories,
+            'rawMaterialSubcategories' => $rawMaterialSubcategories,
+            'selectedCategory' => $selectedCategory,
+            'selectedSubcategory' => $selectedSubcategory,
+            'search' => $search,
+            'warehouses' => $warehouses,
+            'items' => $items,
+            'metrics' => [
+                'total_items' => $totalItems,
+                'total_stock_units' => $totalStockUnits,
+                'total_valuation' => $totalValuation,
+                'low_stock_count' => $lowStockCount,
+                'damaged_stock_count' => $damagedStockCount,
+                'active_warehouses_count' => $warehouses->count(),
+            ],
+        ]);
+    }
+
+    public function storeInventoryCategoryItem(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'subcategory' => 'nullable|string',
+            'unit_of_measure' => 'required|string|max:50',
+            'unit_cost' => 'required|numeric|min:0',
+            'reorder_point' => 'required|integer|min:0',
+            'initial_warehouse_id' => 'required|exists:sites,id',
+            'initial_stock' => 'required|integer|min:0',
+            'description' => 'nullable|string',
+        ]);
+
+        $sku = 'INV-' . strtoupper(substr($request->category, 0, 3)) . '-' . rand(10000, 99999);
+
+        $item = \App\Models\InventoryCategoryItem::create([
+            'sku' => $sku,
+            'name' => $request->name,
+            'category' => $request->category,
+            'subcategory' => $request->category === 'Raw Materials' ? ($request->subcategory ?: 'Other') : null,
+            'unit_of_measure' => $request->unit_of_measure,
+            'unit_cost' => $request->unit_cost,
+            'reorder_point' => $request->reorder_point,
+            'description' => $request->description,
+        ]);
+
+        if ($request->initial_stock > 0) {
+            \App\Models\WarehouseStockBalance::create([
+                'site_id' => $request->initial_warehouse_id,
+                'inventory_category_item_id' => $item->id,
+                'quantity' => $request->initial_stock,
+            ]);
+        }
+
+        return redirect()->back()->with('success', "Inventory Item '{$item->name}' created successfully!");
+    }
+
+    public function transferWarehouseStock(Request $request)
+    {
+        $request->validate([
+            'inventory_category_item_id' => 'required|exists:inventory_category_items,id',
+            'from_site_id' => 'required|exists:sites,id',
+            'to_site_id' => 'required|exists:sites,id|different:from_site_id',
+            'quantity' => 'required|integer|min:1',
+            'notes' => 'nullable|string',
+        ]);
+
+        $fromStock = \App\Models\WarehouseStockBalance::where('site_id', $request->from_site_id)
+            ->where('inventory_category_item_id', $request->inventory_category_item_id)
+            ->first();
+
+        if (!$fromStock || $fromStock->quantity < $request->quantity) {
+            return redirect()->back()->with('error', 'Insufficient stock in source warehouse for transfer.');
+        }
+
+        $fromStock->quantity -= $request->quantity;
+        $fromStock->save();
+
+        $toStock = \App\Models\WarehouseStockBalance::firstOrCreate(
+            [
+                'site_id' => $request->to_site_id,
+                'inventory_category_item_id' => $request->inventory_category_item_id,
+            ],
+            ['quantity' => 0]
+        );
+
+        $toStock->quantity += $request->quantity;
+        $toStock->save();
+
+        return redirect()->back()->with('success', 'Stock transferred between warehouses successfully!');
+    }
+
+    public function updateWarehouseStockDirectly(Request $request)
+    {
+        $request->validate([
+            'inventory_category_item_id' => 'required|exists:inventory_category_items,id',
+            'site_id' => 'required|exists:sites,id',
+            'quantity' => 'required|integer|min:0',
+        ]);
+
+        $stock = \App\Models\WarehouseStockBalance::firstOrCreate(
+            [
+                'site_id' => $request->site_id,
+                'inventory_category_item_id' => $request->inventory_category_item_id,
+            ],
+            ['quantity' => 0]
+        );
+
+        $stock->quantity = $request->quantity;
+        $stock->save();
+
+        return redirect()->back()->with('success', 'Warehouse stock balance updated!');
+    }
 }
+

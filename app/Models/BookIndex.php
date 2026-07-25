@@ -12,10 +12,12 @@ class BookIndex extends Model
         'book_id',
         'index_value',
         'stock',
+        'price',
     ];
 
     protected $casts = [
         'stock' => 'integer',
+        'price' => 'decimal:2',
     ];
 
     /**
@@ -51,5 +53,20 @@ class BookIndex extends Model
     public function stockTransfers()
     {
         return $this->hasMany(StockTransfer::class, 'book_index_id');
+    }
+
+    /**
+     * Accessor for stock at Main Warehouse site only.
+     */
+    public function getMainStockAttribute()
+    {
+        $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
+        if ($mainWarehouse) {
+            $siteInv = $this->inventory()->where('site_id', $mainWarehouse->id)->first();
+            if ($siteInv) {
+                return (int)$siteInv->quantity;
+            }
+        }
+        return (int)$this->stock;
     }
 }

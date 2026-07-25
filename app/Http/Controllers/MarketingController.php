@@ -381,6 +381,7 @@ class MarketingController extends Controller
             'book_id' => 'required|exists:books,id',
             'index_value' => 'required|string|max:255',
             'stock' => 'required|integer|min:0',
+            'price' => 'nullable|numeric|min:0',
         ]);
 
         \DB::transaction(function() use ($validated) {
@@ -428,11 +429,19 @@ class MarketingController extends Controller
             'book_id' => 'required|exists:books,id',
             'index_value' => 'required|string|max:255',
             'stock' => 'required|integer|min:0',
+            'price' => 'nullable|numeric|min:0',
         ]);
 
         \DB::transaction(function() use ($validated, $id) {
             $index = \App\Models\BookIndex::findOrFail($id);
-            $oldStock = (int)$index->stock;
+            $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
+            $mainWarehouseId = $mainWarehouse ? $mainWarehouse->id : 1;
+
+            $mainSiteInv = \App\Models\SiteInventory::where('site_id', $mainWarehouseId)
+                ->where('book_index_id', $index->id)
+                ->first();
+
+            $oldStock = $mainSiteInv ? (int)$mainSiteInv->quantity : (int)$index->stock;
             $newStock = (int)$validated['stock'];
             $diff = $newStock - $oldStock;
 
@@ -944,6 +953,7 @@ class MarketingController extends Controller
                     'cogs_account' => $colMap['cogs_account'] !== false ? trim((string)($row[$colMap['cogs_account']] ?? '')) : null,
                     'unit' => 'pcs',
                     'is_active' => true,
+                    'is_book' => $request->has('is_book') ? filter_var($request->input('is_book'), FILTER_VALIDATE_BOOLEAN) : true,
                 ];
 
                 if (empty($data['item_code'])) $data['item_code'] = null;
@@ -1031,6 +1041,12 @@ class MarketingController extends Controller
             'created' => $createdCount,
             'updated' => $updatedCount
         ]);
+    }
+
+    public function importNonBooks(Request $request)
+    {
+        $request->merge(['is_book' => false]);
+        return $this->importBooks($request);
     }
 
     public function editProduct($id)

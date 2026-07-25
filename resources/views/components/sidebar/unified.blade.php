@@ -137,12 +137,34 @@
     <div class="modern-nav-group">
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-warehouse"></i></div><span class="modern-nav-label">Inventory Management</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu">
+            <a href="{{ route('production.inventory.master') }}" class="modern-nav-subitem">Master Inventory</a>
             <a href="{{ route('production.inventory.overview') }}" class="modern-nav-subitem">Inventory Overview</a>
             <a href="{{ route('production.inventory.add-stock') }}" class="modern-nav-subitem">Add Stock</a>
             <a href="{{ route('production.inventory.received') }}" class="modern-nav-subitem">Received Items</a>
         </div>
     </div>
     @endif
+
+    <div class="modern-nav-group {{ request()->is('production/executive-dashboard*') ? 'active' : '' }}">
+        <a href="{{ route('production.executive-dashboard.index') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-chart-bar"></i></div>
+            <span class="modern-nav-label">Executive Dashboard</span>
+        </a>
+    </div>
+
+    <div class="modern-nav-group {{ request()->is('production/costing*') ? 'active' : '' }}">
+        <a href="{{ route('production.costing.index') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-calculator"></i></div>
+            <span class="modern-nav-label">Production Costing</span>
+        </a>
+    </div>
+
+    <div class="modern-nav-group {{ request()->is('production/assets*') ? 'active' : '' }}">
+        <a href="{{ route('production.assets.index') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-tools"></i></div>
+            <span class="modern-nav-label">Fixed Assets</span>
+        </a>
+    </div>
 
     @if($hasLog)
     <div class="modern-nav-group">
@@ -187,6 +209,41 @@
         </div>
     </div>
     @endif
+
+    <div class="modern-nav-group {{ request()->is('admin-finance/accounting/investments*') ? 'active' : '' }}">
+        <a href="{{ route('admin-finance.investments.index') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-chart-pie"></i></div>
+            <span class="modern-nav-label">Investments</span>
+        </a>
+    </div>
+
+    <div class="modern-nav-group {{ request()->is('admin-finance/donations*') ? 'active' : '' }}">
+        <a href="{{ route('admin-finance.donations.index') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-hand-holding-heart"></i></div>
+            <span class="modern-nav-label">Donations</span>
+        </a>
+    </div>
+
+    <div class="modern-nav-group {{ request()->is('admin-finance/budgeting*') ? 'active' : '' }}">
+        <a href="{{ route('admin-finance.budgeting.index') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-balance-scale"></i></div>
+            <span class="modern-nav-label">Budgeting</span>
+        </a>
+    </div>
+
+    <div class="modern-nav-group {{ request()->is('admin-finance/cash-management*') ? 'active' : '' }}">
+        <a href="{{ route('admin-finance.cash-management.index') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-money-check-alt"></i></div>
+            <span class="modern-nav-label">Cash Management</span>
+        </a>
+    </div>
+
+    <div class="modern-nav-group {{ request()->is('admin-finance/financial-reports*') ? 'active' : '' }}">
+        <a href="{{ route('admin-finance.financial-reports.index') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-file-alt"></i></div>
+            <span class="modern-nav-label">Financial Reports</span>
+        </a>
+    </div>
 
     @if($hasCC)
     <div class="modern-nav-group">
@@ -282,6 +339,15 @@
         <a href="{{ route('admin-finance.accounting.accounts-receivable') }}" class="modern-nav-item">
             <div class="modern-nav-icon"><i class="las la-file-invoice-dollar"></i></div>
             <span class="modern-nav-label">Accounts Receivable</span>
+        </a>
+    </div>
+    @endif
+
+    @if($hasChartOfAccounts)
+    <div class="modern-nav-group {{ request()->is('admin-finance/accounts-payable*') ? 'active' : '' }}">
+        <a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-item">
+            <div class="modern-nav-icon"><i class="las la-receipt"></i></div>
+            <span class="modern-nav-label">Accounts Payable</span>
         </a>
     </div>
     @endif

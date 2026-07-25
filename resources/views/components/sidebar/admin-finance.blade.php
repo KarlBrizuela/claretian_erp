@@ -172,6 +172,78 @@
 	</div>
 	@endif
 
+	<!-- Accounts Payable -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/accounts-payable*') ? 'active' : '' }}">
+		<a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-receipt"></i>
+			</div>
+			<span class="modern-nav-label">Accounts Payable</span>
+		</a>
+	</div>
+	@endif
+
+	<!-- Investments -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/accounting/investments*') ? 'active' : '' }}">
+		<a href="{{ route('admin-finance.investments.index') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-chart-pie"></i>
+			</div>
+			<span class="modern-nav-label">Investments</span>
+		</a>
+	</div>
+	@endif
+
+	<!-- Donations -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/donations*') ? 'active' : '' }}">
+		<a href="{{ route('admin-finance.donations.index') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-hand-holding-heart"></i>
+			</div>
+			<span class="modern-nav-label">Donations</span>
+		</a>
+	</div>
+	@endif
+
+	<!-- Budgeting -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/budgeting*') ? 'active' : '' }}">
+		<a href="{{ route('admin-finance.budgeting.index') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-balance-scale"></i>
+			</div>
+			<span class="modern-nav-label">Budgeting</span>
+		</a>
+	</div>
+	@endif
+
+	<!-- Cash Management -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/cash-management*') ? 'active' : '' }}">
+		<a href="{{ route('admin-finance.cash-management.index') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-money-check-alt"></i>
+			</div>
+			<span class="modern-nav-label">Cash Management</span>
+		</a>
+	</div>
+	@endif
+
+	<!-- Financial Reports -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/financial-reports*') ? 'active' : '' }}">
+		<a href="{{ route('admin-finance.financial-reports.index') }}" class="modern-nav-item">
+			<div class="modern-nav-icon">
+				<i class="las la-file-alt"></i>
+			</div>
+			<span class="modern-nav-label">Financial Reports</span>
+		</a>
+	</div>
+	@endif
+
 	<!-- Credit and Collection -->
     @if($hasCreditCollection)
 	<div class="modern-nav-group {{ request()->is('admin-finance/credit-collection*') ? 'active' : '' }}">

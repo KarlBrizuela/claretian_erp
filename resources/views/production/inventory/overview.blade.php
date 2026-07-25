@@ -1,6 +1,28 @@
 <x-app-layout :title="'Inventory Overview'" :sidebar="'production'">
+@push('styles')
     <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
+        /* Site Inventory Modal Extra Large & Single Scrollbar Enforcement */
+        .site-inventory-modal .modal-dialog {
+            max-width: 92vw !important;
+            width: 1200px !important;
+        }
+        .site-inventory-modal .modal-body {
+            max-height: 85vh !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+        .site-inventory-modal .table-responsive,
+        .site-inventory-modal .tab-content,
+        .site-inventory-modal .tab-pane {
+            max-height: none !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        .site-inventory-modal .table {
+            margin-bottom: 0 !important;
+        }
+
         /* Select2 Bootstrap 5 & Modal Integration Styling */
         .select2-container--default .select2-selection--single {
             height: 42px !important;
@@ -49,6 +71,7 @@
             display: block !important;
         }
     </style>
+@endpush
     <div class="container-fluid">
         <!-- Add Project Modal -->
         <div class="modal fade" id="addProjectSidebar">
@@ -837,14 +860,14 @@
     <!-- Per-Site Modals -->
     @forelse($sites ?? [] as $site)
         <!-- View Site Inventory Modal -->
-        <div class="modal fade" id="viewSiteInventory{{ $site->id }}" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal fade site-inventory-modal" id="viewSiteInventory{{ $site->id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header bg-info text-white">
                         <h6 class="modal-title text-white"><i class="las la-boxes me-2"></i>Inventory at {{ $site->name }}</h6>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body px-4 py-3" style="max-height: 75vh; overflow-y: auto;">
+                    <div class="modal-body px-4 py-3" style="max-height: 85vh !important; overflow-y: auto !important; overflow-x: hidden !important;">
                         @php
                             $booksInv = $site->inventory->filter(fn($inv) => !empty($inv->book_id) && empty($inv->book_index_id) && empty($inv->book_bundle_id));
                             $indicesInv = $site->inventory->filter(fn($inv) => !empty($inv->book_index_id));
@@ -1469,8 +1492,8 @@
     </div>
 
     <!-- Toast Notification Container -->
-    <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
-
+@push('scripts')
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
         function showNotification(message, type = 'success') {
             const toastContainer = document.getElementById('toastContainer');
@@ -2931,9 +2954,9 @@
                 const siteId = modalEl.id.replace('viewSiteInventory', '');
                 
                 function initAllTabs() {
-                    initSiteTablePagination(`site-books-table-${siteId}`, 10);
-                    initSiteTablePagination(`site-indices-table-${siteId}`, 10);
-                    initSiteTablePagination(`site-bundles-table-${siteId}`, 10);
+                    initSiteTablePagination(`site-books-table-${siteId}`, 6);
+                    initSiteTablePagination(`site-indices-table-${siteId}`, 6);
+                    initSiteTablePagination(`site-bundles-table-${siteId}`, 6);
                 }
 
                 modalEl.addEventListener('shown.bs.modal', initAllTabs);
@@ -2944,5 +2967,5 @@
             });
         });
     </script>
-    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
+@endpush
 </x-app-layout>

@@ -42,12 +42,17 @@ Route::middleware(['auth'])->group(function () {
   Route::middleware(['division.access:production'])->group(function () {
     Route::get('/production/approval-queue', [App\Http\Controllers\ProductionController::class, 'approvalQueue'])->name('production.approval-queue');
     Route::get('/production/my-requests', [App\Http\Controllers\ProductionController::class, 'myRequests'])->name('production.my-requests');
+    Route::get('/production/executive-dashboard', [App\Http\Controllers\ProductionController::class, 'executiveDashboard'])->name('production.executive-dashboard.index');
     Route::get('/production/sales-order/{id}/review', [App\Http\Controllers\ProductionController::class, 'reviewSalesOrder'])->name('production.sales-order.detail');
     Route::post('/production/sales-order/{id}/approve', [App\Http\Controllers\ProductionController::class, 'approveSalesOrder'])->name('production.sales-order.approve');
     Route::post('/production/sales-order/{id}/reject', [App\Http\Controllers\ProductionController::class, 'rejectSalesOrder'])->name('production.sales-order.reject');
     
     // Production Inventory Management
     Route::prefix('production/inventory')->name('production.inventory.')->group(function () {
+      Route::get('/master', [InventoryController::class, 'masterInventory'])->name('master');
+      Route::post('/items/store', [InventoryController::class, 'storeInventoryCategoryItem'])->name('items.store');
+      Route::post('/stock/transfer', [InventoryController::class, 'transferWarehouseStock'])->name('stock.transfer');
+      Route::post('/stock/update', [InventoryController::class, 'updateWarehouseStockDirectly'])->name('stock.update');
       Route::get('/overview', [InventoryController::class, 'overview'])->name('overview');
       Route::get('/add-stock', [InventoryController::class, 'addStock'])->name('add-stock');
       Route::post('/store-stock', [InventoryController::class, 'storeStock'])->name('store-stock');
@@ -60,6 +65,22 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/update-stock/{bookId}', [InventoryController::class, 'updateStockDirectly'])->name('update-stock');
       Route::post('/update-index-stock/{indexId}', [InventoryController::class, 'updateIndexStockDirectly'])->name('update-index-stock');
       Route::post('/update-bundle-stock/{bundleId}', [InventoryController::class, 'updateBundleStockDirectly'])->name('update-bundle-stock');
+    });
+
+    // Production Costing
+    Route::prefix('production/costing')->name('production.costing.')->group(function () {
+      Route::get('/', [App\Http\Controllers\Production\ProductionCostingController::class, 'index'])->name('index');
+      Route::get('/{id}', [App\Http\Controllers\Production\ProductionCostingController::class, 'show'])->name('show');
+      Route::post('/calculate', [App\Http\Controllers\Production\ProductionCostingController::class, 'calculate'])->name('calculate');
+      Route::post('/store', [App\Http\Controllers\Production\ProductionCostingController::class, 'store'])->name('store');
+    });
+
+    // Production Fixed Assets
+    Route::prefix('production/assets')->name('production.assets.')->group(function () {
+      Route::get('/', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'index'])->name('index');
+      Route::get('/{id}', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'show'])->name('show');
+      Route::post('/store', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'store'])->name('store');
+      Route::post('/maintenance/store', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'storeMaintenanceLog'])->name('maintenance.store');
     });
 
     // Site Management Routes
@@ -235,6 +256,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Non-Books Management
     Route::get('/marketing/non-books', [MarketingController::class, 'nonBooks'])->name('marketing.non-books');
+    Route::get('/marketing/non-books/import-template', [MarketingController::class, 'downloadTemplate'])->name('marketing.non-books.import-template');
+    Route::post('/marketing/non-books/import', [MarketingController::class, 'importNonBooks'])->name('marketing.non-books.import');
     Route::post('/marketing/non-books/store', [MarketingController::class, 'storeNonBook'])->name('marketing.non-books.store');
     Route::get('/marketing/non-books/{id}/edit', [MarketingController::class, 'editNonBook'])->name('marketing.non-books.edit');
     Route::post('/marketing/non-books/{id}/update', [MarketingController::class, 'updateNonBook'])->name('marketing.non-books.update');
@@ -469,6 +492,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'chartOfAccounts'])->name('admin-finance.accounting.chart-of-accounts');
     Route::get('/sales-management', [App\Http\Controllers\AdminFinanceController::class, 'salesManagement'])->name('admin-finance.accounting.sales-management');
     Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');
+    Route::get('/accounts-payable', [App\Http\Controllers\AdminFinanceController::class, 'accountsPayable'])->name('admin-finance.accounting.accounts-payable');
+    Route::post('/accounts-payable/suppliers', [App\Http\Controllers\AdminFinanceController::class, 'storeSupplier'])->name('admin-finance.accounting.accounts-payable.supplier.store');
+    Route::post('/accounts-payable/invoices', [App\Http\Controllers\AdminFinanceController::class, 'storeSupplierInvoice'])->name('admin-finance.accounting.accounts-payable.invoice.store');
+    Route::post('/accounts-payable/payments', [App\Http\Controllers\AdminFinanceController::class, 'storeSupplierPayment'])->name('admin-finance.accounting.accounts-payable.payment.store');
     Route::post('/customers/{id}/update-rep', [App\Http\Controllers\AdminFinanceController::class, 'updateCustomerRep'])->name('admin-finance.customers.update-rep');
 
     // Credit Collection
@@ -571,6 +598,51 @@ Route::prefix('admin-finance')->group(function () {
   Route::get('/freight-voucher/{id}', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'show'])->name('admin-finance.freight-voucher.show');
   Route::delete('/freight-voucher/{id}', [App\Http\Controllers\Accounting\FreightVoucherController::class, 'destroy'])->name('admin-finance.freight-voucher.destroy');
 });
+
+// Admin & Finance Investments Module Routes
+Route::prefix('admin-finance/investments')->name('admin-finance.investments.')->middleware(['auth', 'division.access:admin-finance'])->group(function () {
+  Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'investments'])->name('index');
+  Route::get('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showInvestment'])->name('show');
+  Route::post('/store', [App\Http\Controllers\AdminFinanceController::class, 'storeInvestment'])->name('store');
+  Route::post('/transaction/store', [App\Http\Controllers\AdminFinanceController::class, 'storeInvestmentTransaction'])->name('transaction.store');
+});
+
+// Admin & Finance Donations Module Routes
+Route::prefix('admin-finance/donations')->name('admin-finance.donations.')->middleware(['auth', 'division.access:admin-finance'])->group(function () {
+  Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'donations'])->name('index');
+  Route::get('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showDonation'])->name('show');
+  Route::post('/donor/store', [App\Http\Controllers\AdminFinanceController::class, 'storeDonor'])->name('donor.store');
+  Route::post('/donation/store', [App\Http\Controllers\AdminFinanceController::class, 'storeDonation'])->name('donation.store');
+  Route::post('/campaign/store', [App\Http\Controllers\AdminFinanceController::class, 'storeDonationCampaign'])->name('campaign.store');
+});
+
+// Admin & Finance Budgeting Module Routes
+Route::prefix('admin-finance/budgeting')->name('admin-finance.budgeting.')->middleware(['auth', 'division.access:admin-finance'])->group(function () {
+  Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'budgeting'])->name('index');
+  Route::get('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showBudget'])->name('show');
+  Route::post('/store', [App\Http\Controllers\AdminFinanceController::class, 'storeDepartmentBudget'])->name('store');
+  Route::post('/line-item/store', [App\Http\Controllers\AdminFinanceController::class, 'storeBudgetLineItem'])->name('line-item.store');
+});
+
+// Admin & Finance Cash Management Module Routes
+Route::prefix('admin-finance/cash-management')->name('admin-finance.cash-management.')->middleware(['auth', 'division.access:admin-finance'])->group(function () {
+  Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'cashManagement'])->name('index');
+  Route::get('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showCashManagementAccount'])->name('show');
+  Route::post('/bank/store', [App\Http\Controllers\AdminFinanceController::class, 'storeCompanyBankAccount'])->name('bank.store');
+  Route::post('/transaction/store', [App\Http\Controllers\AdminFinanceController::class, 'storeCashTransaction'])->name('transaction.store');
+});
+
+// Admin & Finance Financial Reports Module Routes
+Route::prefix('admin-finance/financial-reports')->name('admin-finance.financial-reports.')->middleware(['auth', 'division.access:admin-finance'])->group(function () {
+  Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'financialReports'])->name('index');
+});
+
+// Legacy URL Redirects for Standalone Modules
+Route::redirect('admin-finance/accounting/investments', '/admin-finance/investments');
+Route::redirect('admin-finance/accounting/donations', '/admin-finance/donations');
+Route::redirect('admin-finance/accounting/budgeting', '/admin-finance/budgeting');
+Route::redirect('admin-finance/accounting/cash-management', '/admin-finance/cash-management');
+Route::redirect('admin-finance/accounting/financial-reports', '/admin-finance/financial-reports');
 
 // COD Payment & Rider Collections - Protected Routes
 Route::middleware(['auth'])->group(function () {

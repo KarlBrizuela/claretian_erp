@@ -290,19 +290,41 @@ class StockTransfer extends Model
             ]);
         }
 
-        // If transferring a master book to or from Main Warehouse, update books table stock
+        // If transferring a master book, index, or bundle to or from Main Warehouse, update master stock
+        $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+        $mainWarehouseId = $mainWarehouse ? $mainWarehouse->id : 1;
+
         if ($this->book_id) {
             $book = \App\Models\Book::find($this->book_id);
             if ($book) {
-                $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
-                $mainWarehouseId = $mainWarehouse ? $mainWarehouse->id : 1;
-
                 if ((int)$this->from_site_id === (int)$mainWarehouseId) {
                     $book->stock = max(0, $book->stock - $this->quantity);
                     $book->saveQuietly();
                 } elseif ((int)$this->to_site_id === (int)$mainWarehouseId) {
                     $book->stock += $this->quantity;
                     $book->saveQuietly();
+                }
+            }
+        } elseif ($this->book_index_id) {
+            $index = \App\Models\BookIndex::find($this->book_index_id);
+            if ($index) {
+                if ((int)$this->from_site_id === (int)$mainWarehouseId) {
+                    $index->stock = max(0, $index->stock - $this->quantity);
+                    $index->save();
+                } elseif ((int)$this->to_site_id === (int)$mainWarehouseId) {
+                    $index->stock += $this->quantity;
+                    $index->save();
+                }
+            }
+        } elseif ($this->book_bundle_id) {
+            $bundle = \App\Models\BookBundle::find($this->book_bundle_id);
+            if ($bundle) {
+                if ((int)$this->from_site_id === (int)$mainWarehouseId) {
+                    $bundle->stock = max(0, $bundle->stock - $this->quantity);
+                    $bundle->save();
+                } elseif ((int)$this->to_site_id === (int)$mainWarehouseId) {
+                    $bundle->stock += $this->quantity;
+                    $bundle->save();
                 }
             }
         }
