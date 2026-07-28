@@ -512,25 +512,25 @@
                                                 <li class="nav-item">
                                                     <a class="nav-link active" data-bs-toggle="tab" href="#fb-drafts">
                                                         <i class="las la-clock me-2"></i>Drafts
-                                                        <span class="badge badge-primary light ms-2">2</span>
+                                                        <span class="badge badge-primary light ms-2">{{ ($freightBills ?? collect())->where('status', 'draft')->count() }}</span>
                                                     </a>
                                                 </li>
                                                 <li class="nav-item">
                                                     <a class="nav-link" data-bs-toggle="tab" href="#fb-pending">
                                                         <i class="las la-hourglass-half me-2"></i>Pending Approval
-                                                        <span class="badge badge-warning light ms-2">3</span>
+                                                        <span class="badge badge-warning light ms-2">{{ ($freightBills ?? collect())->where('status', 'pending')->count() }}</span>
                                                     </a>
                                                 </li>
                                                 <li class="nav-item">
                                                     <a class="nav-link" data-bs-toggle="tab" href="#fb-approved">
                                                         <i class="las la-check-circle me-2"></i>Approved
-                                                        <span class="badge badge-success light ms-2">7</span>
+                                                        <span class="badge badge-success light ms-2">{{ ($freightBills ?? collect())->where('status', 'approved')->count() }}</span>
                                                     </a>
                                                 </li>
                                                 <li class="nav-item">
                                                     <a class="nav-link" data-bs-toggle="tab" href="#fb-compiled">
                                                         <i class="las la-archive me-2"></i>Compiled
-                                                        <span class="badge badge-warning light ms-2">0</span>
+                                                        <span class="badge badge-warning light ms-2">{{ ($freightBills ?? collect())->where('status', 'compiled')->count() }}</span>
                                                     </a>
                                                 </li>
                                                 <li class="nav-item">
@@ -554,7 +554,7 @@
                                             <div class="tab-pane fade show active" id="fb-drafts">
                                                 <div class="alert alert-info py-2 d-flex align-items-center mb-3">
                                                     <i class="las la-info-circle fs-4 me-2"></i>
-                                                    <span class="small fw-bold">2 draft bills</span>
+                                                    <span class="small fw-bold">{{ ($freightBills ?? collect())->where('status', 'draft')->count() }} draft bills</span>
                                                 </div>
                                                 <div class="table-responsive">
                                                     <table class="table table-hover">
@@ -1606,7 +1606,19 @@
                 const customer = $row.find(`td:eq(${customerIdx})`).text().trim();
                 const amount = $row.find(`td:eq(${amountIdx})`).text().trim().replace(/[₱,\s]/g, '');
                 
-                modal.find('#modal_customer_name').val(customer);
+                // Find matching option by text and select it
+                const option = modal.find('#modal_customer_name option').filter(function() {
+                    return $(this).text().trim() === customer;
+                });
+                if (option.length) {
+                    modal.find('#modal_customer_name').val(option.val());
+                } else {
+                    modal.find('#modal_customer_name').val('');
+                }
+                if (typeof $.fn.selectpicker === 'function') {
+                    modal.find('#modal_customer_name').selectpicker('refresh');
+                }
+                
                 modal.find('#modal_amount').val(amount);
                 
                 // Hardcoded simulations for details not in the table
@@ -1660,7 +1672,11 @@
                 modal.find('.modal-title').html('<i class="las la-file-invoice me-2"></i>New Freight Bill');
                 // Clear all inputs
                 modal.find('input, textarea').val('');
-                modal.find('select').prop('selectedIndex', 0);
+                modal.find('#modal_customer_name').val('');
+                if (typeof $.fn.selectpicker === 'function') {
+                    modal.find('#modal_customer_name').selectpicker('refresh');
+                }
+                modal.find('select').not('#modal_customer_name').prop('selectedIndex', 0);
                 // Make all fields editable
                 modal.find('input, textarea, select').prop('readonly', false).prop('disabled', false);
                 // Auto-generate bill number and set today's date
@@ -1670,6 +1686,25 @@
                 modal.find('.modal-footer .btn-primary').show();
                 modal.find('.modal-footer .btn-outline-primary').show();
                 modal.modal('show');
+            });
+
+            // Auto-populate address when customer is selected
+            $(document).on('change', '#modal_customer_name', function() {
+                const selectedOption = $(this).find('option:selected');
+                const address = selectedOption.data('address') || '';
+                $('#modal_address').val(address);
+            });
+
+            // Initialize selectpicker on modal show with custom styling for modal
+            $('#freightBillingModal').on('shown.bs.modal', function () {
+                if (typeof $.fn.selectpicker === 'function') {
+                    $('#modal_customer_name').selectpicker('destroy');
+                    $('#modal_customer_name').selectpicker({
+                        size: 8,
+                        liveSearch: true,
+                        liveSearchPlaceholder: 'Search customer...'
+                    });
+                }
             });
         });
     </script>
@@ -1715,7 +1750,12 @@
                         
                         <div class="col-md-12">
                             <label class="form-label small text-muted text-uppercase mb-1">Customer Name</label>
-                            <input type="text" id="modal_customer_name" class="form-control" placeholder="Search customer...">
+                            <select id="modal_customer_name" class="form-control selectpicker" data-live-search="true" data-size="8">
+                                <option value="">Select Customer ▼</option>
+                                @foreach(\App\Models\Customer::orderBy('customer_name')->get() as $cust)
+                                    <option value="{{ $cust->customer_id }}" data-address="{{ $cust->shipping_address ?? $cust->billing_address ?? '' }}">{{ $cust->customer_name ?? $cust->company_name ?? 'Unknown' }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         
                         <div class="col-md-12">

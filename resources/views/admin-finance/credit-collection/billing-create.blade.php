@@ -217,8 +217,8 @@
                             <tr class="item-row">
                                 <td><input type="text" name="items[0][service]" class="form-control form-control-sm border" value="Order #{{ $order->order_id }}"></td>
                                 <td><input type="text" name="items[0][description]" class="form-control form-control-sm border" value="Sales Order Reference"></td>
-                                <td><input type="text" name="items[0][qty]" class="form-control form-control-sm border" value="1"></td>
-                                <td align="right"><input type="number" name="items[0][price]" class="form-control form-control-sm border text-end unit-price" value="{{ $order->final_total }}"></td>
+                                <td><input type="text" name="items[0][qty]" class="form-control form-control-sm border item-qty" value="1"></td>
+                                <td><input type="number" name="items[0][price]" class="form-control form-control-sm border text-end unit-price" value="{{ $order->final_total }}"></td>
                                 <td align="right" class="fw-bold row-amount">₱ {{ number_format($order->final_total, 2) }}</td>
                                 <td></td>
                             </tr>
@@ -227,9 +227,9 @@
                                 <tr class="item-row">
                                     <td><input type="text" name="items[{{ $index }}][service]" class="form-control form-control-sm border" value="{{ $item['service'] }}"></td>
                                     <td><input type="text" name="items[{{ $index }}][description]" class="form-control form-control-sm border" value="{{ $item['description'] }}"></td>
-                                    <td><input type="text" name="items[{{ $index }}][qty]" class="form-control form-control-sm border" value="{{ $item['qty'] }}"></td>
-                                    <td align="right"><input type="number" name="items[{{ $index }}][price]" class="form-control form-control-sm border text-end unit-price" value="{{ $item['price'] }}"></td>
-                                    <td align="right" class="fw-bold row-amount">₱ {{ number_format($item['price'], 2) }}</td>
+                                    <td><input type="text" name="items[{{ $index }}][qty]" class="form-control form-control-sm border item-qty" value="{{ $item['qty'] }}"></td>
+                                    <td><input type="number" name="items[{{ $index }}][price]" class="form-control form-control-sm border text-end unit-price" value="{{ $item['price'] }}"></td>
+                                    <td align="right" class="fw-bold row-amount">₱ {{ number_format($item['qty'] * $item['price'], 2) }}</td>
                                     <td></td>
                                 </tr>
                                 @endforeach
@@ -247,7 +247,7 @@
                                     </div>
                                 </td>
                                 <td align="right" class="fw-bold bg-light">Subtotal</td>
-                                <td align="right" class="fw-bold bg-light" id="subtotal">₱ 25,000.00</td>
+                                <td align="right" class="fw-bold bg-light" id="subtotal">₱ {{ number_format($mode == 'create' ? $order->final_total : $soa->total_amount, 2) }}</td>
                                 <td class="bg-light"></td>
                             </tr>
                             <tr>
@@ -325,8 +325,8 @@
             newRow.innerHTML = `
                 <td><input type="text" name="items[${rowCount}][service]" class="form-control form-control-sm border"></td>
                 <td><input type="text" name="items[${rowCount}][description]" class="form-control form-control-sm border"></td>
-                <td><input type="text" name="items[${rowCount}][qty]" class="form-control form-control-sm border"></td>
-                <td align="right"><input type="number" name="items[${rowCount}][price]" class="form-control form-control-sm border text-end unit-price" value="0.00"></td>
+                <td><input type="text" name="items[${rowCount}][qty]" class="form-control form-control-sm border item-qty" value="1"></td>
+                <td><input type="number" name="items[${rowCount}][price]" class="form-control form-control-sm border text-end unit-price" value="0.00"></td>
                 <td align="right" class="fw-bold row-amount">₱ 0.00</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-outline-danger btn-xs btn-remove-row"><i class="las la-times"></i></button>
@@ -341,22 +341,25 @@
                 calculateTotals();
             });
 
-            // Add event listener to unit price for total calculation
+            // Add event listeners to unit price and qty for total calculation
             newRow.querySelector('.unit-price').addEventListener('input', calculateTotals);
+            newRow.querySelector('.item-qty').addEventListener('input', calculateTotals);
         });
 
         // Event listener for initial row
-        document.querySelectorAll('.unit-price').forEach(input => {
+        document.querySelectorAll('.unit-price, .item-qty').forEach(input => {
             input.addEventListener('input', calculateTotals);
         });
 
         function calculateTotals() {
             let subtotal = 0;
             document.querySelectorAll('.item-row').forEach(row => {
+                const qtyInput = row.querySelector('.item-qty');
+                const qty = qtyInput ? (parseFloat(qtyInput.value) || 1) : 1;
                 const price = parseFloat(row.querySelector('.unit-price').value) || 0;
-                // For simplicity using unit price as row amount
-                subtotal += price;
-                row.querySelector('.row-amount').textContent = '₱ ' + price.toLocaleString(undefined, {minimumFractionDigits: 2});
+                const rowAmount = qty * price;
+                subtotal += rowAmount;
+                row.querySelector('.row-amount').textContent = '₱ ' + rowAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
             });
 
             const vat = 0; // 0% as per current design
@@ -364,8 +367,11 @@
 
             document.getElementById('subtotal').textContent = '₱ ' + subtotal.toLocaleString(undefined, {minimumFractionDigits: 2});
             document.getElementById('total-amount-display').textContent = '₱ ' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
-            document.getElementById('total-amount-input').value = total;
+            document.getElementById('total-amount-input').value = total.toFixed(2);
         }
+
+        // Run calculation on page load to sync correct totals
+        calculateTotals();
     </script>
     @endpush
 </x-app-layout>

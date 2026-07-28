@@ -13,8 +13,32 @@ class MarketingController extends Controller
 {
     public function dashboard()
     {
-        $start = \Carbon\Carbon::now()->startOfMonth();
-        $end = \Carbon\Carbon::now()->endOfMonth();
+        $period = request()->query('period', 'monthly');
+        
+        switch ($period) {
+            case 'daily':
+                $start = \Carbon\Carbon::now()->startOfDay();
+                $end = \Carbon\Carbon::now()->endOfDay();
+                $periodLabel = 'Today';
+                break;
+            case 'weekly':
+                $start = \Carbon\Carbon::now()->startOfWeek();
+                $end = \Carbon\Carbon::now()->endOfWeek();
+                $periodLabel = 'This Week';
+                break;
+            case 'yearly':
+                $start = \Carbon\Carbon::now()->startOfYear();
+                $end = \Carbon\Carbon::now()->endOfYear();
+                $periodLabel = 'This Year';
+                break;
+            case 'monthly':
+            default:
+                $start = \Carbon\Carbon::now()->startOfMonth();
+                $end = \Carbon\Carbon::now()->endOfMonth();
+                $periodLabel = 'This Month';
+                $period = 'monthly'; // normalize
+                break;
+        }
 
         // Orders in period
         $ordersQuery = \App\Models\SalesOrder::whereBetween('created_at', [$start, $end]);
@@ -30,22 +54,75 @@ class MarketingController extends Controller
             ->get();
         $topChannel = $channels->first();
 
-        // Chart: daily revenue for the current month
-        $daysInMonth = $start->daysInMonth;
-        $daily = [];
-        for ($d = 1; $d <= $daysInMonth; $d++) {
-            $daily[$d] = 0;
-        }
-        $dailyRows = \App\Models\SalesOrder::select(\DB::raw('DAY(created_at) as day'), \DB::raw('SUM(total_amount) as total'))
-            ->whereBetween('created_at', [$start, $end])
-            ->groupBy(\DB::raw('DAY(created_at)'))
-            ->get();
-        foreach ($dailyRows as $r) {
-            $daily[(int)$r->day] = (float)$r->total;
+        // Chart categories and values
+        $chartCategories = [];
+        $chartRevenue = [];
+        
+        if ($period == 'daily') {
+            // Hourly breakdown (0-23)
+            for ($h = 0; $h < 24; $h++) {
+                $chartCategories[] = $h == 0 ? '12 AM' : ($h < 12 ? $h . ' AM' : ($h == 12 ? '12 PM' : ($h - 12) . ' PM'));
+                $chartRevenue[$h] = 0;
+            }
+            $rows = \App\Models\SalesOrder::select(\DB::raw('HOUR(created_at) as hour'), \DB::raw('SUM(total_amount) as total'))
+                ->whereBetween('created_at', [$start, $end])
+                ->groupBy(\DB::raw('HOUR(created_at)'))
+                ->get();
+            foreach ($rows as $r) {
+                $chartRevenue[(int)$r->hour] = (float)$r->total;
+            }
+        } elseif ($period == 'weekly') {
+            // Daily breakdown for week (Monday - Sunday)
+            $weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            foreach ($weekDays as $day) {
+                $chartCategories[] = $day;
+                $chartRevenue[$day] = 0;
+            }
+            $rows = \App\Models\SalesOrder::select(\DB::raw('DAYNAME(created_at) as day'), \DB::raw('SUM(total_amount) as total'))
+                ->whereBetween('created_at', [$start, $end])
+                ->groupBy(\DB::raw('DAYNAME(created_at)'))
+                ->get();
+            foreach ($rows as $r) {
+                $chartRevenue[$r->day] = (float)$r->total;
+            }
+            $chartRevenue = array_values($chartRevenue);
+        } elseif ($period == 'yearly') {
+            // Monthly breakdown for year (Jan - Dec)
+            $months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            foreach ($months as $month) {
+                $chartCategories[] = substr($month, 0, 3); // Jan, Feb...
+                $chartRevenue[$month] = 0;
+            }
+            $rows = \App\Models\SalesOrder::select(\DB::raw('MONTHNAME(created_at) as month'), \DB::raw('SUM(total_amount) as total'))
+                ->whereBetween('created_at', [$start, $end])
+                ->groupBy(\DB::raw('MONTHNAME(created_at)'))
+                ->get();
+            foreach ($rows as $r) {
+                $chartRevenue[$r->month] = (float)$r->total;
+            }
+            $chartRevenue = array_values($chartRevenue);
+        } else {
+            // Monthly breakdown (daily 1-31)
+            $daysInMonth = $start->daysInMonth;
+            for ($d = 1; $d <= $daysInMonth; $d++) {
+                $chartCategories[] = (string)$d;
+                $chartRevenue[$d] = 0;
+            }
+            $rows = \App\Models\SalesOrder::select(\DB::raw('DAY(created_at) as day'), \DB::raw('SUM(total_amount) as total'))
+                ->whereBetween('created_at', [$start, $end])
+                ->groupBy(\DB::raw('DAY(created_at)'))
+                ->get();
+            foreach ($rows as $r) {
+                $chartRevenue[(int)$r->day] = (float)$r->total;
+            }
+            $chartRevenue = array_values($chartRevenue);
         }
 
-        // Top products
+        // Top products (filtered by same period)
         $topProducts = \App\Models\SalesOrderItem::select('book_id', \DB::raw('SUM(quantity) as qty'))
+            ->whereHas('order', function($query) use ($start, $end) {
+                $query->whereBetween('created_at', [$start, $end]);
+            })
             ->groupBy('book_id')
             ->orderByDesc('qty')
             ->with('book')
@@ -56,14 +133,15 @@ class MarketingController extends Controller
             'title' => 'Marketing Dashboard',
             'role' => auth()->user()->position,
             'sidebar' => 'marketing',
-            'periodLabel' => 'This Month',
+            'period' => $period,
+            'periodLabel' => $periodLabel,
             'totalSales' => $totalSales,
             'totalOrders' => $totalOrders,
             'avgOrder' => $avgOrder,
             'topChannel' => $topChannel,
             'channels' => $channels,
-            'chartCategories' => array_map(function($d){ return (string)$d; }, array_keys($daily)),
-            'chartRevenue' => array_values($daily),
+            'chartCategories' => $chartCategories,
+            'chartRevenue' => $chartRevenue,
             'topProducts' => $topProducts,
         ]);
     }

@@ -63,10 +63,10 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0 text-black font-w600">View Sales Statistics</h5>
                         <div class="btn-group" role="group" aria-label="Time period selector">
-                            <button type="button" class="btn btn-outline-danger period-btn" data-period="daily">Daily</button>
-                            <button type="button" class="btn btn-outline-danger period-btn" data-period="weekly">Weekly</button>
-                            <button type="button" class="btn btn-outline-danger period-btn active" data-period="monthly">Monthly</button>
-                            <button type="button" class="btn btn-outline-danger period-btn" data-period="yearly">Yearly</button>
+                            <button type="button" class="btn btn-outline-danger period-btn {{ $period == 'daily' ? 'active' : '' }}" data-period="daily">Daily</button>
+                            <button type="button" class="btn btn-outline-danger period-btn {{ $period == 'weekly' ? 'active' : '' }}" data-period="weekly">Weekly</button>
+                            <button type="button" class="btn btn-outline-danger period-btn {{ $period == 'monthly' ? 'active' : '' }}" data-period="monthly">Monthly</button>
+                            <button type="button" class="btn btn-outline-danger period-btn {{ $period == 'yearly' ? 'active' : '' }}" data-period="yearly">Yearly</button>
                         </div>
                     </div>
                 </div>
@@ -289,17 +289,11 @@
                 }
             }
 
-            // Period selector remains client-side; server provides monthly defaults.
+            // Period selector: reloads the page with query parameter
             document.querySelectorAll('.period-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    // For now we only update labels locally; server-driven filtering can be added later.
-                    const labels = { daily: 'Today', weekly: 'This Week', monthly: 'This Month', yearly: 'This Year' };
-                    document.getElementById('salesPeriodLabel').textContent = labels[this.dataset.period];
-                    document.getElementById('ordersPeriodLabel').textContent = labels[this.dataset.period];
-                    document.getElementById('avgOrderPeriodLabel').textContent = labels[this.dataset.period];
-                    document.getElementById('chartPeriodLabel').textContent = '(' + labels[this.dataset.period] + ')';
+                    const selectedPeriod = this.dataset.period;
+                    window.location.href = "{{ route('marketing.dashboard') }}?period=" + selectedPeriod;
                 });
             });
         });

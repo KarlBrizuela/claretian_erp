@@ -267,7 +267,7 @@
                 @forelse($bookstoreChargeOrders as $order)
                 <tr>
                     <td><span class="fw-bold text-dark">#{{ $order->order_number ?? 'ORD-'.$order->id }}</span></td>
-                    <td>{{ $order->customer->name ?? 'Walk-in Corporate Account' }}</td>
+                    <td>{{ $order->customer->customer_name ?? $order->customer->company_name ?? 'Walk-in Corporate Account' }}</td>
                     <td>{{ $order->created_at->addDays(30)->format('M d, Y') }}</td>
                     <td><span class="badge bg-warning text-dark">Unpaid (Net 30)</span></td>
                     <td class="text-end fw-bold text-dark">₱{{ number_format($order->total_amount, 2) }}</td>

@@ -139,7 +139,7 @@
                 @forelse($ecomWebsiteOrders as $order)
                 <tr>
                     <td><span class="fw-bold text-dark">#{{ $order->order_number ?? 'WEB-'.$order->id }}</span></td>
-                    <td>{{ $order->customer->name ?? 'Online Buyer' }}</td>
+                    <td>{{ $order->customer->customer_name ?? $order->customer->company_name ?? 'Online Buyer' }}</td>
                     <td>{{ $order->created_at->format('M d, Y') }}</td>
                     <td><span class="badge bg-success text-white">Paid</span></td>
                     <td class="text-end fw-bold text-dark">₱{{ number_format($order->total_amount, 2) }}</td>
@@ -235,7 +235,7 @@
                 @forelse($ecomFacebookOrders as $order)
                 <tr>
                     <td><span class="fw-bold text-dark">#{{ $order->order_number ?? 'FB-'.$order->id }}</span></td>
-                    <td>{{ $order->customer->name ?? 'FB Buyer' }}</td>
+                    <td>{{ $order->customer->customer_name ?? $order->customer->company_name ?? 'FB Buyer' }}</td>
                     <td>{{ $order->created_at->format('M d, Y') }}</td>
                     <td><span class="badge bg-success text-white">Processed</span></td>
                     <td class="text-end fw-bold text-dark">₱{{ number_format($order->total_amount, 2) }}</td>

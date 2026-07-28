@@ -306,7 +306,7 @@ class CashierPaymentController extends Controller
                 fputcsv($file, [
                     $collection->verified_at->format('Y-m-d H:i'),
                     $collection->salesOrder->so_number,
-                    $collection->salesOrder->customer->name ?? '',
+                    $collection->salesOrder->customer->customer_name ?? $collection->salesOrder->customer->company_name ?? '',
                     $collection->rider->name ?? '',
                     $collection->amount_collected,
                     $collection->amount_discrepancy ?? 0,

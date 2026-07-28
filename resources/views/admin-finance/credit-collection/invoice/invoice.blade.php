@@ -130,7 +130,7 @@
                                             <tr>
                                                 <td class="fw-bold text-primary">#{{ $invoice->so_number }}</td>
                                                 <td>{{ $invoice->ref_number ?? 'EST-' . str_pad($loop->iteration, 3, '0', STR_PAD_LEFT) }}</td>
-                                                <td>{{ $invoice->customer->name ?? 'Unknown Customer' }}</td>
+                                                <td>{{ $invoice->customer->customer_name ?? $invoice->customer->company_name ?? 'Unknown Customer' }}</td>
                                                 <td>{{ $invoice->created_at->format('M d, Y') }}</td>
                                                 <td>
                                                     @if($invoice->status == 'ready_for_delivery' || $invoice->status == 'verified' || $invoice->status == 'approved')
@@ -153,7 +153,7 @@
                                                                data-bs-toggle="modal" 
                                                                data-bs-target="#createDRModal"
                                                                data-so-number="{{ $invoice->so_number }}"
-                                                               data-customer="{{ $invoice->customer->name ?? 'Unknown Customer' }}"
+                                                               data-customer="{{ $invoice->customer->customer_name ?? $invoice->customer->company_name ?? 'Unknown Customer' }}"
                                                                data-terms="{{ $invoice->terms ?? 'Net 30' }}"
                                                                data-memo="{{ $invoice->memo ?? '' }}"
                                                                data-items='@json($invoice->items)'
@@ -269,7 +269,7 @@
                                                 <tr>
                                                     <td class="fw-bold text-dark">DR-{{ str_pad($invoice->id, 4, '0', STR_PAD_LEFT) }}</td>
                                                     <td class="text-primary">#{{ $invoice->so_number }}</td>
-                                                    <td>{{ $invoice->customer->name ?? 'Unknown Customer' }}</td>
+                                                    <td>{{ $invoice->customer->customer_name ?? $invoice->customer->company_name ?? 'Unknown Customer' }}</td>
                                                     <td>{{ $invoice->created_at->format('M d, Y') }}</td>
                                                     <td class="fw-bold text-dark">₱ {{ number_format($invoice->total_amount ?? 0, 2) }}</td>
                                                     <td class="text-center">
@@ -281,7 +281,7 @@
                                                                 data-so-id="{{ $invoice->id }}"
                                                                 data-dr-number="{{ str_pad($invoice->id, 4, '0', STR_PAD_LEFT) }}"
                                                                 data-so-number="{{ $invoice->so_number }}"
-                                                                data-customer="{{ $invoice->customer->name ?? 'Unknown Customer' }}"
+                                                                data-customer="{{ $invoice->customer->customer_name ?? $invoice->customer->company_name ?? 'Unknown Customer' }}"
                                                                 data-terms="{{ $invoice->terms ?? 'Net 30' }}"
                                                                 data-memo="{{ $invoice->memo ?? '' }}"
                                                                 data-items='@json($invoice->items)'
@@ -347,7 +347,7 @@
                                                     <td class="fw-bold text-dark">SI-{{ str_pad($invoice->id, 4, '0', STR_PAD_LEFT) }}</td>
                                                     <td class="text-muted">DR-{{ str_pad($invoice->id, 4, '0', STR_PAD_LEFT) }}</td>
                                                     <td class="text-primary">#{{ $invoice->so_number }}</td>
-                                                    <td>{{ $invoice->customer->name ?? 'Unknown Customer' }}</td>
+                                                    <td>{{ $invoice->customer->customer_name ?? $invoice->customer->company_name ?? 'Unknown Customer' }}</td>
                                                     <td>{{ $invoice->updated_at->format('M d, Y') }}</td>
                                                     <td class="fw-bold text-dark">₱ {{ number_format($invoice->total_amount ?? 0, 2) }}</td>
                                                     <td>
@@ -440,7 +440,7 @@
                                                             #{{ $invoice->so_number }}
                                                         @endif
                                                     </td>
-                                                    <td>{{ $invoice->customer->name ?? 'Unknown Customer' }}</td>
+                                                    <td>{{ $invoice->customer->customer_name ?? $invoice->customer->company_name ?? 'Unknown Customer' }}</td>
                                                     <td>{{ $invoice->created_at->format('M d, Y') }}</td>
                                                     <td class="fw-bold text-dark">₱ {{ number_format($invoice->total_amount ?? 0, 2) }}</td>
                                                     <td>
@@ -462,7 +462,7 @@
                                                                     data-so-id="{{ $invoice->id }}"
                                                                     data-dr-number="{{ str_pad($invoice->id, 4, '0', STR_PAD_LEFT) }}"
                                                                     data-so-number="{{ $invoice->so_number }}"
-                                                                    data-customer="{{ $invoice->customer->name ?? 'Unknown Customer' }}"
+                                                                    data-customer="{{ $invoice->customer->customer_name ?? $invoice->customer->company_name ?? 'Unknown Customer' }}"
                                                                     data-terms="{{ $invoice->terms ?? 'Net 30' }}"
                                                                     data-memo="{{ $invoice->memo ?? '' }}"
                                                                     data-items='@json($invoice->items)'
