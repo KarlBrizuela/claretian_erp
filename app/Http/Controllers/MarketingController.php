@@ -1464,22 +1464,26 @@ class MarketingController extends Controller
             'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
 
-        // For submitted SOs, validate stock
-        if ($action === 'submit') {
-            // STOCK VALIDATION: Check if all items have sufficient stock
-            $insufficientItems = [];
-            foreach ($request->items ?? [] as $item) {
-                $book = \App\Models\Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
-                if (!$book || $book->stock < $item['quantity']) {
-                    $bookName = $book ? $book->name : "Product #{$item['product_id']}";
-                    $availableStock = $book ? $book->stock : 0;
-                    $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
-                }
-            }
+        // Validate stock & quantity for all items
+        $itemErrors = [];
+        foreach ($request->items ?? [] as $item) {
+            if (empty($item['product_id'])) continue;
+            $qty = (int) ($item['quantity'] ?? 0);
+            $book = \App\Models\Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
+            $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+            $availableStock = $book ? (int) $book->stock : 0;
 
-            if (!empty($insufficientItems)) {
-                return redirect()->back()->with('error', 'Insufficient stock for the following items: ' . implode('<br>• ', $insufficientItems));
+            if ($qty <= 0) {
+                $itemErrors[] = "<strong>{$bookName}</strong>: Quantity must be at least 1.";
+            } elseif ($action === 'submit' && $availableStock <= 0) {
+                $itemErrors[] = "<strong>{$bookName}</strong>: Item is out of stock (Stock: 0).";
+            } elseif ($action === 'submit' && $availableStock < $qty) {
+                $itemErrors[] = "<strong>{$bookName}</strong>: Insufficient stock (Available: {$availableStock} pcs, Requested: {$qty} pcs).";
             }
+        }
+
+        if (!empty($itemErrors)) {
+            return redirect()->back()->with('error', 'Cannot proceed with Sales Order:<br>• ' . implode('<br>• ', $itemErrors))->withInput();
         }
 
         // 1. Determine Initial Status
@@ -1531,7 +1535,24 @@ class MarketingController extends Controller
         // 4. Create Items (only if provided)
         $totalAmount = 0;
         if (!empty($request->items)) {
+            $aggregatedItems = [];
             foreach ($request->items as $item) {
+                if (empty($item['product_id'])) continue;
+                $pid = $item['product_id'];
+                if (isset($aggregatedItems[$pid])) {
+                    $aggregatedItems[$pid]['quantity'] += (int) $item['quantity'];
+                } else {
+                    $aggregatedItems[$pid] = [
+                        'product_id' => $pid,
+                        'quantity' => (int) $item['quantity'],
+                        'price' => (float) $item['price'],
+                        'unit' => $item['unit'] ?? 'pcs',
+                        'area' => $item['area'] ?? null,
+                    ];
+                }
+            }
+
+            foreach (array_values($aggregatedItems) as $item) {
                 $subtotal = $item['quantity'] * $item['price'];
                 $totalAmount += $subtotal;
 
@@ -1546,12 +1567,11 @@ class MarketingController extends Controller
                     'area' => $item['area'] ?? null,
                     'source_price_at_sale' => $book ? $book->source_price : 0,
                 ]);
-
             }
         }
 
         $discountAmount = 0;
-        $discountPercentage = null;
+        $discountPercentage = 0;
         if ($request->filled('discount_value') && $request->discount_value > 0) {
             $discountValue = (float) $request->discount_value;
             if ($request->discount_type === 'percentage') {
@@ -1559,6 +1579,7 @@ class MarketingController extends Controller
                 $discountAmount = $totalAmount * ($discountPercentage / 100);
             } else {
                 $discountAmount = $discountValue;
+                $discountPercentage = 0;
             }
         }
 
@@ -1571,7 +1592,7 @@ class MarketingController extends Controller
         // 5. Update Total and Discount fields
         $so->update([
             'discount_amount' => $discountAmount,
-            'discount_percentage' => $discountPercentage,
+            'discount_percentage' => $discountPercentage ?? 0,
             'total_amount' => max(0, $finalTotal)
         ]);
 
@@ -1731,6 +1752,28 @@ class MarketingController extends Controller
             'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
 
+        // Validate stock & quantity for all items
+        $itemErrors = [];
+        foreach ($request->items ?? [] as $item) {
+            if (empty($item['product_id'])) continue;
+            $qty = (int) ($item['quantity'] ?? 0);
+            $book = \App\Models\Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
+            $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+            $availableStock = $book ? (int) $book->stock : 0;
+
+            if ($qty <= 0) {
+                $itemErrors[] = "<strong>{$bookName}</strong>: Quantity must be at least 1.";
+            } elseif ($availableStock <= 0) {
+                $itemErrors[] = "<strong>{$bookName}</strong>: Item is out of stock (Stock: 0).";
+            } elseif ($availableStock < $qty) {
+                $itemErrors[] = "<strong>{$bookName}</strong>: Insufficient stock (Available: {$availableStock} pcs, Requested: {$qty} pcs).";
+            }
+        }
+
+        if (!empty($itemErrors)) {
+            return redirect()->back()->with('error', 'Cannot update Sales Order:<br>• ' . implode('<br>• ', $itemErrors))->withInput();
+        }
+
         if ($request->hasFile('attachment')) {
             // optional: delete old file
             $path = $request->file('attachment')->store('sales_orders', 'public');
@@ -1777,7 +1820,7 @@ class MarketingController extends Controller
         }
 
         $discountAmount = 0;
-        $discountPercentage = null;
+        $discountPercentage = 0;
         if ($request->filled('discount_value') && $request->discount_value > 0) {
             $discountValue = (float) $request->discount_value;
             if ($request->discount_type === 'percentage') {
@@ -1785,6 +1828,7 @@ class MarketingController extends Controller
                 $discountAmount = $totalAmount * ($discountPercentage / 100);
             } else {
                 $discountAmount = $discountValue;
+                $discountPercentage = 0;
             }
         }
 
@@ -1798,7 +1842,7 @@ class MarketingController extends Controller
 
         $so->update([
             'discount_amount' => $discountAmount,
-            'discount_percentage' => $discountPercentage,
+            'discount_percentage' => $discountPercentage ?? 0,
             'total_amount' => max(0, $finalTotal)
         ]);
 
@@ -1901,7 +1945,23 @@ class MarketingController extends Controller
 
         // Create items
         $totalAmount = 0;
+        $aggregatedWebItems = [];
         foreach ($request->items as $item) {
+            if (empty($item['product_id'])) continue;
+            $pid = $item['product_id'];
+            if (isset($aggregatedWebItems[$pid])) {
+                $aggregatedWebItems[$pid]['quantity'] += (int) $item['quantity'];
+            } else {
+                $aggregatedWebItems[$pid] = [
+                    'product_id' => $pid,
+                    'quantity' => (int) $item['quantity'],
+                    'price' => (float) $item['price'],
+                    'unit' => $item['unit'] ?? 'pcs',
+                ];
+            }
+        }
+
+        foreach (array_values($aggregatedWebItems) as $item) {
             $subtotal = $item['quantity'] * $item['price'];
             $totalAmount += $subtotal;
 
@@ -1915,7 +1975,6 @@ class MarketingController extends Controller
                 'unit' => $item['unit'] ?? 'pcs',
                 'source_price_at_sale' => $book ? $book->source_price : 0,
             ]);
-
         }
 
         $so->update(['total_amount' => $totalAmount]);
@@ -2093,7 +2152,23 @@ class MarketingController extends Controller
 
         // Create items and deduct stock from platform site
         $totalAmount = 0;
+        $aggregatedEcomItems = [];
         foreach ($request->items as $item) {
+            if (empty($item['product_id'])) continue;
+            $pid = $item['product_id'];
+            if (isset($aggregatedEcomItems[$pid])) {
+                $aggregatedEcomItems[$pid]['quantity'] += (int) $item['quantity'];
+            } else {
+                $aggregatedEcomItems[$pid] = [
+                    'product_id' => $pid,
+                    'quantity' => (int) $item['quantity'],
+                    'price' => (float) $item['price'],
+                    'unit' => $item['unit'] ?? 'pcs',
+                ];
+            }
+        }
+
+        foreach (array_values($aggregatedEcomItems) as $item) {
             $subtotal = $item['quantity'] * $item['price'];
             $totalAmount += $subtotal;
 

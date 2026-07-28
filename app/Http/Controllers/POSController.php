@@ -142,6 +142,23 @@ class POSController extends Controller
                 'acct_approved_at' => now(),
             ]);
 
+            // Aggregate duplicate item entries to prevent duplicate line items
+            $aggregatedItems = [];
+            foreach ($validated['items'] as $item) {
+                $key = !empty($item['bundle_id']) ? 'bundle_' . $item['bundle_id'] : 'prod_' . ($item['product_id'] ?? 'none');
+                if (isset($aggregatedItems[$key])) {
+                    $aggregatedItems[$key]['quantity'] += (int) $item['quantity'];
+                } else {
+                    $aggregatedItems[$key] = [
+                        'product_id' => $item['product_id'] ?? null,
+                        'bundle_id'  => $item['bundle_id'] ?? null,
+                        'quantity'   => (int) $item['quantity'],
+                        'price'      => (float) $item['price'],
+                    ];
+                }
+            }
+            $validated['items'] = array_values($aggregatedItems);
+
             // ── PROCESS EACH LINE ITEM ───────────────────────────────────────
             foreach ($validated['items'] as $item) {
                 $qty = (int) $item['quantity'];
@@ -452,6 +469,22 @@ class POSController extends Controller
             if (!$targetSite) {
                 $targetSite = \App\Models\Site::where('name', 'Main Warehouse')->first();
             }
+
+            // Aggregate duplicate item entries
+            $aggregatedEcomItems = [];
+            foreach ($validated['items'] as $item) {
+                $pid = $item['product_id'];
+                if (isset($aggregatedEcomItems[$pid])) {
+                    $aggregatedEcomItems[$pid]['quantity'] += (int) $item['quantity'];
+                } else {
+                    $aggregatedEcomItems[$pid] = [
+                        'product_id' => $pid,
+                        'quantity'   => (int) $item['quantity'],
+                        'price'      => (float) $item['price'],
+                    ];
+                }
+            }
+            $validated['items'] = array_values($aggregatedEcomItems);
 
             // Create order items & deduct stock from specific platform site
             foreach ($validated['items'] as $item) {

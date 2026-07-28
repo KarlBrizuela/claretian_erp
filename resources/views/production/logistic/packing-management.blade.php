@@ -931,7 +931,7 @@
 
         window.markOrderAsGatheredAction = function(orderId, soNumber) {
             if (!orderId) return;
-            if (confirm(`Mark ${soNumber} as gathered? It will move to Delivery Scheduling.`)) {
+            if (confirm(`Mark ${soNumber} as gathered? It will move to Sales Invoice (SI) Preparation.`)) {
                 markOrderAsGathered(orderId, soNumber);
             }
         };
@@ -1020,7 +1020,7 @@
                 const btn = $(this).closest('.mark-gathered-btn');
                 const orderId = btn.attr('data-order-id') || btn.data('order-id');
                 const soNumber = btn.attr('data-so-number') || btn.data('so-number');
-                if (orderId && confirm(`Mark ${soNumber} as gathered? It will move to Delivery Scheduling.`)) {
+                if (orderId && confirm(`Mark ${soNumber} as gathered? It will move to Sales Invoice (SI) Preparation.`)) {
                     markOrderAsGathered(orderId, soNumber);
                 }
             });
@@ -1226,7 +1226,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(`✓ ${soNumber} marked as gathered and moved to Delivery Scheduling!`);
+                    alert(`✓ ${soNumber} marked as gathered and moved to Sales Invoice (SI) Preparation!`);
                     window.location.reload();
                 } else {
                     alert('Error: ' + (data.message || 'Failed to mark as gathered'));

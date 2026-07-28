@@ -159,9 +159,8 @@ class LogisticController extends Controller
             
             $order = \App\Models\SalesOrder::findOrFail($orderId);
             
-            // For ecom_direct and area_consignment, move to "ready_for_delivery" (packing management).
-            // For other orders, move to "pending_si_prep" status for Sales Invoice Preparation.
-            $newStatus = in_array($order->type, ['ecom_direct', 'area_consignment']) ? 'ready_for_delivery' : 'pending_si_prep';
+            // Move order to "pending_si_prep" status for Sales Invoice (SI) Preparation.
+            $newStatus = 'pending_si_prep';
             $order->update([
                 'status' => $newStatus,
                 'gathered_at' => now(),
@@ -223,7 +222,7 @@ class LogisticController extends Controller
                 'details' => json_encode(['gathered_at' => now()])
             ]);
 
-            $targetQueue = in_array($order->type, ['ecom_direct', 'area_consignment']) ? 'Packing Management' : 'Sales Invoice';
+            $targetQueue = 'Sales Invoice (SI) Preparation';
 
             // If AJAX request, return JSON
             if ($request->expectsJson()) {

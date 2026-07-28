@@ -688,13 +688,37 @@
 
                     const availabilityEl = tr.querySelector('.availability');
                     if (availabilityEl) {
-                        const stock = option.dataset.stock !== undefined ? option.dataset.stock : '0';
-                        availabilityEl.textContent = 'Stock: ' + stock;
+                        const stock = option.dataset.stock !== undefined ? parseInt(option.dataset.stock) : 0;
+                        if (stock <= 0) {
+                            availabilityEl.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Out of Stock (0)</span>';
+                        } else {
+                            availabilityEl.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Stock: ' + stock + '</span>';
+                        }
                     }
+                    validateRow(tr);
                     calculateRow(tr);
                 });
 
-                qtyInput.addEventListener('input', () => calculateRow(tr));
+                function validateRow(row) {
+                    const select = row.querySelector('.product-select');
+                    const qtyInput = row.querySelector('.qty-input');
+                    const selectedOpt = select ? select.options[select.selectedIndex] : null;
+                    const stock = selectedOpt && selectedOpt.dataset.stock !== undefined ? parseInt(selectedOpt.dataset.stock) : 999999;
+                    const qty = parseFloat(qtyInput.value) || 0;
+
+                    if (qty <= 0 || (selectedOpt && select.value && stock <= 0) || (selectedOpt && select.value && qty > stock)) {
+                        qtyInput.style.border = '2px solid #dc3545';
+                        qtyInput.style.backgroundColor = '#fff8f8';
+                    } else {
+                        qtyInput.style.border = '1px solid #ddd';
+                        qtyInput.style.backgroundColor = '#ffffff';
+                    }
+                }
+
+                qtyInput.addEventListener('input', () => {
+                    validateRow(tr);
+                    calculateRow(tr);
+                });
                 priceInput.addEventListener('input', () => calculateRow(tr)); // Allow price edits to update total
                 
                 removeBtn.addEventListener('click', function() {
@@ -744,17 +768,37 @@
                     return;
                 }
 
-                // Use jQuery to check select values as it plays better with selectpicker
-                let allProductsSelected = true;
-                $(itemsBody).find('select.product-select').each(function() {
-                    if (!$(this).val()) {
-                        allProductsSelected = false;
+                let validationErrors = [];
+                let rowCount = 0;
+
+                $(itemsBody).find('tr').each(function(index) {
+                    rowCount++;
+                    const select = $(this).find('select.product-select');
+                    const qtyInput = $(this).find('input.qty-input');
+                    const productId = select.val();
+                    const qty = parseInt(qtyInput.val()) || 0;
+
+                    if (!productId) {
+                        validationErrors.push(`Item #${rowCount}: Please select a product.`);
+                        return;
+                    }
+
+                    const selectedOption = select.find('option:selected');
+                    const productName = selectedOption.text().trim();
+                    const stock = selectedOption.data('stock') !== undefined ? parseInt(selectedOption.data('stock')) : 0;
+
+                    if (qty <= 0) {
+                        validationErrors.push(`"${productName}": Quantity must be at least 1.`);
+                    } else if (stock <= 0) {
+                        validationErrors.push(`"${productName}": Item is OUT OF STOCK (Stock: 0). Cannot create order for out-of-stock items.`);
+                    } else if (qty > stock) {
+                        validationErrors.push(`"${productName}": Requested quantity (${qty}) exceeds available stock (${stock}).`);
                     }
                 });
 
-                if (!allProductsSelected) {
+                if (validationErrors.length > 0) {
                     e.preventDefault();
-                    alert('Please select a product for all rows.');
+                    alert('Cannot proceed with Sales Order:\n\n• ' + validationErrors.join('\n• '));
                     return;
                 }
 

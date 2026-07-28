@@ -817,48 +817,23 @@
                 width: '100%'
             });
 
-            // Barcode Scanner Handler - Multiple event types for compatibility
+            // Barcode Scanner Handler
             const barcodeInput = document.getElementById('barcodeScanner');
             let processingBarcode = false;
+            let lastScanTime = 0;
 
-            // Method 1: Monitor the input field directly
-            barcodeInput.addEventListener('input', function(e) {
-                const value = barcodeInput.value.trim();
-                console.log('📥 Input detected:', value);
-            });
-
-            // Method 2: Keydown event (more reliable than keypress)
             barcodeInput.addEventListener('keydown', function(e) {
-                console.log('⌨️ Key pressed:', e.key, 'Code:', e.code);
-                
                 if (e.key === 'Enter' && barcodeInput.value.trim().length > 0) {
                     e.preventDefault();
                     processBarcode(barcodeInput.value.trim());
                 }
             });
 
-            // Method 3: Watch for rapid input (typical barcode scanner behavior)
-            let lastInputTime = 0;
-            let inputBuffer = '';
-            
-            barcodeInput.addEventListener('keypress', function(e) {
-                const now = Date.now();
-                
-                // If more than 100ms since last keystroke, it's a new scan
-                if (now - lastInputTime > 100) {
-                    inputBuffer = '';
-                }
-                
-                lastInputTime = now;
-                inputBuffer += e.key;
-                
-                // If we detect a long barcode (typical scanner has 12+ characters)
-                if (inputBuffer.length > 10 && e.key === 'Enter') {
-                    processBarcode(inputBuffer.replace('Enter', '').trim());
-                }
-            });
-
             function processBarcode(barcode) {
+                const now = Date.now();
+                if (now - lastScanTime < 400) return; // Prevent duplicate rapid scans
+                lastScanTime = now;
+
                 if (processingBarcode) return;
                 processingBarcode = true;
                 
@@ -867,32 +842,26 @@
                 if (barcode && barcode.length > 3) {
                     let product = null;
                     
-                    console.log('📊 Searching in', products.length, 'products...');
-                    
                     for (let i = 0; i < products.length; i++) {
                         const p = products[i];
                         
                         if ((p.barcode && p.barcode.toString() === barcode) || 
                             (p.sku && p.sku.toString() === barcode)) {
                             product = p;
-                            console.log('✅ MATCH FOUND:', p.name);
                             break;
                         }
                     }
                     
                     if (product) {
-                        console.log('🛒 Adding product ID:', product.id, 'Name:', product.name);
                         addToCart(product.type + '_' + product.id);
                         showBarcodeNotification(`✓ ${product.name} added to cart!`, 'success');
                     } else {
-                        console.log('❌ No product found for barcode:', barcode);
                         showBarcodeNotification('⚠ Product not found', 'error');
                     }
                 }
                 
                 // Clear input
                 barcodeInput.value = '';
-                inputBuffer = '';
                 barcodeInput.focus();
                 processingBarcode = false;
             }

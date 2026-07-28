@@ -61,6 +61,7 @@
                                     <th>Order Date</th>
                                     <th>Platform/Source</th>
                                     <th>Total Amount</th>
+                                    <th>Total Qty</th>
                                     <th>Items Picked</th>
                                     <th>Status</th>
                                     <th>Actions</th>
@@ -79,6 +80,7 @@
                                     @endphp
                                     <td class="text-uppercase {{ $order->type === 'paid' ? 'text-success' : 'text-primary' }}">{{ $typeDisplay }}</td>
                                     <td>₱{{ number_format($order->total_amount, 2) }}</td>
+                                    <td><span class="badge bg-light text-dark fw-bold" title="{{ $order->items->count() }} line item(s)">{{ $order->items->sum('quantity') }} pcs</span></td>
                                     <td>
                                         @php
                                             $totalItems = $order->items->count();
