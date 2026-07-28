@@ -3,46 +3,34 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 class MakeDiscountPercentageNullableOnSalesOrdersTable extends Migration
 {
-    /**
-     * Run the migrations.
-     *
-     * @return void
-     */
     public function up()
     {
-        Schema::table('sales_orders', function (Blueprint $table) {
-            if (Schema::hasColumn('sales_orders', 'discount_percentage')) {
-                $table->decimal('discount_percentage', 5, 2)->nullable()->default(0)->change();
-            }
-            if (Schema::hasColumn('sales_orders', 'discount_amount')) {
-                $table->decimal('discount_amount', 15, 2)->nullable()->default(0)->change();
-            }
-            if (Schema::hasColumn('sales_orders', 'withholding_tax_amount')) {
-                $table->decimal('withholding_tax_amount', 15, 2)->nullable()->default(0)->change();
-            }
-        });
+        // Use raw SQL to avoid requiring doctrine/dbal for ->change()
+        if (Schema::hasColumn('sales_orders', 'discount_percentage')) {
+            DB::statement('ALTER TABLE sales_orders MODIFY discount_percentage DECIMAL(5,2) NULL DEFAULT 0');
+        }
+        if (Schema::hasColumn('sales_orders', 'discount_amount')) {
+            DB::statement('ALTER TABLE sales_orders MODIFY discount_amount DECIMAL(15,2) NULL DEFAULT 0');
+        }
+        if (Schema::hasColumn('sales_orders', 'withholding_tax_amount')) {
+            DB::statement('ALTER TABLE sales_orders MODIFY withholding_tax_amount DECIMAL(15,2) NULL DEFAULT 0');
+        }
     }
 
-    /**
-     * Reverse the migrations.
-     *
-     * @return void
-     */
     public function down()
     {
-        Schema::table('sales_orders', function (Blueprint $table) {
-            if (Schema::hasColumn('sales_orders', 'discount_percentage')) {
-                $table->decimal('discount_percentage', 5, 2)->default(0)->change();
-            }
-            if (Schema::hasColumn('sales_orders', 'discount_amount')) {
-                $table->decimal('discount_amount', 15, 2)->default(0)->change();
-            }
-            if (Schema::hasColumn('sales_orders', 'withholding_tax_amount')) {
-                $table->decimal('withholding_tax_amount', 15, 2)->default(0)->change();
-            }
-        });
+        if (Schema::hasColumn('sales_orders', 'discount_percentage')) {
+            DB::statement('ALTER TABLE sales_orders MODIFY discount_percentage DECIMAL(5,2) NOT NULL DEFAULT 0');
+        }
+        if (Schema::hasColumn('sales_orders', 'discount_amount')) {
+            DB::statement('ALTER TABLE sales_orders MODIFY discount_amount DECIMAL(15,2) NOT NULL DEFAULT 0');
+        }
+        if (Schema::hasColumn('sales_orders', 'withholding_tax_amount')) {
+            DB::statement('ALTER TABLE sales_orders MODIFY withholding_tax_amount DECIMAL(15,2) NOT NULL DEFAULT 0');
+        }
     }
 }

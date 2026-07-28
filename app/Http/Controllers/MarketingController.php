@@ -1391,7 +1391,9 @@ class MarketingController extends Controller
             $order = \App\Models\SalesOrder::with('customer', 'items.book', 'preparedBy', 'areaSalesStaff')->findOrFail($id);
 
             // Recalculate total_amount to ensure database is in sync with line items and charges
-            $itemsSubtotal = $order->items->sum(function($item) {
+            $itemsSubtotal = $order->items->filter(function($item) {
+                return $item->book || $item->bundle;
+            })->sum(function($item) {
                 return ($item->subtotal > 0) ? (float)$item->subtotal : ((float)$item->quantity * (float)$item->price);
             });
             $discountAmount = (float) ($order->discount_amount ?? 0);
@@ -1532,6 +1534,9 @@ class MarketingController extends Controller
             'freight_option' => $validated['freight_option'] ?? null,
         ]);
 
+        // Clean up any orphaned items that might reuse this order ID (in case of auto-increment reuse)
+        $so->items()->delete();
+
         // 4. Create Items (only if provided)
         $totalAmount = 0;
         if (!empty($request->items)) {
@@ -1553,10 +1558,16 @@ class MarketingController extends Controller
             }
 
             foreach (array_values($aggregatedItems) as $item) {
+                // Skip items where the book doesn't exist — prevents "Unknown Item" in views
+                $book = \App\Models\Book::find($item['product_id']);
+                if (!$book) {
+                    \Log::warning('storeSalesOrder: skipping item with non-existent book_id=' . $item['product_id']);
+                    continue;
+                }
+
                 $subtotal = $item['quantity'] * $item['price'];
                 $totalAmount += $subtotal;
 
-                $book = \App\Models\Book::find($item['product_id']);
                 \App\Models\SalesOrderItem::create([
                     'sales_order_id' => $so->id,
                     'book_id' => $item['product_id'],
@@ -1565,7 +1576,7 @@ class MarketingController extends Controller
                     'subtotal' => $subtotal,
                     'unit' => $item['unit'] ?? 'pcs',
                     'area' => $item['area'] ?? null,
-                    'source_price_at_sale' => $book ? $book->source_price : 0,
+                    'source_price_at_sale' => $book->source_price ?? 0,
                 ]);
             }
         }
@@ -1802,21 +1813,46 @@ class MarketingController extends Controller
         $so->items()->delete();
         
         $totalAmount = 0;
-        foreach ($request->items as $item) {
-            $subtotal = $item['quantity'] * $item['price'];
-            $totalAmount += $subtotal;
+        if (!empty($request->items)) {
+            $aggregatedItems = [];
+            foreach ($request->items as $item) {
+                if (empty($item['product_id'])) continue;
+                $pid = $item['product_id'];
+                if (isset($aggregatedItems[$pid])) {
+                    $aggregatedItems[$pid]['quantity'] += (int) $item['quantity'];
+                } else {
+                    $aggregatedItems[$pid] = [
+                        'product_id' => $pid,
+                        'quantity' => (int) $item['quantity'],
+                        'price' => (float) $item['price'],
+                        'unit' => $item['unit'] ?? 'pcs',
+                        'area' => $item['area'] ?? null,
+                    ];
+                }
+            }
 
-            $book = \App\Models\Book::find($item['product_id']);
-            \App\Models\SalesOrderItem::create([
-                'sales_order_id' => $so->id,
-                'book_id' => $item['product_id'],
-                'quantity' => $item['quantity'],
-                'price' => $item['price'],
-                'subtotal' => $subtotal,
-                'unit' => $item['unit'] ?? 'pcs',
-                'area' => $item['area'] ?? null,
-            ]);
+            foreach (array_values($aggregatedItems) as $item) {
+                // Skip items where the book doesn't exist — prevents "Unknown Item" in views
+                $book = \App\Models\Book::find($item['product_id']);
+                if (!$book) {
+                    \Log::warning('updateSalesOrder: skipping item with non-existent book_id=' . $item['product_id']);
+                    continue;
+                }
 
+                $subtotal = $item['quantity'] * $item['price'];
+                $totalAmount += $subtotal;
+
+                \App\Models\SalesOrderItem::create([
+                    'sales_order_id' => $so->id,
+                    'book_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                    'subtotal' => $subtotal,
+                    'unit' => $item['unit'] ?? 'pcs',
+                    'area' => $item['area'] ?? null,
+                    'source_price_at_sale' => $book->source_price ?? 0,
+                ]);
+            }
         }
 
         $discountAmount = 0;

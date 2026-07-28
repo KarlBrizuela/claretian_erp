@@ -1855,7 +1855,7 @@ public function checkVoucher()
               $suffix++;
           }
 
-          // 3. Create the new Sales Order
+          // 3. Create the new Sales Order (starts from the beginning of the approval cycle)
           $newOrder = \App\Models\SalesOrder::create([
               'customer_id' => $order->customer_id,
               'area_sales_staff_id' => $order->area_sales_staff_id,
@@ -1864,15 +1864,13 @@ public function checkVoucher()
               'transaction_type' => $order->transaction_type,
               'terms' => $request->input('terms', $order->terms),
               'ref_number' => $order->ref_number,
-              'status' => 'ready_for_delivery', // ready to be delivered
+              'status' => 'pending_mkt_approval', // needs marketing approval first
               'billing_address' => $order->billing_address,
               'shipping_address' => $order->shipping_address,
               'freight_option' => $order->freight_option,
               'freight_charges' => $order->freight_charges,
               'freight_notes' => $order->freight_notes,
               'prepared_by' => auth()->id(),
-              'dr_prepared_by' => auth()->id(),
-              'dr_prepared_at' => now(),
               'total_amount' => 0 // will update after items creation
           ]);
 
@@ -1903,55 +1901,20 @@ public function checkVoucher()
               $previousDr->update(['status' => 'completed']);
           }
 
-          // 6. Generate a new unique DR number
-          $baseDrNumber = $previousDr ? $previousDr->dr_number : 'DR-' . $order->so_number;
-          $newDrNumber = $baseDrNumber . '-R';
-          $suffix = 1;
-          while (\App\Models\DeliveryReceipt::where('dr_number', $newDrNumber)->exists()) {
-              $newDrNumber = $baseDrNumber . '-R' . $suffix;
-              $suffix++;
-          }
-
-          // 7. Create the new Delivery Receipt record
-          $newDr = \App\Models\DeliveryReceipt::create([
-              'dr_number' => $newDrNumber,
-              'so_id' => $newOrder->id,
-              'so_number' => $newOrder->so_number,
-              'customer_id' => $newOrder->customer_id,
-              'customer_name' => $order->customer->customer_name ?? $order->customer->company_name ?? '',
-              'delivery_address' => $previousDr ? $previousDr->delivery_address : ($order->shipping_address ?: $order->customer->shipping_address ?? ''),
-              'total_amount' => $newTotalAmount,
-              'delivery_date' => now(),
-              'status' => 'pending', // new DR is pending delivery / tracking
-              'prepared_by' => auth()->id(),
-              'prepared_at' => now()
-          ]);
-
-          // 8. Create the new Delivery Receipt items
-          foreach ($returnedBooks as $bookData) {
-              \App\Models\DeliveryReceiptItem::create([
-                  'dr_id' => $newDr->id,
-                  'product_name' => $bookData['book_name'],
-                  'quantity' => $bookData['quantity'],
-                  'unit_price' => $bookData['price'],
-                  'amount' => $bookData['quantity'] * $bookData['price'],
-              ]);
-          }
-
-          // 9. Close the previous Sales Order
+          // 6. Close the previous Sales Order
           $order->update(['status' => 'completed']);
 
-          // 10. Log activity
+          // 7. Log activity
           \App\Models\ActivityLog::create([
               'user_id' => auth()->id(),
               'action' => 'Reconsignment Approved',
-              'description' => "Reconsignment request approved for Sales Order {$order->so_number}. Created new Sales Order {$newOrder->so_number} & DR {$newDr->dr_number} for returned books.",
+              'description' => "Reconsignment request approved for Sales Order {$order->so_number}. Created new Sales Order {$newOrder->so_number} for returned books.",
               'affected_model' => 'SalesOrder',
               'affected_model_id' => $order->id,
           ]);
 
           \DB::commit();
-          return redirect()->back()->with('success', "Reconsignment request approved. New DR {$newDr->dr_number} created successfully and the previous DR is now closed.");
+          return redirect()->back()->with('success', "Reconsignment request approved. New Sales Order {$newOrder->so_number} created successfully and is now pending approval.");
 
       } catch (\Exception $e) {
           \DB::rollBack();

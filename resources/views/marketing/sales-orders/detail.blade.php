@@ -178,6 +178,8 @@
                     </thead>
                     <tbody>
                         @foreach($order->items as $item)
+                        @php $itemName = $item->book?->name ?? $item->bundle?->name ?? null; @endphp
+                        @if($itemName)
                         <tr>
                             <td class="text-center">{{ (float)$item->quantity }}</td>
                             <td class="text-center text-uppercase">{{ $item->book?->unit ?? 'pcs' }}</td>
@@ -186,7 +188,7 @@
                                     <img src="{{ $item->book && $item->book->image ? asset('storage/' . $item->book->image) : asset('images/no-book-cover.svg') }}" 
                                          style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
                                          alt="Product Cover">
-                                    <div class="fw-bold">{{ $item->book?->name ?? $item->bundle?->name ?? 'Unknown Product' }}</div>
+                                    <div class="fw-bold">{{ $itemName }}</div>
                                 </div>
                             </td>
                             <td>{{ $item->isbn ?? '-' }}</td>
@@ -194,12 +196,15 @@
                             <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
                             <td class="text-end fw-bold">₱{{ number_format($item->subtotal, 2) }}</td>
                         </tr>
+                        @endif
                         @endforeach
                     </tbody>
                     <tfoot>
                         @php
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
-                            $itemsSubtotal = $order->items->sum(function($item) {
+                            $itemsSubtotal = $order->items->filter(function($item) {
+                                return $item->book || $item->bundle;
+                            })->sum(function($item) {
                                 return $item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price);
                             });
                             $discountAmount = $order->discount_amount ?? 0;
@@ -431,14 +436,17 @@
                         </thead>
                         <tbody>
                             @foreach($order->items as $item)
+                            @php $itemName = $item->book?->name ?? $item->bundle?->name ?? null; @endphp
+                            @if($itemName)
                             <tr style="border-bottom: 1px solid #eee;">
                                 <td class="text-center fw-bold">{{ (float)$item->quantity }}</td>
-                                <td class="fw-bold text-dark">{{ $item->book?->name ?? $item->bundle?->name ?? 'Unknown Item' }}</td>
+                                <td class="fw-bold text-dark">{{ $itemName }}</td>
                                 <td class="text-muted">{{ $item->isbn ?? '-' }}</td>
                                 <td class="text-center">{{ $item->area ?? '-' }}</td>
                                 <td class="text-end text-dark">{{ number_format($item->price, 2) }}</td>
                                 <td class="text-end fw-bold text-dark">{{ number_format($item->subtotal, 2) }}</td>
                             </tr>
+                            @endif
                             @endforeach
                             @if($order->remarks)
                             <tr>

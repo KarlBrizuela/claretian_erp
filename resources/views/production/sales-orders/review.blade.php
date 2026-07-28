@@ -139,16 +139,19 @@
                     </thead>
                     <tbody>
                         @foreach($order->items as $item)
+                        @php $itemName = $item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? null; @endphp
+                        @if($itemName)
                         <tr>
                             <td class="text-center">{{ (float)$item->quantity }}</td>
                             <td class="text-center text-uppercase">{{ $item->product?->unit ?? $item->book?->unit ?? 'pcs' }}</td>
                             <td>
-                                <div class="fw-bold">{{ $item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'Unknown Item' }}</div>
+                                <div class="fw-bold">{{ $itemName }}</div>
                                 <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? '-' }}</small>
                             </td>
                             <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
                             <td class="text-end fw-bold">₱{{ number_format($item->subtotal, 2) }}</td>
                         </tr>
+                        @endif
                         @endforeach
                     </tbody>
                     <tfoot>

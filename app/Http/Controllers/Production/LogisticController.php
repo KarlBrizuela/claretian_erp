@@ -159,8 +159,8 @@ class LogisticController extends Controller
             
             $order = \App\Models\SalesOrder::findOrFail($orderId);
             
-            // Move order to "pending_si_prep" status for Sales Invoice (SI) Preparation.
-            $newStatus = 'pending_si_prep';
+            // Move order to "pending_dr_prep" if it is an area consignment / area sales consignment order, otherwise move to "pending_si_prep" status for Sales Invoice (SI) Preparation.
+            $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment']) ? 'pending_dr_prep' : 'pending_si_prep';
             $order->update([
                 'status' => $newStatus,
                 'gathered_at' => now(),
@@ -222,7 +222,7 @@ class LogisticController extends Controller
                 'details' => json_encode(['gathered_at' => now()])
             ]);
 
-            $targetQueue = 'Sales Invoice (SI) Preparation';
+            $targetQueue = in_array($order->type, ['area_consignment', 'area_sales_consignment']) ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
 
             // If AJAX request, return JSON
             if ($request->expectsJson()) {
@@ -659,8 +659,8 @@ class LogisticController extends Controller
     {
         $order = \App\Models\SalesOrder::findOrFail($id);
         
-        // Ensure order is area_consignment and status is in valid statuses
-        if ($order->type !== 'area_consignment' || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created'])) {
+        // Ensure order is area_consignment or area_sales_consignment and status is in valid statuses
+        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created'])) {
             return redirect()->back()->with('error', 'Invalid order status for reconsignment.');
         }
 
@@ -1851,7 +1851,7 @@ class LogisticController extends Controller
                 ->findOrFail($orderId);
 
             // Validate that this is an area consignment order
-            if ($order->type !== 'area_consignment') {
+            if (!in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
                 return redirect()->back()
                     ->with('error', 'This order is not an Area Consignment type.');
             }
@@ -1924,9 +1924,68 @@ class LogisticController extends Controller
                 ]);
             }
 
-            // Update Sales Order status and store consignment data
+            // Calculate returned books (remaining quantity that was not selected) and return to stock
+            foreach ($order->items as $item) {
+                $selectedQty = 0;
+                if (isset($selectedItems[$item->id])) {
+                    $selectedQty = intval($selectedItems[$item->id]['selected_qty'] ?? 0);
+                }
+                
+                $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
+                    $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
+                })->where('book_id', $item->book_id)->sum('quantity');
+                
+                $remainingQty = max(0, $item->quantity - $alreadyPurchasedQty);
+                $returnedQty = max(0, $remainingQty - $selectedQty);
+                
+                if ($returnedQty > 0) {
+                    $book = $item->book;
+                    if ($book) {
+                        $book->stock += $returnedQty;
+                        $book->save();
+                        
+                        // Record Inventory Transaction for audit trail
+                        \App\Models\InventoryTransaction::create([
+                            'book_id' => $book->id,
+                            'type' => 'in',
+                            'quantity' => $returnedQty,
+                            'location' => 'Main Warehouse',
+                            'source' => 'Consignment Return',
+                            'reference_number' => $order->so_number,
+                            'unit_cost' => $book->cost ?? 0,
+                            'total_cost' => $returnedQty * ($book->cost ?? 0),
+                            'notes' => 'Returned from Area Consignment Sales Order #' . $order->so_number . ' (Not selected for billing)',
+                            'status' => 'completed',
+                            'transaction_date' => now(),
+                            'user_id' => auth()->id()
+                        ]);
+                    }
+                }
+            }
+
+            // Update the original Sales Order item quantities to match selected quantities
+            foreach ($order->items as $item) {
+                $selectedQty = 0;
+                if (isset($selectedItems[$item->id])) {
+                    $selectedQty = intval($selectedItems[$item->id]['selected_qty'] ?? 0);
+                }
+                
+                if ($selectedQty > 0) {
+                    $itemAmount = $selectedQty * $item->price;
+                    $item->update([
+                        'quantity' => $selectedQty,
+                        'subtotal' => $itemAmount
+                    ]);
+                } else {
+                    // Completely returned, delete from this Sales Order
+                    $item->delete();
+                }
+            }
+
+            // Update Sales Order status, total_amount, and store consignment data
             $order->update([
                 'status' => 'si_created',
+                'total_amount' => $totalAmount,
                 'consignment_data' => json_encode([
                     'si_id' => $si->id,
                     'si_number' => $si->si_number,
