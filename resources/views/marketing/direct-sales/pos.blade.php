@@ -217,6 +217,22 @@
                 </select>
             </div>
 
+            <!-- Whole vs Half Item Quantity Option -->
+            <div class="pos-form-group mb-3">
+                <label class="d-flex justify-content-between align-items-center mb-1">
+                    <span>Quantity Option *</span>
+                    <span class="badge bg-danger" id="qtyModeBadge">WHOLE (100% Qty)</span>
+                </label>
+                <div class="btn-group w-100" role="group">
+                    <button type="button" class="btn btn-danger btn-sm font-w700 active" id="modeWholeBtn" onclick="setQtyMode('whole')" style="background:#ff0000;">
+                        <i class="las la-boxes me-1"></i> WHOLE (e.g. 10)
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm font-w700" id="modeHalfBtn" onclick="setQtyMode('half')">
+                        <i class="las la-cut me-1"></i> HALF (e.g. 5)
+                    </button>
+                </div>
+            </div>
+
             <div class="pos-cart-items" id="cartItems">
                 <div class="text-center text-muted p-5">
                     <i class="las la-shopping-cart" style="font-size: 4rem; opacity: 0.2;"></i>
@@ -294,6 +310,28 @@
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary btn-sm px-4 font-w700" onclick="processCheckout()">PROCESS PAYMENT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Complete / Print Invoice Modal -->
+    <div class="modal fade" id="orderSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white py-2">
+                    <h6 class="modal-title m-0 text-white"><i class="las la-check-circle me-2"></i>Order Created - Sales Invoice Form</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0" style="background: #f4f6f9;">
+                    <iframe id="orderInvoiceIframe" src="about:blank" style="width: 100%; height: 650px; border: none;"></iframe>
+                </div>
+                <div class="modal-footer py-2">
+                    <a id="printInvoiceNewTabBtn" href="#" target="_blank" class="btn btn-sm btn-outline-danger me-auto"><i class="las la-external-link-alt me-1"></i> Open In New Tab</a>
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger btn-sm px-4 font-w700" onclick="document.getElementById('orderInvoiceIframe').contentWindow.print()" style="background:#ff0000;">
+                        <i class="las la-print me-1"></i> PRINT INVOICE
+                    </button>
                 </div>
             </div>
         </div>
@@ -434,6 +472,49 @@
             renderProducts();
         }
 
+        let qtyMode = 'whole'; // 'whole' or 'half'
+
+        function setQtyMode(mode) {
+            qtyMode = mode;
+            
+            const btnWhole = document.getElementById('modeWholeBtn');
+            const btnHalf = document.getElementById('modeHalfBtn');
+            const badge = document.getElementById('qtyModeBadge');
+            
+            if (mode === 'half') {
+                btnWhole?.classList.remove('btn-danger', 'active');
+                btnWhole?.classList.add('btn-outline-danger');
+                btnWhole?.style.removeProperty('background');
+                btnHalf?.classList.remove('btn-outline-danger');
+                btnHalf?.classList.add('btn-danger', 'active');
+                btnHalf?.style.setProperty('background', '#ff0000', 'important');
+                if (badge) {
+                    badge.textContent = 'HALF (50% Qty)';
+                    badge.className = 'badge bg-warning text-dark';
+                }
+            } else {
+                btnHalf?.classList.remove('btn-danger', 'active');
+                btnHalf?.classList.add('btn-outline-danger');
+                btnHalf?.style.removeProperty('background');
+                btnWhole?.classList.remove('btn-outline-danger');
+                btnWhole?.classList.add('btn-danger', 'active');
+                btnWhole?.style.setProperty('background', '#ff0000', 'important');
+                if (badge) {
+                    badge.textContent = 'WHOLE (100% Qty)';
+                    badge.className = 'badge bg-danger';
+                }
+            }
+
+            if (cart.length > 0) {
+                cart.forEach(item => {
+                    item.portion = mode;
+                    if (item.baseQty === undefined) item.baseQty = item.qty;
+                    item.qty = (mode === 'half') ? item.baseQty / 2 : item.baseQty;
+                });
+                renderCart();
+            }
+        }
+
         function addToCart(cartKey) {
             const item = allItems.find(p => (p.type + '_' + p.id) === cartKey);
             if (!item) return;
@@ -446,15 +527,35 @@
 
             const existing = cart.find(c => c.cartKey === cartKey);
             if (existing) {
-                // Check if adding one more would exceed stock
-                if (item.stock !== undefined && existing.qty >= item.stock) {
+                if (item.stock !== undefined && (existing.baseQty + 1) > item.stock) {
                     window.showAlert(`Only ${item.stock} unit(s) of "${item.name}" available.`, 'error');
                     return;
                 }
-                existing.qty++;
+                existing.baseQty += 1;
+                const portion = existing.portion || qtyMode;
+                existing.qty = portion === 'half' ? existing.baseQty / 2 : existing.baseQty;
             } else {
-                cart.push({ ...item, cartKey, qty: 1 });
+                const baseQty = 1;
+                const portion = qtyMode;
+                const qty = portion === 'half' ? 0.5 : 1;
+                cart.push({ ...item, cartKey, baseQty, qty, portion });
             }
+            renderCart();
+        }
+
+        function setItemPortion(index, portion) {
+            const item = cart[index];
+            if (!item) return;
+
+            item.portion = portion;
+            if (item.baseQty === undefined) item.baseQty = item.qty;
+
+            if (portion === 'half') {
+                item.qty = item.baseQty / 2;
+            } else {
+                item.qty = item.baseQty;
+            }
+
             renderCart();
         }
 
@@ -471,8 +572,9 @@
                     const typeBadge = item.type === 'bundle'
                         ? `<span style="font-size:0.65rem;background:#6f42c1;color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">BUNDLE</span>`
                         : '';
+                    const isHalf = item.portion === 'half';
                     return `
-                    <div class="cart-item-card">
+                    <div class="cart-item-card mb-2">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <h6 class="mb-1" style="font-size: 0.9rem;">${item.name}${typeBadge}</h6>
@@ -480,11 +582,18 @@
                             </div>
                             <div class="d-flex flex-column align-items-end">
                                 <button class="btn btn-xs btn-outline-danger mb-2" onclick="removeItem(${index})">×</button>
-                                <div class="input-group input-group-sm" style="width: 120px;">
+                                <div class="input-group input-group-sm mb-1" style="width: 120px;">
                                     <button class="btn btn-outline-secondary" type="button" onclick="updateQty(${index}, -1)">-</button>
-                                    <input type="number" class="form-control text-center px-0 qty-input" value="${item.qty}" min="1" oninput="updateQtyDirect(${index}, this.value)">
+                                    <input type="number" step="any" class="form-control text-center px-0 qty-input" value="${item.qty}" min="0.1" oninput="updateQtyDirect(${index}, this.value)">
                                     <button class="btn btn-outline-secondary" type="button" onclick="updateQty(${index}, 1)">+</button>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                            <span class="small text-muted font-w600">Item Portion:</span>
+                            <div class="btn-group btn-group-sm" role="group" style="width: 130px;">
+                                <button type="button" class="btn ${!isHalf ? 'btn-danger active' : 'btn-outline-danger'} btn-xs py-1" onclick="setItemPortion(${index}, 'whole')" style="${!isHalf ? 'background:#ff0000;color:#fff;' : ''}">Whole</button>
+                                <button type="button" class="btn ${isHalf ? 'btn-danger active' : 'btn-outline-danger'} btn-xs py-1" onclick="setItemPortion(${index}, 'half')" style="${isHalf ? 'background:#ff0000;color:#fff;' : ''}">Half</button>
                             </div>
                         </div>
                     </div>`;
@@ -494,8 +603,14 @@
         }
 
         function updateQty(index, change) {
-            if (cart[index].qty + change > 0) {
-                cart[index].qty += change;
+            const item = cart[index];
+            if (!item) return;
+
+            if (item.baseQty === undefined) item.baseQty = item.qty;
+            const newBase = item.baseQty + change;
+            if (newBase > 0) {
+                item.baseQty = newBase;
+                item.qty = item.portion === 'half' ? item.baseQty / 2 : item.baseQty;
             } else {
                 cart.splice(index, 1);
             }
@@ -503,9 +618,15 @@
         }
 
         function updateQtyDirect(index, value) {
-            const qty = parseInt(value);
-            if (qty && qty > 0) {
-                cart[index].qty = qty;
+            const qtyVal = parseFloat(value);
+            if (qtyVal && qtyVal > 0) {
+                const item = cart[index];
+                item.qty = qtyVal;
+                if (item.portion === 'half') {
+                    item.baseQty = qtyVal * 2;
+                } else {
+                    item.baseQty = qtyVal;
+                }
                 calculateTotals();
             }
         }
@@ -708,6 +829,15 @@
                     document.getElementById('cashReceived').value = '';
                     document.getElementById('refNumber').value = '';
                     document.getElementById('cashChange').textContent = 'Change: ₱0.00';
+
+                    // Show Order Printable Sales Invoice Form Modal
+                    if (data.order && data.order.print_url) {
+                        const targetUrl = data.order.print_url + (data.order.print_url.includes('?') ? '&' : '?') + 'hide_actions=1';
+                        document.getElementById('orderInvoiceIframe').src = targetUrl;
+                        document.getElementById('printInvoiceNewTabBtn').href = data.order.print_url;
+                        const successModal = new bootstrap.Modal(document.getElementById('orderSuccessModal'));
+                        successModal.show();
+                    }
                 } else {
                     window.showAlert('Error: ' + data.message, 'error');
                 }
@@ -716,6 +846,31 @@
                 console.error('Error:', error);
                 window.showAlert('Failed to process order. Please try again.', 'error');
             });
+        }
+
+        let currentOrderPrintUrl = '';
+
+        function switchPrintFormat(format) {
+            if (!currentOrderPrintUrl) return;
+            
+            const btnWhole = document.getElementById('btnFormatWhole');
+            const btnHalf = document.getElementById('btnFormatHalf');
+            
+            if (format === 'half') {
+                btnWhole?.classList.remove('btn-light', 'active');
+                btnWhole?.classList.add('btn-outline-light');
+                btnHalf?.classList.remove('btn-outline-light');
+                btnHalf?.classList.add('btn-light', 'active');
+            } else {
+                btnHalf?.classList.remove('btn-light', 'active');
+                btnHalf?.classList.add('btn-outline-light');
+                btnWhole?.classList.remove('btn-outline-light');
+                btnWhole?.classList.add('btn-light', 'active');
+            }
+            
+            const targetUrl = currentOrderPrintUrl + (currentOrderPrintUrl.includes('?') ? '&' : '?') + 'format=' + format + '&hide_actions=1';
+            document.getElementById('orderInvoiceIframe').src = targetUrl;
+            document.getElementById('printInvoiceNewTabBtn').href = targetUrl;
         }
 
         function calculateTotals() {

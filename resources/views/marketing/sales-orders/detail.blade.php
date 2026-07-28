@@ -352,19 +352,21 @@
                 <!-- PRINT VIEW -->
                 @if($order)
                 <div class="print-only" style="padding: 10px;">
-                    <!-- Header with Logo -->
-                    <div class="d-flex align-items-center mb-1 border-bottom" style="padding-bottom: 20px; border-color: #eee !important;">
-                        <img src="{{ asset('images/claeritian_logo.png') }}" style="height: 65px; margin-right: 20px;">
-                        <div>
-                            <h4 class="fw-bold mb-1" style="font-family: Arial, sans-serif; font-size: 16pt; color: #cc0000; letter-spacing: 0.5px;">CLARETIAN COMMUNICATIONS FOUNDATION, INC.</h4>
-                            <div style="font-size: 10pt; color: #555;">8 Mayumi Street, U.P. Village, Diliman, Quezon City 1128 | P.O. Box 4 Quezon City 1101</div>
-                            <div style="font-size: 10pt; color: #555;">Tel. (02) 921-3984 | Fax (02) 921-6205</div>
+                    <!-- Header with Logo & Official Details -->
+                    <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2" style="border-color: #000 !important;">
+                        <div class="d-flex align-items-center gap-3">
+                            <img src="{{ asset('images/claeritian_logo.png') }}" style="height: 65px;">
+                            <div>
+                                <h4 class="fw-black mb-0 text-uppercase" style="font-family: Arial, sans-serif; font-size: 14pt; color: #000; letter-spacing: 0.3px;">CLARETIAN COMMUNICATIONS FOUNDATION, INC.</h4>
+                                <div style="font-size: 8.5pt; font-weight: bold; color: #333;">Non-Vat Reg. TIN: 000-395-713-00000</div>
+                                <div style="font-size: 8pt; color: #222;">8 Mayumi Street, U.P. Village, Diliman, 1101 Quezon City NCR, Second District Philippines</div>
+                                <div style="font-size: 8pt; color: #222;">Tel: (02) 8921-3984 Fax: (02) 8921-6205</div>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- Title -->
-                    <div class="text-center mt-4 mb-4">
-                        <h4 class="fw-bold mb-0" style="font-family: Arial, sans-serif; font-size: 16pt; text-transform: uppercase;">SALES ORDER</h4>
+                        <div class="text-end">
+                            <div class="fw-bold" style="font-size: 11pt;">No. <span class="text-danger" style="font-size: 12pt;">{{ $order->so_number }}</span></div>
+                            <div class="fw-black text-uppercase" style="font-size: 15pt; letter-spacing: 1px;">Sales - Invoice</div>
+                        </div>
                     </div>
 
                     <!-- Upper Info Grid -->

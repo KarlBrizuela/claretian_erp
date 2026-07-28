@@ -314,6 +314,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/marketing/sales-orders/{id}', [MarketingController::class, 'destroySalesOrder'])->name('marketing.sales-orders.destroy');
     Route::get('/marketing/sales-order/{id?}', [MarketingController::class, 'salesOrderDetail'])->name('marketing.sales-orders.detail');
     Route::get('/marketing/sales-orders/{id}/shipping-label', [MarketingController::class, 'shippingLabel'])->name('marketing.sales-orders.shipping-label');
+    Route::get('/marketing/sales-orders/{id}/print-invoice', [MarketingController::class, 'printSalesInvoiceForm'])->name('marketing.sales-orders.print-invoice');
     Route::get('/marketing/direct-invoice-website', [MarketingController::class, 'directInvoiceWebsite'])->name('marketing.direct-invoice.website');
     Route::post('/marketing/direct-invoice-website', [MarketingController::class, 'storeDirectInvoice'])->name('marketing.direct-invoice.website.store');
     Route::get('/marketing/direct-invoice-website/list', [MarketingController::class, 'directInvoiceList'])->name('marketing.direct-invoice.website.list');

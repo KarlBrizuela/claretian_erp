@@ -264,7 +264,8 @@ class POSController extends Controller
                     'total'          => $validated['total'],
                     'payment_method' => $validated['payment_method'],
                     'change'         => $changeAmount,
-                    'created_at'     => $order->created_at->format('Y-m-d h:i A')
+                    'created_at'     => $order->created_at->format('Y-m-d h:i A'),
+                    'print_url'      => route('marketing.sales-orders.print-invoice', $order->id),
                 ]
             ]);
 
@@ -545,7 +546,8 @@ class POSController extends Controller
                     'order_number' => $orderNumber,
                     'total' => $validated['total'],
                     'payment_status' => $paymentStatus,
-                    'created_at' => $order->created_at->format('Y-m-d h:i A')
+                    'created_at' => $order->created_at->format('Y-m-d h:i A'),
+                    'print_url' => route('marketing.sales-orders.print-invoice', $order->id),
                 ]
             ]);
 

@@ -1507,6 +1507,15 @@ class MarketingController extends Controller
         ]);
     }
 
+    public function printSalesInvoiceForm($id)
+    {
+        $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bundle', 'preparedBy', 'mktApprovedBy', 'prodApprovedBy'])->findOrFail($id);
+
+        return view('marketing.sales-orders.print-invoice', [
+            'order' => $order
+        ]);
+    }
+
     public function createSalesOrder()
     {
         $customers = \App\Models\Customer::orderBy('customer_name')->get();

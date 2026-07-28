@@ -117,9 +117,10 @@
                                             {{ ucwords($displayStatus) }}
                                         </span>
                                     </td>
-                                    <td>
+                                     <td>
                                         <div class="d-flex gap-1">
                                             <a href="{{ route('marketing.sales-orders.detail', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Order"><i class="fas fa-eye"></i></a>
+                                             <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-info shadow btn-xs sharp" title="Print Sales Invoice Form"><i class="fas fa-print"></i></a>
                                             
                                             <!-- Edit Button -->
                                             @if($order->status == 'draft' || $order->status == 'mkt_approved')
