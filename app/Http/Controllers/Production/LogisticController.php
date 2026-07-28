@@ -159,8 +159,11 @@ class LogisticController extends Controller
             
             $order = \App\Models\SalesOrder::findOrFail($orderId);
             
-            // Move order to "pending_dr_prep" if it is an area consignment / area sales consignment order, otherwise move to "pending_si_prep" status for Sales Invoice (SI) Preparation.
-            $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment']) ? 'pending_dr_prep' : 'pending_si_prep';
+            // Pick list gathered: move order to Sales Invoice (SI) Preparation (or DR Prep if consignment)
+            $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
+            $newStatus = $isConsignment ? 'pending_dr_prep' : 'pending_si_prep';
+            $targetQueue = $isConsignment ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
+
             $order->update([
                 'status' => $newStatus,
                 'gathered_at' => now(),
@@ -221,8 +224,6 @@ class LogisticController extends Controller
                 'reference_id' => $order->id,
                 'details' => json_encode(['gathered_at' => now()])
             ]);
-
-            $targetQueue = in_array($order->type, ['area_consignment', 'area_sales_consignment']) ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
 
             // If AJAX request, return JSON
             if ($request->expectsJson()) {
@@ -1457,7 +1458,13 @@ class LogisticController extends Controller
             $packingData['gathered_at'] = now()->toDateTimeString();
             $packingData['gathered_by'] = auth()->user()->name;
 
+            // Packing complete: move order to Delivery Scheduling
+            $isPickup = in_array($order->delivery_method, ['pickup']) || in_array($order->shipping_method, ['pickup']);
+            $newStatus = $isPickup ? 'ready_for_pickup' : 'ready_for_delivery';
+            $targetQueue = 'Delivery Scheduling';
+
             $order->update([
+                'status' => $newStatus,
                 'packing_data' => json_encode($packingData)
             ]);
 
@@ -1465,19 +1472,19 @@ class LogisticController extends Controller
             \App\Models\ActivityLog::create([
                 'user_id' => auth()->id(),
                 'action' => 'Packed order marked as gathered',
-                'description' => 'SO ' . $order->so_number . ' marked as gathered and ready for delivery scheduling',
+                'description' => 'SO ' . $order->so_number . ' marked as gathered and moved to ' . $targetQueue,
                 'reference_type' => 'SalesOrder',
                 'reference_id' => $order->id,
                 'details' => json_encode([
                     'so_number' => $order->so_number,
                     'marked_by' => auth()->user()->name,
-                    'action' => 'moved to delivery scheduling'
+                    'action' => 'moved to ' . $targetQueue
                 ])
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Order marked as gathered and ready for delivery scheduling'
+                'message' => 'Order marked as gathered and moved to ' . $targetQueue
             ]);
 
         } catch (\Exception $e) {
