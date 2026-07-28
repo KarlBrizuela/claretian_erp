@@ -551,65 +551,112 @@
                     }
                 });
             }
-            if (removeFilePayment) {
-                removeFilePayment.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    attachmentInputPayment.value = '';
-                    uploadContentPayment.classList.remove('d-none');
-                    filePreviewPayment.classList.add('d-none');
-                    uploadAreaPayment.classList.add('bg-light');
-                    uploadAreaPayment.classList.remove('bg-white', 'border-primary');
-                });
-            }
+                if (removeFilePayment) {
+                    removeFilePayment.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        attachmentInputPayment.value = '';
+                        uploadContentPayment.classList.remove('d-none');
+                        filePreviewPayment.classList.add('d-none');
+                        uploadAreaPayment.classList.add('bg-light');
+                        uploadAreaPayment.classList.remove('bg-white', 'border-primary');
+                    });
+                }
 
             function calculateRow(row) {
-                const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-                const price = parseFloat(row.querySelector('.price-input').value) || 0;
+                if (!row) return;
+                const qtyInput = row.querySelector('.qty-input');
+                const priceInput = row.querySelector('.price-input');
+                const qty = parseFloat(qtyInput?.value) || 0;
+                const price = parseFloat(priceInput?.value) || 0;
                 const subtotal = qty * price;
-                row.querySelector('.subtotal-display').textContent = '₱ ' + subtotal.toFixed(2);
+                const subtotalEl = row.querySelector('.subtotal-display');
+                if (subtotalEl) subtotalEl.textContent = '₱ ' + subtotal.toFixed(2);
                 updateGrandTotal();
             }
 
-            const discountValueInput = document.getElementById('discountValue');
-            const discountTypeSelect = document.getElementById('discountType');
-
-            if (discountValueInput && discountTypeSelect) {
-                discountValueInput.addEventListener('input', updateGrandTotal);
-                discountTypeSelect.addEventListener('change', updateGrandTotal);
-            }
+            // Global recalc triggered by qty/price inline oninput
+            window.soRowRecalc = function(el) {
+                calculateRow(el.closest('tr'));
+            };
 
             function updateGrandTotal() {
                 let total = 0;
-                document.querySelectorAll('.subtotal-display').forEach(el => {
-                    total += parseFloat(el.textContent.replace('₱ ', '')) || 0;
+                document.querySelectorAll('#itemsBody tr').forEach(row => {
+                    const qty = parseFloat(row.querySelector('.qty-input')?.value) || 0;
+                    const price = parseFloat(row.querySelector('.price-input')?.value) || 0;
+                    total += qty * price;
                 });
-                
-                // Display items subtotal
-                document.getElementById('subtotalAmount').textContent = '₱ ' + total.toFixed(2);
 
-                // Calculate discount
-                let discountAmount = 0;
-                const discountVal = parseFloat(discountValueInput.value) || 0;
-                const discountType = discountTypeSelect.value;
+                const subtotalEl = document.getElementById('subtotalAmount');
+                if (subtotalEl) subtotalEl.textContent = '₱ ' + total.toFixed(2);
 
-                if (discountType === 'percentage') {
-                    discountAmount = total * (discountVal / 100);
-                } else {
-                    discountAmount = discountVal;
+                const discountVal = parseFloat(document.getElementById('discountValue')?.value) || 0;
+                const discountType = document.getElementById('discountType')?.value || 'amount';
+                const discountAmount = discountType === 'percentage' ? total * (discountVal / 100) : discountVal;
+
+                const discountEl = document.getElementById('discountAmountDisplay');
+                if (discountEl) discountEl.textContent = '- ₱ ' + discountAmount.toFixed(2);
+
+                const freightEl = document.getElementById('freightChargesDisplay');
+                const freightCharges = freightEl ? parseFloat(freightEl.textContent.replace(/[^\d.]/g, '')) || 0 : 0;
+                const freightOpt = document.getElementById('freightOptionSelect');
+                const serviceFee = freightOpt?.value === 'freight_collect' ? 50 : 0;
+
+                const grandTotal = Math.max(0, total - discountAmount + freightCharges + serviceFee);
+                const grandTotalEl = document.getElementById('grandTotal');
+                if (grandTotalEl) grandTotalEl.textContent = '₱ ' + grandTotal.toFixed(2);
+            }
+
+            // Wire discount inputs
+            document.getElementById('discountValue')?.addEventListener('input', updateGrandTotal);
+            document.getElementById('discountType')?.addEventListener('change', updateGrandTotal);
+
+            // Document-level delegation for selectpicker product change
+            $(document).on('changed.bs.select', '.product-select', function() {
+                const select = this;
+                const tr = select.closest('tr');
+                if (!tr) return;
+
+                const selectedOpt = select.options[select.selectedIndex];
+                const priceInput = tr.querySelector('.price-input');
+                const isbnInput = tr.querySelector('.isbn-input');
+                const availabilityEl = tr.querySelector('.availability');
+                const imageEl = tr.querySelector('.product-image-preview');
+
+                if (!selectedOpt || !selectedOpt.value) {
+                    if (priceInput) priceInput.value = '';
+                    if (isbnInput) isbnInput.value = '';
+                    calculateRow(tr);
+                    return;
                 }
 
-                // Update discount display
-                document.getElementById('discountAmountDisplay').textContent = '- ₱ ' + discountAmount.toFixed(2);
-                
-                // Add freight charges if they exist
-                const freightChargesDisplay = document.getElementById('freightChargesDisplay');
-                const freightCharges = freightChargesDisplay ? 
-                    parseFloat(freightChargesDisplay.textContent.replace(/[^\d.-]/g, '')) : 0;
-                const serviceFee = freightOptionSelect?.value === 'freight_collect' ? 50 : 0;
-                
-                const grandTotal = total - discountAmount + freightCharges + serviceFee;
-                document.getElementById('grandTotal').textContent = '₱ ' + Math.max(0, grandTotal).toFixed(2);
-            }
+                const price = parseFloat(selectedOpt.getAttribute('data-price')) || 0;
+                const isbn = selectedOpt.getAttribute('data-isbn') || '';
+                const stock = parseInt(selectedOpt.getAttribute('data-stock')) || 0;
+                const image = selectedOpt.getAttribute('data-image') || '';
+
+                if (priceInput) priceInput.value = price.toFixed(2);
+                if (isbnInput) isbnInput.value = isbn;
+                if (imageEl && image) imageEl.src = image;
+
+                if (availabilityEl) {
+                    if (stock <= 0) {
+                        availabilityEl.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Out of Stock (0)</span>';
+                    } else {
+                        availabilityEl.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Stock: ' + stock + '</span>';
+                    }
+                }
+
+                calculateRow(tr);
+            });
+
+            // Also handle native change event as fallback
+            document.getElementById('itemsBody')?.addEventListener('change', function(e) {
+                if (e.target.classList.contains('product-select')) {
+                    const tr = e.target.closest('tr');
+                    if (tr) calculateRow(tr);
+                }
+            });
 
             const defaultCover = '{{ asset("images/no-book-cover.svg") }}';
             const existingItems = @json($isEdit ? $order->items : []);
@@ -617,18 +664,17 @@
             function addRow(data = null) {
                 const tr = document.createElement('tr');
                 const uniqueId = Date.now() + Math.random().toString(36).substring(7);
-                
-                // If data provided (edit mode), use those values, else default
+
                 const qtyVal = data ? data.quantity : 1;
                 const unitVal = data ? (data.unit || 'pcs') : 'pcs';
                 const productId = data ? (data.book_id || data.product_id) : '';
                 const isbnVal = data ? (data.isbn || '') : '';
-                const priceVal = data ? data.price : '';
+                const priceVal = data ? parseFloat(data.price) : '';
                 const subtotalVal = data ? (data.quantity * data.price) : 0;
 
                 tr.innerHTML = `
                     <td>
-                        <input type="number" class="qty-input" name="items[new_${uniqueId}][quantity]" min="1" value="${qtyVal}" required style="width: 100%; text-align: center;">
+                        <input type="number" class="qty-input" name="items[new_${uniqueId}][quantity]" min="1" value="${qtyVal}" required oninput="window.soRowRecalc(this)" style="width: 100%; text-align: center;">
                     </td>
                     <td>
                         <select class="form-control" name="items[new_${uniqueId}][unit]" style="border:none; text-align:center;">
@@ -653,74 +699,20 @@
                         <div class="availability small text-muted mt-1">Stock: -</div>
                     </td>
                     <td>
-                         <input type="text" class="area-input" name="items[new_${uniqueId}][area]" value="${data ? (data.area || '') : ''}" placeholder="Area..." style="width: 100%; border: none; background: transparent; height: 38px;">
+                        <input type="text" class="area-input" name="items[new_${uniqueId}][area]" value="${data ? (data.area || '') : ''}" placeholder="Area..." style="width: 100%; border: none; background: transparent; height: 38px;">
                     </td>
                     <td>
-                        <input type="number" class="price-input" name="items[new_${uniqueId}][price]" step="0.01" value="${priceVal}" required style="width: 100%; text-align: right; border: 1px solid #eee;">
+                        <input type="number" class="price-input" name="items[new_${uniqueId}][price]" step="0.01" value="${priceVal !== '' ? parseFloat(priceVal).toFixed(2) : ''}" required oninput="window.soRowRecalc(this)" style="width: 100%; text-align: right; border: 1px solid #eee;">
                     </td>
                     <td class="subtotal-display fw-bold text-end pe-3">₱ ${subtotalVal.toFixed(2)}</td>
                     <td class="text-center">
                         <button type="button" class="btn btn-sm remove-row"><i class="bi bi-trash me-1"></i>Remove</button>
                     </td>
                 `;
-                
+
                 const select = tr.querySelector('.product-select');
-                const priceInput = tr.querySelector('.price-input');
-                const isbnInput = tr.querySelector('.isbn-input');
-                const qtyInput = tr.querySelector('.qty-input');
                 const removeBtn = tr.querySelector('.remove-row');
 
-                // Set selected product if editing
-                if (productId) {
-                    select.value = productId;
-                }
-
-                select.addEventListener('change', function() {
-                    const option = this.options[this.selectedIndex];
-                    priceInput.value = option.dataset.price;
-                    isbnInput.value = option.dataset.isbn;
-
-                    // Update image preview
-                    const imageEl = tr.querySelector('.product-image-preview');
-                    if (imageEl && option.dataset.image) {
-                        imageEl.src = option.dataset.image;
-                    }
-
-                    const availabilityEl = tr.querySelector('.availability');
-                    if (availabilityEl) {
-                        const stock = option.dataset.stock !== undefined ? parseInt(option.dataset.stock) : 0;
-                        if (stock <= 0) {
-                            availabilityEl.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Out of Stock (0)</span>';
-                        } else {
-                            availabilityEl.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Stock: ' + stock + '</span>';
-                        }
-                    }
-                    validateRow(tr);
-                    calculateRow(tr);
-                });
-
-                function validateRow(row) {
-                    const select = row.querySelector('.product-select');
-                    const qtyInput = row.querySelector('.qty-input');
-                    const selectedOpt = select ? select.options[select.selectedIndex] : null;
-                    const stock = selectedOpt && selectedOpt.dataset.stock !== undefined ? parseInt(selectedOpt.dataset.stock) : 999999;
-                    const qty = parseFloat(qtyInput.value) || 0;
-
-                    if (qty <= 0 || (selectedOpt && select.value && stock <= 0) || (selectedOpt && select.value && qty > stock)) {
-                        qtyInput.style.border = '2px solid #dc3545';
-                        qtyInput.style.backgroundColor = '#fff8f8';
-                    } else {
-                        qtyInput.style.border = '1px solid #ddd';
-                        qtyInput.style.backgroundColor = '#ffffff';
-                    }
-                }
-
-                qtyInput.addEventListener('input', () => {
-                    validateRow(tr);
-                    calculateRow(tr);
-                });
-                priceInput.addEventListener('input', () => calculateRow(tr)); // Allow price edits to update total
-                
                 removeBtn.addEventListener('click', function() {
                     tr.remove();
                     updateGrandTotal();
@@ -728,18 +720,30 @@
 
                 itemsBody.appendChild(tr);
 
-                // If a product was pre-selected, trigger change to populate price/isbn/stock
-                if (productId) {
-                    select.dispatchEvent(new Event('change'));
+                // Initialize selectpicker
+                if ($.fn.selectpicker) {
+                    $(select).selectpicker({ size: 8, liveSearch: true, liveSearchPlaceholder: 'Search product...' });
                 }
 
-                // Initialize bootstrap-select for the new row
-                if ($.fn.selectpicker) {
-                    $(select).selectpicker({
-                        size: 8,
-                        liveSearch: true,
-                        liveSearchPlaceholder: 'Search product...'
-                    });
+                // Set selected product in edit mode
+                if (productId) {
+                    $(select).selectpicker('val', productId);
+                    // Populate price, isbn, stock from the selected option
+                    const selectedOpt = select.options[select.selectedIndex];
+                    if (selectedOpt && selectedOpt.value) {
+                        const priceInput = tr.querySelector('.price-input');
+                        const isbnInput = tr.querySelector('.isbn-input');
+                        const availabilityEl = tr.querySelector('.availability');
+                        if (priceInput && !priceInput.value) priceInput.value = parseFloat(selectedOpt.getAttribute('data-price') || 0).toFixed(2);
+                        if (isbnInput && !isbnInput.value) isbnInput.value = selectedOpt.getAttribute('data-isbn') || '';
+                        const stock = parseInt(selectedOpt.getAttribute('data-stock')) || 0;
+                        if (availabilityEl) {
+                            availabilityEl.innerHTML = stock <= 0
+                                ? '<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Out of Stock (0)</span>'
+                                : '<span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Stock: ' + stock + '</span>';
+                        }
+                    }
+                    calculateRow(tr);
                 }
 
                 updateGrandTotal();
