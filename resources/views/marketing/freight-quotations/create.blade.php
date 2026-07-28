@@ -14,7 +14,8 @@
                             <h6 class="border-bottom pb-2 mb-3"><strong>Customer Information</strong></h6>
                             <div class="mb-3">
                                 <label class="form-label">Customer:</label>
-                                <select class="form-control @error('customer_id') is-invalid @enderror" 
+                                <select class="form-control selectpicker @error('customer_id') is-invalid @enderror" 
+                                        data-live-search="true" data-size="8" data-live-search-placeholder="Search customer..."
                                         name="customer_id" required>
                                     <option value="">Select Customer...</option>
                                     @foreach($customers as $customer)
@@ -150,8 +151,8 @@
                             <h6 class="border-bottom pb-2 mb-3"><strong>Sales Order Items (Optional)</strong></h6>
                             <p class="text-muted small">Add items that will be included in the Sales Order created from this quotation.</p>
 
-                            <button type="button" class="btn btn-sm btn-primary mb-3" id="addSOItem">
-                                <i class="bi bi-plus me-1"></i>Add Item
+                            <button type="button" class="btn btn-sm btn-danger mb-3" id="addSOItem" style="background: #ff0000; border: none; padding: 0.5rem 1rem;">
+                                <i class="fas fa-plus me-1"></i>Add Item
                             </button>
 
                             <div class="table-responsive mb-3">
@@ -206,7 +207,7 @@
                             <div class="form-actions mt-4 pt-3 border-top">
                                 <a href="{{ route('marketing.freight-quotations.list') }}" class="btn btn-secondary">Cancel</a>
                                 <button type="submit" class="btn btn-danger">
-                                    <i class="bi bi-check me-1"></i>Submit for Logistics Review
+                                    <i class="fas fa-check me-1"></i>Submit for Logistics Review
                                 </button>
                             </div>
                         </form>
@@ -216,9 +217,42 @@
         </div>
     </div>
 
+    @push('styles')
+    <style>
+        /* Prevent bootstrap-select dropdown from overflowing viewport and hiding search box */
+        .bootstrap-select .dropdown-menu {
+            max-height: 360px !important;
+            overflow: hidden !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+            border-radius: 6px !important;
+        }
+        .bootstrap-select .bs-searchbox {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1050 !important;
+            background: #ffffff !important;
+            padding: 8px 10px !important;
+            border-bottom: 1px solid #e9ecef !important;
+        }
+        .bootstrap-select .bs-searchbox input {
+            font-size: 0.9rem !important;
+            padding: 0.4rem 0.75rem !important;
+            border-radius: 4px !important;
+            border: 1px solid #ced4da !important;
+        }
+        .bootstrap-select .dropdown-menu .inner {
+            max-height: 280px !important;
+            overflow-y: auto !important;
+        }
+    </style>
+    @endpush
+
     @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
+                $('select[name="customer_id"]').selectpicker({ size: 8, liveSearch: true });
+            }
             // Cargo Items Logic
             const addBtn = document.getElementById('addCargoItem');
             const tbody = document.getElementById('cargoItemsBody');
@@ -231,7 +265,7 @@
                         <td><input type="number" class="form-control form-control-sm" name="cargo_qty[]" min="1" value="1" required></td>
                         <td><input type="text" class="form-control form-control-sm" name="cargo_package_type[]" placeholder="Box, Bag, Pallet, etc." required></td>
                         <td><input type="text" class="form-control form-control-sm" name="cargo_dimensions[]" placeholder="e.g., 50cm x 40cm x 30cm" required></td>
-                        <td><button type="button" class="btn btn-sm btn-danger remove-row"><i class="bi bi-trash"></i></button></td>
+                        <td><button type="button" class="btn btn-sm btn-danger remove-row" title="Remove Item"><i class="fas fa-trash"></i></button></td>
                     `;
                     tbody.appendChild(row);
                     addRemoveListeners();
@@ -311,7 +345,7 @@
                         <input type="number" class="form-control form-control-sm so-qty" name="so_items[new_${uniqueId}][quantity]" min="1" value="1" required style="text-align: center;">
                     </td>
                     <td>
-                        <select class="form-control form-control-sm so-product" name="so_items[new_${uniqueId}][product_id]" required>
+                        <select class="form-control form-control-sm so-product selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search product..." name="so_items[new_${uniqueId}][product_id]" required>
                             ${productSource.innerHTML}
                         </select>
                     </td>
@@ -320,7 +354,7 @@
                     </td>
                     <td class="so-item-amount text-end fw-bold">₱ 0.00</td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-danger so-remove-row"><i class="bi bi-trash"></i></button>
+                        <button type="button" class="btn btn-sm btn-danger so-remove-row" title="Remove Item" style="background: #ff0000; border: none; padding: 0.35rem 0.6rem;"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
 
@@ -337,6 +371,14 @@
                     priceInput.value = option.dataset.price || 0;
                     calculateRow(row);
                 });
+
+                if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
+                    $(productSelect).selectpicker({
+                        size: 8,
+                        liveSearch: true,
+                        liveSearchPlaceholder: 'Search product...'
+                    });
+                }
 
                 removeBtn.addEventListener('click', function(e) {
                     e.preventDefault();

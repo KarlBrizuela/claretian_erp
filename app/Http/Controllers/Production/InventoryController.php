@@ -540,26 +540,8 @@ class InventoryController extends Controller
             if ($request->action === 'add') {
                 $quantity = $request->quantity ?? 0;
                 $newStock = $oldStock + $quantity;
-
-                // Validate max stock constraint
-                if ($newStock > $maxStock) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Cannot add stock. New total ({$newStock}) exceeds max stock ({$maxStock}) for site {$site->name}"
-                    ], 422);
-                }
             } elseif ($request->action === 'set') {
                 $newStock = $request->new_stock ?? $oldStock;
-
-                // Validate max stock constraint
-                if ($newStock > $maxStock) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Cannot set stock to {$newStock}. Max stock is {$maxStock} for site {$site->name}"
-                    ], 422);
-                }
             }
 
             // Update site inventory

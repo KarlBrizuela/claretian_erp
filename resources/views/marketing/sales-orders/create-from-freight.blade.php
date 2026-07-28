@@ -126,6 +126,23 @@
                                 </button>
                             </div>
                         </form>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            @error('items')<div class="alert alert-danger">{{ $message }}</div>@enderror
+
+                            <!-- Action Buttons -->
+                            <div class="d-flex gap-2 justify-content-between mt-4">
+                                <a href="{{ route('marketing.freight-quotations.show', $quotation->id) }}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left me-1"></i>Back
+                                </a>
+                                <button type="submit" class="btn btn-success btn-lg" id="saveBtn">
+                                    <i class="bi bi-check-circle me-1"></i>Create Sales Order
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -135,7 +152,15 @@
     <!-- Hidden Product Options for JS clone -->
     <select id="productSource" class="d-none">
         <option value="" disabled selected>Select Product...</option>
-        {{-- Products would be loaded via JavaScript or PHP --}}
+        @if(isset($products))
+            @foreach($products as $product)
+                <option value="{{ $product->id }}" 
+                        data-price="{{ $product->price }}" 
+                        data-isbn="{{ $product->isbn ?? '' }}">
+                    {{ $product->name }}
+                </option>
+            @endforeach
+        @endif
     </select>
 
     @push('scripts')
@@ -150,6 +175,7 @@
             const itemsSubtotalEl = document.getElementById('itemsSubtotal');
             const freightTotal = parseFloat('{{ $quotation->total_amount }}');
             const serviceFee = '{{ $quotation->freight_option }}' === 'freight_collect' ? 50 : 0;
+            const productSource = document.getElementById('productSource');
 
             function calculateRow(row) {
                 const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
@@ -181,32 +207,42 @@
                 tr.innerHTML = `
                     <td>
                         <input type="number" class="form-control form-control-sm qty-input" 
-                               name="items[new_${uniqueId}][quantity]" min="1" value="${qtyVal}" required>
+                               name="items[new_${uniqueId}][quantity]" min="1" value="${qtyVal}" required style="text-align: center;">
                     </td>
                     <td>
-                        <select class="form-control form-control-sm product-select" 
+                        <select class="form-control form-control-sm product-select selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search product..."
                                 name="items[new_${uniqueId}][product_id]" required>
-                            <option value="">Select Product...</option>
-                            <option value="1">Sample Product 1</option>
-                            <option value="2">Sample Product 2</option>
-                            <option value="3">Sample Product 3</option>
+                            ${productSource.innerHTML}
                         </select>
                     </td>
                     <td>
                         <input type="number" class="form-control form-control-sm price-input" 
-                               name="items[new_${uniqueId}][price]" step="0.01" value="${priceVal}" required>
+                               name="items[new_${uniqueId}][price]" step="0.01" value="${priceVal}" required style="text-align: right;">
                     </td>
                     <td class="subtotal-display fw-bold text-end">₱ ${subtotalVal.toFixed(2)}</td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-danger remove-row">
-                            <i class="bi bi-trash"></i>
+                        <button type="button" class="btn btn-sm btn-danger remove-row" title="Remove Item" style="background: #ff0000; border: none;">
+                            <i class="fas fa-trash"></i>
                         </button>
                     </td>
                 `;
                 
                 const qtyInput = tr.querySelector('.qty-input');
                 const priceInput = tr.querySelector('.price-input');
+                const productSelect = tr.querySelector('.product-select');
                 const removeBtn = tr.querySelector('.remove-row');
+
+                if (productId) {
+                    productSelect.value = productId;
+                }
+
+                productSelect.addEventListener('change', function() {
+                    const option = this.options[this.selectedIndex];
+                    if (option && option.dataset.price) {
+                        priceInput.value = option.dataset.price;
+                    }
+                    calculateRow(tr);
+                });
 
                 qtyInput.addEventListener('input', () => calculateRow(tr));
                 priceInput.addEventListener('input', () => calculateRow(tr));
@@ -217,13 +253,19 @@
                 });
 
                 itemsBody.appendChild(tr);
+
+                if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
+                    $(productSelect).selectpicker({
+                        size: 8,
+                        liveSearch: true,
+                        liveSearchPlaceholder: 'Search product...'
+                    });
+                }
+
                 updateGrandTotal();
             }
 
             addItemBtn.addEventListener('click', () => addRow());
-            
-            // Initialize with one empty row
-            addRow();
 
             // Form submission
             const soForm = document.getElementById('soForm');
@@ -233,6 +275,19 @@
                 if (itemsBody.querySelectorAll('tr').length === 0) {
                     e.preventDefault();
                     alert('Please add at least one item to the order.');
+                    return;
+                }
+
+                let allSelected = true;
+                $(itemsBody).find('.product-select').each(function() {
+                    if (!$(this).val()) {
+                        allSelected = false;
+                    }
+                });
+
+                if (!allSelected) {
+                    e.preventDefault();
+                    alert('Please select a product for all rows.');
                     return;
                 }
 

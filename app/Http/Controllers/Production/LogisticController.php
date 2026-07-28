@@ -1345,6 +1345,8 @@ class LogisticController extends Controller
         }
     }
 
+
+
     private function saveBase64Image($base64String, $soNumber, $photoName)
     {
         try {
@@ -1648,11 +1650,6 @@ class LogisticController extends Controller
     public function approveFreightQuotation(Request $request, \App\Models\FreightQuotation $freightQuotation)
     {
         try {
-            // Check if already responded
-            if ($freightQuotation->workflow_status === 'approved') {
-                return redirect()->route('production.logistic.pending-freight-quotations')
-                    ->with('info', 'This quotation has already been reviewed');
-            }
 
             $validated = $request->validate([
                 'estimated_freight' => 'required|numeric|min:0.01',
@@ -1788,10 +1785,50 @@ class LogisticController extends Controller
                 ];
             }
 
-            // Update quotation with cargo items
-            $freightQuotation->update([
+            $updateData = [
                 'cargo_items' => json_encode($cargoItems),
-            ]);
+            ];
+
+            if ($request->has('boxes_count') && filled($request->input('boxes_count'))) {
+                $updateData['boxes_count'] = (int) $request->input('boxes_count');
+            }
+
+            if ($request->has('estimated_freight') && filled($request->input('estimated_freight'))) {
+                $estimatedFreight = (float) $request->input('estimated_freight');
+                $valuationPercent = (float) ($freightQuotation->valuation_percentage ?? 1);
+                $isFreightCollect = $freightQuotation->freight_option === 'freight_collect';
+                $handlingPercent = $isFreightCollect ? (float) ($freightQuotation->handling_percentage ?? 20) : 0;
+
+                $valuationCharge = ($estimatedFreight * $valuationPercent) / 100;
+                $handlingFee = ($estimatedFreight * $handlingPercent) / 100;
+                $totalAmount = $estimatedFreight + $valuationCharge + $handlingFee;
+
+                $updateData['estimated_freight'] = $estimatedFreight;
+                $updateData['valuation_charge'] = $valuationCharge;
+                $updateData['handling_fee'] = $handlingFee;
+                $updateData['total_amount'] = $totalAmount;
+
+                if ($freightQuotation->sales_order_id) {
+                    $salesOrder = \App\Models\SalesOrder::find($freightQuotation->sales_order_id);
+                    if ($salesOrder) {
+                        $salesOrder->update([
+                            'freight_charges' => $totalAmount,
+                        ]);
+                        $itemsSubtotal = $salesOrder->items()->sum('subtotal');
+                        $serviceFee = $freightQuotation->freight_option === 'freight_collect' ? 50.00 : 0;
+                        $salesOrder->update([
+                            'total_amount' => $itemsSubtotal + $totalAmount + $serviceFee,
+                        ]);
+                    }
+                }
+            }
+
+            if ($request->has('logistics_notes') && filled($request->input('logistics_notes'))) {
+                $updateData['logistics_notes'] = $request->input('logistics_notes');
+            }
+
+            // Update quotation with cargo items and freight charges
+            $freightQuotation->update($updateData);
 
             return redirect()->back()
                 ->with('success', 'Cargo items updated successfully! ' . count($cargoItems) . ' item(s) saved.');

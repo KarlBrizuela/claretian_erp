@@ -147,7 +147,7 @@
                 <div class="th">Item</div>
                 <div class="td">
                     @foreach($order->items as $item)
-                    {{ $item->book->item_code ?? $item->book->sku ?? 'Item' }}<br>
+                    {{ $item->book?->item_code ?? $item->book?->sku ?? 'Item' }}<br>
                     @endforeach
                 </div>
             </div>
@@ -155,7 +155,7 @@
                 <div class="th">Description</div>
                 <div class="td">
                     @foreach($order->items as $item)
-                    {{ $item->book->name }} ({{ $item->quantity }} pcs)<br>
+                    {{ $item->book?->name ?? $item->bundle?->name ?? 'Unknown Item' }} ({{ $item->quantity }} pcs)<br>
                     @endforeach
                 </div>
             </div>

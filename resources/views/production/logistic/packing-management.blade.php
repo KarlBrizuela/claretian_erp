@@ -111,6 +111,7 @@
                                     <td>
                                         <div class="d-flex gap-2">
                                             <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                    onclick="openPackingDetailsModal({{ $order->id }})"
                                                     data-order-id="{{ $order->id }}"
                                                     data-so-number="{{ $order->so_number }}"
                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -118,15 +119,27 @@
                                                     data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
                                                     title="View Details"
                                                     style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
                                             </button>
-                                            <button type="button" class="btn btn-success shadow mark-packed-btn"
-                                                    data-order-id="{{ $order->id }}"
-                                                    data-so-number="{{ $order->so_number }}"
-                                                    title="Mark as Packed"
-                                                    style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                <i class="fas fa-check" style="font-size: 0.9rem;"></i>
-                                            </button>
+                                            @if($isFullyPacked)
+                                                <button type="button" class="btn btn-success shadow mark-ready-btn"
+                                                        onclick="setReadyForPickupSingle({{ $order->id }}, '{{ $order->so_number }}')"
+                                                        data-order-id="{{ $order->id }}"
+                                                        data-so-number="{{ $order->so_number }}"
+                                                        title="Set as Ready for Pickup/Drop-off"
+                                                        style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas fa-truck" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                </button>
+                                            @else
+                                                <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                        onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                        data-order-id="{{ $order->id }}"
+                                                        data-so-number="{{ $order->so_number }}"
+                                                        title="Mark as Packed"
+                                                        style="background: #ffc107; color: #000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -207,6 +220,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -214,14 +228,15 @@
                                                                     data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
                                                                     title="View Details"
                                                                     style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                                <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
                                                             <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                                    onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     title="Mark as Packed"
                                                                     style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                                <i class="fas fa-check" style="font-size: 0.9rem;"></i>
+                                                                <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
                                                         </div>
                                                 @empty
@@ -282,6 +297,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -289,14 +305,15 @@
                                                                     data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
                                                                     title="View Details"
                                                                     style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                                <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
                                                             <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                                    onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     title="Mark as Packed"
                                                                     style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                                <i class="fas fa-check" style="font-size: 0.9rem;"></i>
+                                                                <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
                                                         </div>
                                                     </td>
@@ -359,6 +376,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -366,14 +384,15 @@
                                                                     data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
                                                                     title="View Details"
                                                                     style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                                <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
                                                             <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                                    onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     title="Mark as Packed"
                                                                     style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                                <i class="fas fa-check" style="font-size: 0.9rem;"></i>
+                                                                <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
                                                         </div>
                                                     </td>
@@ -426,6 +445,7 @@
                                             <td>
                                                 <div class="d-flex gap-2">
                                                     <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                            onclick="openPackingDetailsModal({{ $order->id }})"
                                                             data-order-id="{{ $order->id }}"
                                                             data-so-number="{{ $order->so_number }}"
                                                             data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -433,14 +453,15 @@
                                                             data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
                                                             title="View Details"
                                                             style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                        <i class="fas fa-eye" style="font-size: 0.9rem;"></i>
+                                                        <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                     </button>
                                                     <button type="button" class="btn btn-success shadow mark-gathered-btn"
+                                                            onclick="markOrderAsGatheredAction({{ $order->id }}, '{{ $order->so_number }}')"
                                                             data-order-id="{{ $order->id }}"
                                                             data-so-number="{{ $order->so_number }}"
                                                             title="Mark as Gathered (Ready for Delivery)"
                                                             style="background: #007bff; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                        <i class="fas fa-box-open" style="font-size: 0.9rem;"></i>
+                                                        <i class="fas fa-box-open" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                     </button>
                                                 </div>
                                             </td>
@@ -467,7 +488,7 @@
         <div class="modal-content-packing">
             <div class="modal-header-packing">
                 <h3 id="modalTitle" style="margin: 0; color: #000;">Packing Details</h3>
-                <button type="button" class="modal-close-btn" id="closeDetailBtn">&times;</button>
+                <button type="button" class="modal-close-btn" id="closeDetailBtn" onclick="closePackingDetailsModal()" style="cursor: pointer; z-index: 10000; position: relative;">&times;</button>
             </div>
             <div class="modal-body-packing">
                 <div class="order-info-section">
@@ -587,7 +608,7 @@
                     </button>
                 </div>
                 <div class="form-group">
-                    <button type="button" class="btn btn-primary-custom close-modal-btn" style="width: 100%;" id="closeDetailsActionBtn">
+                    <button type="button" class="btn btn-primary-custom close-modal-btn" style="width: 100%; cursor: pointer;" id="closeDetailsActionBtn" onclick="closePackingDetailsModal()">
                         <i class="las la-times"></i> Close Details
                     </button>
                 </div>
@@ -894,35 +915,83 @@
         const preloadOrderId = {{ $preloadOrderId ? $preloadOrderId : 'null' }};
         console.log('Packing Management - Preload Order ID:', preloadOrderId);
 
+        window.openPackingDetailsModal = function(orderId) {
+            console.log('Opening details for order ID:', orderId);
+            if (!orderId) return;
+            currentOrderId = orderId;
+            loadPackingOrder(orderId);
+        };
+
+        window.markOrderAsPackedAction = function(orderId, soNumber) {
+            if (!orderId) return;
+            if (confirm(`Mark all items in ${soNumber} as packed?`)) {
+                markOrderAsPacked(orderId, soNumber);
+            }
+        };
+
+        window.markOrderAsGatheredAction = function(orderId, soNumber) {
+            if (!orderId) return;
+            if (confirm(`Mark ${soNumber} as gathered? It will move to Delivery Scheduling.`)) {
+                markOrderAsGathered(orderId, soNumber);
+            }
+        };
+
+        window.setReadyForPickupSingle = function(orderId, soNumber) {
+            if (!orderId) return;
+            if (confirm(`Set ${soNumber} as ready for pickup/drop-off?`)) {
+                fetch('{{ route("production.logistic.packing.set-ready-for-pickup") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ order_ids: [orderId] })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while setting order as ready for pickup');
+                });
+            }
+        };
+
         // Initialize DataTable and Event Listeners
         $(document).ready(function() {
             $('#packingTable').DataTable({
-                order: [[2, 'desc']],
+                order: [[1, 'desc']],
                 pageLength: 25,
                 responsive: true
             });
 
             // Initialize E-Com Packing Tables
             $('#lazadaPackingTable').DataTable({
-                order: [[2, 'desc']],
+                order: [[1, 'desc']],
                 pageLength: 25,
                 responsive: true
             });
 
             $('#shopeePackingTable').DataTable({
-                order: [[2, 'desc']],
+                order: [[1, 'desc']],
                 pageLength: 25,
                 responsive: true
             });
 
             $('#tiktokPackingTable').DataTable({
-                order: [[2, 'desc']],
+                order: [[1, 'desc']],
                 pageLength: 25,
                 responsive: true
             });
 
             $('#readyForPickupTable').DataTable({
-                order: [[2, 'desc']],
+                order: [[1, 'desc']],
                 pageLength: 25,
                 responsive: true
             });
@@ -935,28 +1004,37 @@
             }
 
             // Mark as Packed Button Click using event delegation
-            $(document).on('click', '.mark-packed-btn', function() {
-                const orderId = this.dataset.orderId;
-                const soNumber = this.dataset.soNumber;
-                if (confirm(`Mark all items in ${soNumber} as packed?`)) {
+            $(document).on('click', '.mark-packed-btn', function(e) {
+                e.stopPropagation();
+                const btn = $(this).closest('.mark-packed-btn');
+                const orderId = btn.attr('data-order-id') || btn.data('order-id');
+                const soNumber = btn.attr('data-so-number') || btn.data('so-number');
+                if (orderId && confirm(`Mark all items in ${soNumber} as packed?`)) {
                     markOrderAsPacked(orderId, soNumber);
                 }
             });
 
-            // Mark as Gathered Button Click (Ready for Pickup tab) using event delegation
-            $(document).on('click', '.mark-gathered-btn', function() {
-                const orderId = this.dataset.orderId;
-                const soNumber = this.dataset.soNumber;
-                if (confirm(`Mark ${soNumber} as gathered? It will move to Delivery Scheduling.`)) {
+            // Mark as Gathered Button Click
+            $(document).on('click', '.mark-gathered-btn', function(e) {
+                e.stopPropagation();
+                const btn = $(this).closest('.mark-gathered-btn');
+                const orderId = btn.attr('data-order-id') || btn.data('order-id');
+                const soNumber = btn.attr('data-so-number') || btn.data('so-number');
+                if (orderId && confirm(`Mark ${soNumber} as gathered? It will move to Delivery Scheduling.`)) {
                     markOrderAsGathered(orderId, soNumber);
                 }
             });
 
-            // View Order Button Click using event delegation
-            $(document).on('click', '.view-order-btn', function() {
-                currentOrderId = this.dataset.orderId;
-                console.log('Clicked view details for order:', currentOrderId);
-                loadPackingOrder(currentOrderId);
+            // View Order Button Click
+            $(document).on('click', '.view-order-btn', function(e) {
+                e.stopPropagation();
+                const btn = $(this).closest('.view-order-btn');
+                const orderId = btn.attr('data-order-id') || btn.data('order-id');
+                if (orderId) {
+                    currentOrderId = orderId;
+                    console.log('Clicked view details for order:', currentOrderId);
+                    loadPackingOrder(currentOrderId);
+                }
             });
 
             // Close Detail Modal
@@ -1018,11 +1096,18 @@
             initializeBulkActions();
         });
 
-        function closePackingDetailsModal() {
-            document.getElementById('orderDetailModal').style.display = 'none';
+        window.closePackingDetailsModal = function() {
+            const modal = document.getElementById('orderDetailModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
             currentOrderId = null;
             currentOrderItems = [];
             scannerBuffer = '';
+        };
+
+        function closePackingDetailsModal() {
+            window.closePackingDetailsModal();
         }
 
         document.addEventListener('keydown', function(e) {

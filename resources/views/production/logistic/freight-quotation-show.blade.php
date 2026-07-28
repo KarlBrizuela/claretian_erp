@@ -44,8 +44,11 @@
         <div class="row">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Review Freight Quotation</h5>
+                        <a href="{{ route('production.logistic.pending-freight-quotations') }}" class="btn btn-sm btn-light text-primary fw-bold">
+                            <i class="bi bi-arrow-left me-1"></i>Back to List
+                        </a>
                     </div>
 
                     <div class="card-body p-2">
@@ -143,100 +146,207 @@
                         <p><strong>Service Fee:</strong> {{ $quotation->freight_option === 'freight_collect' ? 'Applies to Freight Collect' : 'No service fee for Freight Billing' }}</p>
 
                         <hr>
-                        
-                        @if($quotation->workflow_status !== 'approved')
-                            <!-- FREIGHT CHARGES SECTION -->
-                            <div class="card border-success border-3 mb-3 freight-action-card" style="background-color: #f0fdf4;">
-                                <div class="card-header bg-success text-white py-2">
-                                    <h6 class="mb-0" style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span><i class="bi bi-calculator me-2"></i>Set Freight Charges & Boxes</span>
-                                    </h6>
-                                </div>
-                                <div id="freightChargesCollapse">
-                                    <div class="card-body p-1" style="padding: 0.5rem !important;">
-                                        <div class="compact-help" style="font-size: 0.85rem; padding: 0.5rem; background-color: #fef3cd; border-left: 3px solid #ff9800; margin-bottom: 0.75rem; border-radius: 0.25rem;">
-                                            <strong>Fill in the fields to set the freight quotation</strong>
+
+                        <!-- CARGO ITEMS INPUT SECTION - ALWAYS VISIBLE -->
+                        <div class="card border-info border-2 mb-3 cargo-action-card" style="background-color: #f0f8ff;">
+                            <div class="card-header bg-info text-white py-2">
+                                <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>📦 Cargo Items</h6>
+                            </div>
+                            <div class="card-body p-1" style="padding: 0.5rem !important;">
+                                <form id="cargoItemsForm" method="POST" action="{{ route('production.logistic.update-cargo-items', $quotation->id) }}">
+                                        @csrf
+                                        @method('PUT')
+                                        <input type="hidden" name="boxes_count" id="cargo_boxes_count_hidden">
+                                        <input type="hidden" name="estimated_freight" id="cargo_estimated_freight_hidden">
+                                        <input type="hidden" name="logistics_notes" id="cargo_logistics_notes_hidden">
+
+                                        <div class="table-responsive cargo-items-scroll" style="margin-bottom: 0.5rem; border: 1px solid #dee2e6; border-radius: 4px;">
+                                            <table class="table table-bordered table-sm" id="cargoItemsTable" style="margin-bottom: 0; font-size: 0.85rem;">
+                                                <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background: #fff;">
+                                                    <tr style="background-color: #e8f4f8; height: 2rem;">
+                                                        <th style="width: 5%; padding: 0.25rem;">#</th>
+                                                        <th style="width: 8%; padding: 0.25rem;">Qty</th>
+                                                        <th style="width: 16%; padding: 0.25rem;">Type</th>
+                                                        <th style="width: 20%; padding: 0.25rem;">Dimensions</th>
+                                                        <th style="width: 13%; padding: 0.25rem;">Gross Wt</th>
+                                                        <th style="width: 13%; padding: 0.25rem;">Vol Wt</th>
+                                                        <th style="width: 8%; text-align: center; padding: 0.25rem;">Del</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="cargoItemsBody">
+                                                @php
+                                                    $existingItems = [];
+                                                    if ($quotation->cargo_items) {
+                                                        $existingItems = is_string($quotation->cargo_items) ? json_decode($quotation->cargo_items, true) : $quotation->cargo_items;
+                                                    }
+                                                @endphp
+                                                
+                                                @if(count($existingItems) > 0)
+                                                    @foreach($existingItems as $index => $item)
+                                                        <tr class="cargo-row" data-row-num="{{ $index + 1 }}" style="height: 2rem;">
+                                                            <td class="row-number" style="padding: 0.2rem; vertical-align: middle; font-size: 0.8rem;">{{ $index + 1 }}</td>
+                                                            <td style="padding: 0.2rem;">
+                                                                <input type="number" name="cargo_qty[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;"
+                                                                       value="{{ $item['qty'] ?? '' }}" min="1" placeholder="0">
+                                                            </td>
+                                                            <td style="padding: 0.2rem;">
+                                                                <select name="cargo_package_type[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;">
+                                                                    <option value="">Select</option>
+                                                                    <option value="Box, Bag, Pallet" {{ ($item['package_type'] ?? '') === 'Box, Bag, Pallet' ? 'selected' : '' }}>Box</option>
+                                                                    <option value="Crate" {{ ($item['package_type'] ?? '') === 'Crate' ? 'selected' : '' }}>Crate</option>
+                                                                    <option value="Carton" {{ ($item['package_type'] ?? '') === 'Carton' ? 'selected' : '' }}>Carton</option>
+                                                                    <option value="LCL" {{ ($item['package_type'] ?? '') === 'LCL' ? 'selected' : '' }}>LCL</option>
+                                                                    <option value="FCL" {{ ($item['package_type'] ?? '') === 'FCL' ? 'selected' : '' }}>FCL</option>
+                                                                    <option value="Pallets" {{ ($item['package_type'] ?? '') === 'Pallets' ? 'selected' : '' }}>Pallets</option>
+                                                                </select>
+                                                            </td>
+                                                            <td style="padding: 0.2rem;">
+                                                                <input type="text" name="cargo_dimensions[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;"
+                                                                       value="{{ $item['dimensions'] ?? '' }}" placeholder="L×W×H">
+                                                            </td>
+                                                            <td style="padding: 0.2rem;">
+                                                                <input type="number" name="cargo_gross_weight[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;"
+                                                                       value="{{ $item['gross_weight'] ?? '' }}" step="0.01" placeholder="kg">
+                                                            </td>
+                                                            <td style="padding: 0.2rem;">
+                                                                <input type="number" name="cargo_vol_weight[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;"
+                                                                       value="{{ $item['vol_weight'] ?? '' }}" step="0.01" placeholder="kg">
+                                                            </td>
+                                                            <td style="text-align: center; padding: 0.2rem; vertical-align: middle;">
+                                                                <button type="button" class="btn btn-sm btn-danger" style="padding: 0.15rem 0.3rem; font-size: 0.7rem;" onclick="removeCargoRow(this)">
+                                                                    <i class="bi bi-trash"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                @else
+                                                    <tr class="cargo-row" data-row-num="1" style="height: 2rem;">
+                                                        <td class="row-number" style="padding: 0.2rem; vertical-align: middle; font-size: 0.8rem;">1</td>
+                                                        <td style="padding: 0.2rem;">
+                                                            <input type="number" name="cargo_qty[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;" min="1" placeholder="0">
+                                                        </td>
+                                                        <td style="padding: 0.2rem;">
+                                                            <select name="cargo_package_type[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;">
+                                                                <option value="">Select</option>
+                                                                <option value="Box, Bag, Pallet">Box</option>
+                                                                <option value="Crate">Crate</option>
+                                                                <option value="Carton">Carton</option>
+                                                                <option value="LCL">LCL</option>
+                                                                <option value="FCL">FCL</option>
+                                                                <option value="Pallets">Pallets</option>
+                                                            </select>
+                                                        </td>
+                                                        <td style="padding: 0.2rem;">
+                                                            <input type="text" name="cargo_dimensions[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;" placeholder="L×W×H">
+                                                        </td>
+                                                        <td style="padding: 0.2rem;">
+                                                            <input type="number" name="cargo_gross_weight[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;" step="0.01" placeholder="kg">
+                                                        </td>
+                                                        <td style="padding: 0.2rem;">
+                                                            <input type="number" name="cargo_vol_weight[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;" step="0.01" placeholder="kg">
+                                                        </td>
+                                                        <td style="text-align: center; padding: 0.2rem; vertical-align: middle;">
+                                                            <button type="button" class="btn btn-sm btn-danger" style="padding: 0.15rem 0.3rem; font-size: 0.7rem;" onclick="removeCargoRow(this)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                @endif
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div style="display: flex; gap: 0.5rem; justify-content: space-between; margin-top: 0.5rem;">
+                                        <button type="button" class="btn btn-sm btn-outline-info" onclick="addCargoItemRow()" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
+                                            <i class="bi bi-plus-circle me-1"></i>Add Row
+                                        </button>
+
+                                        <button type="submit" class="btn btn-sm btn-info" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
+                                            <i class="bi bi-check-circle me-1"></i>Save Cargo Items
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="card border-success border-3 mb-3 freight-action-card" style="background-color: #f0fdf4;">
+                            <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0"><i class="bi bi-calculator me-2"></i>Set Freight Charges & Boxes</h6>
+                                @if($quotation->workflow_status === 'approved')
+                                    <span class="badge bg-light text-success"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                                @endif
+                            </div>
+                            <div id="freightChargesCollapse">
+                                <div class="card-body p-1" style="padding: 0.5rem !important;">
+                                    <div class="compact-help" style="font-size: 0.85rem; padding: 0.5rem; background-color: #fef3cd; border-left: 3px solid #ff9800; margin-bottom: 0.75rem; border-radius: 0.25rem;">
+                                        <strong>Fill in or edit the fields below to update the freight quotation charges</strong>
+                                    </div>
+
+                                    <form id="approveQuotationForm" method="POST" action="{{ route('production.logistic.approve-freight-quotation', $quotation->id) }}">
+                                        @csrf
+
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-bold" style="font-size: 0.85rem;"> Number of Boxes: <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control form-control-sm @error('boxes_count') is-invalid @enderror" 
+                                                       name="boxes_count" min="1" value="{{ old('boxes_count', $quotation->boxes_count) }}" 
+                                                       required placeholder="e.g., 5" style="height: 1.75rem; font-size: 0.85rem;">
+                                                @error('boxes_count')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-bold" style="font-size: 0.85rem;"> Estimated Freight Charge (₱): <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control form-control-sm @error('estimated_freight') is-invalid @enderror" 
+                                                       name="estimated_freight" step="0.01" min="0.01" 
+                                                       value="{{ old('estimated_freight', $quotation->estimated_freight > 0 ? $quotation->estimated_freight : '') }}" required 
+                                                       placeholder="e.g., 5000.00" style="height: 1.75rem; font-size: 0.85rem;">
+                                                @error('estimated_freight')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
+                                            </div>
                                         </div>
 
-                                        <form id="approveQuotationForm" method="POST" action="{{ route('production.logistic.approve-freight-quotation', $quotation->id) }}">
-                                            @csrf
+                                        <div style="margin-top: 0.5rem;">
+                                            <label class="form-label" style="font-size: 0.85rem;">Logistics Notes:</label>
+                                            <textarea class="form-control form-control-sm @error('logistics_notes') is-invalid @enderror" 
+                                                      name="logistics_notes" rows="1" style="font-size: 0.85rem;"
+                                                      placeholder="e.g., sea freight via Manila Port, delivery in 7-10 days...">{{ old('logistics_notes', $quotation->logistics_notes) }}</textarea>
+                                            @error('logistics_notes')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
+                                        </div>
 
-                                            <div class="row g-2">
-                                                <div class="col-md-6">
-                                                    <label class="form-label fw-bold" style="font-size: 0.85rem;"> Number of Boxes: <span class="text-danger">*</span></label>
-                                                    <input type="number" class="form-control form-control-sm @error('boxes_count') is-invalid @enderror" 
-                                                           name="boxes_count" min="1" value="{{ old('boxes_count') }}" 
-                                                           required placeholder="e.g., 5" style="height: 1.75rem; font-size: 0.85rem;">
-                                                    @error('boxes_count')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
+                                        <div style="display: flex; gap: 0.5rem; justify-content: space-between; margin-top: 0.5rem;">
+                                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
+                                                <i class="bi bi-x-circle me-1"></i>Reject
+                                            </button>
+                                            <button type="submit" class="btn btn-sm btn-success" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
+                                                <i class="bi bi-check-circle me-1"></i>{{ $quotation->workflow_status === 'approved' ? '✓ Save / Update Freight Charges' : '✓ Approve & Quote' }}
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <!-- Reject Modal -->
+                                    <div class="modal fade" id="rejectModal" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header bg-danger text-white">
+                                                    <h5 class="modal-title">Reject Quotation</h5>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                 </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label fw-bold" style="font-size: 0.85rem;"> Estimated Freight Charge (₱): <span class="text-danger">*</span></label>
-                                                    <input type="number" class="form-control form-control-sm @error('estimated_freight') is-invalid @enderror" 
-                                                           name="estimated_freight" step="0.01" min="0.01" 
-                                                           value="{{ old('estimated_freight') }}" required 
-                                                           placeholder="e.g., 5000.00" style="height: 1.75rem; font-size: 0.85rem;">
-                                                    @error('estimated_freight')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
-                                                </div>
-                                            </div>
-
-                                            <div style="margin-top: 0.5rem;">
-                                                <label class="form-label" style="font-size: 0.85rem;">Logistics Notes:</label>
-                                                <textarea class="form-control form-control-sm @error('logistics_notes') is-invalid @enderror" 
-                                                          name="logistics_notes" rows="1" style="font-size: 0.85rem;"
-                                                          placeholder="e.g., sea freight via Manila Port, delivery in 7-10 days...">{{ old('logistics_notes') }}</textarea>
-                                                @error('logistics_notes')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
-                                            </div>
-
-                                            <div style="display: flex; gap: 0.5rem; justify-content: space-between; margin-top: 0.5rem;">
-                                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
-                                                    <i class="bi bi-x-circle me-1"></i>Reject
-                                                </button>
-                                                <button type="submit" class="btn btn-sm btn-success" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
-                                                    <i class="bi bi-check-circle me-1"></i>✓ Approve & Quote
-                                                </button>
-                                            </div>
-                                        </form>
-
-                                        <!-- Reject Modal -->
-                                        <div class="modal fade" id="rejectModal" tabindex="-1">
-                                            <div class="modal-dialog">
-                                                <div class="modal-content">
-                                                    <div class="modal-header bg-danger text-white">
-                                                        <h5 class="modal-title">Reject Quotation</h5>
-                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                <form method="POST" action="{{ route('production.logistic.reject-freight-quotation', $quotation->id) }}">
+                                                    @csrf
+                                                    <div class="modal-body">
+                                                        <label class="form-label">Reason for Rejection:</label>
+                                                        <textarea class="form-control" name="rejection_reason" rows="4" required 
+                                                                  placeholder="Explain why this quotation is being rejected..."></textarea>
+                                                        <small class="text-muted d-block mt-2">This will be sent back to marketing</small>
                                                     </div>
-                                                    <form method="POST" action="{{ route('production.logistic.reject-freight-quotation', $quotation->id) }}">
-                                                        @csrf
-                                                        <div class="modal-body">
-                                                            <label class="form-label">Reason for Rejection:</label>
-                                                            <textarea class="form-control" name="rejection_reason" rows="4" required 
-                                                                      placeholder="Explain why this quotation is being rejected..."></textarea>
-                                                            <small class="text-muted d-block mt-2">This will be sent back to marketing</small>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                            <button type="submit" class="btn btn-danger">Reject</button>
-                                                        </div>
-                                                    </form>
-                                                </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="submit" class="btn btn-danger">Reject</button>
+                                                    </div>
+                                                </form>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        @else
-                            <!-- Already Approved - Show Summary -->
-                            <div class="alert alert-success mb-2 p-2" style="font-size: 0.9rem;">
-                                <div class="row g-2 align-items-center">
-                                    <div class="col-auto">
-                                        <strong><i class="bi bi-check-circle me-1"></i>Approved</strong> | 📦 {{ $quotation->boxes_count }} boxes | 💰 ₱{{ number_format($quotation->estimated_freight, 2) }}
-                                    </div>
-                                    <div class="col-auto ms-auto">
-                                        <small class="text-muted">by {{ $quotation->respondedBy->name ?? 'System' }} on {{ $quotation->responded_at->format('M d, Y') }}</small>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
+                        </div>
 
                         <hr>
 
@@ -357,124 +467,7 @@
 
                         <hr>
 
-                        <!-- CARGO ITEMS INPUT SECTION - ALWAYS VISIBLE -->
-                        <div class="card border-info border-2 mb-3 cargo-action-card" style="background-color: #f0f8ff;">
-                            <div class="card-header bg-info text-white py-2">
-                                <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>📦 Cargo Items</h6>
-                            </div>
-                            <div class="card-body p-1" style="padding: 0.5rem !important;">
-                                <form id="cargoItemsForm" method="POST" action="{{ route('production.logistic.update-cargo-items', $quotation->id) }}">
-                                        @csrf
-                                        @method('PUT')
 
-                                        <div class="table-responsive cargo-items-scroll" style="margin-bottom: 0.5rem; border: 1px solid #dee2e6; border-radius: 4px;">
-                                            <table class="table table-bordered table-sm" id="cargoItemsTable" style="margin-bottom: 0; font-size: 0.85rem;">
-                                                <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background: #fff;">
-                                                    <tr style="background-color: #e8f4f8; height: 2rem;">
-                                                        <th style="width: 5%; padding: 0.25rem;">#</th>
-                                                        <th style="width: 8%; padding: 0.25rem;">Qty</th>
-                                                        <th style="width: 16%; padding: 0.25rem;">Type</th>
-                                                        <th style="width: 20%; padding: 0.25rem;">Dimensions</th>
-                                                        <th style="width: 13%; padding: 0.25rem;">Gross Wt</th>
-                                                        <th style="width: 13%; padding: 0.25rem;">Vol Wt</th>
-                                                        <th style="width: 8%; text-align: center; padding: 0.25rem;">Del</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="cargoItemsBody">
-                                                @php
-                                                    $existingItems = [];
-                                                    if ($quotation->cargo_items) {
-                                                        $existingItems = is_string($quotation->cargo_items) ? json_decode($quotation->cargo_items, true) : $quotation->cargo_items;
-                                                    }
-                                                @endphp
-                                                
-                                                @if(count($existingItems) > 0)
-                                                    @foreach($existingItems as $index => $item)
-                                                        <tr class="cargo-row" data-row-num="{{ $index + 1 }}" style="height: 2rem;">
-                                                            <td class="row-number" style="padding: 0.2rem; vertical-align: middle; font-size: 0.8rem;">{{ $index + 1 }}</td>
-                                                            <td style="padding: 0.2rem;">
-                                                                <input type="number" name="cargo_qty[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;"
-                                                                       value="{{ $item['qty'] ?? '' }}" min="1" placeholder="0">
-                                                            </td>
-                                                            <td style="padding: 0.2rem;">
-                                                                <select name="cargo_package_type[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;">
-                                                                    <option value="">Select</option>
-                                                                    <option value="Box, Bag, Pallet" {{ ($item['package_type'] ?? '') === 'Box, Bag, Pallet' ? 'selected' : '' }}>Box</option>
-                                                                    <option value="Crate" {{ ($item['package_type'] ?? '') === 'Crate' ? 'selected' : '' }}>Crate</option>
-                                                                    <option value="Carton" {{ ($item['package_type'] ?? '') === 'Carton' ? 'selected' : '' }}>Carton</option>
-                                                                    <option value="LCL" {{ ($item['package_type'] ?? '') === 'LCL' ? 'selected' : '' }}>LCL</option>
-                                                                    <option value="FCL" {{ ($item['package_type'] ?? '') === 'FCL' ? 'selected' : '' }}>FCL</option>
-                                                                    <option value="Pallets" {{ ($item['package_type'] ?? '') === 'Pallets' ? 'selected' : '' }}>Pallets</option>
-                                                                </select>
-                                                            </td>
-                                                            <td style="padding: 0.2rem;">
-                                                                <input type="text" name="cargo_dimensions[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;"
-                                                                       value="{{ $item['dimensions'] ?? '' }}" placeholder="L×W×H">
-                                                            </td>
-                                                            <td style="padding: 0.2rem;">
-                                                                <input type="number" name="cargo_gross_weight[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;"
-                                                                       value="{{ $item['gross_weight'] ?? '' }}" step="0.01" placeholder="kg">
-                                                            </td>
-                                                            <td style="padding: 0.2rem;">
-                                                                <input type="number" name="cargo_vol_weight[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;"
-                                                                       value="{{ $item['vol_weight'] ?? '' }}" step="0.01" placeholder="kg">
-                                                            </td>
-                                                            <td style="text-align: center; padding: 0.2rem; vertical-align: middle;">
-                                                                <button type="button" class="btn btn-sm btn-danger" style="padding: 0.15rem 0.3rem; font-size: 0.7rem;" onclick="removeCargoRow(this)">
-                                                                    <i class="bi bi-trash"></i>
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    @endforeach
-                                                @else
-                                                    <tr class="cargo-row" data-row-num="1" style="height: 2rem;">
-                                                        <td class="row-number" style="padding: 0.2rem; vertical-align: middle; font-size: 0.8rem;">1</td>
-                                                        <td style="padding: 0.2rem;">
-                                                            <input type="number" name="cargo_qty[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;" min="1" placeholder="0">
-                                                        </td>
-                                                        <td style="padding: 0.2rem;">
-                                                            <select name="cargo_package_type[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;">
-                                                                <option value="">Select</option>
-                                                                <option value="Box, Bag, Pallet">Box</option>
-                                                                <option value="Crate">Crate</option>
-                                                                <option value="Carton">Carton</option>
-                                                                <option value="LCL">LCL</option>
-                                                                <option value="FCL">FCL</option>
-                                                                <option value="Pallets">Pallets</option>
-                                                            </select>
-                                                        </td>
-                                                        <td style="padding: 0.2rem;">
-                                                            <input type="text" name="cargo_dimensions[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;" placeholder="L×W×H">
-                                                        </td>
-                                                        <td style="padding: 0.2rem;">
-                                                            <input type="number" name="cargo_gross_weight[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;" step="0.01" placeholder="kg">
-                                                        </td>
-                                                        <td style="padding: 0.2rem;">
-                                                            <input type="number" name="cargo_vol_weight[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;" step="0.01" placeholder="kg">
-                                                        </td>
-                                                        <td style="text-align: center; padding: 0.2rem; vertical-align: middle;">
-                                                            <button type="button" class="btn btn-sm btn-danger" style="padding: 0.15rem 0.3rem; font-size: 0.7rem;" onclick="removeCargoRow(this)">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                @endif
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    <div style="display: flex; gap: 0.5rem; justify-content: space-between; margin-top: 0.5rem;">
-                                        <button type="button" class="btn btn-sm btn-outline-info" onclick="addCargoItemRow()" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
-                                            <i class="bi bi-plus-circle me-1"></i>Add Row
-                                        </button>
-
-                                        <button type="submit" class="btn btn-sm btn-info" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
-                                            <i class="bi bi-check-circle me-1"></i>Save Cargo Items
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
 
                         <hr>
 
@@ -520,7 +513,7 @@
                                                     @endphp
                                                     <tr>
                                                         <td>{{ $item->quantity }}</td>
-                                                        <td>{{ $item->product->name ?? 'N/A' }}</td>
+                                                        <td>{{ $item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'N/A' }}</td>
                                                         <td class="text-end">₱ {{ number_format($item->price, 2) }}</td>
                                                         <td class="text-end fw-bold">₱ {{ number_format($itemAmount, 2) }}</td>
                                                     </tr>
@@ -568,11 +561,23 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const cargoCard = document.querySelector('.cargo-action-card');
-        const freightCard = document.querySelector('.freight-action-card');
-
-        if (cargoCard && freightCard) {
-            freightCard.parentNode.insertBefore(cargoCard, freightCard);
+        const cargoItemsForm = document.getElementById('cargoItemsForm');
+        if (cargoItemsForm) {
+            cargoItemsForm.addEventListener('submit', function() {
+                const boxesInput = document.querySelector('input[name="boxes_count"]');
+                const freightInput = document.querySelector('input[name="estimated_freight"]');
+                const notesInput = document.querySelector('textarea[name="logistics_notes"]');
+                
+                if (boxesInput && boxesInput.value) {
+                    document.getElementById('cargo_boxes_count_hidden').value = boxesInput.value;
+                }
+                if (freightInput && freightInput.value) {
+                    document.getElementById('cargo_estimated_freight_hidden').value = freightInput.value;
+                }
+                if (notesInput && notesInput.value) {
+                    document.getElementById('cargo_logistics_notes_hidden').value = notesInput.value;
+                }
+            });
         }
     });
 

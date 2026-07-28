@@ -365,7 +365,7 @@
                 @forelse($order->items as $item)
                 <tr>
                     <td class="text-center">{{ $item->quantity }} {{ $item->unit ?? 'pcs' }}</td>
-                    <td>{{ $item->product->name ?? 'Unknown Product' }}</td>
+                    <td>{{ $item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'Unknown Product' }}</td>
                     <td>{{ $item->area ?? '-' }}</td>
                     <td class="text-right">₱{{ number_format($item->price, 2) }}</td>
                     <td class="text-right">₱{{ number_format($item->subtotal, 2) }}</td>

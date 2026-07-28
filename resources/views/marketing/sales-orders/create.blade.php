@@ -44,7 +44,7 @@
                             <h5>Customer Information</h5>
                             <div class="form-group">
                                 <label>Customer:</label>
-                                <select class="form-control selectpicker" data-live-search="true" data-live-search-placeholder="Search customer..." name="customer_id" id="customerSelect" {{ $selectedType === 'area_sales_consignment' ? '' : 'required' }}>
+                                <select class="form-control selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search customer..." name="customer_id" id="customerSelect" {{ $selectedType === 'area_sales_consignment' ? '' : 'required' }}>
                                     <option value="" selected disabled>Select Customer...</option>
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->customer_id }}" 
@@ -78,7 +78,7 @@
                             </div>
                             <div class="form-group" id="areaSalesStaffGroup" style="{{ $selectedType === 'area_sales_consignment' ? '' : 'display: none;' }}">
                                 <label>Area Sales Staff:</label>
-                                <select class="form-control selectpicker" data-live-search="true" data-live-search-placeholder="Search staff..." name="area_sales_staff_id" id="areaSalesStaffSelect" {{ $selectedType === 'area_sales_consignment' ? 'required' : '' }}>
+                                <select class="form-control selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search staff..." name="area_sales_staff_id" id="areaSalesStaffSelect" {{ $selectedType === 'area_sales_consignment' ? 'required' : '' }}>
                                     <option value="" selected disabled>Select Area Sales Staff...</option>
                                     @foreach($areaSalesStaff ?? [] as $staff)
                                         <option value="{{ $staff->id }}" {{ (string) $selectedAreaSalesStaffId === (string) $staff->id ? 'selected' : '' }}>
@@ -379,8 +379,30 @@
             transition: background-color 0.3s;
         }
         
-        .remove-row:hover {
-            background-color: #cc0000 !important;
+        /* Prevent bootstrap-select dropdown from overflowing viewport and hiding search box */
+        .bootstrap-select .dropdown-menu {
+            max-height: 360px !important;
+            overflow: hidden !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+            border-radius: 6px !important;
+        }
+        .bootstrap-select .bs-searchbox {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1050 !important;
+            background: #ffffff !important;
+            padding: 8px 10px !important;
+            border-bottom: 1px solid #e9ecef !important;
+        }
+        .bootstrap-select .bs-searchbox input {
+            font-size: 0.9rem !important;
+            padding: 0.4rem 0.75rem !important;
+            border-radius: 4px !important;
+            border: 1px solid #ced4da !important;
+        }
+        .bootstrap-select .dropdown-menu .inner {
+            max-height: 280px !important;
+            overflow-y: auto !important;
         }
     </style>
     @endpush
@@ -398,8 +420,8 @@
             const areaSalesStaffSelect = document.getElementById('areaSalesStaffSelect');
             // Initialize bootstrap-select on customer dropdown (enable live search)
             if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
-                $(customerSelect).selectpicker();
-                $(areaSalesStaffSelect).selectpicker();
+                $(customerSelect).selectpicker({ size: 8, liveSearch: true });
+                $(areaSalesStaffSelect).selectpicker({ size: 8, liveSearch: true });
             }
             const billingAddress = document.getElementById('billingAddress');
 
@@ -620,7 +642,7 @@
                                 <img src="${defaultCover}" class="product-image-preview" style="width: 100%; height: 100%; object-fit: cover;">
                             </div>
                             <div class="flex-grow-1" style="min-width: 0;">
-                                <select class="form-control product-select selectpicker" data-live-search="true" name="items[new_${uniqueId}][product_id]" required>
+                                <select class="form-control product-select selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search product..." name="items[new_${uniqueId}][product_id]" required>
                                     ${productSource.innerHTML}
                                 </select>
                             </div>
@@ -689,7 +711,11 @@
 
                 // Initialize bootstrap-select for the new row
                 if ($.fn.selectpicker) {
-                    $(select).selectpicker();
+                    $(select).selectpicker({
+                        size: 8,
+                        liveSearch: true,
+                        liveSearchPlaceholder: 'Search product...'
+                    });
                 }
 
                 updateGrandTotal();

@@ -86,6 +86,89 @@
                     </div>
                 </div>
 
+                <!-- Attachments Section -->
+                <div class="card mb-4 border-0 bg-light">
+                    <div class="card-body p-3">
+                        <h6 class="fw-bold text-dark mb-3"><i class="las la-paperclip me-1 text-primary"></i> Attachments</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted mb-1">Proof of Payment:</label>
+                                <div>
+                                    @if($order->proof_of_payment)
+                                        <div class="d-flex align-items-center gap-2">
+                                            <a href="{{ asset('storage/' . $order->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-success fw-bold">
+                                                <i class="las la-receipt me-1"></i> View Proof of Payment
+                                            </a>
+                                            <button class="btn btn-sm btn-light border text-muted" type="button" onclick="document.getElementById('reuploadPopForm').classList.toggle('d-none')" title="Re-upload Proof of Payment">
+                                                <i class="las la-edit"></i>
+                                            </button>
+                                        </div>
+                                        <form id="reuploadPopForm" action="{{ route('admin-finance.sales-order.upload-attachment', $order->id) }}" method="POST" enctype="multipart/form-data" class="d-none mt-2">
+                                            @csrf
+                                            <input type="hidden" name="attachment_type" value="proof_of_payment">
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" name="attachment_file" class="form-control" required accept=".pdf,.jpg,.jpeg,.png">
+                                                <button type="submit" class="btn btn-primary"><i class="las la-upload me-1"></i> Upload</button>
+                                            </div>
+                                        </form>
+                                    @else
+                                        <form action="{{ route('admin-finance.sales-order.upload-attachment', $order->id) }}" method="POST" enctype="multipart/form-data">
+                                            @csrf
+                                            <input type="hidden" name="attachment_type" value="proof_of_payment">
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" name="attachment_file" class="form-control" required accept=".pdf,.jpg,.jpeg,.png">
+                                                <button type="submit" class="btn btn-primary fw-bold text-nowrap"><i class="las la-upload me-1"></i> Upload POP</button>
+                                            </div>
+                                        </form>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted mb-1">Pick List Attachment:</label>
+                                <div>
+                                    @if($order->pick_list_attachment)
+                                        <a href="{{ asset('storage/' . $order->pick_list_attachment) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="las la-file-alt me-1"></i> View Pick List
+                                        </a>
+                                    @else
+                                        <form action="{{ route('admin-finance.sales-order.upload-attachment', $order->id) }}" method="POST" enctype="multipart/form-data">
+                                            @csrf
+                                            <input type="hidden" name="attachment_type" value="pick_list_attachment">
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" name="attachment_file" class="form-control" required accept=".pdf,.jpg,.jpeg,.png">
+                                                <button type="submit" class="btn btn-outline-primary text-nowrap"><i class="las la-upload me-1"></i> Upload</button>
+                                            </div>
+                                        </form>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted mb-1">Other Attachments:</label>
+                                <div>
+                                    @if($order->attachment)
+                                        <a href="{{ asset('storage/' . $order->attachment) }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                            <i class="las la-paperclip me-1"></i> View Document
+                                        </a>
+                                    @elseif($order->order_list_attachment)
+                                        <a href="{{ asset('storage/' . $order->order_list_attachment) }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                            <i class="las la-list me-1"></i> View Order List
+                                        </a>
+                                    @else
+                                        <form action="{{ route('admin-finance.sales-order.upload-attachment', $order->id) }}" method="POST" enctype="multipart/form-data">
+                                            @csrf
+                                            <input type="hidden" name="attachment_type" value="attachment">
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" name="attachment_file" class="form-control" required accept=".pdf,.jpg,.jpeg,.png">
+                                                <button type="submit" class="btn btn-outline-info text-nowrap"><i class="las la-upload me-1"></i> Upload</button>
+                                            </div>
+                                        </form>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Items Table -->
                 <table class="order-table">
                     <thead>
@@ -101,10 +184,10 @@
                         @foreach($order->items as $item)
                         <tr>
                             <td class="text-center">{{ (float)$item->quantity }}</td>
-                            <td class="text-center text-uppercase">{{ $item->product->unit ?? 'pcs' }}</td>
+                            <td class="text-center text-uppercase">{{ $item->product?->unit ?? $item->book?->unit ?? 'pcs' }}</td>
                             <td>
-                                <div class="fw-bold">{{ $item->product->name }}</div>
-                                <small class="text-muted">{{ $item->product->sku }}</small>
+                                <div class="fw-bold">{{ $item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'Unknown Item' }}</div>
+                                <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? '-' }}</small>
                             </td>
                             <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
                             <td class="text-end fw-bold">₱{{ number_format($item->subtotal, 2) }}</td>
@@ -141,6 +224,16 @@
                                     <i class="las la-check-circle me-2"></i>Approve Order
                                 </button>
                             </form>
+                        @elseif($order->status === 'pending_si_prep')
+                            @if($order->proof_of_payment)
+                                <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning">
+                                    <i class="las la-file-invoice me-2"></i>Prepare Sales Invoice
+                                </a>
+                            @else
+                                <button class="btn btn-warning" disabled title="Proof of Payment is required to prepare SI">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Prepare Sales Invoice (Proof Required)
+                                </button>
+                            @endif
                         @elseif($order->status === 'pending_si_approval')
                             <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST">
                                 @csrf

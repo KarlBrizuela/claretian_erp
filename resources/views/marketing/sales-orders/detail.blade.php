@@ -180,13 +180,13 @@
                         @foreach($order->items as $item)
                         <tr>
                             <td class="text-center">{{ (float)$item->quantity }}</td>
-                            <td class="text-center text-uppercase">{{ $item->book->unit ?? 'pcs' }}</td>
+                            <td class="text-center text-uppercase">{{ $item->book?->unit ?? 'pcs' }}</td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <img src="{{ $item->book && $item->book->image ? asset('storage/' . $item->book->image) : asset('images/no-book-cover.svg') }}" 
                                          style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
                                          alt="Product Cover">
-                                    <div class="fw-bold">{{ $item->book->name ?? 'Unknown Product' }}</div>
+                                    <div class="fw-bold">{{ $item->book?->name ?? $item->bundle?->name ?? 'Unknown Product' }}</div>
                                 </div>
                             </td>
                             <td>{{ $item->isbn ?? '-' }}</td>
@@ -199,9 +199,12 @@
                     <tfoot>
                         @php
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
-                            $itemsSubtotal = $order->items->sum('subtotal');
+                            $itemsSubtotal = $order->items->sum(function($item) {
+                                return $item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price);
+                            });
                             $discountAmount = $order->discount_amount ?? 0;
-                            $grandTotal = $order->total_amount;
+                            $freightCharges = $order->freight_charges ?? 0;
+                            $grandTotal = max(0, $itemsSubtotal - $discountAmount + $freightCharges + $serviceFee);
                         @endphp
                         <tr>
                             <td colspan="6" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
@@ -282,7 +285,7 @@
                         @endif
                         <tr style="background: #f0f0f0;">
                             <td class="text-end"><strong>Grand Total:</strong></td>
-                            <td class="text-end"><strong>₱{{ number_format($order->total_amount, 2) }}</strong></td>
+                            <td class="text-end"><strong>₱{{ number_format($grandTotal, 2) }}</strong></td>
                         </tr>
                     </tbody>
                 </table>
@@ -430,7 +433,7 @@
                             @foreach($order->items as $item)
                             <tr style="border-bottom: 1px solid #eee;">
                                 <td class="text-center fw-bold">{{ (float)$item->quantity }}</td>
-                                <td class="fw-bold text-dark">{{ $item->book->name }}</td>
+                                <td class="fw-bold text-dark">{{ $item->book?->name ?? $item->bundle?->name ?? 'Unknown Item' }}</td>
                                 <td class="text-muted">{{ $item->isbn ?? '-' }}</td>
                                 <td class="text-center">{{ $item->area ?? '-' }}</td>
                                 <td class="text-end text-dark">{{ number_format($item->price, 2) }}</td>

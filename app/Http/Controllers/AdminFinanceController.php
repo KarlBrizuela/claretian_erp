@@ -1333,6 +1333,8 @@ public function checkVoucher()
   public function bulkFinalizeInvoices(Request $request)
   {
     $ids = $request->input('ids', []);
+    $actionType = $request->input('action', 'auto');
+
     if (empty($ids)) {
       return response()->json(['success' => false, 'message' => 'No invoices selected.'], 400);
     }
@@ -1387,21 +1389,33 @@ public function checkVoucher()
             }
           }
         } else {
-          $order->update([
-            'status' => 'pending_si_approval',
-            'si_prepared_by' => auth()->id(),
-            'si_prepared_at' => now(),
-            'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared in bulk by ' . auth()->user()->name
-          ]);
+          if ($order->status === 'pending_si_prep' || $actionType === 'prepare') {
+            $order->update([
+              'status' => 'pending_si_approval',
+              'si_prepared_by' => auth()->id(),
+              'si_prepared_at' => now(),
+              'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared in bulk by ' . auth()->user()->name
+            ]);
 
-          // Send Notification to Director if status is "pending_si_approval"
-          $director = \App\Models\User::where('position', 'Director')->first();
-          if ($director) {
-              try {
-                  $director->notify(new \App\Notifications\DirectorApprovalRequested($order, 'Sales Order'));
-              } catch (\Exception $e) {
-                  \Log::error("Failed to send bulk Sales Order SI approval notification: " . $e->getMessage());
-              }
+            // Send Notification to Director if status is "pending_si_approval"
+            $director = \App\Models\User::where('position', 'Director')->first();
+            if ($director) {
+                try {
+                    $director->notify(new \App\Notifications\DirectorApprovalRequested($order, 'Sales Order'));
+                } catch (\Exception $e) {
+                    \Log::error("Failed to send bulk Sales Order SI approval notification: " . $e->getMessage());
+                }
+            }
+          } elseif ($order->status === 'pending_si_approval' || $actionType === 'sign') {
+            $order->update([
+              'status' => 'ready_for_delivery',
+              'signed_by_af_manager' => auth()->id(),
+              'signed_at' => now(),
+              'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Signed & Approved in bulk by ' . auth()->user()->name
+            ]);
+
+            // Accounting integration
+            $this->accounting->postSalesOrderEntry($order);
           }
         }
 
@@ -1410,9 +1424,9 @@ public function checkVoucher()
 
       \DB::commit();
 
-      $message = "Successfully finalized {$processed} sales invoice(s).";
+      $message = "Successfully processed {$processed} sales order(s).";
       if (!empty($errors)) {
-        $message .= " Gaps: " . implode(', ', $errors);
+        $message .= " Note: " . implode(' ', $errors);
       }
 
       return response()->json([
@@ -1421,13 +1435,13 @@ public function checkVoucher()
         'processed' => $processed,
         'errors' => $errors
       ]);
-
     } catch (\Exception $e) {
       \DB::rollBack();
-      \Log::error('Error in bulk finalizing invoices: ' . $e->getMessage());
+      \Log::error("Bulk invoice processing failed: " . $e->getMessage());
+
       return response()->json([
         'success' => false,
-        'message' => 'Error bulk finalizing invoices: ' . $e->getMessage()
+        'message' => 'An error occurred during bulk invoice processing: ' . $e->getMessage()
       ], 500);
     }
   }
@@ -2344,6 +2358,26 @@ public function checkVoucher()
       'sidebar' => 'admin-finance',
       'order' => $order
     ]);
+  }
+
+  public function uploadSalesOrderAttachment(Request $request, $id)
+  {
+    $request->validate([
+      'attachment_type' => 'required|string|in:proof_of_payment,pick_list_attachment,attachment,order_list_attachment',
+      'attachment_file' => 'required|file|max:10240',
+    ]);
+
+    $order = \App\Models\SalesOrder::findOrFail($id);
+    $type = $request->input('attachment_type');
+    $file = $request->file('attachment_file');
+
+    $folder = $type === 'proof_of_payment' ? 'sales_orders/proof_of_payments' : 'sales_orders/attachments';
+    $path = $file->store($folder, 'public');
+
+    $order->$type = $path;
+    $order->save();
+
+    return redirect()->back()->with('success', 'Attachment uploaded successfully.');
   }
 
   public function approveSalesOrder(Request $request, $id)

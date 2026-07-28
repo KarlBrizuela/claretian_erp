@@ -157,7 +157,7 @@
 
                         @if($allBooks && $allBooks->count() > 0)
                             <div class="table-responsive mb-4">
-                                <table class="table table-hover table-bordered">
+                                <table class="table table-hover table-bordered display" id="allBooksTable" style="width: 100%;">
                                     <thead class="table-success">
                                         <tr>
                                             <th style="width: 40px;">#</th>
@@ -391,6 +391,7 @@
     </div>
 
     @push('styles')
+    <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
     <style>
         .step-indicator {
             position: relative;
@@ -417,5 +418,21 @@
             font-weight: bold;
         }
     </style>
+    @endpush
+
+    @push('scripts')
+    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
+    <script>
+        $(document).ready(function() {
+            if ($('#allBooksTable').length) {
+                $('#allBooksTable').DataTable({
+                    pageLength: 5,
+                    lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]],
+                    order: [[0, 'asc']],
+                    responsive: true
+                });
+            }
+        });
+    </script>
     @endpush
 </x-app-layout>

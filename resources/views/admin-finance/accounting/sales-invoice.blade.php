@@ -29,11 +29,14 @@
                         <!-- Bulk Actions Bar -->
                         <div id="bulkActionsBar" class="alert alert-light border d-none justify-content-between align-items-center mb-4 py-2 px-3 shadow-sm bg-white rounded" style="border-left: 4px solid #0d6efd !important;">
                             <div>
-                                <span class="fw-bold text-dark"><span id="selectedCount" class="badge bg-primary fs-14">0</span> Sales Invoice(s) selected</span>
+                                <span class="fw-bold text-dark"><span id="selectedCount" class="badge bg-primary fs-14">0</span> Sales Order(s) selected</span>
                             </div>
-                            <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" id="bulkPrepareBtn" class="btn btn-warning btn-sm px-3 fw-bold">
+                                    <i class="las la-file-invoice me-1"></i> Bulk Prepare & Submit SI
+                                </button>
                                 <button type="button" id="bulkFinalizeBtn" class="btn btn-primary btn-sm px-3 fw-bold">
-                                    <i class="las la-check-double me-1"></i> Bulk Finalize & Submit
+                                    <i class="las la-check-double me-1"></i> Bulk Sign & Approve
                                 </button>
                             </div>
                         </div>
@@ -110,11 +113,7 @@
                                                 <td>{{ $order->siPreparedBy->name ?? 'N/A' }}</td>
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
-                                                        @if($order->proof_of_payment)
-                                                            <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View Detail"><i class="fas fa-eye"></i> View</a>
-                                                        @else
-                                                            <button class="btn btn-primary shadow btn-sm" disabled title="Proof of Payment is required to view"><i class="fas fa-eye"></i> View</button>
-                                                        @endif
+                                                        <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
                                                         @if($order->status === 'pending_si_prep')
                                                             @if($order->proof_of_payment)
@@ -218,11 +217,7 @@
                                                 <td>{{ $order->siPreparedBy->name ?? 'N/A' }}</td>
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
-                                                        @if($order->proof_of_payment)
-                                                            <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View Detail"><i class="fas fa-eye"></i> View</a>
-                                                        @else
-                                                            <button class="btn btn-primary shadow btn-sm" disabled title="Proof of Payment is required to view"><i class="fas fa-eye"></i> View</button>
-                                                        @endif
+                                                        <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
                                                         @if($order->status === 'pending_si_prep')
                                                             @if($order->proof_of_payment)
@@ -468,55 +463,80 @@
             cb.addEventListener('change', updateBulkBar);
         });
 
-        if (bulkFinalizeBtn) {
-            bulkFinalizeBtn.addEventListener('click', function() {
-                const selectedCheckboxes = document.querySelectorAll('.order-checkbox:checked');
-                const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+        const bulkPrepareBtn = document.getElementById('bulkPrepareBtn');
 
-                // Double check if any selected orders are missing Proof of Payment
-                let missingProofCount = 0;
-                selectedCheckboxes.forEach(cb => {
-                    if (cb.getAttribute('data-proof') !== 'yes') {
-                        missingProofCount++;
-                    }
-                });
+        function executeBulkProcess(actionType, buttonEl, btnOriginalHtml) {
+            const selectedCheckboxes = document.querySelectorAll('.order-checkbox:checked');
+            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
 
-                if (missingProofCount > 0) {
-                    if (!confirm(`Warning: ${missingProofCount} of the selected orders do NOT have a Proof of Payment attached. They will be skipped. Do you still want to proceed with the others?`)) {
-                        return;
-                    }
-                } else if (!confirm(`Are you sure you want to finalize and submit the ${selectedIds.length} selected Sales Invoice(s)?`)) {
+            if (selectedIds.length === 0) {
+                alert('Please select at least one sales order.');
+                return;
+            }
+
+            // Double check if any selected orders are missing Proof of Payment
+            let missingProofCount = 0;
+            selectedCheckboxes.forEach(cb => {
+                if (cb.getAttribute('data-proof') !== 'yes') {
+                    missingProofCount++;
+                }
+            });
+
+            const actionLabel = actionType === 'prepare' ? 'prepare & submit' : 'sign & approve';
+
+            if (missingProofCount > 0) {
+                if (!confirm(`Warning: ${missingProofCount} of the selected orders do NOT have a Proof of Payment attached. They will be skipped. Do you still want to proceed to ${actionLabel} the remaining ${selectedIds.length - missingProofCount} order(s)?`)) {
                     return;
                 }
+            } else if (!confirm(`Are you sure you want to ${actionLabel} the ${selectedIds.length} selected Sales Order(s)?`)) {
+                return;
+            }
 
-                bulkFinalizeBtn.disabled = true;
-                bulkFinalizeBtn.innerHTML = '<i class="las la-spinner la-spin me-1"></i> Processing...';
+            if (buttonEl) {
+                buttonEl.disabled = true;
+                buttonEl.innerHTML = '<i class="las la-spinner la-spin me-1"></i> Processing...';
+            }
 
-                fetch('{{ route("admin-finance.accounting.sales-invoice.bulk-finalize") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ ids: selectedIds })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + data.message);
-                        bulkFinalizeBtn.disabled = false;
-                        bulkFinalizeBtn.innerHTML = '<i class="las la-check-double me-1"></i> Bulk Finalize & Submit';
+            fetch('{{ route("admin-finance.accounting.sales-invoice.bulk-finalize") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ ids: selectedIds, action: actionType })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                    if (buttonEl) {
+                        buttonEl.disabled = false;
+                        buttonEl.innerHTML = btnOriginalHtml;
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred during bulk finalization.');
-                    bulkFinalizeBtn.disabled = false;
-                    bulkFinalizeBtn.innerHTML = '<i class="las la-check-double me-1"></i> Bulk Finalize & Submit';
-                });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during bulk processing.');
+                if (buttonEl) {
+                    buttonEl.disabled = false;
+                    buttonEl.innerHTML = btnOriginalHtml;
+                }
+            });
+        }
+
+        if (bulkPrepareBtn) {
+            bulkPrepareBtn.addEventListener('click', function() {
+                executeBulkProcess('prepare', bulkPrepareBtn, '<i class="las la-file-invoice me-1"></i> Bulk Prepare & Submit SI');
+            });
+        }
+
+        if (bulkFinalizeBtn) {
+            bulkFinalizeBtn.addEventListener('click', function() {
+                executeBulkProcess('sign', bulkFinalizeBtn, '<i class="las la-check-double me-1"></i> Bulk Sign & Approve');
             });
         }
     });

@@ -1389,6 +1389,21 @@ class MarketingController extends Controller
         $order = null;
         if ($id) {
             $order = \App\Models\SalesOrder::with('customer', 'items.book', 'preparedBy', 'areaSalesStaff')->findOrFail($id);
+
+            // Recalculate total_amount to ensure database is in sync with line items and charges
+            $itemsSubtotal = $order->items->sum(function($item) {
+                return ($item->subtotal > 0) ? (float)$item->subtotal : ((float)$item->quantity * (float)$item->price);
+            });
+            $discountAmount = (float) ($order->discount_amount ?? 0);
+            $freightCharges = (float) ($order->freight_charges ?? 0);
+            $serviceFee = $order->freight_option === 'freight_collect' ? 50.00 : 0;
+
+            $calculatedTotal = max(0, $itemsSubtotal - $discountAmount + $freightCharges + $serviceFee);
+
+            if (abs((float)$order->total_amount - $calculatedTotal) > 0.01) {
+                $order->update(['total_amount' => $calculatedTotal]);
+                $order->total_amount = $calculatedTotal;
+            }
         }
 
         return view('marketing.sales-orders.detail', [
@@ -2007,14 +2022,36 @@ class MarketingController extends Controller
             'shipping_label' => 'nullable|file|max:10240',
         ]);
 
-        // STOCK VALIDATION: Check if all items have sufficient stock
+        // Determine platform site (Lazada, Shoppee, Tiktok)
+        $platformStr = strtolower($request->ecom_platform);
+        $targetSite = null;
+        if ($platformStr === 'lazada') {
+            $targetSite = \App\Models\Site::whereRaw('LOWER(name) = ?', ['lazada'])->first();
+        } elseif ($platformStr === 'shopee' || $platformStr === 'shoppee') {
+            $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%shop%'])->first();
+        } elseif ($platformStr === 'tiktok') {
+            $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%tik%'])->first();
+        }
+        if (!$targetSite) {
+            $targetSite = \App\Models\Site::where('name', 'Main Warehouse')->first();
+        }
+
+        // STOCK VALIDATION: Check if items have sufficient stock at the chosen platform site
         $insufficientItems = [];
         foreach ($request->items as $item) {
-            $book = Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
-            if (!$book || $book->stock < $item['quantity']) {
+            $book = Book::find($item['product_id']);
+            $siteInv = $targetSite ? \App\Models\SiteInventory::where('site_id', $targetSite->id)->where('book_id', $item['product_id'])->first() : null;
+            $siteStock = $siteInv ? $siteInv->quantity : 0;
+            
+            // Fallback check overall if site record does not exist
+            if ($siteInv === null && $book) {
+                $siteStock = \App\Models\SiteInventory::where('book_id', $book->id)->sum('quantity') ?? $book->stock;
+            }
+
+            if (!$book || $siteStock < $item['quantity']) {
                 $bookName = $book ? $book->name : "Product #{$item['product_id']}";
-                $availableStock = $book ? $book->stock : 0;
-                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+                $siteNameLabel = $targetSite ? $targetSite->name : 'Site';
+                $insufficientItems[] = "$bookName (Available at $siteNameLabel: $siteStock pcs, Requested: {$item['quantity']} pcs)";
             }
         }
 
@@ -2054,7 +2091,7 @@ class MarketingController extends Controller
             // 'shipping_label_attachment' => $shippingLabelPath,
         ]);
 
-        // Create items
+        // Create items and deduct stock from platform site
         $totalAmount = 0;
         foreach ($request->items as $item) {
             $subtotal = $item['quantity'] * $item['price'];
@@ -2071,6 +2108,37 @@ class MarketingController extends Controller
                 'source_price_at_sale' => $book ? $book->source_price : 0,
             ]);
 
+            // Deduct from specific platform site inventory (Lazada, Shoppee, Tiktok)
+            if ($targetSite && $book) {
+                $siteInv = \App\Models\SiteInventory::firstOrNew([
+                    'site_id' => $targetSite->id,
+                    'book_id' => $book->id
+                ]);
+                $siteInv->quantity = max(0, ($siteInv->quantity ?? 0) - $item['quantity']);
+                $siteInv->save();
+            }
+
+            // Deduct master book stock
+            if ($book) {
+                $book->stock = max(0, ($book->stock ?? 0) - $item['quantity']);
+                $book->save();
+
+                // Record inventory transaction
+                \App\Models\InventoryTransaction::create([
+                    'book_id' => $book->id,
+                    'type' => 'out',
+                    'quantity' => $item['quantity'],
+                    'location' => $targetSite ? $targetSite->name : 'Main Warehouse',
+                    'source' => 'Direct E-Com (' . ucfirst($request->ecom_platform) . ')',
+                    'reference_number' => $invoiceNumber,
+                    'unit_cost' => $book->cost ?? 0,
+                    'total_cost' => $item['quantity'] * ($book->cost ?? 0),
+                    'notes' => 'Direct E-Com Invoice #' . $invoiceNumber . ' - Platform: ' . ucfirst($request->ecom_platform),
+                    'status' => 'completed',
+                    'transaction_date' => now(),
+                    'user_id' => auth()->id()
+                ]);
+            }
         }
 
         $so->update(['total_amount' => $totalAmount]);

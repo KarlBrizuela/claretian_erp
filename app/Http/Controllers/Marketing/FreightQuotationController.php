@@ -340,6 +340,7 @@ class FreightQuotationController extends Controller
                 'sidebar' => 'marketing',
                 'quotation' => $quotation,
                 'customers' => Customer::all(),
+                'products' => \App\Models\Book::where('is_active', true)->orderBy('name')->get(),
             ]);
 
         } catch (\Exception $e) {

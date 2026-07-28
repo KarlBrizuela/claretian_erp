@@ -110,7 +110,7 @@ class POSController extends Controller
                 : null;
 
             $discountAmount = 0;
-            $discountPercentage = null;
+            $discountPercentage = 0;
             if (!empty($validated['discount_value']) && $validated['discount_value'] > 0) {
                 $discountValue = (float) $validated['discount_value'];
                 if ($validated['discount_type'] === 'percentage') {
@@ -134,7 +134,7 @@ class POSController extends Controller
                 'total_amount'     => $validated['total'],
                 'tax_amount'       => $validated['tax'],
                 'discount_amount'  => $discountAmount,
-                'discount_percentage' => $discountPercentage,
+                'discount_percentage' => $discountPercentage ?? 0,
                 'prepared_by'      => auth()->id(),
                 'approved_by_mkt'  => auth()->id(),
                 'approved_by_acct' => auth()->id(),
@@ -406,7 +406,7 @@ class POSController extends Controller
             $paymentStatus = ($validated['payment_method'] === 'cod') ? 'unpaid' : 'paid';
 
             $discountAmount = 0;
-            $discountPercentage = null;
+            $discountPercentage = 0;
             if (!empty($validated['discount_value']) && $validated['discount_value'] > 0) {
                 $discountValue = (float) $validated['discount_value'];
                 if ($validated['discount_type'] === 'percentage') {
@@ -430,7 +430,7 @@ class POSController extends Controller
                 'total_amount' => $validated['total'],
                 'tax_amount' => $validated['tax'],
                 'discount_amount' => $discountAmount,
-                'discount_percentage' => $discountPercentage,
+                'discount_percentage' => $discountPercentage ?? 0,
                 'remarks' => $validated['notes'] ?? null,
                 'prepared_by' => auth()->id(),
                 'approved_by_mkt' => auth()->id(),
@@ -439,7 +439,21 @@ class POSController extends Controller
                 'acct_approved_at' => now(),
             ]);
 
-            // Create order items
+            // Determine platform site (Lazada, Shoppee, Tiktok)
+            $platformStr = strtolower($validated['platform'] ?? '');
+            $targetSite = null;
+            if ($platformStr === 'lazada') {
+                $targetSite = \App\Models\Site::whereRaw('LOWER(name) = ?', ['lazada'])->first();
+            } elseif ($platformStr === 'shopee' || $platformStr === 'shoppee') {
+                $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%shop%'])->first();
+            } elseif ($platformStr === 'tiktok') {
+                $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%tik%'])->first();
+            }
+            if (!$targetSite) {
+                $targetSite = \App\Models\Site::where('name', 'Main Warehouse')->first();
+            }
+
+            // Create order items & deduct stock from specific platform site
             foreach ($validated['items'] as $item) {
                 $book = Book::find($item['product_id']);
                 SalesOrderItem::create([
@@ -452,25 +466,32 @@ class POSController extends Controller
                     'source_price_at_sale' => $book ? $book->source_price : 0,
                 ]);
 
-                // Decrement book stock for E-com order
-                $bookModel = Book::find($item['product_id']);
-                if ($bookModel) {
-                    $bookModel->stock -= $item['quantity'];
-                    $bookModel->save();
+                // Decrement specific platform site inventory (Lazada, Shoppee, Tiktok)
+                if ($targetSite && $book) {
+                    $siteInv = \App\Models\SiteInventory::firstOrNew([
+                        'site_id' => $targetSite->id,
+                        'book_id' => $book->id
+                    ]);
+                    $siteInv->quantity = max(0, ($siteInv->quantity ?? 0) - $item['quantity']);
+                    $siteInv->save();
                 }
 
-                // Record inventory transaction
+                // Decrement master book stock
                 if ($book) {
+                    $book->stock = max(0, ($book->stock ?? 0) - $item['quantity']);
+                    $book->save();
+
+                    // Record inventory transaction for platform site
                     \App\Models\InventoryTransaction::create([
                         'book_id' => $book->id,
                         'type' => 'out',
                         'quantity' => $item['quantity'],
-                        'location' => 'Main Warehouse',
+                        'location' => $targetSite ? $targetSite->name : 'Main Warehouse',
                         'source' => 'E-com Direct',
                         'reference_number' => $orderNumber,
                         'unit_cost' => $book->cost ?? 0,
                         'total_cost' => $item['quantity'] * ($book->cost ?? 0),
-                        'notes' => 'E-com Order #' . $orderNumber . ' - Platform: ' . $validated['platform'],
+                        'notes' => 'E-com Order #' . $orderNumber . ' - Platform: ' . ucfirst($validated['platform']),
                         'status' => 'completed',
                         'transaction_date' => now(),
                         'user_id' => auth()->id()

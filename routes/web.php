@@ -408,6 +408,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/sales-order/{id}/review', [App\Http\Controllers\AdminFinanceController::class, 'reviewSalesOrder'])->name('admin-finance.sales-order.detail');
     Route::post('/sales-order/{id}/approve', [App\Http\Controllers\AdminFinanceController::class, 'approveSalesOrder'])->name('admin-finance.sales-order.approve');
     Route::post('/sales-order/{id}/reject', [App\Http\Controllers\AdminFinanceController::class, 'rejectSalesOrder'])->name('admin-finance.sales-order.reject');
+    Route::post('/sales-order/{id}/upload-attachment', [App\Http\Controllers\AdminFinanceController::class, 'uploadSalesOrderAttachment'])->name('admin-finance.sales-order.upload-attachment');
 
     // Accounting
     Route::prefix('accounting')->group(function () {

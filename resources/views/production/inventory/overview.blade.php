@@ -1662,12 +1662,11 @@
                     document.getElementById('mgmtAddNewStock').textContent = newStock;
 
                     if (maxStock && newStock > maxStock) {
-                        warning.innerHTML = `<span class="text-danger"><i class="las la-exclamation-circle"></i> Warning: New stock (${newStock}) exceeds max stock (${maxStock})</span>`;
-                        if (saveBtn) saveBtn.disabled = true;
+                        warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
                     } else {
                         warning.innerHTML = '';
-                        if (saveBtn) saveBtn.disabled = false;
                     }
+                    if (saveBtn) saveBtn.disabled = false;
                 } else {
                     preview.style.display = 'none';
                     warning.innerHTML = '';
@@ -1686,12 +1685,11 @@
                     document.getElementById('mgmtEditNewStock').textContent = newStock;
 
                     if (maxStock && newStock > maxStock) {
-                        warning.innerHTML = `<span class="text-danger"><i class="las la-exclamation-circle"></i> Warning: New stock (${newStock}) exceeds max stock (${maxStock})</span>`;
-                        if (saveBtn) saveBtn.disabled = true;
+                        warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
                     } else {
                         warning.innerHTML = '';
-                        if (saveBtn) saveBtn.disabled = false;
                     }
+                    if (saveBtn) saveBtn.disabled = false;
                 } else {
                     preview.style.display = 'none';
                     warning.innerHTML = '';
@@ -1745,10 +1743,8 @@
                 }
 
                 const newStock = currentStock + quantity;
-                if (maxStock && newStock > maxStock) {
-                    showNotification(`Cannot add stock. New total (${newStock}) would exceed max stock (${maxStock})`, 'error');
-                    return;
-                }
+
+
 
                 if (!currentBookId) {
                     showNotification('No item selected', 'error');
@@ -1828,10 +1824,7 @@
                     return;
                 }
 
-                if (maxStock && newStock > maxStock) {
-                    showNotification(`Cannot set stock. New value (${newStock}) exceeds max stock (${maxStock})`, 'error');
-                    return;
-                }
+
 
                 if (!currentBookId) {
                     showNotification('No item selected', 'error');
