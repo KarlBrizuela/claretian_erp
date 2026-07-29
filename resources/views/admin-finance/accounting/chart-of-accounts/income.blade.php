@@ -5,7 +5,7 @@
                 <i class="las la-funnel-dollar fs-24"></i>
             </div>
             <div>
-                <h5 class="mb-0 fw-bold text-dark fs-18">4. Income</h5>
+                <h5 class="mb-0 fw-bold text-dark fs-18">Income</h5>
                 <p class="text-muted small mb-0">Revenues earned from core operational activities, grouped by department</p>
             </div>
         </div>

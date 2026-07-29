@@ -1245,7 +1245,7 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
 
-    if (!$order->proof_of_payment) {
+    if ($order->type !== 'ecom_direct' && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
     }
 
@@ -1261,7 +1261,7 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
-    if (!$order->proof_of_payment) {
+    if ($order->type !== 'ecom_direct' && !$order->proof_of_payment) {
       return redirect()->route('admin-finance.accounting.sales-invoice')->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
     }
 
@@ -1503,11 +1503,27 @@ public function checkVoucher()
 
   public function printSalesInvoice($id)
   {
-    $order = \App\Models\SalesOrder::with('customer', 'items.product', 'siPreparedBy', 'signedBy')->findOrFail($id);
+    $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bundle', 'items.product', 'preparedBy', 'mktApprovedBy', 'prodApprovedBy', 'siPreparedBy', 'signedBy'])->findOrFail($id);
 
-    return view('admin-finance.accounting.print-si', [
-      'title' => 'Print Sales Invoice',
+    return view('marketing.sales-orders.print-invoice', [
       'order' => $order
+    ]);
+  }
+
+  public function bulkPrintSalesInvoice(\Illuminate\Http\Request $request)
+  {
+    $ids = $request->query('ids');
+    if (!$ids) {
+      return redirect()->back()->with('error', 'No orders selected for printing.');
+    }
+
+    $idsArray = explode(',', $ids);
+    $orders = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bundle', 'items.product', 'preparedBy', 'mktApprovedBy', 'prodApprovedBy', 'siPreparedBy', 'signedBy'])
+      ->whereIn('id', $idsArray)
+      ->get();
+
+    return view('admin-finance.accounting.bulk-print-si', [
+      'orders' => $orders
     ]);
   }
 
@@ -1875,7 +1891,7 @@ public function checkVoucher()
           ]);
 
           $newTotalAmount = 0;
-          // 4. Create the new Sales Order Items
+          // 4. Create the new Sales Order Items and return items to stock
           foreach ($returnedBooks as $bookData) {
               $subtotal = $bookData['quantity'] * $bookData['price'];
               $newTotalAmount += $subtotal;
@@ -1890,6 +1906,29 @@ public function checkVoucher()
                   'area' => $bookData['area'],
                   'source_price_at_sale' => $bookData['source_price_at_sale'],
               ]);
+
+              // Increment book stock for returned/reconsigned items
+              $book = \App\Models\Book::find($bookData['book_id']);
+              if ($book) {
+                  $book->stock += $bookData['quantity'];
+                  $book->save();
+                  
+                  // Record Inventory Transaction
+                  \App\Models\InventoryTransaction::create([
+                      'book_id' => $book->id,
+                      'type' => 'in',
+                      'quantity' => $bookData['quantity'],
+                      'location' => 'Main Warehouse',
+                      'source' => 'Consignment Return',
+                      'reference_number' => $order->so_number,
+                      'unit_cost' => $book->cost ?? 0,
+                      'total_cost' => $bookData['quantity'] * ($book->cost ?? 0),
+                      'notes' => 'Returned from Area Consignment Sales Order #' . $order->so_number . ' via Reconsignment Approval',
+                      'status' => 'completed',
+                      'transaction_date' => now(),
+                      'user_id' => auth()->id()
+                  ]);
+              }
           }
 
           // Update new Sales Order total amount
@@ -2938,11 +2977,40 @@ public function checkVoucher()
             $tab = 'assets';
         }
 
+        // --- Fetch unposted sales orders that have proof of payment or are ecom_direct ---
+        $postedOrderNumbers = \App\Models\JournalEntry::pluck('reference')->filter()->toArray();
+
+        $unpostedOrders = \App\Models\SalesOrder::whereNotIn('so_number', $postedOrderNumbers)
+            ->where(function($q) {
+                $q->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', '')
+                  ->orWhere('type', 'ecom_direct');
+            })
+            ->get();
+
+        $unpostedLazada = $unpostedOrders->where('ecom_platform', 'lazada')->sum('total_amount');
+        $unpostedShopee = $unpostedOrders->where('ecom_platform', 'shopee')->sum('total_amount');
+        $unpostedTiktok = $unpostedOrders->where('ecom_platform', 'tiktok')->sum('total_amount');
+        $unpostedFacebook = $unpostedOrders->where('ecom_platform', 'facebook')->sum('total_amount');
+        $unpostedCob = $unpostedOrders->where('type', 'website_direct')->sum('total_amount');
+        $unpostedExport = $unpostedOrders->where('transaction_subtype', 'foreign')->sum('total_amount');
+        
+        $unpostedDirect = $unpostedOrders->filter(function($o) {
+            return in_array($o->type, ['paid', 'calculator_pos']) 
+                && !in_array($o->ecom_platform, ['lazada', 'shopee', 'tiktok', 'facebook'])
+                && $o->transaction_subtype !== 'foreign';
+        })->sum('total_amount');
+        
+        $unpostedArea = $unpostedOrders->filter(function($o) {
+            return in_array($o->type, ['area_consignment', 'area_sales_consignment']);
+        })->sum('total_amount');
+        
+        $unpostedBookSales = $unpostedOrders->sum('total_amount');
+
         $trackedIds = [];
 
         $balances = [
             // Assets
-            'cash_on_hand' => $this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds) ?: \App\Models\SalesInvoice::sum('total_amount'),
+            'cash_on_hand' => $this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds) ?: (\App\Models\SalesInvoice::sum('total_amount') + $unpostedBookSales),
             'petty_cash' => $this->getAccountBalanceAndTrack('%Petty Cash%', 'Asset', $trackedIds) ?: \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
             'bank_accounts' => $this->getAccountBalanceAndTrack('%Bank%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash in Bank%', 'Asset', $trackedIds),
             'receivables' => $this->getAccountBalanceAndTrack('%Receivable%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Trade/Accounts Receivable%', 'Asset', $trackedIds) ?: \App\Models\StatementOfAccount::sum('total_amount'),
@@ -2965,10 +3033,10 @@ public function checkVoucher()
             // Equity
             'capital' => $this->getAccountBalanceAndTrack('%Capital%', 'Equity', $trackedIds),
             'retained_earnings' => $this->getAccountBalanceAndTrack('%Retained Earnings%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%RE%', 'Equity', $trackedIds),
-            'current_year_income' => $this->getAccountBalanceAndTrack('%Current Year%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%Net Income%', 'Equity', $trackedIds) ?: \App\Models\SalesInvoice::sum('total_amount'),
+            'current_year_income' => $this->getAccountBalanceAndTrack('%Current Year%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%Net Income%', 'Equity', $trackedIds) + $unpostedBookSales ?: (\App\Models\SalesInvoice::sum('total_amount') + $unpostedBookSales),
 
             // Income (Publishing)
-            'pub_book_sales' => $this->getAccountBalanceAndTrack('%Book Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Sales - Books%', 'Income', $trackedIds) ?: \App\Models\SalesInvoice::sum('total_amount'),
+            'pub_book_sales' => $this->getAccountBalanceAndTrack('%Book Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Sales - Books%', 'Income', $trackedIds) + $unpostedBookSales,
             'pub_royalties' => $this->getAccountBalanceAndTrack('%Royalties%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Royalty%', 'Income', $trackedIds),
             'pub_rights_income' => $this->getAccountBalanceAndTrack('%Rights Income%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Rights%', 'Income', $trackedIds),
             'pub_licensing' => $this->getAccountBalanceAndTrack('%Licensing%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%License%', 'Income', $trackedIds),
@@ -2982,15 +3050,15 @@ public function checkVoucher()
             'print_lamination' => $this->getAccountBalanceAndTrack('%Lamination%', 'Income', $trackedIds),
 
             // Income (Marketing)
-            'mkt_direct_sales' => $this->getAccountBalanceAndTrack('%Direct Sales%', 'Income', $trackedIds),
-            'mkt_area_sales' => $this->getAccountBalanceAndTrack('%Area Sales%', 'Income', $trackedIds),
-            'mkt_cob_sales' => $this->getAccountBalanceAndTrack('%COB%', 'Income', $trackedIds),
-            'mkt_lazada' => $this->getAccountBalanceAndTrack('%Lazada%', 'Income', $trackedIds),
-            'mkt_shopee' => $this->getAccountBalanceAndTrack('%Shopee%', 'Income', $trackedIds),
-            'mkt_tiktok' => $this->getAccountBalanceAndTrack('%Tiktok%', 'Income', $trackedIds),
-            'mkt_facebook' => $this->getAccountBalanceAndTrack('%Facebook%', 'Income', $trackedIds),
+            'mkt_direct_sales' => $this->getAccountBalanceAndTrack('%Direct Sales%', 'Income', $trackedIds) + $unpostedDirect,
+            'mkt_area_sales' => $this->getAccountBalanceAndTrack('%Area Sales%', 'Income', $trackedIds) + $unpostedArea,
+            'mkt_cob_sales' => $this->getAccountBalanceAndTrack('%COB%', 'Income', $trackedIds) + $unpostedCob,
+            'mkt_lazada' => $this->getAccountBalanceAndTrack('%Lazada%', 'Income', $trackedIds) + $unpostedLazada,
+            'mkt_shopee' => $this->getAccountBalanceAndTrack('%Shopee%', 'Income', $trackedIds) + $unpostedShopee,
+            'mkt_tiktok' => $this->getAccountBalanceAndTrack('%Tiktok%', 'Income', $trackedIds) + $unpostedTiktok,
+            'mkt_facebook' => $this->getAccountBalanceAndTrack('%Facebook%', 'Income', $trackedIds) + $unpostedFacebook,
             'mkt_wholesale' => $this->getAccountBalanceAndTrack('%Wholesale%', 'Income', $trackedIds),
-            'mkt_export' => $this->getAccountBalanceAndTrack('%Export%', 'Income', $trackedIds),
+            'mkt_export' => $this->getAccountBalanceAndTrack('%Export%', 'Income', $trackedIds) + $unpostedExport,
             'mkt_claret_media' => $this->getAccountBalanceAndTrack('%Claret Media%', 'Income', $trackedIds),
 
             // Income (Other)

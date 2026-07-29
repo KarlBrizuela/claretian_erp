@@ -127,6 +127,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/approve-dr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'approveDR'])->name('approve-dr');
       Route::post('/link-consignment-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'linkConsignmentToSI'])->name('link-consignment-to-si');
       Route::post('/request-reconsignment/{id}', [App\Http\Controllers\Production\LogisticController::class, 'requestReconsignment'])->name('request-reconsignment');
+      Route::post('/return-consignment/{id}', [App\Http\Controllers\Production\LogisticController::class, 'returnConsignment'])->name('return-consignment');
 
       // Purchase Orders
       Route::get('/purchase-order-list', [App\Http\Controllers\Production\LogisticController::class, 'purchaseOrderList'])->name('purchase-order-list');
@@ -418,6 +419,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/sales-invoice/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeSalesInvoice'])->name('admin-finance.accounting.sales-invoice.store');
       Route::post('/sales-invoice/{id}/sign', [App\Http\Controllers\AdminFinanceController::class, 'signSalesInvoice'])->name('admin-finance.accounting.sales-invoice.sign');
       Route::post('/sales-invoice/bulk-finalize', [App\Http\Controllers\AdminFinanceController::class, 'bulkFinalizeInvoices'])->name('admin-finance.accounting.sales-invoice.bulk-finalize');
+      Route::get('/sales-invoice/bulk-print', [App\Http\Controllers\AdminFinanceController::class, 'bulkPrintSalesInvoice'])->name('admin-finance.accounting.sales-invoice.bulk-print');
       Route::get('/sales-invoice/{id}/print', [App\Http\Controllers\AdminFinanceController::class, 'printSalesInvoice'])->name('admin-finance.accounting.sales-invoice.print');
       Route::get('/acknowledgement-receipt/{id}/prepare', [App\Http\Controllers\AdminFinanceController::class, 'prepareAR'])->name('admin-finance.accounting.ar.prepare');
       Route::post('/acknowledgement-receipt/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeAR'])->name('admin-finance.accounting.ar.store');

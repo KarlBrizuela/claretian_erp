@@ -58,7 +58,17 @@ class JournalEntryController extends Controller
         }
         $entryNo = "{$prefix}-{$newSeq}";
 
-        return view('accounting.journal.create', compact('accounts', 'entryNo'));
+        // Fetch Customers and Suppliers names for GJE
+        $customers = \App\Models\Customer::select('customer_name as name')->whereNotNull('customer_name')->get();
+        $suppliers = \App\Models\Supplier::select('company_name as name')->whereNotNull('company_name')->get();
+        $names = $customers->concat($suppliers)
+            ->pluck('name')
+            ->unique()
+            ->sort()
+            ->values()
+            ->toArray();
+
+        return view('accounting.journal.create', compact('accounts', 'entryNo', 'names'));
     }
 
     public function store(Request $request)

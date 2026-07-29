@@ -5,7 +5,7 @@
                 <i class="las la-award fs-24"></i>
             </div>
             <div>
-                <h5 class="mb-0 fw-bold text-dark fs-18">3. Equity</h5>
+                <h5 class="mb-0 fw-bold text-dark fs-18">Equity</h5>
                 <p class="text-muted small mb-0">Owner's residual interest in the assets of the organization after deducting liabilities</p>
             </div>
         </div>

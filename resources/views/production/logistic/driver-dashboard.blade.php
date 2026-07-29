@@ -72,12 +72,22 @@
             </div>
         </div>
 
+        @php
+            $dateLabel = 'Today';
+            if (request('start_date') && request('end_date')) {
+                $dateLabel = \Carbon\Carbon::parse(request('start_date'))->format('M d, Y') . ' - ' . \Carbon\Carbon::parse(request('end_date'))->format('M d, Y');
+            } elseif (request('start_date')) {
+                $dateLabel = 'From ' . \Carbon\Carbon::parse(request('start_date'))->format('M d, Y');
+            } elseif (request('end_date')) {
+                $dateLabel = 'Until ' . \Carbon\Carbon::parse(request('end_date'))->format('M d, Y');
+            }
+        @endphp
         <!-- Stats Overview -->
         <div class="row mb-4">
             <div class="col-md-4 mb-3">
                 <div class="stat-card total">
                     <h3>{{ $assignedDeliveries->count() }}</h3>
-                    <p>Total Assigned Today</p>
+                    <p>Total Assigned {{ $dateLabel }}</p>
                 </div>
             </div>
             <div class="col-md-4 mb-3">
@@ -94,12 +104,15 @@
             </div>
         </div>
 
-        <!-- Assigned Deliveries -->
-        <div class="row">
+        <!-- Today's Deliveries -->
+        <div class="row mb-4">
             <div class="col-xl-12">
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white border-0 pt-4 px-4">
-                        <h4 class="fs-18 mb-0 font-w600">My Assigned Deliveries</h4>
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <h4 class="fs-18 mb-0 font-w600">Today's Deliveries</h4>
+                            <span class="badge bg-primary">{{ $todayDeliveries->count() }} Active</span>
+                        </div>
                     </div>
                     <div class="card-body px-4 pb-4">
                         <div class="table-responsive">
@@ -115,7 +128,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($assignedDeliveries as $order)
+                                    @forelse($todayDeliveries as $order)
                                     <tr>
                                         <td class="align-middle">
                                             <span class="text-black font-w600">{{ $order->so_number }}</span>
@@ -163,14 +176,9 @@
                                                 @php
                                                     $canMarkComplete = true;
                                                     $completeReason = 'Mark Complete';
-                                                    
-                                                    // PAID orders can always mark complete
-                                                    // COD orders need verified collection
                                                     if ($order->type === 'paid') {
-                                                        // PAID order - allow
                                                         $canMarkComplete = true;
                                                     } elseif ($order->transaction_type === 'COD') {
-                                                        // COD order - check collection
                                                         $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
                                                         if (!$collection) {
                                                             $canMarkComplete = false;
@@ -180,7 +188,6 @@
                                                             $completeReason = 'Collection not verified by accounting';
                                                         }
                                                     } else {
-                                                        // Other types - allow
                                                         $canMarkComplete = true;
                                                     }
                                                 @endphp
@@ -195,15 +202,14 @@
                                                 </form>
                                                 @endif
                                             </div>
-
                                         </td>
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="5" class="text-center py-5">
+                                        <td colspan="6" class="text-center py-5">
                                             <div class="text-muted">
                                                 <i class="las la-box-open fs-50 mb-3 d-block opacity-25"></i>
-                                                No assigned deliveries found for today.
+                                                No deliveries scheduled for today.
                                             </div>
                                         </td>
                                     </tr>
@@ -214,6 +220,133 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- All Deliveries -->
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 w-100">
+                            <h4 class="fs-18 mb-0 font-w600">All Assigned Deliveries</h4>
+                            <form action="{{ route('production.logistic.driver-dashboard') }}" method="GET" class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="text-muted small text-nowrap">Filter Delivery Date:</span>
+                                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ request('start_date') }}" onchange="this.form.submit()" style="width: auto;">
+                                <span class="text-muted small">to</span>
+                                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ request('end_date') }}" onchange="this.form.submit()" style="width: auto;">
+                                @if(request('start_date') || request('end_date'))
+                                    <a href="{{ route('production.logistic.driver-dashboard') }}" class="btn btn-sm btn-outline-danger py-1 px-3">Clear</a>
+                                @endif
+                            </form>
+                        </div>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <div class="table-responsive">
+                            <table class="table order-table display mb-0" style="width: 100%">
+                                <thead>
+                                    <tr>
+                                        <th>Ref #</th>
+                                        <th>Customer</th>
+                                        <th>Delivery Address</th>
+                                        <th>Delivery Date</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($allDeliveries as $order)
+                                    <tr>
+                                        <td class="align-middle">
+                                            <span class="text-black font-w600">{{ $order->so_number }}</span>
+                                            <div class="text-muted small">{{ $order->created_at->format('M d, Y') }}</div>
+                                        </td>
+                                        <td class="align-middle">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-2 p-2 bg-light rounded-circle">
+                                                    <i class="las la-user text-primary"></i>
+                                                </div>
+                                                <span class="text-black">{{ $order->customer->customer_name ?? 'N/A' }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="align-middle" style="max-width: 250px;">
+                                            <div class="text-truncate" title="{{ $order->shipping_address ?? $order->billing_address ?? 'N/A' }}">
+                                                <i class="las la-map-marker me-1 text-muted"></i>
+                                                {{ $order->shipping_address ?? $order->billing_address ?? 'N/A' }}
+                                            </div>
+                                        </td>
+                                        <td class="align-middle">
+                                            @if($order->delivery_date)
+                                                <span class="badge bg-info">{{ \Carbon\Carbon::parse($order->delivery_date)->format('M d, Y') }}</span>
+                                            @else
+                                                <span class="text-muted small">Not set</span>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle">
+                                            <span class="status-badge status-{{ $order->status }}">
+                                                {{ ucwords(str_replace('_', ' ', $order->status)) }}
+                                            </span>
+                                        </td>
+                                        <td class="align-middle text-end">
+                                            <div class="d-flex justify-content-end gap-2">
+                                                @if($order->transaction_type === 'COD' && $order->riderCollection)
+                                                    <a href="{{ route('rider.collections.show', $order->riderCollection->id) }}" class="btn btn-primary shadow btn-xs sharp" title="Record Collection">
+                                                        <i class="fas fa-file-alt"></i>
+                                                    </a>
+                                                @else
+                                                    <a href="{{ route('production.logistic.view-delivery-form', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Form">
+                                                        <i class="fas fa-file-alt"></i>
+                                                    </a>
+                                                @endif
+                                                
+                                                @if($order->status !== 'completed')
+                                                @php
+                                                    $canMarkComplete = true;
+                                                    $completeReason = 'Mark Complete';
+                                                    if ($order->type === 'paid') {
+                                                        $canMarkComplete = true;
+                                                    } elseif ($order->transaction_type === 'COD') {
+                                                        $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
+                                                        if (!$collection) {
+                                                            $canMarkComplete = false;
+                                                            $completeReason = 'No collection created';
+                                                        } elseif ($collection->status !== 'verified') {
+                                                            $canMarkComplete = false;
+                                                            $completeReason = 'Collection not verified by accounting';
+                                                        }
+                                                    } else {
+                                                        $canMarkComplete = true;
+                                                    }
+                                                @endphp
+                                                <form action="{{ route('production.logistic.mark-as-delivered', $order->id) }}" method="POST" onsubmit="return confirm('Mark this delivery as completed?');">
+                                                    @csrf
+                                                    <button type="submit" 
+                                                            class="btn btn-{{ $canMarkComplete ? 'success' : 'secondary disabled' }} shadow btn-xs sharp" 
+                                                            {{ !$canMarkComplete ? 'disabled' : '' }}
+                                                            title="{{ $completeReason }}">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5">
+                                            <div class="text-muted">
+                                                <i class="las la-box-open fs-50 mb-3 d-block opacity-25"></i>
+                                                No assigned deliveries found.
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         </div>
     </div>
 </x-app-layout>

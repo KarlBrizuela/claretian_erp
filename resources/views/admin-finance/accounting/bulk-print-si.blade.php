@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Invoice - {{ $order->so_number }}</title>
+    <title>Bulk Print Sales Invoices</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
-    @php
-        $hideActions = request('hide_actions', false) || request('iframe', false);
-    @endphp
     <style>
         * {
             margin: 0;
@@ -18,9 +15,9 @@
         }
 
         body {
-            background-color: {{ $hideActions ? '#fff' : '#f4f6f9' }};
+            background-color: #f4f6f9;
             color: #000;
-            padding: {{ $hideActions ? '0' : '15px' }};
+            padding: 15px;
         }
 
         .invoice-box {
@@ -29,11 +26,17 @@
             min-height: auto;
             margin: 0 auto;
             padding: 0.35in 0.45in;
-            border: {{ $hideActions ? 'none' : '1px solid #ccc' }};
-            box-shadow: {{ $hideActions ? 'none' : '0 4px 15px rgba(0, 0, 0, 0.1)' }};
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            page-break-after: always;
+            margin-bottom: 20px;
+        }
+
+        .invoice-box:last-child {
+            page-break-after: avoid;
         }
 
         .header-section {
@@ -272,6 +275,7 @@
                 padding: 0;
                 width: 100%;
                 max-width: 100%;
+                margin-bottom: 0;
             }
             .actions-bar {
                 display: none !important;
@@ -285,17 +289,19 @@
 </head>
 <body>
 
-    @if(!$hideActions)
     <div class="actions-bar">
-        <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
-            <i class="las la-arrow-left me-1"></i> Back
-        </a>
+        <div class="d-flex align-items-center gap-3">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
+                <i class="las la-arrow-left me-1"></i> Back
+            </a>
+            <span class="fw-bold text-muted">{{ $orders->count() }} Invoice(s)</span>
+        </div>
         <button onclick="window.print()" class="btn btn-danger btn-sm px-4 shadow-sm" style="background:#ff0000;">
-            <i class="las la-print me-1"></i> Print Invoice
+            <i class="las la-print me-1"></i> Print All Invoices
         </button>
     </div>
-    @endif
 
+    @foreach($orders as $order)
     <div class="invoice-box">
         <div>
             <!-- Header -->
@@ -454,6 +460,7 @@
             </div>
         </div>
     </div>
+    @endforeach
 
 </body>
 </html>

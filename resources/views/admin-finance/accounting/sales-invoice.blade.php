@@ -9,27 +9,37 @@
                     <div class="card-body">
                         <!-- Filters -->
                         <div class="row mb-4 align-items-end">
-                            <div class="col-md-4 mb-2 mb-md-0">
+                            <div class="col-md mb-2 mb-md-0">
                                 <label for="siSearchInput" class="form-label fw-bold text-dark"><i class="fas fa-search me-1 text-primary"></i> Search</label>
-                                <input type="text" id="siSearchInput" class="form-control form-control-sm" placeholder="Search by SO #, Customer, Type, Status...">
+                                <input type="text" id="siSearchInput" class="form-control form-control-sm" placeholder="Search by SO #, Customer, Type, Status..." style="height: 36px;">
                             </div>
-                            <div class="col-md-3 mb-2 mb-md-0">
+                            <div class="col-md mb-2 mb-md-0" id="platformFilterContainer" style="display: none;">
+                                <label for="siPlatformSelect" class="form-label fw-bold text-dark"><i class="las la-store me-1 text-primary" style="font-size: 1.1rem;"></i> Platform</label>
+                                <select id="siPlatformSelect" class="form-select form-select-sm text-black" style="height: 36px;">
+                                    <option value="">All Platforms</option>
+                                    <option value="lazada">Lazada</option>
+                                    <option value="shopee">Shopee</option>
+                                    <option value="tiktok">TikTok</option>
+                                </select>
+                            </div>
+                            <div class="col-md mb-2 mb-md-0">
                                 <label for="siStartDate" class="form-label fw-bold text-dark"><i class="fas fa-calendar-alt me-1 text-primary"></i> Start Date</label>
-                                <input type="date" id="siStartDate" class="form-control form-control-sm">
+                                <input type="date" id="siStartDate" class="form-control form-control-sm" style="height: 36px;">
                             </div>
-                            <div class="col-md-3 mb-2 mb-md-0">
+                            <div class="col-md mb-2 mb-md-0">
                                 <label for="siEndDate" class="form-label fw-bold text-dark"><i class="fas fa-calendar-alt me-1 text-primary"></i> End Date</label>
-                                <input type="date" id="siEndDate" class="form-control form-control-sm">
+                                <input type="date" id="siEndDate" class="form-control form-control-sm" style="height: 36px;">
                             </div>
-                            <div class="col-md-2">
-                                <button id="clearFiltersBtn" class="btn btn-light btn-sm w-100" style="border: 1px solid #ddd; height: 36px;"><i class="fas fa-undo me-1"></i> Reset</button>
+                            <div class="col-md-auto">
+                                <button id="clearFiltersBtn" class="btn btn-light btn-sm" style="border: 1px solid #ddd; height: 36px; min-width: 100px;"><i class="fas fa-undo me-1"></i> Reset</button>
                             </div>
                         </div>
 
                         <!-- Bulk Actions Bar -->
                         <div id="bulkActionsBar" class="alert alert-light border d-none justify-content-between align-items-center mb-4 py-2 px-3 shadow-sm bg-white rounded" style="border-left: 4px solid #0d6efd !important;">
-                            <div>
+                            <div class="d-flex align-items-center gap-3">
                                 <span class="fw-bold text-dark"><span id="selectedCount" class="badge bg-primary fs-14">0</span> Sales Order(s) selected</span>
+                                <span id="selectedTotalAmount" class="fw-bold text-success d-none">| Total: <span id="totalAmountValue">₱0.00</span></span>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button type="button" id="bulkPrepareBtn" class="btn btn-warning btn-sm px-3 fw-bold">
@@ -37,6 +47,9 @@
                                 </button>
                                 <button type="button" id="bulkFinalizeBtn" class="btn btn-primary btn-sm px-3 fw-bold">
                                     <i class="las la-check-double me-1"></i> Bulk Sign & Approve
+                                </button>
+                                <button type="button" id="bulkPrintSIBtn" class="btn btn-info btn-sm px-3 fw-bold d-none">
+                                    <i class="las la-print me-1"></i> Print Selected SIs
                                 </button>
                             </div>
                         </div>
@@ -116,7 +129,7 @@
                                                         <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
                                                         @if($order->status === 'pending_si_prep')
-                                                            @if($order->proof_of_payment)
+                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
                                                                 <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
                                                             @else
                                                                 <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
@@ -124,7 +137,7 @@
                                                         @endif
 
                                                         @if($order->status === 'pending_si_approval')
-                                                            @if($order->proof_of_payment)
+                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
                                                                 <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
                                                                     @csrf
                                                                     <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
@@ -170,13 +183,16 @@
                                         </thead>
                                         <tbody>
                                             @forelse($ecomOrders as $order)
-                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}">
+                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-platform="{{ strtolower($order->ecom_platform) }}" data-amount="{{ $order->total_amount }}">
                                                 <td>
-                                                    @if($order->status === 'pending_si_prep' || $order->status === 'pending_si_approval')
-                                                        <input type="checkbox" class="order-checkbox ecom-check" value="{{ $order->id }}" data-proof="{{ $order->proof_of_payment ? 'yes' : 'no' }}" style="width: 16px; height: 16px; cursor: pointer;">
-                                                    @else
-                                                        <input type="checkbox" disabled style="width: 16px; height: 16px; opacity: 0.4;">
-                                                    @endif
+                                                    <input type="checkbox"
+                                                        class="order-checkbox ecom-check ecom-print-check"
+                                                        value="{{ $order->id }}"
+                                                        data-proof="{{ $order->proof_of_payment ? 'yes' : 'no' }}"
+                                                        data-order-id="{{ $order->id }}"
+                                                        data-amount="{{ $order->total_amount }}"
+                                                        style="width: 16px; height: 16px; cursor: pointer;"
+                                                    >
                                                 </td>
                                                 <td><strong>#{{ $order->so_number }}</strong></td>
                                                 <td class="text-capitalize">
@@ -220,7 +236,7 @@
                                                         <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
                                                         @if($order->status === 'pending_si_prep')
-                                                            @if($order->proof_of_payment)
+                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
                                                                 <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
                                                             @else
                                                                 <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
@@ -228,7 +244,7 @@
                                                         @endif
 
                                                         @if($order->status === 'pending_si_approval')
-                                                            @if($order->proof_of_payment)
+                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
                                                                 <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
                                                                     @csrf
                                                                     <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
@@ -239,7 +255,9 @@
                                                         @endif
                                                         
                                                         @if($order->status === 'ready_for_delivery')
-                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-info btn-sm" target="_blank">Print SI</a>
+                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-info btn-sm" target="_blank"><i class="fas fa-print me-1"></i>Print SI</a>
+                                                        @else
+                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Print SI (Draft)"><i class="fas fa-print me-1"></i>Print SI</a>
                                                         @endif
                                                     </div>
                                                 </td>
@@ -250,6 +268,13 @@
                                             </tr>
                                             @endforelse
                                         </tbody>
+                                        <tfoot>
+                                            <tr id="ecomTotalRow" style="background: #f8f9fa; border-top: 2px solid #dee2e6;">
+                                                <td colspan="4" class="text-end fw-bold" style="font-size: 14px;">Total Amount:</td>
+                                                <td class="fw-bold text-success" style="font-size: 14px;" id="ecomTotalAmount">₱0.00</td>
+                                                <td colspan="4"></td>
+                                            </tr>
+                                        </tfoot>
                                     </table>
                                 </div>
                             </div>
@@ -347,16 +372,19 @@
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         const searchInput = document.getElementById('siSearchInput');
+        const platformSelect = document.getElementById('siPlatformSelect');
         const startDateInput = document.getElementById('siStartDate');
         const endDateInput = document.getElementById('siEndDate');
         const clearBtn = document.getElementById('clearFiltersBtn');
 
         function filterRows() {
             const query = searchInput.value.toLowerCase().trim();
+            const platform = platformSelect.value;
 
             document.querySelectorAll('.si-row').forEach(row => {
                 let matchesSearch = true;
                 let matchesDate = true;
+                let matchesPlatform = true;
 
                 // Search query match
                 if (query) {
@@ -375,7 +403,15 @@
                     }
                 }
 
-                if (matchesSearch && matchesDate) {
+                // Platform match
+                if (platform) {
+                    const rowPlatform = row.getAttribute('data-platform');
+                    if (rowPlatform && rowPlatform !== platform) {
+                        matchesPlatform = false;
+                    }
+                }
+
+                if (matchesSearch && matchesDate && matchesPlatform) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
@@ -403,18 +439,59 @@
                     noResultRow.remove();
                 }
             });
+
+            // Recalculate visible e-com total
+            updateEcomTotal();
         }
 
+        function updateEcomTotal() {
+            const ecomTotalEl = document.getElementById('ecomTotalAmount');
+            if (!ecomTotalEl) return;
+            const ecomPane = document.getElementById('ecom-pane');
+            if (!ecomPane) return;
+            const visibleRows = ecomPane.querySelectorAll('.si-row');
+            let total = 0;
+            visibleRows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const amt = parseFloat(row.getAttribute('data-amount'));
+                    if (!isNaN(amt)) total += amt;
+                }
+            });
+            ecomTotalEl.textContent = '₱' + total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Calculate on page load
+        updateEcomTotal();
+
         searchInput.addEventListener('input', filterRows);
+        platformSelect.addEventListener('change', filterRows);
         startDateInput.addEventListener('change', filterRows);
         endDateInput.addEventListener('change', filterRows);
 
         clearBtn.addEventListener('click', function () {
             searchInput.value = '';
+            platformSelect.value = '';
             startDateInput.value = '';
             endDateInput.value = '';
             filterRows();
         });
+
+        // Tab switch visibility for platform filter
+        const normalTab = document.getElementById('normal-tab');
+        const ecomTab = document.getElementById('ecom-tab');
+        const platformFilterContainer = document.getElementById('platformFilterContainer');
+
+        if (normalTab && ecomTab && platformFilterContainer) {
+            normalTab.addEventListener('shown.bs.tab', function () {
+                platformFilterContainer.style.display = 'none';
+                platformSelect.value = '';
+                filterRows();
+            });
+
+            ecomTab.addEventListener('shown.bs.tab', function () {
+                platformFilterContainer.style.display = 'block';
+            });
+        }
 
         // Checkbox variables & events
         const selectAllNormal = document.getElementById('selectAllNormal');
@@ -435,6 +512,35 @@
                 bulkActionsBar.classList.remove('d-flex');
                 bulkActionsBar.classList.add('d-none');
             }
+
+            // Calculate total amount of selected orders
+            const totalAmountContainer = document.getElementById('selectedTotalAmount');
+            const totalAmountValue = document.getElementById('totalAmountValue');
+            if (totalAmountContainer && totalAmountValue) {
+                let total = 0;
+                document.querySelectorAll('.order-checkbox:checked').forEach(cb => {
+                    const amt = parseFloat(cb.getAttribute('data-amount'));
+                    if (!isNaN(amt)) total += amt;
+                });
+                if (checkedCount > 0 && total >= 0) {
+                    totalAmountValue.textContent = '₱' + total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    totalAmountContainer.classList.remove('d-none');
+                } else {
+                    totalAmountContainer.classList.add('d-none');
+                }
+            }
+
+            // Show print button only when e-com tab is active and items are checked
+            const bulkPrintSIBtn = document.getElementById('bulkPrintSIBtn');
+            if (bulkPrintSIBtn) {
+                const ecomPaneActive = document.getElementById('ecom-pane') && document.getElementById('ecom-pane').classList.contains('show');
+                const ecomCheckedPrintable = document.querySelectorAll('.ecom-print-check:checked').length;
+                if (ecomPaneActive && ecomCheckedPrintable > 0) {
+                    bulkPrintSIBtn.classList.remove('d-none');
+                } else {
+                    bulkPrintSIBtn.classList.add('d-none');
+                }
+            }
         }
 
         if (selectAllNormal) {
@@ -451,7 +557,7 @@
         if (selectAllEcom) {
             selectAllEcom.addEventListener('change', function() {
                 ecomChecks.forEach(cb => {
-                    if (!cb.disabled && cb.closest('tr').style.display !== 'none') {
+                    if (cb.closest('tr').style.display !== 'none') {
                         cb.checked = selectAllEcom.checked;
                     }
                 });
@@ -462,6 +568,23 @@
         document.querySelectorAll('.order-checkbox').forEach(cb => {
             cb.addEventListener('change', updateBulkBar);
         });
+
+        // Print Selected SIs
+        const bulkPrintSIBtn = document.getElementById('bulkPrintSIBtn');
+        if (bulkPrintSIBtn) {
+            bulkPrintSIBtn.addEventListener('click', function () {
+                const selected = document.querySelectorAll('.ecom-print-check:checked');
+                if (selected.length === 0) {
+                    alert('Please select at least one e-com order to print.');
+                    return;
+                }
+                const ids = Array.from(selected).map(cb => cb.getAttribute('data-order-id')).filter(id => id);
+                if (ids.length > 0) {
+                    const url = '{{ route("admin-finance.accounting.sales-invoice.bulk-print") }}?ids=' + ids.join(',');
+                    window.open(url, '_blank');
+                }
+            });
+        }
 
         const bulkPrepareBtn = document.getElementById('bulkPrepareBtn');
 

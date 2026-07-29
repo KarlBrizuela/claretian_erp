@@ -349,15 +349,25 @@ class ProductionController extends Controller
         $today = date('Y-m-d');
         $thisMonth = date('Y-m');
 
+        // Core sales order check helper (paid / proof of payment / ecom_direct / POS / cash)
+        $salesFilter = function($q) {
+            $q->where(function($sub) {
+                $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', '')
+                   ->orWhere('type', 'ecom_direct')
+                   ->orWhere('type', 'calculator_pos')
+                   ->orWhere('payment_method', 'cash');
+            });
+        };
+
         // 1. Core Financial & Sales KPIs from real DB queries
         $todaysSales = (float) \App\Models\CashTransaction::where('category', 'Inflow')->whereDate('transaction_date', $today)->sum('amount');
         if (\Schema::hasTable('sales_orders')) {
-            $todaysSales += (float) \DB::table('sales_orders')->whereDate('created_at', $today)->sum('total_amount');
+            $todaysSales += (float) \App\Models\SalesOrder::whereDate('created_at', $today)->where($salesFilter)->sum('total_amount');
         }
 
         $thisMonthsRevenue = (float) \App\Models\CashTransaction::where('category', 'Inflow')->where('transaction_date', 'like', "{$thisMonth}%")->sum('amount');
-        if (\Schema::hasTable('sales_invoices')) {
-            $thisMonthsRevenue += (float) \DB::table('sales_invoices')->where('created_at', 'like', "{$thisMonth}%")->sum('total_amount');
+        if (\Schema::hasTable('sales_orders')) {
+            $thisMonthsRevenue += (float) \App\Models\SalesOrder::where('created_at', 'like', "{$thisMonth}%")->where($salesFilter)->sum('total_amount');
         }
 
         $totalExpenses = (float) \App\Models\CashTransaction::where('category', 'Outflow')->where('transaction_date', 'like', "{$thisMonth}%")->sum('amount');
@@ -419,14 +429,25 @@ class ProductionController extends Controller
         }
 
         $bestCustomers = [];
-        if (\Schema::hasTable('customers')) {
-            $bestCustomers = \DB::table('customers')->take(5)->get()->map(function($c) {
-                return [
-                    'name' => $c->name ?? 'Customer Account',
-                    'orders' => 1,
-                    'revenue' => 0.00,
-                ];
-            })->toArray();
+        if (\Schema::hasTable('sales_orders') && \Schema::hasTable('customers')) {
+            $bestCustomers = \App\Models\SalesOrder::select(
+                    'customer_id',
+                    \DB::raw('COUNT(*) as total_orders'),
+                    \DB::raw('SUM(total_amount) as total_revenue')
+                )
+                ->where($salesFilter)
+                ->groupBy('customer_id')
+                ->orderByDesc('total_revenue')
+                ->take(5)
+                ->with('customer')
+                ->get()
+                ->map(function($o) {
+                    return [
+                        'name' => $o->customer->customer_name ?? ($o->customer->company_name ?? 'Walk-in Customer'),
+                        'orders' => $o->total_orders,
+                        'revenue' => (float)$o->total_revenue,
+                    ];
+                })->toArray();
         }
 
         $mostOverdueCustomers = [];

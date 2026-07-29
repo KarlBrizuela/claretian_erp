@@ -19,10 +19,10 @@
                     <div class="completed-picklists-section mb-4">
                         <h5 style="font-weight: 700; color: #333; margin-bottom: 1rem;">
                             <i class="las la-check-square me-2"></i>Completed Pick Lists (Click to Recreate)
-                            <span class="badge bg-success rounded-pill ms-2">{{ $completedPickLists->count() }}</span>
+                            <span class="badge bg-success rounded-pill ms-2">{{ $completedPickLists->total() }}</span>
                         </h5>
 
-                        @if($completedPickLists->count() > 0)
+                        @if($completedPickLists->total() > 0)
                         <div class="table-responsive">
                             <table class="table table-hover align-middle" style="border: 1px solid #dee2e6;">
                                 <thead style="background: linear-gradient(135deg, #28a745, #20c997); color: #fff;">
@@ -75,6 +75,9 @@
                                     @endforeach
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="mt-3 d-flex justify-content-center">
+                            {{ $completedPickLists->appends(request()->except('page'))->links() }}
                         </div>
                         @else
                         <div class="text-center py-4" style="background: #f8f9fa; border-radius: 8px; border: 1px dashed #dee2e6;">

@@ -73,7 +73,12 @@
                                             <input type="text" name="items[{{ $i }}][memo]" class="form-control" placeholder="Memo">
                                         </td>
                                         <td>
-                                            <input type="text" name="items[{{ $i }}][name]" class="form-control" placeholder="Customer/Vendor">
+                                            <select name="items[{{ $i }}][name]" class="form-control select2-name">
+                                                <option value="">Customer/Vendor</option>
+                                                @foreach($names as $name)
+                                                <option value="{{ $name }}">{{ $name }}</option>
+                                                @endforeach
+                                            </select>
                                         </td>
                                         <td class="text-center">
                                             <a href="javascript:void(0)" class="text-danger remove-row"><i class="las la-times-circle fs-20"></i></a>
@@ -199,7 +204,7 @@
     @push('scripts')
     <script src="{{ asset('vendor/select2/js/select2.min.js') }}"></script>
     <script>
-        $(document).ready(function() {
+        jQuery(document).ready(function($) {
             // Use DOM count to be safer than PHP variable
             let rowIdx = $('.journal-row').length;
 
@@ -220,6 +225,19 @@
                             if (!$(this).hasClass("select2-hidden-accessible")) {
                                 $(this).select2({
                                     placeholder: "Select Account",
+                                    allowClear: true,
+                                    width: '100%'
+                                });
+                            }
+                        });
+                    }
+
+                    const targetName = element ? $(element).find('.select2-name') : $('.select2-name');
+                    if (targetName.length && typeof targetName.select2 === 'function') {
+                        targetName.each(function() {
+                            if (!$(this).hasClass("select2-hidden-accessible")) {
+                                $(this).select2({
+                                    placeholder: "Customer/Vendor",
                                     allowClear: true,
                                     width: '100%'
                                 });
@@ -282,7 +300,12 @@
                             <input type="text" name="items[${rowIdx}][memo]" class="form-control" placeholder="Memo">
                         </td>
                         <td>
-                            <input type="text" name="items[${rowIdx}][name]" class="form-control" placeholder="Customer/Vendor">
+                            <select name="items[${rowIdx}][name]" class="form-control select2-name">
+                                <option value="">Customer/Vendor</option>
+                                @foreach($names as $name)
+                                <option value="{{ $name }}">{{ $name }}</option>
+                                @endforeach
+                            </select>
                         </td>
                         <td class="text-center">
                             <a href="javascript:void(0)" class="text-danger remove-row"><i class="las la-times-circle fs-20"></i></a>
@@ -296,12 +319,6 @@
             });
 
             $(document).on('input', '.debit-input, .credit-input', function() {
-                const row = $(this).closest('tr');
-                if ($(this).hasClass('debit-input') && $(this).val() > 0) {
-                    row.find('.credit-input').val('');
-                } else if ($(this).hasClass('credit-input') && $(this).val() > 0) {
-                    row.find('.debit-input').val('');
-                }
                 calculateTotals();
             });
 

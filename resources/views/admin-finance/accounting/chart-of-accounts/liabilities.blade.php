@@ -5,7 +5,7 @@
                 <i class="las la-credit-card fs-24"></i>
             </div>
             <div>
-                <h5 class="mb-0 fw-bold text-dark fs-18">2. Liabilities</h5>
+                <h5 class="mb-0 fw-bold text-dark fs-18">Liabilities</h5>
                 <p class="text-muted small mb-0">Financial debts or obligations arising during business operations</p>
             </div>
         </div>

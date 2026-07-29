@@ -1,6 +1,27 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
+    <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
+        .select2-container .select2-selection--single {
+            height: 38px !important;
+            border: 1px solid #ddd !important;
+            border-radius: 6px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 36px !important;
+            padding-left: 12px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+        }
+        .select2-dropdown {
+            border: 1px solid #ddd !important;
+            border-radius: 6px !important;
+        }
+        .select2-container {
+            width: 100% !important;
+        }
+
         .invoice-form { background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
         .form-header { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #e0e0e0; }
         .form-header .company-info { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
@@ -144,13 +165,13 @@
                     <div class="customer-section">
                         <div class="customer-details">
                             <h5><i class="las la-user me-1"></i> Customer Information</h5>
-                            @php
-                                $defaultCustomer = $customers->first();
-                            @endphp
-                            <input type="hidden" name="customer_id" id="customerSelect" value="{{ $defaultCustomer ? $defaultCustomer->customer_id : '' }}">
                             <div class="form-group">
                                 <label>Address:</label>
                                 <textarea class="form-control" name="billing_address" id="billingAddress" rows="4" placeholder="Customer address...">{{ old('billing_address') }}</textarea>
+                            </div>
+                            <div class="form-group mt-3">
+                                <label>Remarks:</label>
+                                <textarea class="form-control" name="remarks" id="remarks" rows="2" placeholder="Add any remarks/notes here...">{{ old('remarks') }}</textarea>
                             </div>
                         </div>
                         <div class="transaction-details">
@@ -285,6 +306,7 @@
                                 <th>Total</th>
                                 <th>Prepared By</th>
                                 <th>Date</th>
+                                <th>Remarks</th>
                                 <th>Attachments</th>
                                 <th>Action</th>
                             </tr>
@@ -313,6 +335,7 @@
                                 <td>₱{{ number_format($inv->total_amount, 2) }}</td>
                                 <td>{{ $inv->preparedBy->name ?? 'N/A' }}</td>
                                 <td>{{ $inv->created_at->format('M d, Y') }}</td>
+                                <td style="max-width: 150px; white-space: normal; word-wrap: break-word;">{{ $inv->remarks ?? '—' }}</td>
                                 <td>
                                     @if($inv->pick_list_attachment)
                                         <a href="/storage/{{ $inv->pick_list_attachment }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Pick List">
@@ -373,183 +396,211 @@
     </select>
 
     @push('scripts')
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const addItemBtn = document.getElementById('addItemBtn');
-            const tbody = document.getElementById('invoiceTableBody');
-            const productSource = document.getElementById('productSource');
-            const grandTotalEl = document.getElementById('grandTotal');
-            const customerSelect = document.getElementById('customerSelect');
-            const billingAddress = document.getElementById('billingAddress');
+            jQuery(document).ready(function($) {
+                const addItemBtn = document.getElementById('addItemBtn');
+                const tbody = document.getElementById('invoiceTableBody');
+                const productSource = document.getElementById('productSource');
+                const grandTotalEl = document.getElementById('grandTotal');
+                const customerSelect = document.getElementById('customerSelect');
+                const billingAddress = document.getElementById('billingAddress');
 
-            // Platform selection
-            document.querySelectorAll('.platform-option').forEach(opt => {
-                const radio = opt.querySelector('input[type="radio"]');
-                if (radio.checked) opt.classList.add('active');
+                // Platform selection
+                document.querySelectorAll('.platform-option').forEach(opt => {
+                    const radio = opt.querySelector('input[type="radio"]');
+                    if (radio.checked) opt.classList.add('active');
 
-                opt.addEventListener('click', function() {
-                    document.querySelectorAll('.platform-option').forEach(o => o.classList.remove('active'));
-                    this.classList.add('active');
-                    radio.checked = true;
-                    updateProductStocks();
+                    opt.addEventListener('click', function() {
+                        document.querySelectorAll('.platform-option').forEach(o => o.classList.remove('active'));
+                        this.classList.add('active');
+                        radio.checked = true;
+                        updateProductStocks();
+                    });
                 });
-            });
 
-            function getSelectedPlatform() {
-                const checkedRadio = document.querySelector('input[name="ecom_platform"]:checked');
-                return checkedRadio ? checkedRadio.value : 'lazada';
-            }
+                function getSelectedPlatform() {
+                    const checkedRadio = document.querySelector('input[name="ecom_platform"]:checked');
+                    return checkedRadio ? checkedRadio.value : 'lazada';
+                }
 
-            function updateProductStocks() {
-                const platform = getSelectedPlatform();
-                
-                // Update productSource options
-                updateSelectOptions(productSource, platform);
-                
-                // Update all active row select dropdowns
-                document.querySelectorAll('.product-select').forEach(select => {
-                    const selectedValue = select.value;
-                    updateSelectOptions(select, platform);
-                    select.value = selectedValue; // restore selected value
-                });
-            }
-
-            function updateSelectOptions(selectElement, platform) {
-                for (let i = 0; i < selectElement.options.length; i++) {
-                    const opt = selectElement.options[i];
-                    if (opt.value === "") continue; // skip "Select Product..." option
+                function updateProductStocks() {
+                    const platform = getSelectedPlatform();
                     
-                    const name = opt.dataset.name;
-                    let stock = 0;
-                    if (platform === 'lazada') {
-                        stock = opt.dataset.stockLazada || 0;
-                    } else if (platform === 'shopee') {
-                        stock = opt.dataset.stockShopee || 0;
-                    } else if (platform === 'tiktok') {
-                        stock = opt.dataset.stockTiktok || 0;
-                    } else {
-                        stock = opt.dataset.stockMain || 0;
-                    }
-                    opt.text = `${name} (Stock: ${stock})`;
+                    // Update productSource options
+                    updateSelectOptions(productSource, platform);
+                    
+                    // Update all active row select dropdowns
+                    document.querySelectorAll('.product-select').forEach(select => {
+                        const selectedValue = select.value;
+                        updateSelectOptions(select, platform);
+                        $(select).val(selectedValue);
+                        $(select).select2({
+                            placeholder: "Select Product...",
+                            width: '100%'
+                        });
+                    });
                 }
-            }
 
-            // Auto-fill address on customer change
-            if (customerSelect && customerSelect.tagName === 'SELECT') {
-                customerSelect.addEventListener('change', function() {
-                    const opt = this.options[this.selectedIndex];
-                    const addr = opt.getAttribute('data-address');
-                    billingAddress.value = (addr && addr !== '') ? addr : '';
-                });
-            }
-
-            // File upload UI
-            function setupUpload(fileInput, box, label) {
-                fileInput.addEventListener('change', function() {
-                    if (this.files && this.files[0]) {
-                        label.textContent = this.files[0].name;
-                        box.classList.add('has-file');
-                    } else {
-                        label.textContent = 'Click or drag file here';
-                        box.classList.remove('has-file');
+                function updateSelectOptions(selectElement, platform) {
+                    for (let i = 0; i < selectElement.options.length; i++) {
+                        const opt = selectElement.options[i];
+                        if (opt.value === "") continue; // skip "Select Product..." option
+                        
+                        const name = opt.dataset.name;
+                        let stock = 0;
+                        if (platform === 'lazada') {
+                            stock = opt.dataset.stockLazada || 0;
+                        } else if (platform === 'shopee') {
+                            stock = opt.dataset.stockShopee || 0;
+                        } else if (platform === 'tiktok') {
+                            stock = opt.dataset.stockTiktok || 0;
+                        } else {
+                            stock = opt.dataset.stockMain || 0;
+                        }
+                        opt.text = `${name} (Stock: ${stock})`;
                     }
-                });
-            }
-            setupUpload(document.getElementById('plFile'), document.getElementById('plUploadBox'), document.getElementById('plLabel'));
-            setupUpload(document.getElementById('popFile'), document.getElementById('popUploadBox'), document.getElementById('popLabel'));
+                }
 
-            // Row calculations
-            function calculateRow(row) {
-                const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-                const price = parseFloat(row.querySelector('.price-input').value) || 0;
-                const amount = qty * price;
-                row.querySelector('.amount-display').textContent = '₱ ' + amount.toFixed(2);
-                updateGrandTotal();
-            }
+                // Auto-fill address on customer change
+                if (customerSelect && customerSelect.tagName === 'SELECT') {
+                    customerSelect.addEventListener('change', function() {
+                        const opt = this.options[this.selectedIndex];
+                        const addr = opt.getAttribute('data-address');
+                        billingAddress.value = (addr && addr !== '') ? addr : '';
+                    });
+                }
 
-            function updateGrandTotal() {
-                let total = 0;
-                document.querySelectorAll('.amount-display').forEach(el => {
-                    total += parseFloat(el.textContent.replace('₱ ', '')) || 0;
-                });
-                grandTotalEl.textContent = '₱ ' + total.toFixed(2);
-            }
+                // File upload UI
+                function setupUpload(fileInput, box, label) {
+                    fileInput.addEventListener('change', function() {
+                        if (this.files && this.files[0]) {
+                            label.textContent = this.files[0].name;
+                            box.classList.add('has-file');
+                        } else {
+                            label.textContent = 'Click or drag file here';
+                            box.classList.remove('has-file');
+                        }
+                    });
+                }
+                setupUpload(document.getElementById('plFile'), document.getElementById('plUploadBox'), document.getElementById('plLabel'));
+                setupUpload(document.getElementById('popFile'), document.getElementById('popUploadBox'), document.getElementById('popLabel'));
 
-            // Add item row
-            let rowIndex = 0;
-            function addRow() {
-                const tr = document.createElement('tr');
-                const idx = rowIndex++;
+                // Row calculations
+                function calculateRow(row) {
+                    const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+                    const price = parseFloat(row.querySelector('.price-input').value) || 0;
+                    const amount = qty * price;
+                    row.querySelector('.amount-display').textContent = '₱ ' + amount.toFixed(2);
+                    updateGrandTotal();
+                }
 
-                tr.innerHTML = `
-                    <td>
-                        <input type="number" class="qty-input" name="items[${idx}][quantity]" min="1" value="1" required style="text-align:center;">
-                    </td>
-                    <td>
-                        <select name="items[${idx}][unit]" style="border:none;">
-                            <option value="pcs">pcs</option>
-                            <option value="set">set</option>
-                            <option value="box">box</option>
-                        </select>
-                    </td>
-                    <td>
-                        <select class="form-control product-select" name="items[${idx}][product_id]" required style="border:none;">
-                            ${productSource.innerHTML}
-                        </select>
-                    </td>
-                    <td>
-                        <input type="number" class="price-input" name="items[${idx}][price]" step="0.01" value="0" required style="text-align:right;">
-                    </td>
-                    <td class="amount-display fw-bold text-end pe-3">₱ 0.00</td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-row border-0"><i class="fa fa-trash"></i></button>
-                    </td>
-                `;
+                function updateGrandTotal() {
+                    let total = 0;
+                    document.querySelectorAll('.amount-display').forEach(el => {
+                        total += parseFloat(el.textContent.replace('₱ ', '')) || 0;
+                    });
+                    grandTotalEl.textContent = '₱ ' + total.toFixed(2);
+                }
 
-                const select = tr.querySelector('.product-select');
-                updateSelectOptions(select, getSelectedPlatform());
-                const priceInput = tr.querySelector('.price-input');
-                const qtyInput = tr.querySelector('.qty-input');
-                const removeBtn = tr.querySelector('.remove-row');
+                // Add item row
+                let rowIndex = 0;
+                function addRow() {
+                    const tr = document.createElement('tr');
+                    const idx = rowIndex++;
 
-                select.addEventListener('change', function() {
-                    const opt = this.options[this.selectedIndex];
-                    priceInput.value = opt.dataset.price || 0;
-                    calculateRow(tr);
-                });
+                    tr.innerHTML = `
+                        <td>
+                            <input type="number" class="qty-input" name="items[${idx}][quantity]" min="1" value="1" required style="text-align:center;">
+                        </td>
+                        <td>
+                            <select name="items[${idx}][unit]" style="border:none;">
+                                <option value="pcs">pcs</option>
+                                <option value="set">set</option>
+                                <option value="box">box</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select class="form-control product-select" name="items[${idx}][product_id]" required style="border:none;">
+                                ${productSource.innerHTML}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" class="price-input" name="items[${idx}][price]" step="0.01" value="0" required style="text-align:right;">
+                        </td>
+                        <td class="amount-display fw-bold text-end pe-3">₱ 0.00</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-row border-0"><i class="fa fa-trash"></i></button>
+                        </td>
+                    `;
 
-                qtyInput.addEventListener('input', () => calculateRow(tr));
-                priceInput.addEventListener('input', () => calculateRow(tr));
+                    const select = tr.querySelector('.product-select');
+                    updateSelectOptions(select, getSelectedPlatform());
+                    const priceInput = tr.querySelector('.price-input');
+                    const qtyInput = tr.querySelector('.qty-input');
+                    const removeBtn = tr.querySelector('.remove-row');
 
-                removeBtn.addEventListener('click', function() {
-                    if (tbody.rows.length > 1) {
-                        tr.remove();
-                        updateGrandTotal();
+                    tbody.appendChild(tr);
+
+                    $(select).select2({
+                        placeholder: "Select Product...",
+                        width: '100%'
+                    });
+
+                    $(select).on('change', function() {
+                        const opt = this.options[this.selectedIndex];
+                        priceInput.value = opt ? (opt.dataset.price || 0) : 0;
+                        calculateRow(tr);
+                    });
+
+                    qtyInput.addEventListener('input', () => calculateRow(tr));
+                    priceInput.addEventListener('input', () => calculateRow(tr));
+
+                    removeBtn.addEventListener('click', function() {
+                        if (tbody.rows.length > 1) {
+                            $(select).select2('destroy');
+                            tr.remove();
+                            updateGrandTotal();
+                        }
+                    });
+                }
+
+                addItemBtn.addEventListener('click', addRow);
+                addRow(); // Start with one row
+                updateProductStocks();
+
+                // Form validation
+                document.getElementById('diEcomForm').addEventListener('submit', function(e) {
+                    if (tbody.rows.length === 0) {
+                        e.preventDefault();
+                        alert('Please add at least one item.');
+                        return;
                     }
+                    const platform = document.querySelector('input[name="ecom_platform"]:checked');
+                    if (!platform) {
+                        e.preventDefault();
+                        alert('Please select an E-com platform (Lazada, Shopee, or TikTok).');
+                        return;
+                    }
+
+                    // Check for 0 or negative quantities
+                    let invalidQty = false;
+                    document.querySelectorAll('.qty-input').forEach(el => {
+                        const qty = parseInt(el.value) || 0;
+                        if (qty <= 0) {
+                            invalidQty = true;
+                        }
+                    });
+                    if (invalidQty) {
+                        e.preventDefault();
+                        alert('Quantity must be greater than 0.');
+                        return;
+                    }
+
+                    document.getElementById('submitBtn').disabled = true;
+                    document.getElementById('submitBtn').innerHTML = '<i class="las la-spinner la-spin me-1"></i> Submitting...';
                 });
-
-                tbody.appendChild(tr);
-            }
-
-            addItemBtn.addEventListener('click', addRow);
-            addRow(); // Start with one row
-            updateProductStocks();
-
-            // Form validation
-            document.getElementById('diEcomForm').addEventListener('submit', function(e) {
-                if (tbody.rows.length === 0) {
-                    e.preventDefault();
-                    alert('Please add at least one item.');
-                    return;
-                }
-                const platform = document.querySelector('input[name="ecom_platform"]:checked');
-                if (!platform) {
-                    e.preventDefault();
-                    alert('Please select an E-com platform (Lazada, Shopee, or TikTok).');
-                    return;
-                }
-                document.getElementById('submitBtn').disabled = true;
-                document.getElementById('submitBtn').innerHTML = '<i class="las la-spinner la-spin me-1"></i> Submitting...';
             });
         });
     </script>

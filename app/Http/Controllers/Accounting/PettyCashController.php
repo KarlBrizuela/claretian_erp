@@ -223,7 +223,7 @@ class PettyCashController extends Controller
         return view('admin-finance.accounting.cashier.index', [
             'title' => 'Cashier Petty Cash Approvals',
             'role' => 'Cashier',
-            'sidebar' => $this->getUserSidebar(),
+            'sidebar' => 'admin-finance',
             'vouchers' => $vouchers
         ]);
     }

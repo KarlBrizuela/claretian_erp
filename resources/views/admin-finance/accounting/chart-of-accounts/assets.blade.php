@@ -5,7 +5,7 @@
                 <i class="las la-wallet fs-24"></i>
             </div>
             <div>
-                <h5 class="mb-0 fw-bold text-dark fs-18">1. Assets</h5>
+                <h5 class="mb-0 fw-bold text-dark fs-18">Assets</h5>
                 <p class="text-muted small mb-0">Economic resources owned or controlled by the organization</p>
             </div>
         </div>

@@ -40,16 +40,38 @@ class MarketingController extends Controller
                 break;
         }
 
+        // Filter helper query for valid sales orders (have proof of payment, or are ecom_direct, calculator_pos, or cash)
+        $salesFilter = function($q) {
+            $q->where(function($sub) {
+                $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', '')
+                   ->orWhere('type', 'ecom_direct')
+                   ->orWhere('type', 'calculator_pos')
+                   ->orWhere('payment_method', 'cash');
+            });
+        };
+
         // Orders in period
-        $ordersQuery = \App\Models\SalesOrder::whereBetween('created_at', [$start, $end]);
+        $ordersQuery = \App\Models\SalesOrder::whereBetween('created_at', [$start, $end])->where($salesFilter);
         $totalOrders = (int) $ordersQuery->count();
         $totalSales = (float) $ordersQuery->sum('total_amount');
         $avgOrder = $totalOrders > 0 ? ($totalSales / $totalOrders) : 0;
 
         // Sales by channel (platform)
-        $channels = \App\Models\SalesOrder::select('platform', \DB::raw('COALESCE(SUM(total_amount),0) as total'))
+        $channels = \App\Models\SalesOrder::select(
+                \DB::raw("CASE 
+                    WHEN ecom_platform IS NOT NULL AND ecom_platform != '' THEN ecom_platform 
+                    WHEN platform IS NOT NULL AND platform != '' THEN platform 
+                    ELSE 'direct_pos' 
+                END as platform"),
+                \DB::raw('COALESCE(SUM(total_amount),0) as total')
+            )
             ->whereBetween('created_at', [$start, $end])
-            ->groupBy('platform')
+            ->where($salesFilter)
+            ->groupBy(\DB::raw("CASE 
+                WHEN ecom_platform IS NOT NULL AND ecom_platform != '' THEN ecom_platform 
+                WHEN platform IS NOT NULL AND platform != '' THEN platform 
+                ELSE 'direct_pos' 
+            END"))
             ->orderByDesc('total')
             ->get();
         $topChannel = $channels->first();
@@ -66,6 +88,7 @@ class MarketingController extends Controller
             }
             $rows = \App\Models\SalesOrder::select(\DB::raw('HOUR(created_at) as hour'), \DB::raw('SUM(total_amount) as total'))
                 ->whereBetween('created_at', [$start, $end])
+                ->where($salesFilter)
                 ->groupBy(\DB::raw('HOUR(created_at)'))
                 ->get();
             foreach ($rows as $r) {
@@ -80,6 +103,7 @@ class MarketingController extends Controller
             }
             $rows = \App\Models\SalesOrder::select(\DB::raw('DAYNAME(created_at) as day'), \DB::raw('SUM(total_amount) as total'))
                 ->whereBetween('created_at', [$start, $end])
+                ->where($salesFilter)
                 ->groupBy(\DB::raw('DAYNAME(created_at)'))
                 ->get();
             foreach ($rows as $r) {
@@ -95,6 +119,7 @@ class MarketingController extends Controller
             }
             $rows = \App\Models\SalesOrder::select(\DB::raw('MONTHNAME(created_at) as month'), \DB::raw('SUM(total_amount) as total'))
                 ->whereBetween('created_at', [$start, $end])
+                ->where($salesFilter)
                 ->groupBy(\DB::raw('MONTHNAME(created_at)'))
                 ->get();
             foreach ($rows as $r) {
@@ -110,6 +135,7 @@ class MarketingController extends Controller
             }
             $rows = \App\Models\SalesOrder::select(\DB::raw('DAY(created_at) as day'), \DB::raw('SUM(total_amount) as total'))
                 ->whereBetween('created_at', [$start, $end])
+                ->where($salesFilter)
                 ->groupBy(\DB::raw('DAY(created_at)'))
                 ->get();
             foreach ($rows as $r) {
@@ -118,10 +144,10 @@ class MarketingController extends Controller
             $chartRevenue = array_values($chartRevenue);
         }
 
-        // Top products (filtered by same period)
+        // Top products (filtered by same period and paid filter)
         $topProducts = \App\Models\SalesOrderItem::select('book_id', \DB::raw('SUM(quantity) as qty'))
-            ->whereHas('order', function($query) use ($start, $end) {
-                $query->whereBetween('created_at', [$start, $end]);
+            ->whereHas('order', function($query) use ($start, $end, $salesFilter) {
+                $query->whereBetween('created_at', [$start, $end])->where($salesFilter);
             })
             ->groupBy('book_id')
             ->orderByDesc('qty')
@@ -2189,7 +2215,7 @@ class MarketingController extends Controller
     public function storeDirectInvoiceEcom(\Illuminate\Http\Request $request)
     {
         $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,customer_id',
+            'customer_id' => 'nullable',
             'ecom_platform' => 'required|in:lazada,shopee,tiktok',
             'platform_order_id' => 'nullable|string|max:255',
             'items' => 'required|array|min:1',
@@ -2202,6 +2228,7 @@ class MarketingController extends Controller
             'pick_list' => 'nullable|file|max:10240',
             'proof_of_payment' => 'nullable|file|max:10240',
             'shipping_label' => 'nullable|file|max:10240',
+            'remarks' => 'nullable|string',
         ]);
 
         // Determine platform site (Lazada, Shoppee, Tiktok)
@@ -2257,8 +2284,31 @@ class MarketingController extends Controller
         // They bypass the regular picking workflow
         $initialStatus = 'pending_mkt_approval';
 
+        // Resolve platform merchant customer
+        $platformName = ucfirst(strtolower($request->ecom_platform));
+        if (strtolower($platformName) === 'tiktok') {
+            $platformName = 'TikTok';
+        }
+        
+        $customer = \App\Models\Customer::withTrashed()
+            ->where('customer_name', $platformName)
+            ->first();
+            
+        if ($customer) {
+            if ($customer->trashed()) {
+                $customer->restore();
+            }
+        } else {
+            $customer = \App\Models\Customer::create([
+                'customer_name' => $platformName,
+                'company_name' => $platformName,
+                'account_number' => 'CUST-ECOM-' . strtoupper($request->ecom_platform),
+            ]);
+        }
+        $customerId = $customer->customer_id;
+
         $so = \App\Models\SalesOrder::create([
-            'customer_id' => $request->customer_id,
+            'customer_id' => $customerId,
             'so_number' => $invoiceNumber,
             'type' => 'ecom_direct',
             'ecom_platform' => $request->ecom_platform,
@@ -2270,6 +2320,7 @@ class MarketingController extends Controller
             'terms' => $request->terms,
             'pick_list_attachment' => $pickListPath,
             'proof_of_payment' => $proofOfPaymentPath,
+            'remarks' => $request->remarks,
             // 'shipping_label_attachment' => $shippingLabelPath,
         ]);
 

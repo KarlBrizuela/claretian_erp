@@ -35,6 +35,21 @@
     </style>
     @endpush
 
+    @php
+        $activeInvoice = null;
+        if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+            $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
+        }
+
+        if ($activeInvoice) {
+            $itemsToRender = $activeInvoice->items;
+            $totalSalesAmount = (float) $activeInvoice->total_amount;
+        } else {
+            $itemsToRender = $order->items;
+            $totalSalesAmount = (float) $order->total_amount;
+        }
+    @endphp
+
     <div class="row">
         <div class="col-12">
             <div class="card order-form">
@@ -177,8 +192,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($order->items as $item)
-                        @php $itemName = $item->book?->name ?? $item->bundle?->name ?? null; @endphp
+                        @foreach($itemsToRender as $item)
+                        @php $itemName = $item->book?->name ?? ($item->product_name ?? null); @endphp
                         @if($itemName)
                         <tr>
                             <td class="text-center">{{ (float)$item->quantity }}</td>
@@ -193,8 +208,8 @@
                             </td>
                             <td>{{ $item->isbn ?? '-' }}</td>
                             <td>{{ $item->area ?? '-' }}</td>
-                            <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
-                            <td class="text-end fw-bold">₱{{ number_format($item->subtotal, 2) }}</td>
+                            <td class="text-end">₱{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
+                            <td class="text-end fw-bold">₱{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>
                         </tr>
                         @endif
                         @endforeach
@@ -202,14 +217,12 @@
                     <tfoot>
                         @php
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
-                            $itemsSubtotal = $order->items->filter(function($item) {
-                                return $item->book || $item->bundle;
-                            })->sum(function($item) {
-                                return $item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price);
+                            $itemsSubtotal = $itemsToRender->sum(function($item) {
+                                return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
                             });
                             $discountAmount = $order->discount_amount ?? 0;
                             $freightCharges = $order->freight_charges ?? 0;
-                            $grandTotal = max(0, $itemsSubtotal - $discountAmount + $freightCharges + $serviceFee);
+                            $grandTotal = $activeInvoice ? (float)$activeInvoice->total_amount : max(0, $itemsSubtotal - $discountAmount + $freightCharges + $serviceFee);
                         @endphp
                         <tr>
                             <td colspan="6" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
@@ -437,16 +450,16 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($order->items as $item)
-                            @php $itemName = $item->book?->name ?? $item->bundle?->name ?? null; @endphp
+                            @foreach($itemsToRender as $item)
+                            @php $itemName = $item->book?->name ?? ($item->product_name ?? null); @endphp
                             @if($itemName)
                             <tr style="border-bottom: 1px solid #eee;">
                                 <td class="text-center fw-bold">{{ (float)$item->quantity }}</td>
                                 <td class="fw-bold text-dark">{{ $itemName }}</td>
                                 <td class="text-muted">{{ $item->isbn ?? '-' }}</td>
                                 <td class="text-center">{{ $item->area ?? '-' }}</td>
-                                <td class="text-end text-dark">{{ number_format($item->price, 2) }}</td>
-                                <td class="text-end fw-bold text-dark">{{ number_format($item->subtotal, 2) }}</td>
+                                <td class="text-end text-dark">{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
+                                <td class="text-end fw-bold text-dark">{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>
                             </tr>
                             @endif
                             @endforeach
@@ -472,7 +485,7 @@
                             <div style="background: #fff5f5; padding: 15px; border-radius: 6px; border: 1px solid #ffcccc;">
                                 <h4 class="fw-bold mb-0 d-flex justify-content-between align-items-center" style="font-family: Arial, sans-serif; color: #cc0000;">
                                     <span style="font-size: 13pt;">TOTAL:</span>
-                                    <span>PHP {{ number_format($order->total_amount, 2) }}</span>
+                                    <span>PHP {{ number_format($totalSalesAmount, 2) }}</span>
                                 </h4>
                             </div>
                         </div>

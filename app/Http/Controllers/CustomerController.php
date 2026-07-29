@@ -14,7 +14,9 @@ class CustomerController extends Controller
      */
     public function index()
     {
-        $customers = Customer::orderBy('customer_name', 'asc')->get();
+        $customers = Customer::whereNotIn('customer_name', ['Lazada', 'Shopee', 'TikTok'])
+            ->orderBy('customer_name', 'asc')
+            ->get();
         return view('marketing.customers', [
             'customers' => $customers,
             'title' => 'Customer Management',

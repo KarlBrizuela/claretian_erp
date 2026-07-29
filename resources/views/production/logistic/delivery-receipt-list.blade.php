@@ -48,6 +48,22 @@
     </style>
     @endpush
 
+    @php
+        $user = auth()->user();
+        $canPrep = $user && ($user->isSuperAdmin() || 
+            str_contains($user->position, 'Manager') || 
+            str_contains($user->position, 'Supervisor') || 
+            str_contains($user->position, 'Head') || 
+            str_contains($user->position, 'Senior Logistics Staff') || 
+            str_contains($user->position, 'Logistics Staff'));
+            
+        $canApprove = $user && ($user->isSuperAdmin() || 
+            str_contains($user->position, 'Manager') || 
+            str_contains($user->position, 'Supervisor') || 
+            str_contains($user->position, 'Head') || 
+            str_contains($user->position, 'Senior Logistics Staff'));
+    @endphp
+
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -63,10 +79,12 @@
                     <div>
                         <h4 class="fs-20 mb-0 text-black">Delivery Receipts Management</h4>
                     </div>
+                    @if($canPrep)
                     <a href="{{ route('production.logistic.delivery-receipt') }}" class="btn btn-primary rounded d-flex align-items-center ms-auto" style="gap: 0.5rem; background: #ff0000; border: none;">
                         <i class="las la-plus"></i>
                         <span>Create New Receipt</span>
                     </a>
+                    @endif
                 </div>
 
                 <div class="tab-content p-4">
@@ -83,12 +101,12 @@
                                 @php
                                     $uniqueCustomers = $orders->map(function($order) {
                                         return $order->customer;
-                                    })->filter()->unique('id')->sortBy(function($c) {
+                                    })->filter()->unique('customer_id')->sortBy(function($c) {
                                         return $c->customer_name ?? $c->company_name ?? '';
                                     });
                                 @endphp
                                 @foreach($uniqueCustomers as $c)
-                                    <option value="{{ $c->id }}">{{ $c->customer_name ?? $c->company_name ?? 'Unknown' }}</option>
+                                    <option value="{{ $c->customer_id }}">{{ $c->customer_name ?? $c->company_name ?? 'Unknown' }}</option>
                                 @endforeach
                             </select>
                             <select id="statusFilter" class="form-control status-filter-dropdown">
@@ -98,6 +116,7 @@
                                 <option value="ready_for_delivery">Ready for Delivery</option>
                                 <option value="si_created">Closed</option>
                                 <option value="reconsignment_pending">Reconsignment Pending</option>
+                                <option value="overdue">Overdue</option>
                             </select>
                         </div>
                         <div class="table-responsive">
@@ -116,76 +135,75 @@
                                 </thead>
                                 <tbody>
                                     @forelse($orders as $order)
-                                    <tr data-so-number="{{ $order->so_number }}" data-customer="{{ $order->customer->customer_name ?? '' }}" data-customer-id="{{ $order->customer_id ?? '' }}" data-status="{{ $order->status }}">
+                                    @php
+                                        // Handle terms stored as '90 days', '30 days', etc.
+                                        $termsMap = [
+                                            'cash' => 0, 
+                                            'cod' => 0, 
+                                            '7_days' => 7, 
+                                            '7 days' => 7,
+                                            '7days' => 7,
+                                            '15_days' => 15, 
+                                            '15 days' => 15,
+                                            '15days' => 15,
+                                            '30_days' => 30, 
+                                            '30 days' => 30,
+                                            '30days' => 30,
+                                            '60_days' => 60, 
+                                            '60 days' => 60,
+                                            '60days' => 60,
+                                            '90_days' => 90, 
+                                            '90 days' => 90,
+                                            '90days' => 90,
+                                            '90' => 90,
+                                            '30' => 30,
+                                            '7' => 7,
+                                            '15' => 15,
+                                            '60' => 60
+                                        ];
+                                        
+                                        $termValue = strtolower(trim($order->terms ?? ''));
+                                        $daysFromTerms = $termsMap[$termValue] ?? 0;
+                                        
+                                        // Only show calculation if payment terms are set (not cash/cod)
+                                        if ($daysFromTerms > 0) {
+                                            // Get the reference date
+                                            $baseDateTime = $order->dr_prepared_at ?? $order->created_at;
+                                            $baseDate = \Carbon\Carbon::parse($baseDateTime);
+                                            
+                                            // Add days to get due date
+                                            $dueDate = $baseDate->copy()->addDays($daysFromTerms);
+                                            
+                                            // Get today at start of day
+                                            $today = \Carbon\Carbon::today();
+                                            
+                                            // Calculate remaining days
+                                            $interval = $today->diff($dueDate);
+                                            $daysRemaining = (int)$interval->format('%r%a');
+                                        } else {
+                                            $daysRemaining = null;
+                                            $dueDate = null;
+                                        }
+
+                                        $termsDisplay = match($order->terms) {
+                                            'cash' => 'Cash',
+                                            'cod' => 'COD',
+                                            '7_days' => '7 Days',
+                                            '15_days' => '15 Days',
+                                            '30_days' => '30 Days',
+                                            '60_days' => '60 Days',
+                                            '90_days' => '90 Days',
+                                            default => $order->terms
+                                        };
+                                    @endphp
+                                    <tr data-so-number="{{ $order->so_number }}" data-customer="{{ $order->customer->customer_name ?? '' }}" data-customer-id="{{ $order->customer_id ?? '' }}" data-status="{{ $order->status }}" data-days-remaining="{{ $daysRemaining !== null ? $daysRemaining : '' }}">
                                         <td><strong>{{ $order->so_number }}</strong></td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td>
-                                            @php
-                                                $termsDisplay = match($order->terms) {
-                                                    'cash' => 'Cash',
-                                                    'cod' => 'COD',
-                                                    '7_days' => '7 Days',
-                                                    '15_days' => '15 Days',
-                                                    '30_days' => '30 Days',
-                                                    '60_days' => '60 Days',
-                                                    '90_days' => '90 Days',
-                                                    default => $order->terms
-                                                };
-                                            @endphp
                                             <span class="badge bg-info">{{ $termsDisplay }}</span>
                                         </td>
                                         <td>
-                                            @php
-                                                // Handle terms stored as '90 days', '30 days', etc.
-                                                $termsMap = [
-                                                    'cash' => 0, 
-                                                    'cod' => 0, 
-                                                    '7_days' => 7, 
-                                                    '7 days' => 7,
-                                                    '7days' => 7,
-                                                    '15_days' => 15, 
-                                                    '15 days' => 15,
-                                                    '15days' => 15,
-                                                    '30_days' => 30, 
-                                                    '30 days' => 30,
-                                                    '30days' => 30,
-                                                    '60_days' => 60, 
-                                                    '60 days' => 60,
-                                                    '60days' => 60,
-                                                    '90_days' => 90, 
-                                                    '90 days' => 90,
-                                                    '90days' => 90,
-                                                    '90' => 90,
-                                                    '30' => 30,
-                                                    '7' => 7,
-                                                    '15' => 15,
-                                                    '60' => 60
-                                                ];
-                                                
-                                                $termValue = strtolower(trim($order->terms ?? ''));
-                                                $daysFromTerms = $termsMap[$termValue] ?? 0;
-                                                
-                                                // Only show calculation if payment terms are set (not cash/cod)
-                                                if ($daysFromTerms > 0) {
-                                                    // Get the reference date
-                                                    $baseDateTime = $order->dr_prepared_at ?? $order->created_at;
-                                                    $baseDate = \Carbon\Carbon::parse($baseDateTime);
-                                                    
-                                                    // Add days to get due date
-                                                    $dueDate = $baseDate->copy()->addDays($daysFromTerms);
-                                                    
-                                                    // Get today at start of day
-                                                    $today = \Carbon\Carbon::today();
-                                                    
-                                                    // Calculate remaining days
-                                                    $interval = $today->diff($dueDate);
-                                                    $daysRemaining = (int)$interval->format('%r%a');
-                                                } else {
-                                                    $daysRemaining = null;
-                                                    $dueDate = null;
-                                                }
-                                            @endphp
                                             @if($daysRemaining !== null)
                                                 <span class="@if($daysRemaining < 0) text-danger fw-bold @elseif($daysRemaining < 7) text-warning @else text-success @endif">
                                                     {{ $dueDate->format('M d, Y') }}
@@ -215,7 +233,7 @@
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 
-                                                @if($order->status === 'pending_dr_prep')
+                                                @if($order->status === 'pending_dr_prep' && $canPrep)
                                                     <form action="{{ route('production.logistic.mark-as-dr-prepared', $order->id) }}" method="POST" style="display:inline;">
                                                         @csrf
                                                         <button type="submit" class="btn btn-warning shadow btn-xs sharp" title="Mark as DR Prepared">
@@ -224,7 +242,7 @@
                                                     </form>
                                                 @endif
 
-                                                @if($order->status === 'pending_dr_approval')
+                                                @if($order->status === 'pending_dr_approval' && $canApprove)
                                                     <form action="{{ route('production.logistic.approve-dr', $order->id) }}" method="POST" style="display:inline;">
                                                         @csrf
                                                         <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Approve & Sign DR">
@@ -282,6 +300,7 @@
                     const customer = row.dataset.customer.toLowerCase();
                     const customerId = row.dataset.customerId;
                     const status = row.dataset.status;
+                    const daysRemaining = row.dataset.daysRemaining;
 
                     // Check search term match
                     const searchMatch = soNumber.includes(searchTerm) || customer.includes(searchTerm);
@@ -290,7 +309,14 @@
                     const customerMatch = currentCustomerId === 'all' || customerId === currentCustomerId;
 
                     // Check status match
-                    const statusMatch = currentStatusFilter === 'all' || status === currentStatusFilter;
+                    let statusMatch = false;
+                    if (currentStatusFilter === 'all') {
+                        statusMatch = true;
+                    } else if (currentStatusFilter === 'overdue') {
+                        statusMatch = daysRemaining !== '' && parseInt(daysRemaining) < 0;
+                    } else {
+                        statusMatch = status === currentStatusFilter;
+                    }
 
                     // Show row if all conditions match
                     if (searchMatch && customerMatch && statusMatch) {

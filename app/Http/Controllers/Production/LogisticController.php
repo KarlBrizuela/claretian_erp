@@ -26,7 +26,7 @@ class LogisticController extends Controller
         $completedPickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'preparedByUser'])
             ->where('status', 'completed')
             ->latest()
-            ->get();
+            ->paginate(10);
 
         // Get pending Sales Orders ready for picking (status = 'picking' and no active pick list yet)
         $pendingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
@@ -159,10 +159,15 @@ class LogisticController extends Controller
             
             $order = \App\Models\SalesOrder::findOrFail($orderId);
             
-            // Pick list gathered: move order to Sales Invoice (SI) Preparation (or DR Prep if consignment)
+            // Pick list gathered: move order to appropriate next queue
             $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
-            $newStatus = $isConsignment ? 'pending_dr_prep' : 'pending_si_prep';
-            $targetQueue = $isConsignment ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
+            if ($order->type === 'ecom_direct') {
+                $newStatus = 'ready_for_delivery';
+                $targetQueue = 'Packing Management';
+            } else {
+                $newStatus = $isConsignment ? 'pending_dr_prep' : 'pending_si_prep';
+                $targetQueue = $isConsignment ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
+            }
 
             $order->update([
                 'status' => $newStatus,
@@ -273,8 +278,10 @@ class LogisticController extends Controller
     {
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
             ->where('status', 'ready_for_delivery')
-            ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
-            ->orderBy('signed_at', 'desc')
+            ->whereNotIn('type', ['calculator_pos'])
+            ->whereNotNull('packing_data')
+            ->where('packing_data->status', 'gathered')
+            ->orderByRaw('COALESCE(signed_at, created_at) DESC')
             ->get();
 
         $drivers = \App\Models\User::where('position', 'Driver')
@@ -608,17 +615,45 @@ class LogisticController extends Controller
         return redirect()->route('production.logistic.receiving-report-list')->with('success', 'Receiving Report #' . $rr->rr_number . ' posted and inventory updated.');
     }
 
-    public function driverDashboard()
+    public function driverDashboard(Request $request)
     {
-        $assignedDeliveries = \App\Models\SalesOrder::with(['customer', 'items.book', 'riderCollection'])
+        // 1. Fetch Today's Deliveries (Always active for today's date)
+        $todayDate = date('Y-m-d');
+        $todayDeliveries = \App\Models\SalesOrder::with(['customer', 'items.book', 'riderCollection'])
             ->where('driver_id', auth()->id())
             ->whereIn('status', ['ready_for_delivery', 'in_transit'])
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
+            ->whereDate('delivery_date', $todayDate)
             ->latest()
-            ->get();
+            ->get()
+            ->sortBy(function($order) {
+                return $order->status === 'in_transit' ? 0 : 1;
+            })
+            ->values();
+
+        // 2. Fetch All Assigned Deliveries (With date range filter)
+        $query = \App\Models\SalesOrder::with(['customer', 'items.book', 'riderCollection'])
+            ->where('driver_id', auth()->id())
+            ->whereIn('status', ['ready_for_delivery', 'in_transit'])
+            ->whereNotIn('type', ['calculator_pos', 'ecom_direct']);
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('delivery_date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('delivery_date', '<=', $request->end_date);
+        }
+
+        $allDeliveries = $query->latest()->get()
+            ->sortBy(function($order) {
+                return $order->status === 'in_transit' ? 0 : 1;
+            })
+            ->values();
 
         return view('production.logistic.driver-dashboard', [
-            'assignedDeliveries' => $assignedDeliveries,
+            'todayDeliveries' => $todayDeliveries,
+            'allDeliveries' => $allDeliveries,
+            'assignedDeliveries' => $allDeliveries, // Keep as alias for stats or fallback
             'title' => 'Driver Dashboard',
             'role' => 'Driver',
             'sidebar' => 'production'
@@ -688,6 +723,19 @@ class LogisticController extends Controller
 
     public function deliveryReceipt($id = null)
     {
+        $user = auth()->user();
+        $userPos = $user->position;
+        $isSuperAdmin = $user->isSuperAdmin();
+        
+        if (!$isSuperAdmin && 
+            !str_contains($userPos, 'Manager') && 
+            !str_contains($userPos, 'Supervisor') && 
+            !str_contains($userPos, 'Head') && 
+            !str_contains($userPos, 'Senior Logistics Staff') && 
+            !str_contains($userPos, 'Logistics Staff')) {
+             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
+        }
+
         $deliveryReceipt = null;
         $order = null;
         
@@ -695,8 +743,17 @@ class LogisticController extends Controller
             // Check if it's a delivery receipt ID
             $deliveryReceipt = \App\Models\DeliveryReceipt::with('salesOrder', 'customer', 'items', 'preparedByUser')->find($id);
             
-            // If not found, treat as sales order ID
+            // If not found, try finding by so_id (Sales Order ID)
             if (!$deliveryReceipt) {
+                $deliveryReceipt = \App\Models\DeliveryReceipt::with('salesOrder', 'customer', 'items', 'preparedByUser')
+                    ->where('so_id', $id)
+                    ->first();
+            }
+
+            // Set $order from the delivery receipt if it exists, otherwise find the Sales Order by ID
+            if ($deliveryReceipt) {
+                $order = $deliveryReceipt->salesOrder;
+            } else {
                 $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
             }
         }
@@ -722,6 +779,19 @@ class LogisticController extends Controller
 
     public function storeDeliveryReceipt(Request $request, $id = null)
     {
+        $user = auth()->user();
+        $userPos = $user->position;
+        $isSuperAdmin = $user->isSuperAdmin();
+        
+        if (!$isSuperAdmin && 
+            !str_contains($userPos, 'Manager') && 
+            !str_contains($userPos, 'Supervisor') && 
+            !str_contains($userPos, 'Head') && 
+            !str_contains($userPos, 'Senior Logistics Staff') && 
+            !str_contains($userPos, 'Logistics Staff')) {
+             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
+        }
+
         $validated = $request->validate([
             'dr_number' => 'required|unique:delivery_receipts,dr_number' . ($id ? ',' . $id : ''),
             'so_id' => 'required|exists:sales_orders,id',
@@ -771,6 +841,19 @@ class LogisticController extends Controller
 
     public function markAsDRPrepared($id)
     {
+        $user = auth()->user();
+        $userPos = $user->position;
+        $isSuperAdmin = $user->isSuperAdmin();
+        
+        if (!$isSuperAdmin && 
+            !str_contains($userPos, 'Manager') && 
+            !str_contains($userPos, 'Supervisor') && 
+            !str_contains($userPos, 'Head') && 
+            !str_contains($userPos, 'Senior Logistics Staff') && 
+            !str_contains($userPos, 'Logistics Staff')) {
+             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
+        }
+
         $order = \App\Models\SalesOrder::findOrFail($id);
         $order->update(['status' => 'pending_dr_approval']);
 
@@ -794,15 +877,20 @@ class LogisticController extends Controller
         $userPos = $user->position;
         $isSuperAdmin = $user->isSuperAdmin();
         
-        if (!$isSuperAdmin && !str_contains($userPos, 'Manager') && !str_contains($userPos, 'Supervisor') && !str_contains($userPos, 'Head')) {
-             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, or Heads can approve Delivery Receipts.');
+        if (!$isSuperAdmin && 
+            !str_contains($userPos, 'Manager') && 
+            !str_contains($userPos, 'Supervisor') && 
+            !str_contains($userPos, 'Head') && 
+            !str_contains($userPos, 'Senior Logistics Staff')) {
+             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, or Senior Logistics Staff can approve Delivery Receipts.');
         }
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         $order->update([
             'status' => 'ready_for_delivery',
             'dr_prepared_at' => now(),
-            'dr_prepared_by' => auth()->id()
+            'dr_prepared_by' => auth()->id(),
+            'signed_at' => now()
         ]);
 
         return redirect()->back()->with('success', 'DR approved for Order #' . $order->so_number . '. Ready for delivery.');
@@ -1155,7 +1243,7 @@ class LogisticController extends Controller
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
             })
-            ->orderBy('signed_at', 'desc')
+            ->orderByRaw('COALESCE(signed_at, created_at) DESC')
             ->get();
 
         // Get e-commerce direct orders ready for packing
@@ -1169,7 +1257,7 @@ class LogisticController extends Controller
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
             })
-            ->orderBy('signed_at', 'desc')
+            ->orderByRaw('COALESCE(signed_at, created_at) DESC')
             ->get();
 
         // Organize e-com packing orders by platform
@@ -1931,68 +2019,9 @@ class LogisticController extends Controller
                 ]);
             }
 
-            // Calculate returned books (remaining quantity that was not selected) and return to stock
-            foreach ($order->items as $item) {
-                $selectedQty = 0;
-                if (isset($selectedItems[$item->id])) {
-                    $selectedQty = intval($selectedItems[$item->id]['selected_qty'] ?? 0);
-                }
-                
-                $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
-                    $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
-                })->where('book_id', $item->book_id)->sum('quantity');
-                
-                $remainingQty = max(0, $item->quantity - $alreadyPurchasedQty);
-                $returnedQty = max(0, $remainingQty - $selectedQty);
-                
-                if ($returnedQty > 0) {
-                    $book = $item->book;
-                    if ($book) {
-                        $book->stock += $returnedQty;
-                        $book->save();
-                        
-                        // Record Inventory Transaction for audit trail
-                        \App\Models\InventoryTransaction::create([
-                            'book_id' => $book->id,
-                            'type' => 'in',
-                            'quantity' => $returnedQty,
-                            'location' => 'Main Warehouse',
-                            'source' => 'Consignment Return',
-                            'reference_number' => $order->so_number,
-                            'unit_cost' => $book->cost ?? 0,
-                            'total_cost' => $returnedQty * ($book->cost ?? 0),
-                            'notes' => 'Returned from Area Consignment Sales Order #' . $order->so_number . ' (Not selected for billing)',
-                            'status' => 'completed',
-                            'transaction_date' => now(),
-                            'user_id' => auth()->id()
-                        ]);
-                    }
-                }
-            }
-
-            // Update the original Sales Order item quantities to match selected quantities
-            foreach ($order->items as $item) {
-                $selectedQty = 0;
-                if (isset($selectedItems[$item->id])) {
-                    $selectedQty = intval($selectedItems[$item->id]['selected_qty'] ?? 0);
-                }
-                
-                if ($selectedQty > 0) {
-                    $itemAmount = $selectedQty * $item->price;
-                    $item->update([
-                        'quantity' => $selectedQty,
-                        'subtotal' => $itemAmount
-                    ]);
-                } else {
-                    // Completely returned, delete from this Sales Order
-                    $item->delete();
-                }
-            }
-
-            // Update Sales Order status, total_amount, and store consignment data
+            // Update Sales Order status and store consignment data
             $order->update([
                 'status' => 'si_created',
-                'total_amount' => $totalAmount,
                 'consignment_data' => json_encode([
                     'si_id' => $si->id,
                     'si_number' => $si->si_number,
@@ -2021,6 +2050,104 @@ class LogisticController extends Controller
             \Illuminate\Support\Facades\Log::error('Error linking consignment to SI: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Error creating Sales Invoice: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Returns remaining consignment items to warehouse stock and completes the sales order and delivery receipt.
+     */
+    public function returnConsignment(Request $request, $orderId)
+    {
+        try {
+            $order = \App\Models\SalesOrder::with(['items.book', 'customer'])
+                ->findOrFail($orderId);
+
+            if (!in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+                return redirect()->back()
+                    ->with('error', 'This order is not an Area Consignment type.');
+            }
+
+            // Find all remaining quantities
+            $returnedBooks = [];
+            $returnedCount = 0;
+
+            foreach ($order->items as $item) {
+                $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
+                    $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
+                })->where('book_id', $item->book_id)->sum('quantity');
+
+                $remainingQty = max(0, $item->quantity - $alreadyPurchasedQty);
+
+                if ($remainingQty > 0) {
+                    $book = $item->book;
+                    if ($book) {
+                        $book->stock += $remainingQty;
+                        $book->save();
+
+                        $returnedCount += $remainingQty;
+                        $returnedBooks[] = [
+                            'book_name' => $book->name,
+                            'quantity' => $remainingQty
+                        ];
+
+                        // Record Inventory Transaction
+                        \App\Models\InventoryTransaction::create([
+                            'book_id' => $book->id,
+                            'type' => 'in',
+                            'quantity' => $remainingQty,
+                            'location' => 'Main Warehouse',
+                            'source' => 'Consignment Return',
+                            'reference_number' => $order->so_number,
+                            'unit_cost' => $book->cost ?? 0,
+                            'total_cost' => $remainingQty * ($book->cost ?? 0),
+                            'notes' => 'Returned from Area Consignment Sales Order #' . $order->so_number . ' via Direct Return button',
+                            'status' => 'completed',
+                            'transaction_date' => now(),
+                            'user_id' => auth()->id()
+                        ]);
+                    }
+                }
+            }
+
+            if ($returnedCount === 0) {
+                return redirect()->back()
+                    ->with('error', 'No remaining items found to return.');
+            }
+
+            // Start Database Transaction
+            \DB::beginTransaction();
+
+            // Find the previous Delivery Receipt and close it
+            $previousDr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
+            if ($previousDr) {
+                $previousDr->update(['status' => 'completed']);
+            }
+
+            // Close the Sales Order
+            $order->update(['status' => 'completed']);
+
+            \DB::commit();
+
+            // Log activity
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Area Consignment Return Completed',
+                'description' => "Returned {$returnedCount} remaining book(s) from Area Consignment SO {$order->so_number} back to warehouse stock.",
+                'affected_model' => 'SalesOrder',
+                'affected_model_id' => $order->id,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->header('User-Agent')
+            ]);
+
+            return redirect()
+                ->route('production.logistic.delivery-receipt-list')
+                ->with('success', "Returned {$returnedCount} remaining book(s) to stock and closed Sales Order {$order->so_number}.");
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Error returning consignment: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Error returning consignment items: ' . $e->getMessage());
         }
     }
 }
