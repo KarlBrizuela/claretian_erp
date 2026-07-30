@@ -1245,7 +1245,9 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
 
-    if ($order->type !== 'ecom_direct' && !$order->proof_of_payment) {
+    $isExempt = in_array($order->type, ['ecom_direct', 'area_consignment', 'area_sales_consignment']);
+
+    if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
     }
 
@@ -1261,7 +1263,9 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
-    if ($order->type !== 'ecom_direct' && !$order->proof_of_payment) {
+    $isExempt = in_array($order->type, ['ecom_direct', 'area_consignment', 'area_sales_consignment']);
+
+    if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->route('admin-finance.accounting.sales-invoice')->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
     }
 
@@ -1317,6 +1321,10 @@ public function checkVoucher()
       'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared by ' . auth()->user()->name
     ]);
 
+    if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+      \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', 'draft')->update(['status' => 'pending_approval']);
+    }
+
     // Send Notification to Director if status is "pending_si_approval"
     $director = \App\Models\User::where('position', 'Director')->first();
     if ($director) {
@@ -1348,7 +1356,9 @@ public function checkVoucher()
       foreach ($ids as $id) {
         $order = \App\Models\SalesOrder::findOrFail($id);
 
-        if (!$order->proof_of_payment) {
+        $isExempt = in_array($order->type, ['ecom_direct', 'area_consignment', 'area_sales_consignment']);
+
+        if (!$isExempt && !$order->proof_of_payment) {
           $errors[] = "Order #{$order->so_number} is missing Proof of Payment.";
           continue;
         }
@@ -1389,13 +1399,17 @@ public function checkVoucher()
             }
           }
         } else {
-          if ($order->status === 'pending_si_prep' || $actionType === 'prepare') {
+          if ($order->status === 'pending_si_prep' || $order->status === 'si_created' || $actionType === 'prepare') {
             $order->update([
               'status' => 'pending_si_approval',
               'si_prepared_by' => auth()->id(),
               'si_prepared_at' => now(),
               'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared in bulk by ' . auth()->user()->name
             ]);
+
+            if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+              \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', 'draft')->update(['status' => 'pending_approval']);
+            }
 
             // Send Notification to Director if status is "pending_si_approval"
             $director = \App\Models\User::where('position', 'Director')->first();
@@ -1413,6 +1427,10 @@ public function checkVoucher()
               'signed_at' => now(),
               'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Signed & Approved in bulk by ' . auth()->user()->name
             ]);
+
+            if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+              \App\Models\SalesInvoice::where('so_id', $order->id)->whereIn('status', ['draft', 'pending_approval'])->update(['status' => 'approved']);
+            }
 
             // Accounting integration
             $this->accounting->postSalesOrderEntry($order);
@@ -1450,7 +1468,9 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
-    if (!$order->proof_of_payment) {
+    $isExempt = in_array($order->type, ['ecom_direct', 'area_consignment', 'area_sales_consignment']);
+
+    if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
     }
 
@@ -1462,6 +1482,10 @@ public function checkVoucher()
       'signed_by_af_manager' => auth()->id(),
       'signed_at' => now()
     ]);
+
+    if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+      \App\Models\SalesInvoice::where('so_id', $order->id)->whereIn('status', ['draft', 'pending_approval'])->update(['status' => 'approved']);
+    }
 
     // --- ACCOUNTING INTEGRATION ---
     $this->accounting->postSalesOrderEntry($order);
@@ -2275,11 +2299,14 @@ public function checkVoucher()
       ->latest()
       ->get();
 
+    $products = \App\Models\Book::where('is_active', true)->orderBy('name')->get();
+
     return view('admin-finance.credit-collection.invoice.invoice', [
       'title' => 'Invoice',
       'role' => 'Finance Manager',
       'sidebar' => 'admin-finance',
-      'invoices' => $invoices
+      'invoices' => $invoices,
+      'products' => $products
     ]);
   }
 

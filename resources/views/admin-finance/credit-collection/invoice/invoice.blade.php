@@ -15,6 +15,62 @@
         }
 
         .tab-content { padding-top: 1rem; }
+
+        /* Selectpicker styles and overrides */
+        .bootstrap-select .btn { 
+            background: #fff !important;
+            border: 1px solid #dee2e6 !important;
+            color: #495057 !important;
+            padding: 0.375rem 0.75rem !important;
+            font-size: 0.875rem !important;
+            height: calc(1.5em + 0.75rem + 2px) !important;
+        }
+        .bootstrap-select .dropdown-toggle:focus { outline: none !important; }
+        .bootstrap-select .filter-option {
+            display: flex;
+            align-items: center;
+        }
+        .product-select-td { 
+            position: relative;
+        }
+        .product-select-td .bootstrap-select {
+            width: 100% !important;
+        }
+        .product-select-td .bootstrap-select .btn {
+            width: 100% !important;
+        }
+        .product-select-td .bootstrap-select .filter-option-inner-inner {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 250px;
+        }
+        .bootstrap-select .dropdown-menu {
+            max-height: 360px !important;
+            overflow: hidden !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+            border-radius: 6px !important;
+        }
+        .bootstrap-select .bs-searchbox {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1050 !important;
+            background: #ffffff !important;
+            padding: 8px 10px !important;
+            border-bottom: 1px solid #e9ecef !important;
+        }
+        .bootstrap-select .bs-searchbox input {
+            font-size: 0.9rem !important;
+            padding: 0.4rem 0.75rem !important;
+            border-radius: 4px !important;
+            border: 1px solid #ced4da !important;
+            background: #ffffff !important;
+            color: #495057 !important;
+        }
+        .bootstrap-select .dropdown-menu .inner {
+            max-height: 280px !important;
+            overflow-y: auto !important;
+        }
     </style>
     @endpush
 
@@ -676,7 +732,20 @@
                                 <tr>
                                     <td><input type="number" class="form-control item-qty" value="1" min="1"></td>
                                     <td><input type="text" class="form-control item-unit" placeholder="pcs"></td>
-                                    <td><input type="text" class="form-control item-desc" placeholder="Item description"></td>
+                                    <td class="product-select-td" style="min-width: 250px;">
+                                        <select class="form-control selectpicker product-select" data-live-search="true" data-size="8">
+                                            <option value="" disabled selected>Select Product...</option>
+                                            @foreach($products as $product)
+                                                <option value="{{ $product->name }}" 
+                                                        data-isbn="{{ $product->sku ?? $product->barcode ?? '' }}" 
+                                                        data-unit="{{ $product->unit ?? 'pcs' }}" 
+                                                        data-price="{{ $product->price ?? 0 }}"
+                                                        data-area="{{ $product->shelf_number ? ($product->shelf_number . ($product->rack_number ? ' - ' . $product->rack_number : '')) : '' }}">
+                                                    {{ $product->name }} (ISBN: {{ $product->sku ?? $product->barcode ?? '-' }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </td>
                                     <td><input type="text" class="form-control item-isbn" placeholder="ISBN"></td>
                                     <td><input type="text" class="form-control item-area" placeholder="Area"></td>
                                     <td><input type="number" class="form-control item-price" value="0.00" min="0" step="0.01"></td>
@@ -1219,19 +1288,36 @@
 
             // Add Item
             $('#btnAddItem').click(function() {
-                const newRow = `
+                const newRow = $(`
                     <tr>
                         <td><input type="number" class="form-control item-qty" value="1" min="1"></td>
                         <td><input type="text" class="form-control item-unit" placeholder="pcs"></td>
-                        <td><input type="text" class="form-control item-desc" placeholder="Item description"></td>
+                        <td class="product-select-td" style="min-width: 250px;">
+                            <select class="form-control selectpicker product-select" data-live-search="true" data-size="8">
+                                <option value="" disabled selected>Select Product...</option>
+                                @foreach($products as $product)
+                                    <option value="{{ $product->name }}" 
+                                            data-isbn="{{ $product->sku ?? $product->barcode ?? '' }}" 
+                                            data-unit="{{ $product->unit ?? 'pcs' }}" 
+                                            data-price="{{ $product->price ?? 0 }}"
+                                            data-area="{{ $product->shelf_number ? ($product->shelf_number . ($product->rack_number ? ' - ' . $product->rack_number : '')) : '' }}">
+                                        {{ $product->name }} (ISBN: {{ $product->sku ?? $product->barcode ?? '-' }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
                         <td><input type="text" class="form-control item-isbn" placeholder="ISBN"></td>
                         <td><input type="text" class="form-control item-area" placeholder="Area"></td>
                         <td><input type="number" class="form-control item-price" value="0.00" min="0" step="0.01"></td>
                         <td><input type="text" class="form-control bg-light item-amount fw-bold text-end" value="0.00" readonly></td>
                         <td class="text-center"><button type="button" class="btn btn-danger btn-xs btn-remove-item shadow"><i class="las la-trash"></i></button></td>
                     </tr>
-                `;
+                `);
+                
                 $('#soItemsTable tbody').append(newRow);
+                if (typeof $.fn.selectpicker === 'function') {
+                    newRow.find('.selectpicker').selectpicker();
+                }
             });
 
             // Remove Item
@@ -1246,6 +1332,9 @@
                      row.find('.item-qty').val(1);
                      row.find('.item-price').val(0.00);
                      row.find('.item-amount').val(0.00);
+                     if (typeof $.fn.selectpicker === 'function') {
+                         row.find('.selectpicker').val('').selectpicker('refresh');
+                     }
                      calculateGrandTotal();
                 }
             });
@@ -1253,6 +1342,32 @@
             // Calculate on input change
             $(document).on('input', '.item-qty, .item-price', function() {
                 calculateRowTotal($(this).closest('tr'));
+            });
+
+            // Auto-populate when selecting a product from selectpicker
+            $(document).on('change', '.product-select', function() {
+                const option = $(this).find('option:selected');
+                if (option.length && option.val()) {
+                    const row = $(this).closest('tr');
+                    const isbn = option.data('isbn') || '';
+                    const unit = option.data('unit') || 'pcs';
+                    const price = parseFloat(option.data('price')) || 0;
+                    const area = option.data('area') || '';
+                    
+                    row.find('.item-isbn').val(isbn);
+                    row.find('.item-unit').val(unit);
+                    row.find('.item-price').val(price.toFixed(2));
+                    row.find('.item-area').val(area);
+                    
+                    calculateRowTotal(row);
+                }
+            });
+
+            // Initialize selectpickers when Create SO Modal is shown
+            $('#createSOModal').on('shown.bs.modal', function () {
+                if (typeof $.fn.selectpicker === 'function') {
+                    $('#createSOModal .selectpicker').selectpicker();
+                }
             });
 
             // --- Create SO Modal Logic ---
@@ -1289,11 +1404,24 @@
 
                     sampleItems.forEach(item => {
                         const amount = item.qty * item.price;
-                        tbody.append(`
+                        const newRow = $(`
                             <tr>
                                 <td><input type="number" class="form-control item-qty" value="${item.qty}" min="1"></td>
                                 <td><input type="text" class="form-control item-unit" value="${item.unit}"></td>
-                                <td><input type="text" class="form-control item-desc" value="${item.desc}"></td>
+                                <td class="product-select-td" style="min-width: 250px;">
+                                    <select class="form-control selectpicker product-select" data-live-search="true" data-size="8">
+                                        <option value="" disabled selected>Select Product...</option>
+                                        @foreach($products as $product)
+                                            <option value="{{ $product->name }}" 
+                                                    data-isbn="{{ $product->sku ?? $product->barcode ?? '' }}" 
+                                                    data-unit="{{ $product->unit ?? 'pcs' }}" 
+                                                    data-price="{{ $product->price ?? 0 }}"
+                                                    data-area="{{ $product->shelf_number ? ($product->shelf_number . ($product->rack_number ? ' - ' . $product->rack_number : '')) : '' }}">
+                                                {{ $product->name }} (ISBN: {{ $product->sku ?? $product->barcode ?? '-' }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
                                 <td><input type="text" class="form-control item-isbn" value="${item.isbn}"></td>
                                 <td><input type="text" class="form-control item-area" value="${item.area}"></td>
                                 <td><input type="number" class="form-control item-price" value="${item.price.toFixed(2)}" min="0" step="0.01"></td>
@@ -1301,6 +1429,20 @@
                                 <td class="text-center"><button type="button" class="btn btn-danger btn-xs btn-remove-item shadow"><i class="las la-trash"></i></button></td>
                             </tr>
                         `);
+                        tbody.append(newRow);
+                        
+                        // Check if the item description exists as a product, if not, add it as a temporary option
+                        let selectEl = newRow.find('.product-select');
+                        let exists = selectEl.find(`option[value="${item.desc}"]`).length > 0;
+                        if (!exists) {
+                            selectEl.append(`<option value="${item.desc}" selected>${item.desc}</option>`);
+                        } else {
+                            selectEl.val(item.desc);
+                        }
+                        
+                        if (typeof $.fn.selectpicker === 'function') {
+                            selectEl.selectpicker();
+                        }
                     });
                     calculateGrandTotal();
                     alert('Estimate #' + estNum + ' found and imported successfully!');
@@ -1781,5 +1923,6 @@
             </div>
         </div>
     </div>
+
     @endpush
 </x-app-layout>

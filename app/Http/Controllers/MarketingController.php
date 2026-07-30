@@ -56,22 +56,22 @@ class MarketingController extends Controller
         $totalSales = (float) $ordersQuery->sum('total_amount');
         $avgOrder = $totalOrders > 0 ? ($totalSales / $totalOrders) : 0;
 
-        // Sales by channel (platform)
-        $channels = \App\Models\SalesOrder::select(
+        // Sales by channel (platform) - Using fromSub to avoid ONLY_FULL_GROUP_BY issues on production
+        $subQuery = \App\Models\SalesOrder::select(
                 \DB::raw("CASE 
                     WHEN ecom_platform IS NOT NULL AND ecom_platform != '' THEN ecom_platform 
                     WHEN platform IS NOT NULL AND platform != '' THEN platform 
                     ELSE 'direct_pos' 
                 END as platform"),
-                \DB::raw('COALESCE(SUM(total_amount),0) as total')
+                'total_amount'
             )
             ->whereBetween('created_at', [$start, $end])
-            ->where($salesFilter)
-            ->groupBy(\DB::raw("CASE 
-                WHEN ecom_platform IS NOT NULL AND ecom_platform != '' THEN ecom_platform 
-                WHEN platform IS NOT NULL AND platform != '' THEN platform 
-                ELSE 'direct_pos' 
-            END"))
+            ->where($salesFilter);
+
+        $channels = \DB::query()
+            ->fromSub($subQuery, 'sub')
+            ->select('platform', \DB::raw('COALESCE(SUM(total_amount),0) as total'))
+            ->groupBy('platform')
             ->orderByDesc('total')
             ->get();
         $topChannel = $channels->first();
@@ -2280,9 +2280,8 @@ class MarketingController extends Controller
         $proofOfPaymentPath = $request->hasFile('proof_of_payment') ? $request->file('proof_of_payment')->store('direct_invoices/proof_of_payments', 'public') : null;
         // $shippingLabelPath = $request->file('shipping_label')->store('direct_invoices/shipping_labels', 'public');
 
-        // E-com direct invoices always require approval before proceeding to Sales Invoice
-        // They bypass the regular picking workflow
-        $initialStatus = 'pending_mkt_approval';
+        // Direct E-Com Invoices go straight to Sales Invoice (no marketing approval required)
+        $initialStatus = 'pending_si_prep';
 
         // Resolve platform merchant customer
         $platformName = ucfirst(strtolower($request->ecom_platform));
@@ -2392,7 +2391,7 @@ class MarketingController extends Controller
 
         $so->update(['total_amount' => $totalAmount]);
 
-        return redirect()->route('marketing.direct-invoice.ecom')->with('success', 'Direct Invoice #' . $invoiceNumber . ' created and submitted for Marketing approval.');
+        return redirect()->route('marketing.direct-invoice.ecom')->with('success', 'Direct Invoice #' . $invoiceNumber . ' created successfully and routed directly to Sales Invoice.');
     }
 
     public function approveDirectInvoiceEcom(Request $request, $id)

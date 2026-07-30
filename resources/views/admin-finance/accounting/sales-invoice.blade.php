@@ -91,8 +91,8 @@
                                             @forelse($normalOrders as $order)
                                             <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}">
                                                 <td>
-                                                    @if($order->status === 'pending_si_prep' || $order->status === 'pending_si_approval')
-                                                        <input type="checkbox" class="order-checkbox normal-check" value="{{ $order->id }}" data-proof="{{ $order->proof_of_payment ? 'yes' : 'no' }}" style="width: 16px; height: 16px; cursor: pointer;">
+                                                    @if($order->status === 'pending_si_prep' || $order->status === 'pending_si_approval' || $order->status === 'si_created')
+                                                        <input type="checkbox" class="order-checkbox normal-check" value="{{ $order->id }}" data-proof="{{ ($order->proof_of_payment || in_array($order->type, ['area_consignment', 'area_sales_consignment'])) ? 'yes' : 'no' }}" style="width: 16px; height: 16px; cursor: pointer;">
                                                     @else
                                                         <input type="checkbox" disabled style="width: 16px; height: 16px; opacity: 0.4;">
                                                     @endif
@@ -128,8 +128,8 @@
                                                     <div class="d-flex align-items-center gap-2">
                                                         <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
-                                                        @if($order->status === 'pending_si_prep')
-                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
+                                                        @if($order->status === 'pending_si_prep' || $order->status === 'si_created')
+                                                            @if($order->type === 'ecom_direct' || in_array($order->type, ['area_consignment', 'area_sales_consignment']) || $order->proof_of_payment)
                                                                 <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
                                                             @else
                                                                 <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
@@ -137,7 +137,7 @@
                                                         @endif
 
                                                         @if($order->status === 'pending_si_approval')
-                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
+                                                            @if($order->type === 'ecom_direct' || in_array($order->type, ['area_consignment', 'area_sales_consignment']) || $order->proof_of_payment)
                                                                 <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
                                                                     @csrf
                                                                     <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
