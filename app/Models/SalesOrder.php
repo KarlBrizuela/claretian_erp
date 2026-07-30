@@ -166,17 +166,18 @@ class SalesOrder extends Model
 
     public function getFinalTotalAttribute()
     {
+        if ($this->total_amount !== null && (float) $this->total_amount > 0) {
+            return (float) $this->total_amount;
+        }
+
         $itemsSubtotal = $this->relationLoaded('items')
             ? $this->items->sum('subtotal')
             : $this->items()->sum('subtotal');
 
-        if ($itemsSubtotal <= 0 && $this->total_amount !== null) {
-            return (float) $this->total_amount;
-        }
-
         $freightCharges = (float) ($this->freight_charges ?? 0);
         $serviceFee = $this->freight_option === 'freight_collect' ? 50.00 : 0;
+        $discount = (float) ($this->discount_amount ?? 0);
 
-        return $itemsSubtotal + $freightCharges + $serviceFee;
+        return max(0, $itemsSubtotal + $freightCharges + $serviceFee - $discount);
     }
 }

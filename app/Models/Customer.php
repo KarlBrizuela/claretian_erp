@@ -98,7 +98,11 @@ class Customer extends Model
     {
         $openingBalance = $this->opening_balance ?? 0;
         $unpaidOrders = $this->salesOrders()
-            ->where('payment_status', 'unpaid')
+            ->where('payment_status', '!=', 'paid')
+            ->where(function($q) {
+                $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', '');
+            })
+            ->whereNotIn('type', ['paid', 'calculator_pos', 'ecom_direct'])
             ->where('status', '!=', 'cancelled')
             ->sum('total_amount');
         

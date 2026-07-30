@@ -552,10 +552,30 @@
                 <div class="row">
                     <div class="col-xl-12">
                         <div class="card">
-                            <div class="card-header border-0">
+                            <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
                                 <div>
                                     <h4 class="fs-20 mb-0 text-black">Recent Stock Movements</h4>
                                 </div>
+                                <ul class="nav nav-pills" id="movementFilterTabs" style="gap: 5px;">
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link active btn-sm py-1 px-3 movement-tab-btn" onclick="filterStockMovements('all', this)">All</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link btn-sm py-1 px-3 movement-tab-btn" onclick="filterStockMovements('so', this)">Sales Order</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link btn-sm py-1 px-3 movement-tab-btn" onclick="filterStockMovements('pos', this)">POS</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link btn-sm py-1 px-3 movement-tab-btn" onclick="filterStockMovements('ecom', this)">E-Com</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link btn-sm py-1 px-3 movement-tab-btn" onclick="filterStockMovements('transfer', this)">Stock Transfer</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link btn-sm py-1 px-3 movement-tab-btn" onclick="filterStockMovements('stockin', this)">Stock In</button>
+                                    </li>
+                                </ul>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -572,16 +592,37 @@
                                         </thead>
                                         <tbody>
                                             @forelse($recentMovements as $transaction)
-                                            <tr>
+                                            @php
+                                                $src = strtolower(($transaction->source ?? '') . ' ' . ($transaction->notes ?? '') . ' ' . ($transaction->reference_number ?? ''));
+                                                $cat = 'so';
+                                                if (str_contains($src, 'transfer') || str_contains($src, 'st-')) {
+                                                    $cat = 'transfer';
+                                                } elseif ($transaction->type == 'in') {
+                                                    $cat = 'stockin';
+                                                } elseif (str_contains($src, 'pos')) {
+                                                    $cat = 'pos';
+                                                } elseif (str_contains($src, 'e-com') || str_contains($src, 'ecom') || str_contains($src, 'shopee') || str_contains($src, 'lazada') || str_contains($src, 'tiktok') || str_contains($src, 'website')) {
+                                                    $cat = 'ecom';
+                                                } elseif ($transaction->sales_order_item_id || str_contains($src, 'so-') || str_contains($src, 'sales order') || $transaction->type == 'out') {
+                                                    $cat = 'so';
+                                                }
+                                            @endphp
+                                            <tr class="stock-movement-row" data-movement-type="{{ $cat }}">
                                                 <td><strong>#{{ $transaction->book->sku ?? $transaction->book_id }}</strong></td>
                                                 <td>{{ $transaction->book->name ?? 'Unknown' }}</td>
                                                 <td>
-                                                    @if($transaction->type == 'in')
+                                                    @if($cat == 'transfer')
+                                                        <span class="badge light" style="background-color: #cfe2ff; color: #084298; font-weight: 600;">Stock Transfer</span>
+                                                    @elseif($cat == 'stockin')
                                                         <span class="badge light badge-success">Stock In</span>
-                                                    @elseif($transaction->type == 'out')
-                                                        <span class="badge light badge-danger">Stock Out</span>
+                                                    @elseif($cat == 'pos')
+                                                        <span class="badge light" style="background-color: #e0cffc; color: #5925dc; font-weight: 600;">POS</span>
+                                                    @elseif($cat == 'ecom')
+                                                        <span class="badge light" style="background-color: #cff4fc; color: #055160; font-weight: 600;">E-Com</span>
+                                                    @elseif($cat == 'so')
+                                                        <span class="badge light" style="background-color: #fff3cd; color: #664d03; font-weight: 600;">Sales Order</span>
                                                     @else
-                                                        <span class="badge light badge-warning">Adjustment</span>
+                                                        <span class="badge light badge-danger">Stock Out</span>
                                                     @endif
                                                 </td>
                                                 <td class="{{ $transaction->type == 'out' ? 'text-danger' : 'text-success' }}">
@@ -600,26 +641,98 @@
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="6" class="text-center">No recent movements.您
+                                                <td colspan="6" class="text-center">No recent movements.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
                                     </table>
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center mt-4">
-                                    <div class="pagination-info">
-                                        Showing {{ $recentMovements->count() > 0 ? 1 : 0 }} to {{ $recentMovements->count() }} of {{ $totalMovements }} entries
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 gap-2">
+                                    <div class="pagination-info" id="movementPaginationInfo">
+                                        Showing 0 to 0 of 0 entries
                                     </div>
                                     <nav>
-                                        <div class="text-end">
-                                            <a href="{{ route('production.inventory.received') }}" class="text-primary">View All Transactions <i class="las la-arrow-right"></i></a>
-                                        </div>
+                                        <ul class="pagination pagination-xs mb-0" id="movementPaginationControls">
+                                            <!-- Dynamic Pagination Buttons -->
+                                        </ul>
                                     </nav>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <script>
+                let currentMovementCategory = 'all';
+                let currentMovementPage = 1;
+                const movementsPerPage = 5;
+
+                function filterStockMovements(category, btn) {
+                    if (btn) {
+                        document.querySelectorAll('#movementFilterTabs .nav-link').forEach(el => el.classList.remove('active'));
+                        btn.classList.add('active');
+                    }
+                    currentMovementCategory = category;
+                    currentMovementPage = 1;
+                    updateMovementPagination();
+                }
+
+                function changeMovementPage(page) {
+                    currentMovementPage = page;
+                    updateMovementPagination();
+                }
+
+                function updateMovementPagination() {
+                    const allRows = Array.from(document.querySelectorAll('.stock-movement-row'));
+                    const filteredRows = allRows.filter(row => {
+                        return currentMovementCategory === 'all' || row.getAttribute('data-movement-type') === currentMovementCategory;
+                    });
+
+                    allRows.forEach(row => row.style.display = 'none');
+
+                    const totalFiltered = filteredRows.length;
+                    const totalPages = Math.ceil(totalFiltered / movementsPerPage) || 1;
+
+                    if (currentMovementPage > totalPages) currentMovementPage = totalPages;
+                    if (currentMovementPage < 1) currentMovementPage = 1;
+
+                    const startIndex = (currentMovementPage - 1) * movementsPerPage;
+                    const endIndex = Math.min(startIndex + movementsPerPage, totalFiltered);
+
+                    for (let i = startIndex; i < endIndex; i++) {
+                        if (filteredRows[i]) {
+                            filteredRows[i].style.display = '';
+                        }
+                    }
+
+                    const infoEl = document.getElementById('movementPaginationInfo');
+                    if (infoEl) {
+                        const fromCount = totalFiltered > 0 ? startIndex + 1 : 0;
+                        infoEl.textContent = `Showing ${fromCount} to ${endIndex} of ${totalFiltered} entries`;
+                    }
+
+                    const controlsEl = document.getElementById('movementPaginationControls');
+                    if (controlsEl) {
+                        let html = '';
+                        const prevDisabled = currentMovementPage === 1 ? 'disabled' : '';
+                        html += `<li class="page-item ${prevDisabled}"><button type="button" class="page-link" onclick="changeMovementPage(${currentMovementPage - 1})" ${prevDisabled}>Previous</button></li>`;
+
+                        for (let p = 1; p <= totalPages; p++) {
+                            const activeClass = p === currentMovementPage ? 'active' : '';
+                            html += `<li class="page-item ${activeClass}"><button type="button" class="page-link" onclick="changeMovementPage(${p})">${p}</button></li>`;
+                        }
+
+                        const nextDisabled = currentMovementPage === totalPages || totalPages === 0 ? 'disabled' : '';
+                        html += `<li class="page-item ${nextDisabled}"><button type="button" class="page-link" onclick="changeMovementPage(${currentMovementPage + 1})" ${nextDisabled}>Next</button></li>`;
+
+                        controlsEl.innerHTML = html;
+                    }
+                }
+
+                document.addEventListener('DOMContentLoaded', function() {
+                    updateMovementPagination();
+                });
+                </script>
             </div>
 
             <!-- Sites Tab Content -->

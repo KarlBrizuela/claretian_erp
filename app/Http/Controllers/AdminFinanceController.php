@@ -231,10 +231,14 @@ class AdminFinanceController extends Controller
       ->whereBetween('created_at', [$start, $end])
       ->sum('total_amount');
 
-    $accountsReceivable = \App\Models\SalesOrder::where('payment_status', 'unpaid')
+    $accountsReceivable = \App\Models\SalesOrder::where('payment_status', '!=', 'paid')
+      ->where(function($q) {
+          $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', '');
+      })
+      ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
       ->where('status', '!=', 'cancelled')
       ->whereBetween('created_at', [$start, $end])
-      ->sum('total_amount');
+      ->sum('total_amount') ?: 0.00;
 
     // Expenses: sum debits for journal items whose account type is 'Expense' within period
     $totalExpenses = \App\Models\JournalEntryItem::whereHas('account', function($q){
@@ -3037,13 +3041,13 @@ public function checkVoucher()
 
         $balances = [
             // Assets
-            'cash_on_hand' => $this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds) ?: (\App\Models\SalesInvoice::sum('total_amount') + $unpostedBookSales),
+            'cash_on_hand' => $this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds) ?: (\App\Models\SalesInvoice::sum('total_amount') + \App\Models\Payment::sum('amount') + \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where(function($q) { $q->where('payment_status', 'paid')->orWhere(function($sub) { $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', ''); })->orWhere('type', 'calculator_pos'); })->sum('total_amount')),
             'petty_cash' => $this->getAccountBalanceAndTrack('%Petty Cash%', 'Asset', $trackedIds) ?: \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
             'bank_accounts' => $this->getAccountBalanceAndTrack('%Bank%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash in Bank%', 'Asset', $trackedIds),
-            'receivables' => $this->getAccountBalanceAndTrack('%Receivable%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Trade/Accounts Receivable%', 'Asset', $trackedIds) ?: \App\Models\StatementOfAccount::sum('total_amount'),
-            'inventory_raw_materials' => $this->getAccountBalanceAndTrack('%Raw Materials%', 'Asset', $trackedIds),
-            'inventory_work_in_progress' => $this->getAccountBalanceAndTrack('%Work in Progress%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%WIP%', 'Asset', $trackedIds),
-            'inventory_finished_goods' => $this->getAccountBalanceAndTrack('%Finished Goods%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Books%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Consignment%', 'Asset', $trackedIds) ?: \App\Models\Book::sum(\DB::raw('stock * cost')),
+            'receivables' => \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where('payment_status', '!=', 'paid')->where(function($q) { $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', ''); })->whereNotIn('type', ['calculator_pos', 'ecom_direct'])->sum('total_amount') + \App\Models\StatementOfAccount::where('status', '!=', 'paid')->sum('total_amount'),
+            'inventory_raw_materials' => max(0, $this->getAccountBalanceAndTrack('%Raw Materials%', 'Asset', $trackedIds)),
+            'inventory_work_in_progress' => max(0, $this->getAccountBalanceAndTrack('%Work in Progress%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%WIP%', 'Asset', $trackedIds)),
+            'inventory_finished_goods' => (($fgCoa = $this->getAccountBalanceAndTrack('%Finished Goods%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Books%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Consignment%', 'Asset', $trackedIds)) > 0) ? $fgCoa : \App\Models\Book::sum(\DB::raw('stock * cost')),
             'fixed_assets' => $this->getAccountBalanceAndTrack('%Fixed Assets%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Equipment%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Property%', 'Asset', $trackedIds),
             'investments' => $this->getAccountBalanceAndTrack('%Investment%', 'Asset', $trackedIds),
             'deposits' => $this->getAccountBalanceAndTrack('%Deposit%', 'Asset', $trackedIds),
@@ -3123,9 +3127,59 @@ public function checkVoucher()
             });
 
         // Query operational transaction details for interactive modals
-        $salesInvoices = \App\Models\SalesInvoice::select('si_number', 'total_amount', 'status', 'customer_name', 'created_at')->latest()->get();
+        $salesInvoices = \App\Models\SalesOrder::with('customer')
+            ->where('status', '!=', 'cancelled')
+            ->where(function($q) {
+                $q->where('payment_status', 'paid')
+                  ->orWhere(function($sub) {
+                      $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', '');
+                  })
+                  ->orWhere('type', 'calculator_pos');
+            })
+            ->latest()
+            ->get()
+            ->map(function($so) {
+                return (object)[
+                    'si_number' => $so->so_number,
+                    'customer_name' => $so->customer->customer_name ?? ($so->customer->company_name ?? 'N/A'),
+                    'total_amount' => $so->total_amount,
+                    'status' => 'Paid',
+                    'created_at' => $so->created_at,
+                ];
+            });
         $pettyCashVouchers = \App\Models\PettyCashVoucher::withSum('items', 'amount')->latest()->get();
-        $statementOfAccounts = \App\Models\StatementOfAccount::select('soa_number', 'total_amount', 'status', 'created_at')->latest()->get();
+        $unpaidReceivables = \App\Models\SalesOrder::with('customer')
+            ->where('status', '!=', 'cancelled')
+            ->where('payment_status', '!=', 'paid')
+            ->where(function($q) {
+                $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', '');
+            })
+            ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
+            ->latest()
+            ->get()
+            ->map(function($so) {
+                return (object)[
+                    'soa_number' => $so->so_number,
+                    'customer_name' => $so->customer->customer_name ?? ($so->customer->company_name ?? 'N/A'),
+                    'type' => 'Sales Order',
+                    'status' => 'Unpaid',
+                    'total_amount' => $so->total_amount,
+                    'created_at' => $so->created_at,
+                ];
+            });
+
+        $soaList = \App\Models\StatementOfAccount::with('customer')->latest()->get()->map(function($soa) {
+            return (object)[
+                'soa_number' => $soa->soa_number,
+                'customer_name' => $soa->customer->customer_name ?? ($soa->customer->company_name ?? 'N/A'),
+                'type' => 'Statement of Account',
+                'status' => ucfirst($soa->status ?? 'Unpaid'),
+                'total_amount' => $soa->total_amount,
+                'created_at' => $soa->created_at,
+            ];
+        });
+
+        $statementOfAccounts = $unpaidReceivables->concat($soaList);
         $books = \App\Models\Book::select('name', 'stock', 'cost')->where('stock', '>', 0)->get();
         $purchaseOrders = \App\Models\PurchaseOrder::select('po_number', 'total_amount', 'status', 'created_at')->latest()->get();
 
@@ -3261,12 +3315,46 @@ public function checkVoucher()
         $customers = collect();
 
         foreach ($dbCustomers as $cust) {
-            $unpaidOrders = \App\Models\SalesOrder::where('customer_id', $cust->customer_id)
-                ->where('payment_status', '!=', 'paid')
+            $allOrders = \App\Models\SalesOrder::where('customer_id', $cust->customer_id)
+                ->latest()
                 ->get();
 
+            $invoices = $allOrders->map(function($so) {
+                $paidFromDb = \App\Models\Payment::where('sales_order_id', $so->id)->sum('amount') ?: 0.00;
+                $hasProof = !empty($so->proof_of_payment);
+                $isAutoPaidType = in_array($so->type, ['calculator_pos', 'ecom_direct']);
+                
+                $isPaid = $so->payment_status === 'paid' || $hasProof || $isAutoPaidType || ($paidFromDb >= $so->total_amount && $so->total_amount > 0);
+                $paid = $isPaid ? $so->total_amount : $paidFromDb;
+                $rem = max(0, $so->total_amount - $paid);
+                
+                $status = 'Unpaid';
+                if ($isPaid) {
+                    $status = 'Paid';
+                } elseif ($paid > 0) {
+                    $status = 'Partially Paid';
+                }
+
+                $so->computed_is_paid = $isPaid;
+                $so->computed_paid_amount = $paid;
+                $so->computed_remaining = $rem;
+                $so->computed_status = $status;
+
+                return (object)[
+                    'so_number' => $so->so_number,
+                    'date' => $so->created_at ? $so->created_at->format('M d, Y') : 'N/A',
+                    'total_amount' => $so->total_amount,
+                    'paid_amount' => $paid,
+                    'remaining_balance' => $rem,
+                    'status' => $status,
+                ];
+            });
+
+            $unpaidOrders = $allOrders->filter(function($so) {
+                return !($so->computed_is_paid ?? false);
+            });
             $outstanding = $unpaidOrders->sum('total_amount') ?: 0.00;
-            
+
             $customers->push((object)[
                 'customer_id' => $cust->customer_id,
                 'customer_name' => $cust->customer_name,
@@ -3284,7 +3372,8 @@ public function checkVoucher()
                 'interest_rate' => 1.5,
                 'overdue_amount' => 0.00,
                 'bad_debts' => 0.00,
-                'accrued_interest' => 0.00
+                'accrued_interest' => 0.00,
+                'invoices' => $invoices,
             ]);
         }
 
@@ -4184,64 +4273,101 @@ public function checkVoucher()
         $endDate = $request->query('end_date', date('Y-12-31'));
 
         // Aggregated live financial metrics from database
-        $totalAssets = \App\Models\CompanyBankAccount::sum('current_balance') + \App\Models\Investment::sum('current_value');
-        $totalRevenue = \App\Models\CashTransaction::where('category', 'Inflow')->sum('amount');
-        $totalExpenses = \App\Models\CashTransaction::where('category', 'Outflow')->sum('amount');
+        $liveAr = \App\Models\SalesOrder::where('payment_status', '!=', 'paid')
+            ->where(function($q) {
+                $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', '');
+            })
+            ->whereNotIn('type', ['paid', 'calculator_pos', 'ecom_direct'])
+            ->where('status', '!=', 'cancelled')
+            ->sum('total_amount') ?: 0.00;
+
+        $liveAp = \Illuminate\Support\Facades\Schema::hasTable('purchase_orders') ? (\App\Models\PurchaseOrder::where('status', '!=', 'completed')->sum('total_amount') ?: 0.00) : 0.00;
+        $liveBookInventory = \Illuminate\Support\Facades\Schema::hasTable('books') ? (\App\Models\Book::sum(\DB::raw('stock * cost')) ?: 0.00) : 0.00;
+        $liveExpenses = \Illuminate\Support\Facades\Schema::hasTable('expenses') ? (\App\Models\Expense::sum('amount') ?: 0.00) : 0.00;
+        $liveWht = \App\Models\SalesOrder::sum('withholding_tax_amount') ?: 0.00;
+        $liveFixedAssets = \Illuminate\Support\Facades\Schema::hasTable('production_fixed_assets')
+            ? (\App\Models\ProductionFixedAsset::sum('purchase_price') ?: 0.00)
+            : 0.00;
+
+        $bankBalances = \Illuminate\Support\Facades\Schema::hasTable('company_bank_accounts') ? (\App\Models\CompanyBankAccount::sum('current_balance') ?: 0.00) : 0.00;
+        $journalCash = (\App\Models\JournalEntryItem::whereHas('account', function($q) {
+            $q->whereIn('code', ['1000', '1010']);
+        })->sum('debit') - \App\Models\JournalEntryItem::whereHas('account', function($q) {
+            $q->whereIn('code', ['1000', '1010']);
+        })->sum('credit')) ?: 0.00;
+        $totalCash = max(0, $bankBalances + $journalCash);
+
+        $totalAssets = $totalCash + $liveAr + $liveBookInventory + \App\Models\Investment::sum('current_value') + $liveFixedAssets;
+        $totalRevenue = \App\Models\SalesOrder::whereIn('status', ['ready_for_delivery', 'completed'])->sum('total_amount') + \App\Models\CashTransaction::where('category', 'Inflow')->sum('amount');
+        $totalExpenses = $liveExpenses + \App\Models\CashTransaction::where('category', 'Outflow')->sum('amount');
         $netProfit = $totalRevenue - $totalExpenses;
 
-        // Sample data containers for 13 reports
+        // Dynamic report data containers
         $reportData = [];
 
         if ($selectedReport === 'Balance Sheet') {
+            $liabilitiesTotal = $liveAp + $liveExpenses + $liveWht;
             $reportData = [
                 'current_assets' => [
-                    ['account' => '1010 - Cash & Bank Balances', 'amount' => \App\Models\CompanyBankAccount::sum('current_balance')],
-                    ['account' => '1020 - Accounts Receivable', 'amount' => 450000.00],
-                    ['account' => '1030 - Production Master Inventory', 'amount' => 1250000.00],
+                    ['account' => '1010 - Cash & Bank Balances', 'amount' => $totalCash],
+                    ['account' => '1020 - Accounts Receivable', 'amount' => $liveAr],
+                    ['account' => '1030 - Production Master Inventory', 'amount' => $liveBookInventory],
                     ['account' => '1040 - Short-term Time Deposits', 'amount' => \App\Models\Investment::where('type', 'Time Deposits')->sum('current_value')],
                 ],
                 'non_current_assets' => [
-                    ['account' => '1510 - Production Fixed Machinery', 'amount' => 3800000.00],
+                    ['account' => '1510 - Production Fixed Machinery', 'amount' => $liveFixedAssets],
                     ['account' => '1520 - Long-term Investments & Bonds', 'amount' => \App\Models\Investment::whereIn('type', ['Bonds', 'Stocks', 'Mutual Funds'])->sum('current_value')],
                 ],
                 'liabilities' => [
-                    ['account' => '2010 - Accounts Payable (Suppliers)', 'amount' => 320000.00],
-                    ['account' => '2020 - Accrued Operating Expenses', 'amount' => 85000.00],
-                    ['account' => '2030 - Withholding Tax Payable', 'amount' => 42000.00],
+                    ['account' => '2010 - Accounts Payable (Suppliers)', 'amount' => $liveAp],
+                    ['account' => '2020 - Accrued Operating Expenses', 'amount' => $liveExpenses],
+                    ['account' => '2030 - Withholding Tax Payable', 'amount' => $liveWht],
                 ],
                 'equity' => [
-                    ['account' => '3010 - Capital & Retained Earnings', 'amount' => $totalAssets - 447000.00],
+                    ['account' => '3010 - Capital & Retained Earnings', 'amount' => max(0, $totalAssets - $liabilitiesTotal)],
                 ],
             ];
         } elseif ($selectedReport === 'Income Statement') {
+            $bookstoreRev = \App\Models\SalesOrder::where('type', 'calculator_pos')->sum('total_amount') ?: 0.00;
+            $areaRev = \App\Models\SalesOrder::whereIn('type', ['area_consignment', 'area_sales_consignment'])->sum('total_amount') ?: 0.00;
+            $ecomRev = \App\Models\SalesOrder::where('type', 'ecom_direct')->sum('total_amount') ?: 0.00;
+            $otherRev = \App\Models\SalesOrder::whereNotIn('type', ['calculator_pos', 'area_consignment', 'area_sales_consignment', 'ecom_direct'])->sum('total_amount') ?: 0.00;
+
             $reportData = [
                 'revenue' => [
-                    ['category' => 'Bookstore Sales Revenue', 'amount' => 850000.00],
-                    ['category' => 'Area Sales Revenue', 'amount' => 1200000.00],
-                    ['category' => 'E-Commerce Website Sales', 'amount' => 420000.00],
-                    ['category' => 'Wholesale & Institution Direct Sales', 'amount' => 950000.00],
+                    ['category' => 'Bookstore Sales Revenue', 'amount' => $bookstoreRev],
+                    ['category' => 'Area Sales Revenue', 'amount' => $areaRev],
+                    ['category' => 'E-Commerce Website Sales', 'amount' => $ecomRev],
+                    ['category' => 'Wholesale & Institution Direct Sales', 'amount' => $otherRev],
                 ],
                 'cogs' => [
-                    ['category' => 'Direct Production COGS (Paper, Ink, Labor)', 'amount' => 1420000.00],
-                    ['category' => 'Outside Printing & Freight', 'amount' => 280000.00],
+                    ['category' => 'Direct Production COGS (Paper, Ink, Labor)', 'amount' => 0.00],
+                    ['category' => 'Outside Printing & Freight', 'amount' => 0.00],
                 ],
                 'operating_expenses' => [
-                    ['category' => 'Salaries & Personnel Expenses', 'amount' => 650000.00],
-                    ['category' => 'Electricity & Utility Bills', 'amount' => 180000.00],
-                    ['category' => 'Depreciation & Amortization', 'amount' => 120000.00],
-                    ['category' => 'Advertising & Promotions', 'amount' => 95000.00],
+                    ['category' => 'Salaries & Personnel Expenses', 'amount' => 0.00],
+                    ['category' => 'Electricity & Utility Bills', 'amount' => 0.00],
+                    ['category' => 'Depreciation & Amortization', 'amount' => 0.00],
+                    ['category' => 'Advertising & Promotions', 'amount' => 0.00],
                 ],
             ];
         } elseif ($selectedReport === 'Profit by Product') {
-            $reportData = \App\Models\Book::select('name', 'sku', 'price', 'unit_cost')
-                ->take(15)
+            $reportData = \App\Models\Book::select('id', 'name', 'sku', 'price', 'cost')
+                ->take(20)
                 ->get()
-                ->map(function($bk) {
-                    $salesQty = rand(100, 1500);
-                    $rev = $bk->price * $salesQty;
-                    $cogs = $bk->unit_cost * $salesQty;
+                ->map(function($bk) use ($startDate, $endDate) {
+                    $salesItems = \App\Models\SalesOrderItem::where('book_id', $bk->id)
+                        ->whereHas('order', function($q) use ($startDate, $endDate) {
+                            $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                              ->where('status', '!=', 'cancelled');
+                        })->get();
+
+                    $salesQty = $salesItems->sum('quantity') ?: 0;
+                    $rev = $salesItems->sum('subtotal') ?: 0.00;
+                    $cogs = $salesQty * ($bk->cost ?? 0.00);
                     $profit = $rev - $cogs;
-                    $margin = $rev > 0 ? round(($profit / $rev) * 100, 1) : 0;
+                    $margin = $rev > 0 ? round(($profit / $rev) * 100, 1) : 0.0;
+                    
                     return [
                         'sku' => $bk->sku ?: 'SKU-PUB',
                         'name' => $bk->name,
@@ -4253,25 +4379,59 @@ public function checkVoucher()
                     ];
                 });
         } elseif ($selectedReport === 'Profit by Branch') {
+            $posRev = \App\Models\SalesOrder::where('type', 'calculator_pos')->sum('total_amount') ?: 0.00;
+            $ecomRev = \App\Models\SalesOrder::where('type', 'ecom_direct')->sum('total_amount') ?: 0.00;
+            $areaRev = \App\Models\SalesOrder::whereIn('type', ['area_consignment', 'area_sales_consignment'])->sum('total_amount') ?: 0.00;
+
             $reportData = [
-                ['branch' => 'Main Bookstore - Manila', 'revenue' => 1250000.00, 'expenses' => 780000.00, 'profit' => 470000.00, 'margin' => 37.6],
-                ['branch' => 'Cebu Regional Hub', 'revenue' => 850000.00, 'expenses' => 540000.00, 'profit' => 310000.00, 'margin' => 36.5],
-                ['branch' => 'Davao Area Sales Branch', 'revenue' => 620000.00, 'expenses' => 390000.00, 'profit' => 230000.00, 'margin' => 37.1],
-                ['branch' => 'E-Commerce Central Warehouse', 'revenue' => 940000.00, 'expenses' => 480000.00, 'profit' => 460000.00, 'margin' => 48.9],
+                ['branch' => 'Main Bookstore - Manila (POS)', 'revenue' => $posRev, 'expenses' => 0.00, 'profit' => $posRev, 'margin' => $posRev > 0 ? 100.0 : 0.0],
+                ['branch' => 'E-Commerce Central Warehouse', 'revenue' => $ecomRev, 'expenses' => 0.00, 'profit' => $ecomRev, 'margin' => $ecomRev > 0 ? 100.0 : 0.0],
+                ['branch' => 'Area Sales & Regional Hubs', 'revenue' => $areaRev, 'expenses' => 0.00, 'profit' => $areaRev, 'margin' => $areaRev > 0 ? 100.0 : 0.0],
             ];
         } elseif ($selectedReport === 'Profit by Customer') {
-            $reportData = [
-                ['customer' => 'St. Paul College System', 'type' => 'Institutional', 'revenue' => 450000.00, 'cost' => 260000.00, 'net_profit' => 190000.00],
-                ['customer' => 'Ateneo de Manila University', 'type' => 'University', 'revenue' => 380000.00, 'cost' => 210000.00, 'net_profit' => 170000.00],
-                ['customer' => 'National Book Store Corporate', 'type' => 'Retail Chain', 'revenue' => 890000.00, 'cost' => 540000.00, 'net_profit' => 350000.00],
-                ['customer' => 'Diocese of Cubao Parishes', 'type' => 'Religious', 'revenue' => 290000.00, 'cost' => 160000.00, 'net_profit' => 130000.00],
-            ];
+            $reportData = \App\Models\Customer::orderBy('customer_name')
+                ->take(15)
+                ->get()
+                ->map(function($cust) {
+                    $orders = \App\Models\SalesOrder::where('customer_id', $cust->customer_id)
+                        ->where('status', '!=', 'cancelled')
+                        ->get();
+                    $rev = $orders->sum('total_amount') ?: 0.00;
+                    return [
+                        'customer' => $cust->customer_name,
+                        'type' => $cust->company_name ?: 'Individual',
+                        'revenue' => $rev,
+                        'cost' => 0.00,
+                        'net_profit' => $rev,
+                    ];
+                });
         } elseif ($selectedReport === 'Profit by Salesperson') {
-            $reportData = [
-                ['salesperson' => 'Juan Dela Cruz', 'territory' => 'NCR North & Bulacan', 'quota' => 1000000.00, 'achieved' => 1150000.00, 'net_margin' => 420000.00],
-                ['salesperson' => 'Maria Santos', 'territory' => 'Visayas Region', 'quota' => 800000.00, 'achieved' => 880000.00, 'net_margin' => 310000.00],
-                ['salesperson' => 'Engr. Pedro Reyes', 'territory' => 'Mindanao Sales Hub', 'quota' => 750000.00, 'achieved' => 790000.00, 'net_margin' => 280000.00],
-            ];
+            $salesUsers = \App\Models\User::where('department', 'like', '%Sales%')
+                ->orWhere('position', 'like', '%Sales%')
+                ->orWhere('position', 'like', '%Rep%')
+                ->orWhere('role', 'like', '%Sales%')
+                ->get();
+
+            if ($salesUsers->isEmpty()) {
+                $salesUsers = \App\Models\User::take(5)->get();
+            }
+
+            $reportData = $salesUsers->map(function($usr) {
+                $achieved = \App\Models\SalesOrder::where(function($q) use ($usr) {
+                        $q->where('area_sales_staff_id', $usr->id)
+                          ->orWhere('prepared_by', $usr->id);
+                    })
+                    ->where('status', '!=', 'cancelled')
+                    ->sum('total_amount') ?: 0.00;
+
+                return [
+                    'salesperson' => $usr->name,
+                    'territory' => $usr->department ?: 'Sales Department',
+                    'quota' => 0.00,
+                    'achieved' => $achieved,
+                    'net_margin' => $achieved,
+                ];
+            });
         }
 
         return view('admin-finance.accounting.financial-reports', [

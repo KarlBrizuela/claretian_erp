@@ -135,10 +135,9 @@ class InventoryController extends Controller
 
         $recentMovements = InventoryTransaction::with('book')
             ->latest()
-            ->limit(5)
             ->get();
 
-        $totalMovements = InventoryTransaction::count();
+        $totalMovements = $recentMovements->count();
 
         $user = Auth::user();
         $userApprovalDivision = StockTransfer::approvalDivisionForUser($user);

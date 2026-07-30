@@ -29,36 +29,41 @@ class AccountingService
 
             $totalAmount = $activeInvoice ? $activeInvoice->total_amount : $order->total_amount;
 
-            // 1. Create Journal Entry Header
-            $entry = JournalEntry::create([
-                'entry_no' => $this->generateEntryNumber('JV'),
-                'entry_type' => 'SALE',
-                'date' => now(),
-                'reference' => $order->so_number,
-                'memo' => "Sales recognize for Order #" . $order->so_number,
-                'currency' => 'PHP',
-                'exchange_rate' => 1.0000,
-                'created_by' => auth()->id() ?? 1,
-                'status' => 'posted',
-            ]);
-
-            // 2. Determine Accounts (Based on Claretian Standard COA with fallback)
+            // 1. Determine Accounts (With automatic fallback and creation if COA is missing)
             $arAccount = ChartOfAccount::where('code', '1200')
                 ->orWhere('name', 'like', '%Accounts Receivable%')
                 ->orWhere('name', 'like', '%Trade%Receivable%')
                 ->first();
+            if (!$arAccount) {
+                $arAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1200'],
+                    ['name' => 'Trade/Accounts Receivable', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
 
             $cashAccount = ChartOfAccount::where('code', '1010')
-                ->orWhere('code', '1000') // Fallback to standard cash/bank code
+                ->orWhere('code', '1000')
                 ->orWhere('name', 'like', '%Cash%Bank%')
                 ->orWhere('name', 'like', '%Cash%Hand%')
                 ->first();
+            if (!$cashAccount) {
+                $cashAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1000'],
+                    ['name' => 'Cash in Bank', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
 
             $salesAccount = ChartOfAccount::where('code', '4000')
                 ->orWhere('name', 'like', '%Sales%Books%')
                 ->orWhere('name', 'like', '%Sales%')
                 ->orWhere('name', 'like', '%Revenue%')
                 ->first();
+            if (!$salesAccount) {
+                $salesAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '4000'],
+                    ['name' => 'Sales - Books', 'type' => 'Income', 'category' => 'Revenue']
+                );
+            }
 
             $inventoryAccount = ChartOfAccount::where('code', '1300')
                 ->orWhere('name', 'like', '%Inventory%')
@@ -72,11 +77,18 @@ class AccountingService
             // Determine which account to debit based on order type
             $debitAccount = ($order->type === 'calculator_pos' || $order->type === 'ecom_direct') ? $cashAccount : $arAccount;
 
-            // If required accounts don't exist, skip accounting entry
-            if (!$debitAccount || !$salesAccount) {
-                // Return early - orders can still process without accounting
-                return $entry;
-            }
+            // 2. Create Journal Entry Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('JV'),
+                'entry_type' => 'SALE',
+                'date' => now(),
+                'reference' => $order->so_number,
+                'memo' => "Sales recognize for Order #" . $order->so_number,
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
             
             // 3. Create Items (Compound Entry)
             
@@ -122,6 +134,19 @@ class AccountingService
             }
 
             if ($totalCost > 0) {
+                if (!$cogsAccount) {
+                    $cogsAccount = ChartOfAccount::firstOrCreate(
+                        ['code' => '5000'],
+                        ['name' => 'Cost of Sales', 'type' => 'Expense', 'category' => 'COGS']
+                    );
+                }
+                if (!$inventoryAccount) {
+                    $inventoryAccount = ChartOfAccount::firstOrCreate(
+                        ['code' => '1300'],
+                        ['name' => 'Inventory - Books', 'type' => 'Asset', 'category' => 'Current Asset']
+                    );
+                }
+
                 // Line 3: DR Cost of Sales
                 JournalEntryItem::create([
                     'journal_entry_id' => $entry->id,

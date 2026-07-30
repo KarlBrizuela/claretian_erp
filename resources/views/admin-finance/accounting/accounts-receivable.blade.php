@@ -330,24 +330,24 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @if($cust->outstanding_balance > 0)
+                            @forelse($cust->invoices as $inv)
                             <tr>
-                                <td><span class="fw-bold text-dark">#SI-{{ str_replace('ACC-', '', $cust->account_number) }}-2026</span></td>
-                                <td>Jun 26, 2026</td>
-                                <td class="text-end">₱{{ number_format($cust->outstanding_balance + ($cust->overdue_amount > 0 ? 50000 : 0), 2) }}</td>
-                                <td class="text-end">₱{{ number_format($cust->overdue_amount > 0 ? 50000 : 0, 2) }}</td>
-                                <td class="text-end fw-bold text-dark">₱{{ number_format($cust->outstanding_balance, 2) }}</td>
+                                <td><span class="fw-bold text-dark">#{{ $inv->so_number }}</span></td>
+                                <td>{{ $inv->date }}</td>
+                                <td class="text-end">₱{{ number_format($inv->total_amount, 2) }}</td>
+                                <td class="text-end">₱{{ number_format($inv->paid_amount, 2) }}</td>
+                                <td class="text-end fw-bold text-dark">₱{{ number_format($inv->remaining_balance, 2) }}</td>
                                 <td>
-                                    <span class="badge {{ $cust->overdue_amount > 0 ? 'bg-warning text-dark' : 'bg-danger text-white' }}">
-                                        {{ $cust->overdue_amount > 0 ? 'Partially Paid' : 'Unpaid' }}
+                                    <span class="badge {{ $inv->status === 'Paid' ? 'bg-success text-white' : ($inv->status === 'Partially Paid' ? 'bg-warning text-dark' : 'bg-danger text-white') }}">
+                                        {{ $inv->status }}
                                     </span>
                                 </td>
                             </tr>
-                            @else
+                            @empty
                             <tr>
-                                <td colspan="6" class="text-center py-3 text-muted">No outstanding unpaid invoices logged in database.</td>
+                                <td colspan="6" class="text-center py-3 text-muted">No invoices logged for this customer.</td>
                             </tr>
-                            @endif
+                            @endforelse
                         </tbody>
                     </table>
                 </div>

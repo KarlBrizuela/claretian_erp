@@ -35,10 +35,6 @@
                         <div>
                             <h4 class="card-title mb-1">Received Transaction Logs</h4>
                         </div>
-                        <a href="javascript:void(0);" class="btn btn-primary rounded d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#addStockModal" style="gap: 0.5rem; padding: 0.5rem 1rem; height: 38px; min-height: 38px; line-height: 1.5; box-sizing: border-box; border: none; background: #ff0000; color: #ffffff; font-weight: 500;">
-                                <i class="las la-plus" style="font-size: 1rem; line-height: 1; margin: 0; padding: 0; background: transparent; border: none; box-shadow: none;"></i>
-                                <span style="font-size: 0.875rem; white-space: nowrap;">Add Received Items</span>
-                            </a>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -53,7 +49,6 @@
                                         <th>Quantity</th>
                                         <th>Total cost</th>
                                         <th>Status</th>
-                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -74,25 +69,6 @@
                                             @else
                                                 <span class="badge badge-danger">Cancelled</span>
                                             @endif
-                                        </td>
-                                        <td>
-                                            <div class="d-flex">
-                                                <button type="button" class="btn btn-primary shadow btn-xs sharp me-1 edit-status-btn" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#editStatusModal" 
-                                                    data-id="{{ $item->id }}" 
-                                                    data-status="{{ $item->status }}"
-                                                    data-reference="{{ $item->reference_number }}"
-                                                    data-source="{{ $item->source }}"
-                                                    data-date="{{ $item->transaction_date ? \Carbon\Carbon::parse($item->transaction_date)->format('Y-m-d') : $item->created_at->format('Y-m-d') }}"
-                                                    data-quantity="{{ $item->quantity }}"
-                                                    data-cost="{{ $item->total_cost }}">
-                                                    <i class="fas fa-pencil-alt"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-danger shadow btn-xs sharp delete-btn" data-id="{{ $item->id }}">
-                                                    <i class="fa fa-trash"></i>
-                                                </button>
-                                            </div>
                                         </td>
                                     </tr>
                                     @endforeach

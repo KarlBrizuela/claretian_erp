@@ -324,9 +324,27 @@ class StockTransfer extends Model
                     $bundle->save();
                 } elseif ((int)$this->to_site_id === (int)$mainWarehouseId) {
                     $bundle->stock += $this->quantity;
-                    $bundle->save();
                 }
             }
+        }
+
+        // Record inventory transaction log for stock movement audit trail
+        if ($this->book_id) {
+            $bookForCost = \App\Models\Book::find($this->book_id);
+            \App\Models\InventoryTransaction::create([
+                'book_id'          => $this->book_id,
+                'type'             => 'out',
+                'quantity'         => $this->quantity,
+                'location'         => $this->fromSite->name ?? 'Main Warehouse',
+                'source'           => 'Stock Transfer',
+                'reference_number' => 'ST-' . sprintf('%04d', $this->id),
+                'unit_cost'        => $bookForCost->cost ?? 0,
+                'total_cost'       => $this->quantity * ($bookForCost->cost ?? 0),
+                'notes'            => 'Stock Transfer from ' . ($this->fromSite->name ?? 'Site') . ' to ' . ($this->toSite->name ?? 'Site'),
+                'status'           => 'completed',
+                'transaction_date' => now(),
+                'user_id'          => auth()->id() ?? 1,
+            ]);
         }
 
         return true;

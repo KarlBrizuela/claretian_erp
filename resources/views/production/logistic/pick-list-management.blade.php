@@ -44,9 +44,9 @@
                                                 'product'      => $item->salesOrderItem->book->name ?? 'Unknown',
                                                 'quantity'     => $item->requested_qty,
                                                 'picked_qty'   => $item->picked_qty,
-                                                'price'        => $item->salesOrderItem->price,
-                                                'subtotal'     => $item->salesOrderItem->subtotal,
-                                                'unit'         => $item->salesOrderItem->unit,
+                                                'price'        => $item->salesOrderItem->price ?? 0,
+                                                'subtotal'     => $item->salesOrderItem->subtotal ?? 0,
+                                                'unit'         => $item->salesOrderItem->unit ?? 'pcs',
                                                 'status'       => $item->status,
                                                 'notes'        => $item->notes,
                                             ];
@@ -57,13 +57,13 @@
                                         <td class="fw-bold">{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
                                         <td>{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}</td>
                                         <td><span class="badge bg-light text-dark">{{ $pickList->pickListItems->count() }} items</span></td>
-                                        <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum('salesOrderItem.subtotal'), 2) }}</td>
+                                        <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum(fn($i) => $i->salesOrderItem->subtotal ?? 0), 2) }}</td>
                                         <td>{{ $pickList->created_at->format('M d, Y') }}</td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-warning recreate-picklist-btn"
-                                                    data-order-id="{{ $pickList->salesOrder->id }}"
+                                                    data-order-id="{{ $pickList->salesOrder->id ?? '' }}"
                                                     data-pick-list-id="{{ $pickList->id }}"
-                                                    data-so-number="{{ $pickList->salesOrder->so_number }}"
+                                                    data-so-number="{{ $pickList->salesOrder->so_number ?? 'N/A' }}"
                                                     data-customer="{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}"
                                                     data-date="{{ $pickList->created_at->format('Y-m-d') }}"
                                                     data-items='{{ $pickListItemsJson }}'
@@ -120,9 +120,9 @@
                                                 'product'      => $item->salesOrderItem->book->name ?? 'Unknown',
                                                 'quantity'     => $item->requested_qty,
                                                 'picked_qty'   => $item->picked_qty,
-                                                'price'        => $item->salesOrderItem->price,
-                                                'subtotal'     => $item->salesOrderItem->subtotal,
-                                                'unit'         => $item->salesOrderItem->unit,
+                                                'price'        => $item->salesOrderItem->price ?? 0,
+                                                'subtotal'     => $item->salesOrderItem->subtotal ?? 0,
+                                                'unit'         => $item->salesOrderItem->unit ?? 'pcs',
                                                 'status'       => $item->status,
                                                 'notes'        => $item->notes,
                                             ];
@@ -135,14 +135,14 @@
                                         <td>
                                             <span class="badge bg-light text-dark">{{ $pickList->pickListItems->count() }} items</span>
                                         </td>
-                                        <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum('salesOrderItem.subtotal'), 2) }}</td>
+                                        <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum(fn($i) => $i->salesOrderItem->subtotal ?? 0), 2) }}</td>
                                         <td>{{ $pickList->preparedByUser->name ?? 'N/A' }}</td>
                                         <td>{{ $pickList->created_at->format('M d, Y') }}</td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-primary view-order-btn"
-                                                    data-order-id="{{ $pickList->salesOrder->id }}"
+                                                    data-order-id="{{ $pickList->salesOrder->id ?? '' }}"
                                                     data-pick-list-id="{{ $pickList->id }}"
-                                                    data-so-number="{{ $pickList->salesOrder->so_number }}"
+                                                    data-so-number="{{ $pickList->salesOrder->so_number ?? 'N/A' }}"
                                                     data-customer="{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}"
                                                     data-date="{{ $pickList->created_at->format('Y-m-d') }}"
                                                     data-items='{{ $pickListItemsJson }}'
@@ -150,10 +150,10 @@
                                                     style="background: #ff0000; border: none;">
                                                 <i class="las la-eye me-1"></i> View Items
                                             </button>
-                                            @if($pickList->salesOrder->ecom_platform)
+                                            @if(optional($pickList->salesOrder)->ecom_platform)
                                             <button type="button" class="btn btn-sm link-to-pack-btn"
-                                                    data-order-id="{{ $pickList->salesOrder->id }}"
-                                                    data-so-number="{{ $pickList->salesOrder->so_number }}"
+                                                    data-order-id="{{ $pickList->salesOrder->id ?? '' }}"
+                                                    data-so-number="{{ $pickList->salesOrder->so_number ?? 'N/A' }}"
                                                     title="Link to Pack Management"
                                                     style="background: #0d6efd; color: #fff; border: none; margin-left: 0.25rem;">
                                                 <i class="las la-dolly"></i>

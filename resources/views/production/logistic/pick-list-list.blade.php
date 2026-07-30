@@ -69,7 +69,7 @@
                                                     <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                         <i class="las la-eye"></i>
                                                     </a>
-                                                    <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
+                                                    <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                         @csrf
                                                         <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
                                                             <i class="las la-check"></i>
@@ -155,7 +155,7 @@
                                                             <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                                 <i class="las la-eye"></i>
                                                             </a>
-                                                            <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
+                                                            <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                                 @csrf
                                                                 <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
                                                                     <i class="las la-check"></i>
@@ -218,7 +218,7 @@
                                                             <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                                 <i class="las la-eye"></i>
                                                             </a>
-                                                            <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
+                                                            <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                                 @csrf
                                                                 <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
                                                                     <i class="las la-check"></i>
@@ -281,7 +281,7 @@
                                                             <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                                 <i class="las la-eye"></i>
                                                             </a>
-                                                            <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
+                                                            <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                                 @csrf
                                                                 <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
                                                                     <i class="las la-check"></i>

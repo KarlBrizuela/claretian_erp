@@ -228,6 +228,32 @@ class SiteController extends Controller
                     'status' => 'pending'
                 ]);
 
+                $bookIdToLog = $transfer->book_id;
+                if (!$bookIdToLog && $transfer->book_index_id) {
+                    $idx = \App\Models\BookIndex::find($transfer->book_index_id);
+                    $bookIdToLog = $idx ? $idx->book_id : null;
+                }
+                if ($bookIdToLog) {
+                    $bk = \App\Models\Book::find($bookIdToLog);
+                    $fromSiteObj = \App\Models\Site::find($request->from_site_id);
+                    $toSiteObj   = \App\Models\Site::find($request->to_site_id);
+
+                    \App\Models\InventoryTransaction::create([
+                        'book_id'          => $bookIdToLog,
+                        'type'             => 'out',
+                        'quantity'         => $request->quantity,
+                        'location'         => $fromSiteObj->name ?? 'Site',
+                        'source'           => 'Stock Transfer',
+                        'reference_number' => 'ST-' . sprintf('%04d', $transfer->id),
+                        'unit_cost'        => $bk->cost ?? 0,
+                        'total_cost'       => $request->quantity * ($bk->cost ?? 0),
+                        'notes'            => 'Stock Transfer from ' . ($fromSiteObj->name ?? 'Site') . ' to ' . ($toSiteObj->name ?? 'Site'),
+                        'status'           => 'completed',
+                        'transaction_date' => now(),
+                        'user_id'          => $user->id ?? 1,
+                    ]);
+                }
+
                 DB::commit();
 
                 return response()->json([
@@ -342,6 +368,32 @@ class SiteController extends Controller
                         'created_by'        => $user->id,
                         'status'            => 'pending',
                     ]);
+
+                    $bookIdToLog = $transfer->book_id;
+                    if (!$bookIdToLog && $transfer->book_index_id) {
+                        $idx = \App\Models\BookIndex::find($transfer->book_index_id);
+                        $bookIdToLog = $idx ? $idx->book_id : null;
+                    }
+                    if ($bookIdToLog) {
+                        $bk = \App\Models\Book::find($bookIdToLog);
+                        $fromSiteObj = \App\Models\Site::find($request->from_site_id);
+                        $toSiteObj   = \App\Models\Site::find($request->to_site_id);
+
+                        \App\Models\InventoryTransaction::create([
+                            'book_id'          => $bookIdToLog,
+                            'type'             => 'out',
+                            'quantity'         => $quantity,
+                            'location'         => $fromSiteObj->name ?? 'Site',
+                            'source'           => 'Stock Transfer',
+                            'reference_number' => 'ST-' . sprintf('%04d', $transfer->id),
+                            'unit_cost'        => $bk->cost ?? 0,
+                            'total_cost'       => $quantity * ($bk->cost ?? 0),
+                            'notes'            => 'Stock Transfer from ' . ($fromSiteObj->name ?? 'Site') . ' to ' . ($toSiteObj->name ?? 'Site'),
+                            'status'           => 'completed',
+                            'transaction_date' => now(),
+                            'user_id'          => $user->id ?? 1,
+                        ]);
+                    }
                 }
 
                 $created[] = $transfer;
@@ -597,11 +649,19 @@ class SiteController extends Controller
         try {
             $site = Site::findOrFail($siteId);
             
-            // Get real-time site-specific inventory only
+            // Get real-time site-specific inventory only (excluding deleted/orphan books)
             $inventory = SiteInventory::where('site_id', $siteId)
                 ->with(['book', 'bookIndex.book', 'bookBundle'])
                 ->where('quantity', '>', 0)
                 ->get()
+                ->filter(function($item) {
+                    if ($item->book_index_id) {
+                        return !empty($item->bookIndex) && !empty($item->bookIndex->book);
+                    } elseif ($item->book_bundle_id) {
+                        return !empty($item->bookBundle);
+                    }
+                    return !empty($item->book);
+                })
                 ->map(function($item) {
                     $type = 'book';
                     $itemId = $item->book_id;

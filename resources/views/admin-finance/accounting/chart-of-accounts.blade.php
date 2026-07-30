@@ -135,7 +135,7 @@
                                     <td><span class="fw-bold text-dark">#{{ $si->si_number }}</span></td>
                                     <td>{{ $si->customer_name ?? 'N/A' }}</td>
                                     <td>{{ $si->created_at->format('M d, Y') }}</td>
-                                    <td><span class="badge bg-warning text-dark">{{ ucfirst($si->status) }}</span></td>
+                                    <td><span class="badge bg-success text-white">{{ ucfirst($si->status) }}</span></td>
                                     <td class="text-end fw-bold text-dark">₱{{ number_format($si->total_amount, 2) }}</td>
                                 </tr>
                                 @empty
@@ -210,7 +210,9 @@
                         <table class="table table-hover align-middle">
                             <thead class="table-light text-muted small text-uppercase">
                                 <tr>
-                                    <th>SOA Number</th>
+                                    <th>Reference No.</th>
+                                    <th>Customer</th>
+                                    <th>Type</th>
                                     <th>Created Date</th>
                                     <th>Status</th>
                                     <th class="text-end">Total Amount</th>
@@ -220,9 +222,11 @@
                                 @forelse($statementOfAccounts as $soa)
                                 <tr>
                                     <td><span class="fw-bold text-dark">#{{ $soa->soa_number }}</span></td>
-                                    <td>{{ $soa->created_at->format('M d, Y') }}</td>
+                                    <td>{{ $soa->customer_name ?? 'N/A' }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ $soa->type ?? 'Invoice' }}</span></td>
+                                    <td>{{ $soa->created_at ? $soa->created_at->format('M d, Y') : 'N/A' }}</td>
                                     <td>
-                                        <span class="badge {{ $soa->status === 'compiled' ? 'bg-info text-white' : 'bg-warning text-dark' }}">
+                                        <span class="badge {{ $soa->status === 'Paid' ? 'bg-success text-white' : 'bg-danger text-white' }}">
                                             {{ ucfirst($soa->status) }}
                                         </span>
                                     </td>
@@ -230,7 +234,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="4" class="text-center py-4 text-muted">No statement of accounts recorded in the database.</td>
+                                    <td colspan="6" class="text-center py-4 text-muted">No accounts receivable transactions recorded in the database.</td>
                                 </tr>
                                 @endforelse
                             </tbody>
