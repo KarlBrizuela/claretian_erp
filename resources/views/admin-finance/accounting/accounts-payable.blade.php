@@ -314,13 +314,20 @@
                                         <tbody>
                                             @forelse($purchaseOrders as $po)
                                             <tr class="hover-row">
-                                                <td><span class="fw-bold text-dark">{{ $po->po_number }}</span></td>
+                                                <td>
+                                                    <a href="javascript:void(0);" 
+                                                       class="fw-bold text-danger view-po-details text-decoration-underline" 
+                                                       data-id="{{ $po->id }}"
+                                                       title="Click to view Purchase Order details">
+                                                        {{ $po->po_number }}
+                                                    </a>
+                                                </td>
                                                 <td>
                                                     <span class="fw-bold text-dark d-block">{{ $po->supplier ? $po->supplier->company_name : ($po->vendor_name ?: 'N/A') }}</span>
                                                 </td>
                                                 <td>{{ \Carbon\Carbon::parse($po->date)->format('M d, Y') }}</td>
                                                 <td>{{ $po->terms ?: 'Standard' }}</td>
-                                                <td class="text-end fw-bold text-dark">₱{{ number_format($po->total_amount, 2) }}</td>
+                                                <td class="text-end fw-bold text-dark">{{ $po->currency_symbol }}{{ number_format($po->total_amount, 2) }}</td>
                                                 <td class="text-center">
                                                     <span class="badge bg-info-subtle text-info text-capitalize px-3 py-1">{{ $po->status }}</span>
                                                 </td>
@@ -353,7 +360,19 @@
                                             @forelse($receivingReports as $rr)
                                             <tr class="hover-row">
                                                 <td><span class="fw-bold text-dark">{{ $rr->rr_number }}</span></td>
-                                                <td><span class="badge bg-light text-dark border">{{ $rr->purchaseOrder ? $rr->purchaseOrder->po_number : 'N/A' }}</span></td>
+                                                <td>
+                                                    @if($rr->purchaseOrder)
+                                                        <a href="javascript:void(0);" 
+                                                           class="badge bg-danger-subtle text-danger border border-danger-subtle view-po-details" 
+                                                           data-id="{{ $rr->purchase_order_id }}" 
+                                                           title="Click to view Purchase Order details"
+                                                           style="cursor: pointer;">
+                                                            {{ $rr->purchaseOrder->po_number }}
+                                                        </a>
+                                                    @else
+                                                        <span class="badge bg-light text-dark border">N/A</span>
+                                                    @endif
+                                                </td>
                                                 <td><span class="fw-bold text-dark">{{ $rr->supplier ? $rr->supplier->company_name : 'N/A' }}</span></td>
                                                 <td>{{ \Carbon\Carbon::parse($rr->received_date)->format('M d, Y') }}</td>
                                                 <td><span class="text-muted small">{{ $rr->notes ?: 'None' }}</span></td>
@@ -748,4 +767,76 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL 4: PURCHASE ORDER DETAILS -->
+    <div class="modal fade" id="poDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold text-white"><i class="las la-file-invoice me-2"></i>Purchase Order Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" id="poModalBody">
+                    <div class="text-center p-5">
+                        <div class="spinner-border text-danger" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger px-4 fw-bold" onclick="printPoModalContent('poModalBody')">
+                        <i class="las la-print me-1"></i> Print PO
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+        $(document).ready(function() {
+            $(document).on('click', '.view-po-details', function(e) {
+                e.preventDefault();
+                const poId = $(this).data('id');
+                if (!poId) return;
+
+                const modalElement = document.getElementById('poDetailsModal');
+                const modal = new bootstrap.Modal(modalElement);
+                
+                $('#poModalBody').html('<div class="text-center p-5"><div class="spinner-border text-danger" role="status"><span class="visually-hidden">Loading...</span></div></div>');
+                modal.show();
+
+                $.ajax({
+                    url: `/production/logistic/purchase-order/${poId}`,
+                    method: 'GET',
+                    success: function(response) {
+                        $('#poModalBody').html(response);
+                    },
+                    error: function() {
+                        $('#poModalBody').html('<div class="alert alert-danger">Failed to load Purchase Order details.</div>');
+                    }
+                });
+            });
+        });
+
+        function printPoModalContent(divId) {
+            const content = document.getElementById(divId).innerHTML;
+            const printWindow = window.open('', '', 'height=700,width=900');
+            printWindow.document.write('<html><head><title>Print Purchase Order</title>');
+            const styles = document.getElementsByTagName('style');
+            for (let i = 0; i < styles.length; i++) {
+                printWindow.document.write(styles[i].outerHTML);
+            }
+            printWindow.document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(content);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.print();
+            }, 500);
+        }
+    </script>
+    @endpush
 </x-app-layout>

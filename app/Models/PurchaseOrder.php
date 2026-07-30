@@ -19,6 +19,7 @@ class PurchaseOrder extends Model
         'status',
         'prepared_by',
         'approved_by',
+        'currency',
         // Ford-specific fields
         'source',
         'vendor_name',
@@ -51,5 +52,27 @@ class PurchaseOrder extends Model
     public function receivingReports()
     {
         return $this->hasMany(ReceivingReport::class);
+    }
+
+    public function getCurrencySymbolAttribute()
+    {
+        if ($this->currency === 'PHP') {
+            return '₱';
+        }
+        if ($this->currency === 'USD') {
+            return '$';
+        }
+        return $this->source === 'ford' ? '$' : '₱';
+    }
+
+    public function getCurrencyLabelAttribute()
+    {
+        if ($this->currency === 'PHP') {
+            return 'PHP';
+        }
+        if ($this->currency === 'USD') {
+            return 'USD';
+        }
+        return $this->source === 'ford' ? 'USD' : 'PHP';
     }
 }

@@ -218,7 +218,7 @@
             </div>
 
             <!-- Whole vs Half Item Quantity Option -->
-            <div class="pos-form-group mb-3">
+            <div class="pos-form-group mb-3" style="display: none;">
                 <label class="d-flex justify-content-between align-items-center mb-1">
                     <span>Quantity Option *</span>
                     <span class="badge bg-danger" id="qtyModeBadge">WHOLE (100% Qty)</span>
@@ -303,7 +303,7 @@
                                 <p class="mb-1"><strong>Account Number:</strong> <span id="accountNumber"></span></p>
                             </div>
                             <label class="form-label font-w600" id="refLabel">Reference Number</label>
-                            <input type="text" class="form-control form-control-lg" id="refNumber" placeholder="Enter Reference #">
+                            <input type="text" class="form-control form-control-lg" id="refNumber" placeholder="Enter Reference #" maxlength="20">
                         </div>
                     </div>
                 </div>
@@ -328,6 +328,13 @@
                 </div>
                 <div class="modal-footer py-2">
                     <a id="printInvoiceNewTabBtn" href="#" target="_blank" class="btn btn-sm btn-outline-danger me-auto"><i class="las la-external-link-alt me-1"></i> Open In New Tab</a>
+                    
+                    <div class="btn-group btn-group-sm me-2" role="group">
+                        <button type="button" class="btn btn-danger active" id="btnFormatWhole" onclick="switchPrintFormat('whole')">Whole Page</button>
+                        <button type="button" class="btn btn-outline-danger" id="btnFormatHalf1" onclick="switchPrintFormat('half', 1)">First Half</button>
+                        <button type="button" class="btn btn-outline-danger" id="btnFormatHalf2" onclick="switchPrintFormat('half', 2)">Second Half</button>
+                    </div>
+
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-danger btn-sm px-4 font-w700" onclick="document.getElementById('orderInvoiceIframe').contentWindow.print()" style="background:#ff0000;">
                         <i class="las la-print me-1"></i> PRINT INVOICE
@@ -589,13 +596,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                            <span class="small text-muted font-w600">Item Portion:</span>
-                            <div class="btn-group btn-group-sm" role="group" style="width: 130px;">
-                                <button type="button" class="btn ${!isHalf ? 'btn-danger active' : 'btn-outline-danger'} btn-xs py-1" onclick="setItemPortion(${index}, 'whole')" style="${!isHalf ? 'background:#ff0000;color:#fff;' : ''}">Whole</button>
-                                <button type="button" class="btn ${isHalf ? 'btn-danger active' : 'btn-outline-danger'} btn-xs py-1" onclick="setItemPortion(${index}, 'half')" style="${isHalf ? 'background:#ff0000;color:#fff;' : ''}">Half</button>
-                            </div>
-                        </div>
                     </div>`;
                 }).join('');
             }
@@ -832,9 +832,8 @@
 
                     // Show Order Printable Sales Invoice Form Modal
                     if (data.order && data.order.print_url) {
-                        const targetUrl = data.order.print_url + (data.order.print_url.includes('?') ? '&' : '?') + 'hide_actions=1';
-                        document.getElementById('orderInvoiceIframe').src = targetUrl;
-                        document.getElementById('printInvoiceNewTabBtn').href = data.order.print_url;
+                        currentOrderPrintUrl = data.order.print_url;
+                        switchPrintFormat('whole');
                         const successModal = new bootstrap.Modal(document.getElementById('orderSuccessModal'));
                         successModal.show();
                     }
@@ -850,25 +849,37 @@
 
         let currentOrderPrintUrl = '';
 
-        function switchPrintFormat(format) {
+        function switchPrintFormat(format, halfPart) {
             if (!currentOrderPrintUrl) return;
             
             const btnWhole = document.getElementById('btnFormatWhole');
-            const btnHalf = document.getElementById('btnFormatHalf');
+            const btnHalf1 = document.getElementById('btnFormatHalf1');
+            const btnHalf2 = document.getElementById('btnFormatHalf2');
             
-            if (format === 'half') {
-                btnWhole?.classList.remove('btn-light', 'active');
-                btnWhole?.classList.add('btn-outline-light');
-                btnHalf?.classList.remove('btn-outline-light');
-                btnHalf?.classList.add('btn-light', 'active');
+            // Reset all buttons
+            [btnWhole, btnHalf1, btnHalf2].forEach(btn => {
+                if (btn) {
+                    btn.classList.remove('btn-danger', 'active');
+                    btn.classList.add('btn-outline-danger');
+                }
+            });
+            
+            // Highlight the active button
+            if (format === 'half' && halfPart == 1) {
+                btnHalf1?.classList.remove('btn-outline-danger');
+                btnHalf1?.classList.add('btn-danger', 'active');
+            } else if (format === 'half' && halfPart == 2) {
+                btnHalf2?.classList.remove('btn-outline-danger');
+                btnHalf2?.classList.add('btn-danger', 'active');
             } else {
-                btnHalf?.classList.remove('btn-light', 'active');
-                btnHalf?.classList.add('btn-outline-light');
-                btnWhole?.classList.remove('btn-outline-light');
-                btnWhole?.classList.add('btn-light', 'active');
+                btnWhole?.classList.remove('btn-outline-danger');
+                btnWhole?.classList.add('btn-danger', 'active');
             }
             
-            const targetUrl = currentOrderPrintUrl + (currentOrderPrintUrl.includes('?') ? '&' : '?') + 'format=' + format + '&hide_actions=1';
+            let targetUrl = currentOrderPrintUrl + (currentOrderPrintUrl.includes('?') ? '&' : '?') + 'format=' + format + '&hide_actions=1';
+            if (halfPart) {
+                targetUrl += '&half=' + halfPart;
+            }
             document.getElementById('orderInvoiceIframe').src = targetUrl;
             document.getElementById('printInvoiceNewTabBtn').href = targetUrl;
         }

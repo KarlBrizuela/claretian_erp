@@ -598,6 +598,7 @@ class FORDController extends Controller
             'vendor_address'    => $request->vendor_address,
             'payment_schedule'  => $request->payment_schedule,
             'payment_schedule2' => $request->payment_schedule2,
+            'currency'          => $request->currency ?? 'USD',
             'prepared_by'       => auth()->id(),
         ]);
 

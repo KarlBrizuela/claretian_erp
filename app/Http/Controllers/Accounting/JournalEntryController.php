@@ -11,9 +11,23 @@ use Illuminate\Support\Facades\DB;
 
 class JournalEntryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $entries = JournalEntry::with('creator')->latest()->paginate(20);
+        $search = $request->input('search');
+
+        $query = JournalEntry::with('creator');
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('entry_no', 'like', "%{$search}%")
+                  ->orWhere('reference', 'like', "%{$search}%")
+                  ->orWhere('memo', 'like', "%{$search}%")
+                  ->orWhere('entry_type', 'like', "%{$search}%");
+            });
+        }
+
+        $entries = $query->latest()->paginate(10)->withQueryString();
+
         return view('accounting.journal.index', compact('entries'));
     }
 

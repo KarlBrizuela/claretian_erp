@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
     @php
         $hideActions = request('hide_actions', false) || request('iframe', false);
+        $format = request('format', 'whole');
+        $halfPart = request('half', null); // 1 = first half of items, 2 = second half
     @endphp
     <style>
         * {
@@ -26,15 +28,79 @@
         .invoice-box {
             background: #fff;
             max-width: 8.5in;
-            min-height: auto;
+            min-height: {{ $format === 'half' ? '5.5in' : 'auto' }};
             margin: 0 auto;
-            padding: 0.35in 0.45in;
+            padding: {{ $format === 'half' ? '0.15in 0.25in' : '0.35in 0.45in' }};
             border: {{ $hideActions ? 'none' : '1px solid #ccc' }};
             box-shadow: {{ $hideActions ? 'none' : '0 4px 15px rgba(0, 0, 0, 0.1)' }};
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
+
+        @if($format === 'half')
+        .header-section {
+            padding-bottom: 3px !important;
+            margin-bottom: 5px !important;
+        }
+        .header-logo {
+            width: 45px !important;
+            height: 45px !important;
+        }
+        .company-name {
+            font-size: 10.5pt !important;
+        }
+        .company-subtitle, .company-address, .company-contact {
+            font-size: 7.5pt !important;
+            margin-top: 1px !important;
+        }
+        .doc-no {
+            font-size: 9pt !important;
+        }
+        .doc-no span {
+            font-size: 10pt !important;
+        }
+        .doc-title {
+            font-size: 11pt !important;
+        }
+        .info-grid {
+            margin-bottom: 5px !important;
+            font-size: 8.5pt !important;
+        }
+        .items-table {
+            margin-bottom: 5px !important;
+            font-size: 8.5pt !important;
+        }
+        .items-table th {
+            padding: 3px 5px !important;
+            font-size: 7.5pt !important;
+        }
+        .items-table td {
+            padding: 3px 5px !important;
+        }
+        .payment-sales-row {
+            margin-bottom: 5px !important;
+            font-size: 8.5pt !important;
+        }
+        .total-sales-box {
+            font-size: 9pt !important;
+        }
+        .total-sales-box span {
+            font-size: 10pt !important;
+        }
+        .conditions-bank-container {
+            margin-bottom: 5px !important;
+            font-size: 7pt !important;
+        }
+        .signatories-row {
+            margin-top: 5px !important;
+            margin-bottom: 5px !important;
+            font-size: 8pt !important;
+        }
+        .sig-line {
+            margin-top: 10px !important;
+        }
+        @endif
 
         .header-section {
             display: flex;
@@ -269,16 +335,21 @@
             .invoice-box {
                 border: none;
                 box-shadow: none;
-                padding: 0;
+                padding: {{ $format === 'half' ? '0.15in 0.25in' : '0' }};
                 width: 100%;
                 max-width: 100%;
+                @if($format === 'half')
+                height: 5.5in;
+                min-height: 5.5in;
+                justify-content: flex-start;
+                @endif
             }
             .actions-bar {
                 display: none !important;
             }
             @page {
-                size: letter portrait;
-                margin: 0.4in;
+                size: {{ $format === 'half' ? '8.5in 5.5in' : 'letter portrait' }};
+                margin: {{ $format === 'half' ? '0' : '0.4in' }};
             }
         }
     </style>
@@ -312,6 +383,9 @@
                 <div class="header-right">
                     <div class="doc-no">No. <span>{{ $order->so_number }}</span></div>
                     <div class="doc-title">Sales - Invoice</div>
+                    @if(isset($halfLabel) && $halfLabel)
+                        <div style="font-size: 8pt; color: #666; font-weight: bold;">{{ $halfLabel }}</div>
+                    @endif
                 </div>
             </div>
 
@@ -323,11 +397,27 @@
                 }
 
                 if ($activeInvoice) {
-                    $itemsToPrint = $activeInvoice->items;
+                    $allItems = $activeInvoice->items;
                     $totalSalesAmount = (float) $activeInvoice->total_amount;
                 } else {
-                    $itemsToPrint = $order->items;
+                    $allItems = $order->items;
                     $totalSalesAmount = (float) $order->total_amount;
+                }
+
+                // Split items if half parameter is set
+                if ($halfPart) {
+                    $itemsArray = $allItems->values();
+                    $totalCount = $itemsArray->count();
+                    $midpoint = (int) ceil($totalCount / 2);
+                    if ($halfPart == '1') {
+                        $itemsToPrint = $itemsArray->slice(0, $midpoint)->values();
+                    } else {
+                        $itemsToPrint = $itemsArray->slice($midpoint)->values();
+                    }
+                    $halfLabel = $halfPart == '1' ? 'Part 1 of 2' : 'Part 2 of 2';
+                } else {
+                    $itemsToPrint = $allItems;
+                    $halfLabel = null;
                 }
 
                 $isCash = in_array($order->payment_method, ['cash', 'gcash', 'paymaya', 'card', 'bank', 'check']) 

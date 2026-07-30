@@ -303,7 +303,6 @@
                                     <th>Type</th>
                                     <th>Ref #</th>
                                     <th>User</th>
-                                    <th>Assigned Logistics</th>
                                     <th>Date</th>
                                     <th>Amount</th>
                                     <th>Status</th>
@@ -360,12 +359,19 @@
                                                     <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times"></i> Reject</button>
                                                 </form>
                                             @elseif($approval['type'] === 'Stock Transfer')
-                                                <button type="button" class="btn btn-success btn-sm" onclick="approveTransfer({{ $approval['id'] }})">
-                                                    <i class="las la-check"></i> Approve
-                                                </button>
-                                                <button type="button" class="btn btn-danger btn-sm" onclick="rejectTransfer({{ $approval['id'] }})">
-                                                    <i class="las la-times"></i> Reject
-                                                </button>
+                                                <div class="d-flex gap-1" style="max-width: 250px;">
+                                                    <select class="form-control form-control-sm" id="assignLogistics{{ $approval['id'] }}">
+                                                        <option value="">Select staff</option>
+                                                        @foreach($logisticsUsers ?? [] as $logisticsUser)
+                                                            <option value="{{ $logisticsUser->id }}" {{ $approval['original']->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
+                                                                {{ $logisticsUser->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <button class="btn btn-primary btn-sm" onclick="assignLogisticsTransfer({{ $approval['id'] }})">
+                                                        Assign
+                                                    </button>
+                                                </div>
                                             @else
                                                 <button type="button" 
                                                         class="btn btn-primary btn-sm"
@@ -586,9 +592,13 @@
                                     <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
                                     <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                     <td>{{ $transfer->createdBy->name ?? 'N/A' }}</td>
-                                    <td>{{ $transfer->logisticsAssignedTo->name ?? 'Not assigned' }}</td>
                                     <td>{{ $transfer->created_at->format('Y-m-d h:i A') }}</td>
-                                    <td>{{ $transfer->quantity }} units</td>
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            <span>{{ $transfer->quantity }} units</span>
+                                            <small class="text-muted">Logistics: {{ $transfer->logisticsAssignedTo->name ?? 'Not assigned' }}</small>
+                                        </div>
+                                    </td>
                                     <td>
                                         @if($transfer->status === 'pending')
                                             <span class="status-badge status-pending">Pending Approval</span>
@@ -815,25 +825,25 @@
             // Initialize Tables
             queueTable = $('#approvalQueueTable').DataTable({
                 order: [[3, 'desc']],
-                pageLength: 25,
+                pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             myApprovalsTable = $('#myApprovalsTable').DataTable({
                 order: [[3, 'desc']],
-                pageLength: 25,
+                pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             mySubmissionsTable = $('#mySubmissionsTable').DataTable({
                 order: [[2, 'desc']],
-                pageLength: 25,
+                pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             myApprovedTable = $('#myApprovedTable').DataTable({
                 order: [[3, 'desc']],
-                pageLength: 25,
+                pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 

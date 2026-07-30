@@ -1260,11 +1260,25 @@ class MarketingController extends Controller
     }
 
     // Area Sales
-    public function salesOrdersList()
+    public function salesOrdersList(Request $request)
     {
-        $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-                    ->latest()
-                    ->paginate(10);
+        $search = $request->input('search');
+
+        $query = \App\Models\SalesOrder::with('customer', 'preparedBy');
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('so_number', 'like', "%{$search}%")
+                  ->orWhere('status', 'like', "%{$search}%")
+                  ->orWhere('ecom_platform', 'like', "%{$search}%")
+                  ->orWhere('type', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function($cq) use ($search) {
+                      $cq->where('customer_name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $orders = $query->latest()->paginate(10)->withQueryString();
 
         return view('marketing.sales-orders.list', [
             'title' => 'Sales Orders List',

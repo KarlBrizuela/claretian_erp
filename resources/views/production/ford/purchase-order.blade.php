@@ -43,6 +43,13 @@
                                     <input type="text" name="payment_schedule2" id="formPaymentSchedule2" placeholder="e.g., IN 12 EQUAL MONTHLY INSTALLMENTS" value="IN 12 EQUAL MONTHLY INSTALLMENTS">
                                 </div>
                                 <div class="form-group">
+                                    <label>Currency:</label>
+                                    <select id="formCurrency" class="form-control" onchange="updateCurrencyDisplay()">
+                                        <option value="PHP">₱ Philippine Peso (PHP)</option>
+                                        <option value="USD" selected>$ US Dollar (USD)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
                                     <label>Supplier <span class="text-danger">*</span> <small class="text-muted">(required to save to system)</small>:</label>
                                     <select id="formSupplierId" class="form-control">
                                         <option value="">-- Select Supplier --</option>
@@ -81,7 +88,7 @@
                                     <th style="width: 60px;">FT</th>
                                     <th>DESCRIPTION</th>
                                     <th style="width: 80px;">QUANTITY</th>
-                                    <th style="width: 100px;">UNIT PRICE (USD)</th>
+                                    <th style="width: 100px;" id="formUnitPriceHeader">UNIT PRICE (USD)</th>
                                     <th style="width: 100px;">TOTAL AMOUNT</th>
                                     <th style="width: 100px;">BINDINGS</th>
                                     <th style="width: 150px;">REMARKS</th>
@@ -151,6 +158,7 @@
                     <input type="hidden" name="vendor_address" id="saveVendorAddress">
                     <input type="hidden" name="payment_schedule" id="savePaymentSchedule">
                     <input type="hidden" name="payment_schedule2" id="savePaymentSchedule2">
+                    <input type="hidden" name="currency" id="saveCurrency">
                     <div id="saveItemsContainer"></div>
                 </form>
 
@@ -205,7 +213,7 @@
                                     <th class="ft-col">FT</th>
                                     <th class="description-col">DESCRIPTION</th>
                                     <th class="quantity-col">QUANTITY</th>
-                                    <th class="unit-price-col">UNIT PRICE (USD)</th>
+                                    <th class="unit-price-col" id="reportUnitPriceHeader">UNIT PRICE (USD)</th>
                                     <th class="total-amount-col">TOTAL AMOUNT</th>
                                     <th class="bindings-col">BINDINGS</th>
                                     <th class="remarks-col">REMARKS</th>
@@ -740,6 +748,15 @@
             }
         }
 
+        function updateCurrencyDisplay() {
+            const currency = document.getElementById('formCurrency').value;
+            const label = currency === 'PHP' ? 'UNIT PRICE (PHP)' : 'UNIT PRICE (USD)';
+            const formHeader = document.getElementById('formUnitPriceHeader');
+            const reportHeader = document.getElementById('reportUnitPriceHeader');
+            if (formHeader) formHeader.textContent = label;
+            if (reportHeader) reportHeader.textContent = label;
+        }
+
         function updateGeneratedPO() {
             const date = document.getElementById('formDate').value;
             const vendorName = document.getElementById('formVendorName').value;
@@ -798,6 +815,12 @@
             document.getElementById('reportPaymentSchedule').textContent = document.getElementById('formPaymentSchedule').value || '_______________________';
             document.getElementById('reportPaymentSchedule2').textContent = document.getElementById('formPaymentSchedule2').value || '_______________________';
 
+            // Update currency header in generated PO
+            const currency = document.getElementById('formCurrency').value;
+            const currencySymbol = currency === 'PHP' ? '₱' : '$';
+            const currencyLabel = currency === 'PHP' ? 'UNIT PRICE (PHP)' : 'UNIT PRICE (USD)';
+            document.getElementById('reportUnitPriceHeader').textContent = currencyLabel;
+
             // Generate table — reuse tbody/rows already declared above
             const reportTbody = document.getElementById('reportItemsTableBody');
             reportTbody.innerHTML = '';
@@ -824,8 +847,8 @@
                         <td style="text-align: center;">${ft}</td>
                         <td>${description}</td>
                         <td style="text-align: center;">${quantity}</td>
-                        <td style="text-align: right;">${unitPrice > 0 ? unitPrice.toFixed(2) : ''}</td>
-                        <td style="text-align: right;">${totalAmountRow > 0 ? totalAmountRow.toFixed(2) : ''}</td>
+                        <td style="text-align: right;">${unitPrice > 0 ? currencySymbol + unitPrice.toFixed(2) : ''}</td>
+                        <td style="text-align: right;">${totalAmountRow > 0 ? currencySymbol + totalAmountRow.toFixed(2) : ''}</td>
                         <td>${bindings}</td>
                         <td>${remarks}</td>
                     `;
@@ -843,7 +866,7 @@
                 reportTbody.appendChild(tr);
             }
             
-            document.getElementById('reportTotalAmount').textContent = totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('reportTotalAmount').textContent = currencySymbol + totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
             // --- Populate the hidden save form ---
             document.getElementById('saveSupplier').value         = document.getElementById('formSupplierId').value;
@@ -855,6 +878,7 @@
             document.getElementById('saveVendorAddress').value     = document.getElementById('formVendorAddress').value;
             document.getElementById('savePaymentSchedule').value   = document.getElementById('formPaymentSchedule').value;
             document.getElementById('savePaymentSchedule2').value  = document.getElementById('formPaymentSchedule2').value;
+            document.getElementById('saveCurrency').value           = currency;
 
             // Build hidden item inputs
             const container = document.getElementById('saveItemsContainer');

@@ -73,7 +73,7 @@
                             <p style="color: #666; font-size: 0.9rem; margin-bottom: 0;">Select the quantity you want to purchase for each item below. Items not selected will remain in consignment.</p>
                         </div>
 
-                        <form id="areaConsignmentForm" method="POST" action="{{ route('production.logistic.link-consignment-to-si', $order->id) }}">
+                        <form id="areaConsignmentForm" method="POST" action="{{ route('production.logistic.link-consignment-to-si', $order->id) }}" enctype="multipart/form-data">
                             @csrf
                             <div class="table-responsive">
                                 <table class="receipt-table">
@@ -134,6 +134,15 @@
                                         </tr>
                                     </tfoot>
                                 </table>
+                            </div>
+
+                            <!-- Proof of Payment Upload -->
+                            <div class="mb-4 mt-3" id="popUploadContainer" style="max-width: 450px; background: #f8f9fa; padding: 1.25rem; border-radius: 6px; border: 1px dashed #ced4da;">
+                                <label for="proof_of_payment" class="form-label fw-bold text-dark mb-1">
+                                    Upload Proof of Payment <span class="text-danger">*</span>
+                                </label>
+                                <input type="file" class="form-control" name="proof_of_payment" id="proof_of_payment" accept=".pdf,.png,.jpg,.jpeg">
+                                <small class="text-muted d-block mt-1">Required to link this consignment selection to a Sales Invoice.</small>
                             </div>
 
                             <!-- Hidden inputs to pass item selections -->
@@ -281,6 +290,13 @@
                                 if (totalSelected === 0) {
                                     e.preventDefault();
                                     alert('Please select at least 1 item to purchase');
+                                    return false;
+                                }
+
+                                const popInput = document.getElementById('proof_of_payment');
+                                if (popInput && !popInput.files.length) {
+                                    e.preventDefault();
+                                    alert('Please upload a Proof of Payment before linking to a Sales Invoice.');
                                     return false;
                                 }
 

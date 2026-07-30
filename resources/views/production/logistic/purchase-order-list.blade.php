@@ -31,7 +31,7 @@
                                     <td><strong>{{ $po->po_number }}</strong></td>
                                     <td>{{ $po->date ? \Carbon\Carbon::parse($po->date)->format('Y-m-d') : 'N/A' }}</td>
                                     <td>{{ $po->supplier->company_name ?? 'N/A' }}</td>
-                                    <td>{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($po->total_amount, 2) }}</td>
+                                    <td>{{ $po->currency_symbol }}{{ number_format($po->total_amount, 2) }}</td>
                                     <td>
                                         @php
                                             $statusClass = [

@@ -2,11 +2,28 @@
     <div class="row">
         <div class="col-xl-12">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="card-title">Recent Journal Entries</h4>
-                    <a href="{{ route('accounting.journal.create') }}" class="btn btn-primary rounded shadow-sm px-5 d-flex align-items-center justify-content-center" style="background: #ff0000; color: #ffffff; border: none; height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important;">
-                        <i class="las la-plus"></i>New Entry
-                    </a>
+                <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between">
+                    <div>
+                        <h4 class="card-title mb-0">Recent Journal Entries</h4>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
+                        <form method="GET" action="{{ route('accounting.journal.index') }}" class="d-flex align-items-center">
+                            <div class="input-group input-group-sm">
+                                <input type="text" name="search" class="form-control rounded-start" placeholder="Search entries..." value="{{ request('search') }}" style="height: 40px;">
+                                <button type="submit" class="btn btn-primary" style="background: #ff0000; border-color: #ff0000; height: 40px;">
+                                    <i class="las la-search"></i>
+                                </button>
+                                @if(request('search'))
+                                    <a href="{{ route('accounting.journal.index') }}" class="btn btn-light d-flex align-items-center justify-content-center" style="height: 40px; border: 1px solid #dee2e6;">
+                                        <i class="las la-times"></i>
+                                    </a>
+                                @endif
+                            </div>
+                        </form>
+                        <a href="{{ route('accounting.journal.create') }}" class="btn btn-primary rounded shadow-sm px-4 d-flex align-items-center justify-content-center" style="background: #ff0000; color: #ffffff; border: none; height: 40px !important; padding: 0 1.5rem;">
+                            <i class="las la-plus me-1"></i>New Entry
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">

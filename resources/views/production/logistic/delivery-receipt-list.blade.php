@@ -1,5 +1,6 @@
 <x-app-layout :title="'Delivery Receipts'" :sidebar="'production'">
     @push('styles')
+    <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
     <style>
         .nav-tabs .nav-link {
             color: #333;
@@ -29,21 +30,13 @@
         .status-completed { background: #d4edda; color: #155724; }
         .status-in-transit { background: #cce5ff; color: #004085; }
 
-        .filter-section {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
+        .dataTables_wrapper {
+            font-size: 13px;
         }
-
-        .search-box {
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .status-filter-dropdown {
-            min-width: 180px;
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: #ff0000 !important;
+            color: #fff !important;
+            border-color: #ff0000 !important;
         }
     </style>
     @endpush
@@ -90,37 +83,40 @@
                 <div class="tab-content p-4">
                     <!-- Pending DR Prep Tab -->
                     <div class="tab-pane fade show active" id="pending-pane" role="tabpanel" aria-labelledby="pending-tab">
-                        <!-- Filter Section -->
-                        <div class="filter-section">
-                            <div class="search-box">
+                        <!-- Single Line Filter Section -->
+                        <div class="row g-2 align-items-center mb-4">
+                            <div class="col-md-5 col-sm-12">
                                 <input type="text" id="searchInput" class="form-control" placeholder="Search by SO # or Customer...">
                             </div>
-                            <!-- Customer Filter -->
-                            <select id="customerFilter" class="form-control status-filter-dropdown" style="min-width: 220px;">
-                                <option value="all">All Customers</option>
-                                @php
-                                    $uniqueCustomers = $orders->map(function($order) {
-                                        return $order->customer;
-                                    })->filter()->unique('customer_id')->sortBy(function($c) {
-                                        return $c->customer_name ?? $c->company_name ?? '';
-                                    });
-                                @endphp
-                                @foreach($uniqueCustomers as $c)
-                                    <option value="{{ $c->customer_id }}">{{ $c->customer_name ?? $c->company_name ?? 'Unknown' }}</option>
-                                @endforeach
-                            </select>
-                            <select id="statusFilter" class="form-control status-filter-dropdown">
-                                <option value="all">All Status</option>
-                                <option value="pending_dr_prep">Pending Prep</option>
-                                <option value="pending_dr_approval">Pending Approval</option>
-                                <option value="ready_for_delivery">Ready for Delivery</option>
-                                <option value="si_created">Closed</option>
-                                <option value="reconsignment_pending">Reconsignment Pending</option>
-                                <option value="overdue">Overdue</option>
-                            </select>
+                            <div class="col-md-4 col-sm-6">
+                                <select id="customerFilter" class="form-control">
+                                    <option value="all">All Customers</option>
+                                    @php
+                                        $uniqueCustomers = $orders->map(function($order) {
+                                            return $order->customer;
+                                        })->filter()->unique('customer_id')->sortBy(function($c) {
+                                            return $c->customer_name ?? $c->company_name ?? '';
+                                        });
+                                    @endphp
+                                    @foreach($uniqueCustomers as $c)
+                                        <option value="{{ $c->customer_id }}">{{ $c->customer_name ?? $c->company_name ?? 'Unknown' }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <select id="statusFilter" class="form-control">
+                                    <option value="all">All Status</option>
+                                    <option value="pending_dr_prep">Pending Prep</option>
+                                    <option value="pending_dr_approval">Pending Approval</option>
+                                    <option value="ready_for_delivery">Ready for Delivery</option>
+                                    <option value="si_created">Closed</option>
+                                    <option value="reconsignment_pending">Reconsignment Pending</option>
+                                    <option value="overdue">Overdue</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="table-responsive">
-                            <table class="table table-hover" id="drTable">
+                            <table class="table table-hover" id="drTable" style="width:100%">
                                 <thead class="table-light">
                                     <tr>
                                         <th>SO Number</th>
@@ -134,7 +130,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($orders as $order)
+                                    @foreach($orders as $order)
                                     @php
                                         // Handle terms stored as '90 days', '30 days', etc.
                                         $termsMap = [
@@ -253,11 +249,7 @@
                                             </div>
                                         </td>
                                     </tr>
-                                    @empty
-                                    <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">No pending DR preparations.</td>
-                                    </tr>
-                                    @endforelse
+                                    @endforeach
                                 </tbody>
                             </table>
                         </div>
@@ -268,82 +260,63 @@
     </div>
 
     @push('scripts')
+    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('searchInput');
-            const customerFilter = document.getElementById('customerFilter');
-            const statusFilter = document.getElementById('statusFilter');
-            const tableRows = document.querySelectorAll('#drTable tbody tr');
-
-            // Search functionality
-            searchInput.addEventListener('keyup', function() {
-                filterTable();
-            });
-
-            // Customer filter functionality
-            customerFilter.addEventListener('change', function() {
-                filterTable();
-            });
-
-            // Status filter functionality
-            statusFilter.addEventListener('change', function() {
-                filterTable();
-            });
-
-            function filterTable() {
-                const searchTerm = searchInput.value.toLowerCase();
-                const currentCustomerId = customerFilter.value;
-                const currentStatusFilter = statusFilter.value;
-
-                tableRows.forEach(row => {
-                    const soNumber = row.dataset.soNumber.toLowerCase();
-                    const customer = row.dataset.customer.toLowerCase();
-                    const customerId = row.dataset.customerId;
-                    const status = row.dataset.status;
-                    const daysRemaining = row.dataset.daysRemaining;
-
-                    // Check search term match
-                    const searchMatch = soNumber.includes(searchTerm) || customer.includes(searchTerm);
-
-                    // Check customer match
-                    const customerMatch = currentCustomerId === 'all' || customerId === currentCustomerId;
-
-                    // Check status match
-                    let statusMatch = false;
-                    if (currentStatusFilter === 'all') {
-                        statusMatch = true;
-                    } else if (currentStatusFilter === 'overdue') {
-                        statusMatch = daysRemaining !== '' && parseInt(daysRemaining) < 0;
-                    } else {
-                        statusMatch = status === currentStatusFilter;
-                    }
-
-                    // Show row if all conditions match
-                    if (searchMatch && customerMatch && statusMatch) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-
-                // Check if there are any visible rows
-                const visibleRows = Array.from(tableRows).filter(row => row.style.display !== 'none');
-                const tbody = document.querySelector('#drTable tbody');
-                const emptyMessage = tbody.querySelector('.empty-message');
-
-                if (visibleRows.length === 0) {
-                    if (!emptyMessage) {
-                        const newRow = document.createElement('tr');
-                        newRow.className = 'empty-message';
-                        newRow.innerHTML = '<td colspan="8" class="text-center text-muted py-4">No records found.</td>';
-                        tbody.appendChild(newRow);
-                    }
-                } else {
-                    if (emptyMessage) {
-                        emptyMessage.remove();
-                    }
+        $(document).ready(function() {
+            const drTable = $('#drTable').DataTable({
+                order: [[0, 'desc']],
+                pageLength: 10,
+                dom: 'rtip',
+                columnDefs: [
+                    { orderable: false, targets: -1 }
+                ],
+                language: {
+                    zeroRecords: "No matching delivery receipts found"
                 }
-            }
+            });
+
+            // Custom DataTables filter matching Search, Customer, and Status
+            $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+                if (settings.nTable.id !== 'drTable') return true;
+
+                const rowNode = drTable.row(dataIndex).node();
+                const searchTerm = $('#searchInput').val().toLowerCase().trim();
+                const currentCustomerId = $('#customerFilter').val();
+                const currentStatusFilter = $('#statusFilter').val();
+
+                const soNumber = ($(rowNode).data('so-number') || '').toString().toLowerCase();
+                const customer = ($(rowNode).data('customer') || '').toString().toLowerCase();
+                const customerId = ($(rowNode).data('customer-id') || '').toString();
+                const status = ($(rowNode).data('status') || '').toString();
+                const daysRemaining = ($(rowNode).data('days-remaining') || '').toString();
+
+                // Search match
+                const searchMatch = !searchTerm || soNumber.includes(searchTerm) || customer.includes(searchTerm);
+
+                // Customer match
+                const customerMatch = currentCustomerId === 'all' || customerId === currentCustomerId;
+
+                // Status match
+                let statusMatch = false;
+                if (currentStatusFilter === 'all') {
+                    statusMatch = true;
+                } else if (currentStatusFilter === 'overdue') {
+                    statusMatch = daysRemaining !== '' && parseInt(daysRemaining) < 0;
+                } else {
+                    statusMatch = status === currentStatusFilter;
+                }
+
+                return searchMatch && customerMatch && statusMatch;
+            });
+
+            // Trigger redraw when filter inputs change
+            $('#searchInput').on('keyup change', function() {
+                drTable.draw();
+            });
+
+            $('#customerFilter, #statusFilter').on('change', function() {
+                drTable.draw();
+            });
         });
     </script>
     @endpush

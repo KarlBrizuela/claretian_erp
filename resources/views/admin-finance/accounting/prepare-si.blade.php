@@ -1,4 +1,18 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
+    @php
+        $activeInvoice = null;
+        if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+            $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
+        }
+
+        if ($activeInvoice) {
+            $itemsToRender = $activeInvoice->items;
+            $totalSalesAmount = (float) $activeInvoice->total_amount;
+        } else {
+            $itemsToRender = $order->items;
+            $totalSalesAmount = (float) $order->total_amount;
+        }
+    @endphp
     @push('styles')
     <style>
         .invoice-form {
@@ -137,21 +151,30 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($order->items as $item)
+                            @foreach($itemsToRender as $item)
                             <tr>
-                                <td class="text-center">{{ $item->quantity }} {{ $item->unit ?? 'pcs' }}</td>
-                                <td>{{ $item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'Unknown Product' }}</td>
-                                <td>{{ $item->isbn ?? '-' }}</td>
-                                <td>{{ $item->area ?? '-' }}</td>
-                                <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
-                                <td class="text-end">₱{{ number_format($item->subtotal, 2) }}</td>
+                                <td class="text-center">
+                                    {{ $item->quantity }} 
+                                    {{ $activeInvoice ? ($item->book?->unit ?? 'pcs') : ($item->product?->unit ?? $item->book?->unit ?? 'pcs') }}
+                                </td>
+                                <td>
+                                    {{ $activeInvoice ? ($item->book?->name ?? 'Unknown Product') : ($item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'Unknown Product') }}
+                                </td>
+                                <td>
+                                    {{ $activeInvoice ? ($item->book?->sku ?? '-') : ($item->isbn ?? '-') }}
+                                </td>
+                                <td>
+                                    {{ $activeInvoice ? ($item->book?->shelf_number ?? '-') : ($item->area ?? '-') }}
+                                </td>
+                                <td class="text-end">₱{{ number_format($activeInvoice ? $item->unit_price : $item->price, 2) }}</td>
+                                <td class="text-end">₱{{ number_format($activeInvoice ? $item->amount : $item->subtotal, 2) }}</td>
                             </tr>
                             @endforeach
                         </tbody>
                         <tfoot>
                             <tr>
                                 <th colspan="5" class="text-end">TOTAL AMOUNT</th>
-                                <th class="text-end">₱{{ number_format($order->total_amount, 2) }}</th>
+                                <th class="text-end">₱{{ number_format($totalSalesAmount, 2) }}</th>
                             </tr>
                         </tfoot>
                     </table>

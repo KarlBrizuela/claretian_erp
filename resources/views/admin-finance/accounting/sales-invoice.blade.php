@@ -89,10 +89,19 @@
                                         </thead>
                                         <tbody>
                                             @forelse($normalOrders as $order)
+                                            @php
+                                                $displayAmount = $order->total_amount;
+                                                if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+                                                    $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
+                                                    if ($activeInvoice) {
+                                                        $displayAmount = $activeInvoice->total_amount;
+                                                    }
+                                                }
+                                            @endphp
                                             <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}">
                                                 <td>
                                                     @if($order->status === 'pending_si_prep' || $order->status === 'pending_si_approval' || $order->status === 'si_created')
-                                                        <input type="checkbox" class="order-checkbox normal-check" value="{{ $order->id }}" data-proof="{{ ($order->proof_of_payment || in_array($order->type, ['area_consignment', 'area_sales_consignment'])) ? 'yes' : 'no' }}" style="width: 16px; height: 16px; cursor: pointer;">
+                                                        <input type="checkbox" class="order-checkbox normal-check" value="{{ $order->id }}" data-proof="{{ ($order->proof_of_payment || $order->type === 'ecom_direct') ? 'yes' : 'no' }}" data-amount="{{ $displayAmount }}" style="width: 16px; height: 16px; cursor: pointer;">
                                                     @else
                                                         <input type="checkbox" disabled style="width: 16px; height: 16px; opacity: 0.4;">
                                                     @endif
@@ -100,7 +109,7 @@
                                                 <td><strong>#{{ $order->so_number }}</strong></td>
                                                 <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                 <td><span class="badge badge-outline-dark">{{ ucfirst(str_replace('_', ' ', $order->type)) }}</span></td>
-                                                <td>₱{{ number_format($order->total_amount, 2) }}</td>
+                                                <td>₱{{ number_format($displayAmount, 2) }}</td>
                                                 <td>
                                                     @php
                                                         $statusClass = 'secondary';
@@ -129,7 +138,7 @@
                                                         <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
                                                         @if($order->status === 'pending_si_prep' || $order->status === 'si_created')
-                                                            @if($order->type === 'ecom_direct' || in_array($order->type, ['area_consignment', 'area_sales_consignment']) || $order->proof_of_payment)
+                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
                                                                 <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
                                                             @else
                                                                 <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
@@ -137,7 +146,7 @@
                                                         @endif
 
                                                         @if($order->status === 'pending_si_approval')
-                                                            @if($order->type === 'ecom_direct' || in_array($order->type, ['area_consignment', 'area_sales_consignment']) || $order->proof_of_payment)
+                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
                                                                 <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
                                                                     @csrf
                                                                     <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>

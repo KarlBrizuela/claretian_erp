@@ -67,7 +67,7 @@ class ProductionController extends Controller
 
         $pendingTransfers = $isAuthorized
             ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'bookIndex.book', 'bookBundle', 'createdBy', 'logisticsAssignedTo')
-                ->whereIn('status', ['logistics_assignment', 'logistics_assigned', 'completed'])
+                ->whereIn('status', ['pending', 'logistics_assignment', 'logistics_assigned', 'completed'])
                 ->where(function ($query) use ($user) {
                     $query->where('created_by', $user->id)
                         ->orWhere('approval_division', 'Production')
@@ -153,18 +153,20 @@ class ProductionController extends Controller
         }
 
         foreach ($pendingTransfers as $transfer) {
-            $myApprovals[] = [
-                'type' => 'Stock Transfer',
-                'id' => $transfer->id,
-                'reference_no' => 'ST-' . str_pad($transfer->id, 5, '0', STR_PAD_LEFT),
-                'submitted_by' => $transfer->createdBy->name ?? 'N/A',
-                'submitted_date' => $transfer->created_at,
-                'amount' => $transfer->quantity . ' units',
-                'attachment' => null,
-                'status' => 'pending approval',
-                'description' => ($transfer->book->name ?? 'Unknown Book') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A'),
-                'original' => $transfer
-            ];
+            if (in_array($transfer->status, ['pending', 'logistics_assignment'])) {
+                $myApprovals[] = [
+                    'type' => 'Stock Transfer',
+                    'id' => $transfer->id,
+                    'reference_no' => 'ST-' . str_pad($transfer->id, 5, '0', STR_PAD_LEFT),
+                    'submitted_by' => $transfer->createdBy->name ?? 'N/A',
+                    'submitted_date' => $transfer->created_at,
+                    'amount' => $transfer->quantity . ' units',
+                    'attachment' => null,
+                    'status' => $transfer->status === 'pending' ? 'pending approval' : 'pending assignment',
+                    'description' => ($transfer->book->name ?? 'Unknown Book') . ' from ' . ($transfer->fromSite->name ?? 'N/A') . ' to ' . ($transfer->toSite->name ?? 'N/A'),
+                    'original' => $transfer
+                ];
+            }
         }
 
         // 4. My Submissions

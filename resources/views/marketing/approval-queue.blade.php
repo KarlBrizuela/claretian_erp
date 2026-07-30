@@ -934,25 +934,25 @@
             // Initialize Tables
             queueTable = $('#approvalQueueTable').DataTable({
                 order: [[3, 'desc']],
-                pageLength: 25,
+                pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             myApprovalsTable = $('#myApprovalsTable').DataTable({
                 order: [[3, 'desc']],
-                pageLength: 25,
+                pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             mySubmissionsTable = $('#mySubmissionsTable').DataTable({
                 order: [[2, 'desc']],
-                pageLength: 25,
+                pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             myApprovedTable = $('#myApprovedTable').DataTable({
                 order: [[3, 'desc']],
-                pageLength: 25,
+                pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 

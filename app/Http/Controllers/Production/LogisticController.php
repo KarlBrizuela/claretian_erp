@@ -1951,6 +1951,14 @@ class LogisticController extends Controller
                     ->with('error', 'This order is not an Area Consignment type.');
             }
 
+            // Check for required proof of payment
+            if (!$request->hasFile('proof_of_payment')) {
+                return redirect()->back()
+                    ->with('error', 'Proof of Payment file is required to link this consignment to a Sales Invoice.');
+            }
+
+            $proofOfPaymentPath = $request->file('proof_of_payment')->store('sales_orders/proof_of_payments', 'public');
+
             // Get selected items and quantities
             $selectedItems = $request->input('items', []);
             
@@ -2019,9 +2027,10 @@ class LogisticController extends Controller
                 ]);
             }
 
-            // Update Sales Order status and store consignment data
+            // Update Sales Order status, store consignment data and proof of payment
             $order->update([
                 'status' => 'si_created',
+                'proof_of_payment' => $proofOfPaymentPath,
                 'consignment_data' => json_encode([
                     'si_id' => $si->id,
                     'si_number' => $si->si_number,

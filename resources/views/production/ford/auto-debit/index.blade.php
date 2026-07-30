@@ -54,7 +54,7 @@
                         {{-- Pending Director Tab --}}
                         <div class="tab-pane fade show active" id="pending-director" role="tabpanel">
                             <div class="table-responsive">
-                                <table class="table table-hover">
+                                <table class="table table-hover" id="pendingDirectorTable" style="width:100%">
                                     <thead>
                                         <tr>
                                             <th>AD#</th>
@@ -68,7 +68,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($debits->filter(fn($d) => $d->status === 'pending_director') as $debit)
+                                        @foreach($debits->filter(fn($d) => $d->status === 'pending_director') as $debit)
                                         <tr>
                                             <td><strong>AD-{{ str_pad($debit->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                             <td>{{ date('M d, Y', strtotime($debit->date)) }}</td>
@@ -81,9 +81,7 @@
                                                 <a href="{{ route('production.ford.auto-debit.show', $debit->id) }}" class="btn btn-primary btn-xs"><i class="las la-eye"></i> View</a>
                                             </td>
                                         </tr>
-                                        @empty
-                                        <tr><td colspan="8" class="text-center text-muted py-4">No pending Director approvals.</td></tr>
-                                        @endforelse
+                                        @endforeach
                                     </tbody>
                                 </table>
                             </div>
@@ -92,7 +90,7 @@
                         {{-- Pending Finance Tab --}}
                         <div class="tab-pane fade" id="pending-finance" role="tabpanel">
                             <div class="table-responsive">
-                                <table class="table table-hover">
+                                <table class="table table-hover" id="pendingFinanceTable" style="width:100%">
                                     <thead>
                                         <tr>
                                             <th>AD#</th>
@@ -106,7 +104,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($debits->filter(fn($d) => $d->status === 'pending_finance') as $debit)
+                                        @foreach($debits->filter(fn($d) => $d->status === 'pending_finance') as $debit)
                                         <tr>
                                             <td><strong>AD-{{ str_pad($debit->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                             <td>{{ date('M d, Y', strtotime($debit->date)) }}</td>
@@ -119,9 +117,7 @@
                                                 <a href="{{ route('production.ford.auto-debit.show', $debit->id) }}" class="btn btn-primary btn-xs"><i class="las la-eye"></i> View</a>
                                             </td>
                                         </tr>
-                                        @empty
-                                        <tr><td colspan="8" class="text-center text-muted py-4">No pending Finance Manager/Supervisor approvals.</td></tr>
-                                        @endforelse
+                                        @endforeach
                                     </tbody>
                                 </table>
                             </div>
@@ -130,7 +126,7 @@
                         {{-- Approved Tab --}}
                         <div class="tab-pane fade" id="approved" role="tabpanel">
                             <div class="table-responsive">
-                                <table class="table table-hover">
+                                <table class="table table-hover" id="approvedTable" style="width:100%">
                                     <thead>
                                         <tr>
                                             <th>AD#</th>
@@ -144,7 +140,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($debits->filter(fn($d) => $d->status === 'approved') as $debit)
+                                        @foreach($debits->filter(fn($d) => $d->status === 'approved') as $debit)
                                         <tr>
                                             <td><strong>AD-{{ str_pad($debit->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                             <td>{{ date('M d, Y', strtotime($debit->date)) }}</td>
@@ -157,9 +153,7 @@
                                                 <a href="{{ route('production.ford.auto-debit.show', $debit->id) }}" class="btn btn-primary btn-xs"><i class="las la-eye"></i> View</a>
                                             </td>
                                         </tr>
-                                        @empty
-                                        <tr><td colspan="8" class="text-center text-muted py-4">No fully approved letters.</td></tr>
-                                        @endforelse
+                                        @endforeach
                                     </tbody>
                                 </table>
                             </div>
@@ -168,7 +162,7 @@
                         {{-- Rejected Tab --}}
                         <div class="tab-pane fade" id="rejected" role="tabpanel">
                             <div class="table-responsive">
-                                <table class="table table-hover">
+                                <table class="table table-hover" id="rejectedTable" style="width:100%">
                                     <thead>
                                         <tr>
                                             <th>AD#</th>
@@ -182,7 +176,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($debits->filter(fn($d) => $d->status === 'rejected') as $debit)
+                                        @foreach($debits->filter(fn($d) => $d->status === 'rejected') as $debit)
                                         <tr>
                                             <td><strong>AD-{{ str_pad($debit->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                             <td>{{ date('M d, Y', strtotime($debit->date)) }}</td>
@@ -195,9 +189,7 @@
                                                 <a href="{{ route('production.ford.auto-debit.show', $debit->id) }}" class="btn btn-primary btn-xs"><i class="las la-eye"></i> View</a>
                                             </td>
                                         </tr>
-                                        @empty
-                                        <tr><td colspan="8" class="text-center text-muted py-4">No rejected letters.</td></tr>
-                                        @endforelse
+                                        @endforeach
                                     </tbody>
                                 </table>
                             </div>
@@ -207,4 +199,48 @@
             </div>
         </div>
     </div>
+
+    @push('styles')
+    <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
+    <style>
+        .dataTables_wrapper {
+            font-size: 13px;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: #ff0000 !important;
+            color: #fff !important;
+            border-color: #ff0000 !important;
+        }
+    </style>
+    @endpush
+
+    @push('scripts')
+    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
+    <script>
+        $(document).ready(function() {
+            const tables = ['#pendingDirectorTable', '#pendingFinanceTable', '#approvedTable', '#rejectedTable'];
+            
+            tables.forEach(tableId => {
+                if ($(tableId).length) {
+                    $(tableId).DataTable({
+                        order: [[0, 'desc']],
+                        pageLength: 10,
+                        columnDefs: [
+                            { orderable: false, targets: -1 }
+                        ],
+                        language: {
+                            search: "Search:",
+                            zeroRecords: "No matching Auto Debit letters found"
+                        }
+                    });
+                }
+            });
+
+            // Adjust column widths when switching tabs
+            $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+                $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+            });
+        });
+    </script>
+    @endpush
 </x-app-layout>

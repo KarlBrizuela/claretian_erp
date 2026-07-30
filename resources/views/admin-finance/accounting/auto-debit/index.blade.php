@@ -15,7 +15,7 @@
                     @endif
 
                     <div class="table-responsive">
-                        <table class="table table-hover table-responsive-md">
+                        <table class="table table-hover table-responsive-md" id="approvedAutoDebitsTable" style="width:100%">
                             <thead>
                                 <tr>
                                     <th><strong>AD#</strong></th>
@@ -31,7 +31,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($debits as $debit)
+                                @foreach($debits as $debit)
                                 <tr>
                                     <td><strong>AD-{{ str_pad($debit->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                     <td>{{ date('M d, Y', strtotime($debit->date)) }}</td>
@@ -60,21 +60,47 @@
                                         </a>
                                     </td>
                                 </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="10" class="text-center text-muted py-5">
-                                        <i class="las la-file-alt la-2x d-block mb-2"></i>
-                                        No fully-approved Auto Debit letters yet.
-                                    </td>
-                                </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
-
-                    {{ $debits->links() }}
                 </div>
             </div>
         </div>
     </div>
+
+    @push('styles')
+    <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
+    <style>
+        .dataTables_wrapper {
+            font-size: 13px;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: #ff0000 !important;
+            color: #fff !important;
+            border-color: #ff0000 !important;
+        }
+    </style>
+    @endpush
+
+    @push('scripts')
+    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
+    <script>
+        $(document).ready(function() {
+            if ($('#approvedAutoDebitsTable').length) {
+                $('#approvedAutoDebitsTable').DataTable({
+                    order: [[0, 'desc']],
+                    pageLength: 10,
+                    columnDefs: [
+                        { orderable: false, targets: -1 }
+                    ],
+                    language: {
+                        search: "Search Auto Debits:",
+                        zeroRecords: "No matching Auto Debit letters found"
+                    }
+                });
+            }
+        });
+    </script>
+    @endpush
 </x-app-layout>

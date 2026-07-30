@@ -40,12 +40,25 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header border-0 d-block d-sm-flex">
+                <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between">
                     <div>
                         <h4 class="fs-20 mb-0 text-black">Sales Orders</h4>
                     </div>
-                    <div class="d-flex align-items-center mt-3 mt-sm-0">
-                        <a href="{{ route('marketing.sales-orders.create') }}" class="btn btn-primary rounded d-flex align-items-center" style="background: #ff0000; color: #ffffff;">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
+                        <form method="GET" action="{{ route('marketing.sales-orders.list') }}" class="d-flex align-items-center">
+                            <div class="input-group input-group-sm">
+                                <input type="text" name="search" class="form-control rounded-start" placeholder="Search orders..." value="{{ request('search') }}" style="height: 40px;">
+                                <button type="submit" class="btn btn-primary" style="background: #ff0000; border-color: #ff0000; height: 40px;">
+                                    <i class="las la-search"></i>
+                                </button>
+                                @if(request('search'))
+                                    <a href="{{ route('marketing.sales-orders.list') }}" class="btn btn-light d-flex align-items-center justify-content-center" style="height: 40px; border: 1px solid #dee2e6;">
+                                        <i class="las la-times"></i>
+                                    </a>
+                                @endif
+                            </div>
+                        </form>
+                        <a href="{{ route('marketing.sales-orders.create') }}" class="btn btn-primary rounded d-flex align-items-center" style="background: #ff0000; color: #ffffff; height: 40px; padding: 0 1.5rem;">
                             <i class="las la-plus me-2"></i>
                             <span>Create New Order</span>
                         </a>
@@ -120,7 +133,23 @@
                                      <td>
                                         <div class="d-flex gap-1">
                                             <a href="{{ route('marketing.sales-orders.detail', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View Order"><i class="fas fa-eye"></i></a>
-                                             <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-info shadow btn-xs sharp" title="Print Sales Invoice Form"><i class="fas fa-print"></i></a>
+                                            
+                                            @if(in_array($order->type, ['calculator_pos', 'ecom_direct']))
+                                                {{-- POS orders get Whole/Half print options --}}
+                                                <div class="btn-group">
+                                                    <button type="button" class="btn btn-info shadow btn-xs sharp dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Print Options">
+                                                        <i class="fas fa-print"></i>
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-end">
+                                                        <li><a class="dropdown-item" href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank"><i class="fas fa-file-alt me-2"></i>Whole Page</a></li>
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li><a class="dropdown-item" href="{{ route('marketing.sales-orders.print-invoice', [$order->id, 'format' => 'half', 'half' => '1']) }}" target="_blank"><i class="fas fa-chevron-up me-2"></i>First Half (Part 1)</a></li>
+                                                        <li><a class="dropdown-item" href="{{ route('marketing.sales-orders.print-invoice', [$order->id, 'format' => 'half', 'half' => '2']) }}" target="_blank"><i class="fas fa-chevron-down me-2"></i>Second Half (Part 2)</a></li>
+                                                    </ul>
+                                                </div>
+                                            @else
+                                                <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-info shadow btn-xs sharp" title="Print Sales Invoice Form"><i class="fas fa-print"></i></a>
+                                            @endif
                                             
                                             <!-- Edit Button -->
                                             @if($order->status == 'draft' || $order->status == 'mkt_approved')
@@ -158,12 +187,14 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="7" class="text-center">No sales orders found.</td>
+                                    <td colspan="9" class="text-center">No sales orders found.</td>
                                 </tr>
                                 @endforelse
-                                <!-- More items here -->
                             </tbody>
                         </table>
+                    </div>
+                    <div class="mt-3">
+                        {{ $orders->links() }}
                     </div>
                 </div>
             </div>
@@ -176,7 +207,7 @@
         $(document).ready(function () {
             $('#salesOrdersTable').DataTable({
                 order: [[2, 'desc']],
-                pageLength: 25,
+                paging: false, // Disable client-side paging since we use Laravel server-side pagination
                 responsive: true,
                 searching: false, // Remove search bar
                 lengthChange: false, // Remove "Show entries"

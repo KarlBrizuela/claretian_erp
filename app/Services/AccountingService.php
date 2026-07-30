@@ -22,6 +22,13 @@ class AccountingService
     public function postSalesOrderEntry(SalesOrder $order)
     {
         return DB::transaction(function () use ($order) {
+            $activeInvoice = null;
+            if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+                $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
+            }
+
+            $totalAmount = $activeInvoice ? $activeInvoice->total_amount : $order->total_amount;
+
             // 1. Create Journal Entry Header
             $entry = JournalEntry::create([
                 'entry_no' => $this->generateEntryNumber('JV'),
@@ -35,21 +42,41 @@ class AccountingService
                 'status' => 'posted',
             ]);
 
-            // 2. Determine Accounts (Based on Claretian Standard COA)
-            $arAccount = ChartOfAccount::where('code', '1200')->first(); // Accounts Receivable
-            $cashAccount = ChartOfAccount::where('code', '1010')->first(); // Cash on Hand
-            $salesAccount = ChartOfAccount::where('code', '4000')->first(); // Sales Revenue
-            $inventoryAccount = ChartOfAccount::where('code', '1300')->first(); // Inventory
-            $cogsAccount = ChartOfAccount::where('code', '5000')->first(); // Cost of Goods Sold
+            // 2. Determine Accounts (Based on Claretian Standard COA with fallback)
+            $arAccount = ChartOfAccount::where('code', '1200')
+                ->orWhere('name', 'like', '%Accounts Receivable%')
+                ->orWhere('name', 'like', '%Trade%Receivable%')
+                ->first();
+
+            $cashAccount = ChartOfAccount::where('code', '1010')
+                ->orWhere('code', '1000') // Fallback to standard cash/bank code
+                ->orWhere('name', 'like', '%Cash%Bank%')
+                ->orWhere('name', 'like', '%Cash%Hand%')
+                ->first();
+
+            $salesAccount = ChartOfAccount::where('code', '4000')
+                ->orWhere('name', 'like', '%Sales%Books%')
+                ->orWhere('name', 'like', '%Sales%')
+                ->orWhere('name', 'like', '%Revenue%')
+                ->first();
+
+            $inventoryAccount = ChartOfAccount::where('code', '1300')
+                ->orWhere('name', 'like', '%Inventory%')
+                ->first();
+
+            $cogsAccount = ChartOfAccount::where('code', '5000')
+                ->orWhere('name', 'like', '%Cost of Sales%')
+                ->orWhere('name', 'like', '%COGS%')
+                ->first();
+
+            // Determine which account to debit based on order type
+            $debitAccount = ($order->type === 'calculator_pos' || $order->type === 'ecom_direct') ? $cashAccount : $arAccount;
 
             // If required accounts don't exist, skip accounting entry
-            if (!$cashAccount || !$salesAccount) {
+            if (!$debitAccount || !$salesAccount) {
                 // Return early - orders can still process without accounting
                 return $entry;
             }
-
-            // Fallbacks if COA names differ - seeking by code is safer if seeder followed standard
-            $debitAccount = ($order->type === 'calculator_pos' || $order->type === 'ecom_direct') ? $cashAccount : $arAccount;
             
             // 3. Create Items (Compound Entry)
             
@@ -57,7 +84,7 @@ class AccountingService
             JournalEntryItem::create([
                 'journal_entry_id' => $entry->id,
                 'chart_of_account_id' => $debitAccount->id,
-                'debit' => $order->total_amount,
+                'debit' => $totalAmount,
                 'credit' => 0,
                 'memo' => "Payment/Receivable for " . $order->so_number,
             ]);
@@ -67,7 +94,7 @@ class AccountingService
                 'journal_entry_id' => $entry->id,
                 'chart_of_account_id' => $salesAccount->id,
                 'debit' => 0,
-                'credit' => $order->total_amount,
+                'credit' => $totalAmount,
                 'memo' => "Revenue recognition",
             ]);
 
@@ -76,12 +103,21 @@ class AccountingService
             // For now, we only post the Revenue lines unless cost is available.
             
             $totalCost = 0;
-            // Reload items if not already loaded
-            $items = $order->items()->with('book')->get();
-            foreach ($items as $item) {
-                $book = $item->book;
-                if ($book && $book->cost > 0) {
-                    $totalCost += ($book->cost * $item->quantity);
+            if ($activeInvoice) {
+                $items = $activeInvoice->items()->with('book')->get();
+                foreach ($items as $item) {
+                    $book = $item->book;
+                    if ($book && $book->cost > 0) {
+                        $totalCost += ($book->cost * $item->quantity);
+                    }
+                }
+            } else {
+                $items = $order->items()->with('book')->get();
+                foreach ($items as $item) {
+                    $book = $item->book;
+                    if ($book && $book->cost > 0) {
+                        $totalCost += ($book->cost * $item->quantity);
+                    }
                 }
             }
 

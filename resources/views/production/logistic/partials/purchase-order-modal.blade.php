@@ -46,15 +46,15 @@
                         <strong>{{ $item->product ? $item->product->name : $item->description }}</strong>
                         @if($item->isbn) <br><small class="text-muted">ISBN: {{ $item->isbn }}</small> @endif
                     </td>
-                    <td class="text-end">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($item->unit_price, 2) }}</td>
-                    <td class="text-end">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($item->total_amount, 2) }}</td>
+                    <td class="text-end">{{ $po->currency_symbol }}{{ number_format($item->unit_price, 2) }}</td>
+                    <td class="text-end">{{ $po->currency_symbol }}{{ number_format($item->total_amount, 2) }}</td>
                 </tr>
                 @endforeach
             </tbody>
             <tfoot class="bg-light">
                 <tr>
                     <td colspan="3" style="text-align: right; font-weight: 600;">TOTAL:</td>
-                    <td style="text-align: right; font-weight: 600;">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($po->total_amount, 2) }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ $po->currency_symbol }}{{ number_format($po->total_amount, 2) }}</td>
                 </tr>
             </tfoot>
         </table>

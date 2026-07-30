@@ -478,7 +478,7 @@ class SiteController extends Controller
                 ], 403);
             }
 
-            if (!in_array($transfer->status, ['logistics_assignment', 'logistics_assigned'])) {
+            if (!in_array($transfer->status, ['pending', 'logistics_assignment', 'logistics_assigned'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Transfer is not ready for Logistics assignment'
@@ -486,19 +486,28 @@ class SiteController extends Controller
             }
 
             $assignee = User::findOrFail($request->logistics_assigned_to);
-            if (!str_contains(strtolower($assignee->position ?? ''), 'logistic')) {
+            $pos = strtolower($assignee->position ?? '');
+            if (!str_contains($pos, 'logistic') && !str_contains($pos, 'rider') && !str_contains($pos, 'driver') && !str_contains($pos, 'delivery')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Selected user must be a Logistics staff'
+                    'message' => 'Selected user must be a Logistics or delivery staff'
                 ], 422);
             }
 
-            $transfer->update([
+            $updateData = [
                 'status' => 'logistics_assigned',
                 'logistics_assigned_to' => $assignee->id,
                 'logistics_assigned_by' => $user->id,
                 'logistics_assigned_at' => now()
-            ]);
+            ];
+
+            // If the status is still pending, we implicitly approve it upon assignment
+            if ($transfer->status === 'pending') {
+                $updateData['approved_by'] = $user->id;
+                $updateData['approved_at'] = now();
+            }
+
+            $transfer->update($updateData);
 
             return response()->json([
                 'success' => true,

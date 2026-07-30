@@ -45,7 +45,7 @@
                             <th style="width: 80px;">QTY</th>
                             <th style="width: 80px;">REC'D</th>
                             <th style="width: 80px;">REM.</th>
-                            <th style="width: 130px; text-align: right;">UNIT PRICE (USD)</th>
+                            <th style="width: 130px; text-align: right;">UNIT PRICE ({{ $po->currency_label }})</th>
                             <th style="width: 130px; text-align: right;">AMOUNT</th>
                             <th style="width: 100px;">BINDINGS</th>
                             <th style="width: 120px;">REMARKS</th>
@@ -61,8 +61,8 @@
                             <td class="text-center">{{ $item->quantity }}</td>
                             <td class="text-center text-success fw-bold">{{ $item->received_quantity }}</td>
                             <td class="text-center {{ $remaining > 0 ? 'text-danger fw-bold' : 'text-success' }}">{{ $remaining }}</td>
-                            <td class="text-end">{{ number_format($item->unit_price, 2) }}</td>
-                            <td class="text-end">{{ number_format($item->total_amount, 2) }}</td>
+                            <td class="text-end">{{ $po->currency_symbol }}{{ number_format($item->unit_price, 2) }}</td>
+                            <td class="text-end">{{ $po->currency_symbol }}{{ number_format($item->total_amount, 2) }}</td>
                             <td>{{ $item->bindings }}</td>
                             <td>{{ $item->item_remarks }}</td>
                         </tr>
@@ -71,7 +71,7 @@
                     <tfoot>
                         <tr>
                             <td colspan="7" style="text-align: right; font-weight: 600;">TOTAL:</td>
-                            <td style="text-align: right; font-weight: 600;">{{ number_format($po->total_amount, 2) }}</td>
+                            <td style="text-align: right; font-weight: 600;">{{ $po->currency_symbol }}{{ number_format($po->total_amount, 2) }}</td>
                             <td colspan="2"></td>
                         </tr>
                     </tfoot>
@@ -98,15 +98,15 @@
                                 @endif
                             </td>
                             <td>{{ $item->isbn ?? 'N/A' }}</td>
-                            <td class="text-end">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($item->unit_price, 2) }}</td>
-                            <td class="text-end">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($item->total_amount, 2) }}</td>
+                            <td class="text-end">{{ $po->currency_symbol }}{{ number_format($item->unit_price, 2) }}</td>
+                            <td class="text-end">{{ $po->currency_symbol }}{{ number_format($item->total_amount, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="4" style="text-align: right; font-weight: 600;">TOTAL:</td>
-                            <td style="text-align: right; font-weight: 600;">{{ $po->source === 'ford' ? '$' : '₱' }}{{ number_format($po->total_amount, 2) }}</td>
+                            <td style="text-align: right; font-weight: 600;">{{ $po->currency_symbol }}{{ number_format($po->total_amount, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>
