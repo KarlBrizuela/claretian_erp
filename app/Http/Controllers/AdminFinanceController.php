@@ -2031,12 +2031,11 @@ public function checkVoucher()
           }
 
           // 3. Create the new Sales Order (starts from the beginning of the approval cycle with no customer assigned for new cycle)
-          $newOrder = \App\Models\SalesOrder::create([
+          $soData = [
               'customer_id' => null,
               'area_sales_staff_id' => $order->area_sales_staff_id,
               'so_number' => $newSoNumber,
               'type' => $order->type, // 'area_consignment'
-              'transaction_type' => $order->transaction_type,
               'terms' => $request->input('terms', $order->terms),
               'ref_number' => $order->ref_number,
               'status' => 'pending_mkt_approval', // needs marketing approval first
@@ -2047,7 +2046,11 @@ public function checkVoucher()
               'freight_notes' => $order->freight_notes,
               'prepared_by' => auth()->id(),
               'total_amount' => 0 // will update after items creation
-          ]);
+          ];
+          if (\Illuminate\Support\Facades\Schema::hasColumn('sales_orders', 'transaction_type')) {
+              $soData['transaction_type'] = $order->transaction_type;
+          }
+          $newOrder = \App\Models\SalesOrder::create($soData);
 
           $newTotalAmount = 0;
           // 4. Create the new Sales Order Items and return items to stock
@@ -2996,13 +2999,16 @@ public function checkVoucher()
   public function approveJvRequest($id)
   {
       $request = JournalVoucherRequest::with('items')->findOrFail($id);
-      $request->update([
+      $updateData = [
           // Mark as accounting-verified while keeping approval metadata
           'status' => 'accounting_verified',
           'approved_by' => auth()->id(),
-          'approved_at' => now(),
           'accounting_remarks' => 'Verified by Accounting'
-      ]);
+      ];
+      if (\Illuminate\Support\Facades\Schema::hasColumn('journal_voucher_requests', 'approved_at')) {
+          $updateData['approved_at'] = now();
+      }
+      $request->update($updateData);
 
       // Create and post Journal Entry from this JV Request
       try {
@@ -3020,11 +3026,16 @@ public function checkVoucher()
   public function rejectJvRequest($id)
   {
       $request = JournalVoucherRequest::findOrFail($id);
-      $request->update([
+      $updateData = [
           'status' => 'rejected',
-          'rejected_by' => auth()->id(),
-          'rejected_at' => now(),
-      ]);
+      ];
+      if (\Illuminate\Support\Facades\Schema::hasColumn('journal_voucher_requests', 'rejected_by')) {
+          $updateData['rejected_by'] = auth()->id();
+      }
+      if (\Illuminate\Support\Facades\Schema::hasColumn('journal_voucher_requests', 'rejected_at')) {
+          $updateData['rejected_at'] = now();
+      }
+      $request->update($updateData);
 
       return redirect()->back()->with('warning', "JV Request #{$request->jv_number} has been rejected.");
   }

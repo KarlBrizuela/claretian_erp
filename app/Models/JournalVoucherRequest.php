@@ -24,7 +24,9 @@ class JournalVoucherRequest extends Model
         'supporting_documents',
         'accounting_remarks',
         'manager_approved_by',
-        'manager_approved_at'
+        'manager_approved_at',
+        'rejected_by',
+        'rejected_at'
     ];
 
     public function items()
@@ -45,5 +47,10 @@ class JournalVoucherRequest extends Model
     public function managerApprover()
     {
         return $this->belongsTo(User::class, 'manager_approved_by');
+    }
+
+    public function rejectedBy()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
     }
 }

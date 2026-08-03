@@ -84,8 +84,8 @@
                                 @forelse($orders as $order)
                                 <tr>
                                     <td><strong>{{ $order->so_number }}</strong></td>
-                                    <td>{{ $order->customer->customer_name ?? 'Unknown Customer' }}</td>
-                                    <td>{{ $order->created_at->format('Y-m-d') }}</td>
+                                    <td>{{ $order->customer?->customer_name ?? 'Unknown Customer' }}</td>
+                                    <td>{{ $order->created_at?->format('Y-m-d') ?? 'N/A' }}</td>
                                     @php
                                         $typeDisplay = str_replace('_', ' ', $order->type);
                                         if ($order->type == 'calculator_pos') $typeDisplay = 'direct POS';

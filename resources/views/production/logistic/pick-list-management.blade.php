@@ -54,18 +54,18 @@
                                     @endphp
                                     <tr>
                                         <td class="fw-bold">{{ $pickList->pick_list_number }}</td>
-                                        <td class="fw-bold">{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
-                                        <td>{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}</td>
+                                        <td class="fw-bold">{{ $pickList->salesOrder?->so_number ?? 'N/A' }}</td>
+                                        <td>{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}</td>
                                         <td><span class="badge bg-light text-dark">{{ $pickList->pickListItems->count() }} items</span></td>
                                         <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum(fn($i) => $i->salesOrderItem->subtotal ?? 0), 2) }}</td>
-                                        <td>{{ $pickList->created_at->format('M d, Y') }}</td>
+                                        <td>{{ $pickList->created_at?->format('M d, Y') ?? 'N/A' }}</td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-warning recreate-picklist-btn"
-                                                    data-order-id="{{ $pickList->salesOrder->id ?? '' }}"
+                                                    data-order-id="{{ $pickList->salesOrder?->id ?? '' }}"
                                                     data-pick-list-id="{{ $pickList->id }}"
-                                                    data-so-number="{{ $pickList->salesOrder->so_number ?? 'N/A' }}"
-                                                    data-customer="{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}"
-                                                    data-date="{{ $pickList->created_at->format('Y-m-d') }}"
+                                                    data-so-number="{{ $pickList->salesOrder?->so_number ?? 'N/A' }}"
+                                                    data-customer="{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}"
+                                                    data-date="{{ $pickList->created_at?->format('Y-m-d') ?? '' }}"
                                                     data-items='{{ $pickListItemsJson }}'
                                                     style="background: #ffc107; border: none; color: #000;">
                                                 <i class="las la-redo me-1"></i> Recreate
@@ -129,22 +129,22 @@
                                         })->values()->all());
                                     @endphp
                                     <tr>
-                                        <td class="fw-bold">{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
-                                        <td>{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}</td>
+                                        <td class="fw-bold">{{ $pickList->salesOrder?->so_number ?? 'N/A' }}</td>
+                                        <td>{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}</td>
                                         <td>{{ $pickList->pick_list_number }}</td>
                                         <td>
                                             <span class="badge bg-light text-dark">{{ $pickList->pickListItems->count() }} items</span>
                                         </td>
                                         <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum(fn($i) => $i->salesOrderItem->subtotal ?? 0), 2) }}</td>
-                                        <td>{{ $pickList->preparedByUser->name ?? 'N/A' }}</td>
-                                        <td>{{ $pickList->created_at->format('M d, Y') }}</td>
+                                        <td>{{ $pickList->preparedByUser?->name ?? 'N/A' }}</td>
+                                        <td>{{ $pickList->created_at?->format('M d, Y') ?? 'N/A' }}</td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-primary view-order-btn"
-                                                    data-order-id="{{ $pickList->salesOrder->id ?? '' }}"
+                                                    data-order-id="{{ $pickList->salesOrder?->id ?? '' }}"
                                                     data-pick-list-id="{{ $pickList->id }}"
-                                                    data-so-number="{{ $pickList->salesOrder->so_number ?? 'N/A' }}"
-                                                    data-customer="{{ $pickList->salesOrder->customer->customer_name ?? 'N/A' }}"
-                                                    data-date="{{ $pickList->created_at->format('Y-m-d') }}"
+                                                    data-so-number="{{ $pickList->salesOrder?->so_number ?? 'N/A' }}"
+                                                    data-customer="{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}"
+                                                    data-date="{{ $pickList->created_at?->format('Y-m-d') ?? '' }}"
                                                     data-items='{{ $pickListItemsJson }}'
                                                     data-ecom-platform="{{ $pickList->salesOrder->ecom_platform ?? '' }}"
                                                     style="background: #ff0000; border: none;">
@@ -632,9 +632,9 @@
         @endif
         
         console.log('Pick List Management page loaded');
-        console.log('Pending orders count: {{ $pendingOrders->count() }}');
-        console.log('Completed pick lists count: {{ $completedPickLists->count() }}');
-        console.log('Active pick lists count: {{ $pickLists->count() }}');
+        console.log('Pending orders count: {{ isset($pendingOrders) ? $pendingOrders->count() : 0 }}');
+        console.log('Completed pick lists count: {{ isset($completedPickLists) ? $completedPickLists->count() : 0 }}');
+        console.log('Active pick lists count: {{ isset($pickLists) ? $pickLists->count() : 0 }}');
         
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOMContentLoaded - Initializing Pick List Management');

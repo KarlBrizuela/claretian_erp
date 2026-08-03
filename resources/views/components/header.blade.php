@@ -1,4 +1,4 @@
-@props(['title' => 'Page Title', 'role' => auth()->user()->position ?? 'User Role'])
+@props(['title' => 'Page Title', 'role' => auth()->user()?->position ?? 'User Role'])
 
 <div class="header">
 	<div class="header-content">
@@ -13,8 +13,8 @@
 					<li class="nav-item dropdown header-profile">
 						<a class="nav-link" href="javascript:void(0);" role="button" data-bs-toggle="dropdown" data-toggle="dropdown">
 							<div class="header-info">
-								<span>{{ auth()->user()->name }}</span>
-								<small data-user-role>{{ auth()->user()->position }}</small>
+								<span>{{ auth()->user()?->name ?? 'User' }}</span>
+								<small data-user-role>{{ auth()->user()?->position ?? '' }}</small>
 							</div>
 						</a>
 						<div class="dropdown-menu dropdown-menu-end">
@@ -29,8 +29,8 @@
 							</a>
 							
 @php
-    $userDivisions = auth()->user()->divisions;
-    $isSuperAdmin = auth()->user()->isSuperAdmin();
+    $userDivisions = auth()->user()?->divisions ?? collect();
+    $isSuperAdmin = auth()->user()?->isSuperAdmin() ?? false;
     $showSwitch = $isSuperAdmin || $userDivisions->count() > 1;
     
     // Divisions for Super Admin to switch between

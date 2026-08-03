@@ -37,16 +37,20 @@
 
     @php
         $activeInvoice = null;
-        if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
-            $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
-        }
+        $itemsToRender = collect();
+        $totalSalesAmount = 0;
+        if ($order) {
+            if (in_array($order->type ?? '', ['area_consignment', 'area_sales_consignment'])) {
+                $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
+            }
 
-        if ($activeInvoice) {
-            $itemsToRender = $activeInvoice->items;
-            $totalSalesAmount = (float) $activeInvoice->total_amount;
-        } else {
-            $itemsToRender = $order->items;
-            $totalSalesAmount = (float) $order->total_amount;
+            if ($activeInvoice) {
+                $itemsToRender = $activeInvoice->items ?? collect();
+                $totalSalesAmount = (float) ($activeInvoice->total_amount ?? 0);
+            } else {
+                $itemsToRender = $order->items ?? collect();
+                $totalSalesAmount = (float) ($order->total_amount ?? 0);
+            }
         }
     @endphp
 

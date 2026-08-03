@@ -18,7 +18,7 @@
                             <h5>Order Information</h5>
                             <div class="form-group">
                                 <label>Sales Order Number:</label>
-                                <input type="text" value="{{ $pickList->salesOrder->so_number ?? 'N/A' }}" readonly>
+                                <input type="text" value="{{ $pickList->salesOrder?->so_number ?? 'N/A' }}" readonly>
                             </div>
                             <div class="form-group">
                                 <label>Order Date:</label>
@@ -26,7 +26,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Customer:</label>
-                                <input type="text" value="{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}" readonly>
+                                <input type="text" value="{{ $pickList->salesOrder?->customer?->customer_name ?? 'Unknown' }}" readonly>
                             </div>
                         </div>
                         <div class="order-info-box">
@@ -49,7 +49,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Prepared By:</label>
-                                <input type="text" value="{{ $pickList->preparedByUser->name ?? 'System' }}" readonly>
+                                <input type="text" value="{{ $pickList->preparedByUser?->name ?? 'System' }}" readonly>
                             </div>
                         </div>
                     </div>
@@ -73,10 +73,10 @@
                             @forelse($pickList->pickListItems as $item)
                             <tr>
                                 <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: center;">{{ $loop->iteration }}</td>
-                                <td style="padding: 0.75rem; border: 1px solid #ddd;">{{ $item->salesOrderItem->book->name ?? 'Unknown' }}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #ddd;">{{ $item->salesOrderItem?->book?->name ?? 'Unknown' }}</td>
                                 <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: center;">{{ $item->requested_qty }}</td>
-                                <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: right;">₱{{ number_format($item->salesOrderItem->price, 2) }}</td>
-                                <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: right;">₱{{ number_format($item->salesOrderItem->subtotal, 2) }}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: right;">₱{{ number_format($item->salesOrderItem?->price ?? 0, 2) }}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: right;">₱{{ number_format($item->salesOrderItem?->subtotal ?? 0, 2) }}</td>
                                 <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: center;">{{ $item->picked_qty }}</td>
                                 <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: center;">
                                     @if($item->status === 'pending')
@@ -122,7 +122,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Date Created:</label>
-                                <input type="text" value="{{ $pickList->created_at->format('M d, Y h:i A') }}" readonly>
+                                <input type="text" value="{{ optional($pickList->created_at)->format('M d, Y h:i A') ?? 'N/A' }}" readonly>
                             </div>
                         </div>
                     </div>
