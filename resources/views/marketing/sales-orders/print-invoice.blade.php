@@ -121,6 +121,7 @@
             width: 65px;
             height: 65px;
             object-fit: contain;
+            filter: grayscale(100%) contrast(150%);
         }
 
         .company-name {
@@ -136,13 +137,13 @@
         .company-subtitle {
             font-size: 8.5pt;
             font-weight: bold;
-            color: #333;
+            color: #000;
             margin-top: 2px;
         }
 
         .company-address, .company-contact {
             font-size: 8pt;
-            color: #222;
+            color: #000;
             margin-top: 1px;
             line-height: 1.2;
         }
@@ -158,7 +159,7 @@
         }
 
         .doc-no span {
-            color: #cc0000;
+            color: #000;
             font-size: 11.5pt;
         }
 
@@ -261,7 +262,7 @@
             border-bottom: 2px solid #000;
             padding: 0 12px;
             font-size: 12pt;
-            color: #cc0000;
+            color: #000;
         }
 
         .conditions-bank-container {
@@ -352,6 +353,31 @@
                 margin: {{ $format === 'half' ? '0' : '0.4in' }};
             }
         }
+        body.preprinted-mode .header-logo-details,
+        body.preprinted-mode .company-name,
+        body.preprinted-mode .company-subtitle,
+        body.preprinted-mode .company-address,
+        body.preprinted-mode .company-contact,
+        body.preprinted-mode .doc-title,
+        body.preprinted-mode .info-label,
+        body.preprinted-mode .items-table th,
+        body.preprinted-mode .cb-text,
+        body.preprinted-mode .conditions-bank-container,
+        body.preprinted-mode .sig-label,
+        body.preprinted-mode .footer-notice,
+        body.preprinted-mode .doc-no,
+        body.preprinted-mode .total-label {
+            visibility: hidden !important;
+        }
+        body.preprinted-mode .header-section,
+        body.preprinted-mode .info-value-line,
+        body.preprinted-mode .items-table th,
+        body.preprinted-mode .items-table td,
+        body.preprinted-mode .cb-box,
+        body.preprinted-mode .total-sales-box span,
+        body.preprinted-mode .sig-line {
+            border-color: transparent !important;
+        }
     </style>
 </head>
 <body>
@@ -361,11 +387,59 @@
         <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
             <i class="las la-arrow-left me-1"></i> Back
         </a>
-        <button onclick="window.print()" class="btn btn-danger btn-sm px-4 shadow-sm" style="background:#ff0000;">
-            <i class="las la-print me-1"></i> Print Invoice
-        </button>
+        <div class="d-flex align-items-center gap-3">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="preprintedToggle" onchange="togglePreprintedMode(this)">
+                <label class="form-check-label fw-bold small text-dark" for="preprintedToggle">Overlay on Pre-printed Paper Form</label>
+            </div>
+            <button onclick="window.print()" class="btn btn-danger btn-sm px-4 shadow-sm" style="background:#ff0000; border: none;">
+                <i class="las la-print me-1"></i> Print / Save PDF
+            </button>
+        </div>
     </div>
     @endif
+
+    @php
+        $activeInvoice = null;
+        if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+            $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
+        }
+
+        if ($activeInvoice) {
+            $allItems = $activeInvoice->items;
+            $totalSalesAmount = (float) $activeInvoice->total_amount;
+        } else {
+            $allItems = $order->items;
+            $totalSalesAmount = (float) $order->total_amount;
+        }
+
+        // Split items if half parameter is set
+        if ($halfPart) {
+            $itemsArray = $allItems->values();
+            $totalCount = $itemsArray->count();
+            $midpoint = (int) ceil($totalCount / 2);
+            if ($halfPart == '1') {
+                $itemsToPrint = $itemsArray->slice(0, $midpoint)->values();
+            } else {
+                $itemsToPrint = $itemsArray->slice($midpoint)->values();
+            }
+            $halfLabel = $halfPart == '1' ? 'Part 1 of 2' : 'Part 2 of 2';
+        } else {
+            $itemsToPrint = $allItems;
+            $halfLabel = null;
+        }
+
+        $isCash = in_array($order->payment_method, ['cash', 'gcash', 'paymaya', 'card', 'bank', 'check']) 
+                  || in_array($order->type, ['calculator_pos', 'ecom_direct', 'paid']);
+        $custName = $order->customer?->customer_name ?: 'Cash Customer';
+        $custAddress = $order->billing_address ?: ($order->shipping_address ?: ($order->customer?->billing_address ?? 'N/A'));
+        $custTin = $order->customer?->tin ?: 'N/A';
+        $termsVal = $order->terms ?: ($order->payment_method ? strtoupper($order->payment_method) : 'CASH');
+        $orderDate = $order->created_at ? $order->created_at->format('m/d/Y') : date('m/d/Y');
+        $dueDate = $order->due_date ? \Carbon\Carbon::parse($order->due_date)->format('m/d/Y') : '-';
+        $wht = (float) ($order->withholding_tax_amount ?? 0);
+        $siNoDisplay = $activeInvoice->si_number ?? $order->so_number;
+    @endphp
 
     <div class="invoice-box">
         <div>
@@ -381,7 +455,7 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <div class="doc-no">No. <span>{{ $order->so_number }}</span></div>
+                    <div class="doc-no"><span class="doc-no-label">No. </span><span>{{ $siNoDisplay }}</span></div>
                     <div class="doc-title">Sales - Invoice</div>
                     @if(isset($halfLabel) && $halfLabel)
                         <div style="font-size: 8pt; color: #666; font-weight: bold;">{{ $halfLabel }}</div>
@@ -390,46 +464,6 @@
             </div>
 
             <!-- Customer & Transaction Details -->
-            @php
-                $activeInvoice = null;
-                if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
-                    $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
-                }
-
-                if ($activeInvoice) {
-                    $allItems = $activeInvoice->items;
-                    $totalSalesAmount = (float) $activeInvoice->total_amount;
-                } else {
-                    $allItems = $order->items;
-                    $totalSalesAmount = (float) $order->total_amount;
-                }
-
-                // Split items if half parameter is set
-                if ($halfPart) {
-                    $itemsArray = $allItems->values();
-                    $totalCount = $itemsArray->count();
-                    $midpoint = (int) ceil($totalCount / 2);
-                    if ($halfPart == '1') {
-                        $itemsToPrint = $itemsArray->slice(0, $midpoint)->values();
-                    } else {
-                        $itemsToPrint = $itemsArray->slice($midpoint)->values();
-                    }
-                    $halfLabel = $halfPart == '1' ? 'Part 1 of 2' : 'Part 2 of 2';
-                } else {
-                    $itemsToPrint = $allItems;
-                    $halfLabel = null;
-                }
-
-                $isCash = in_array($order->payment_method, ['cash', 'gcash', 'paymaya', 'card', 'bank', 'check']) 
-                          || in_array($order->type, ['calculator_pos', 'ecom_direct', 'paid']);
-                $custName = $order->customer?->customer_name ?: 'Cash Customer';
-                $custAddress = $order->billing_address ?: ($order->shipping_address ?: ($order->customer?->billing_address ?? 'N/A'));
-                $custTin = $order->customer?->tin ?: 'N/A';
-                $termsVal = $order->terms ?: ($order->payment_method ? strtoupper($order->payment_method) : 'CASH');
-                $orderDate = $order->created_at ? $order->created_at->format('m/d/Y') : date('m/d/Y');
-                $dueDate = $order->due_date ? \Carbon\Carbon::parse($order->due_date)->format('m/d/Y') : '-';
-            @endphp
-
             <table class="info-grid">
                 <tr>
                     <td class="info-label">Sold to:</td>
@@ -492,15 +526,29 @@
                 <div class="checkbox-group">
                     <div class="custom-cb">
                         <span class="cb-box">{{ $isCash ? '✓' : '' }}</span>
-                        <span>CASH</span>
+                        <span class="cb-text">CASH</span>
                     </div>
                     <div class="custom-cb">
                         <span class="cb-box">{{ !$isCash ? '✓' : '' }}</span>
-                        <span>CHARGE</span>
+                        <span class="cb-text">CHARGE</span>
                     </div>
                 </div>
-                <div class="total-sales-box">
-                    TOTAL SALES: <span>₱{{ number_format($totalSalesAmount, 2) }}</span>
+                <div class="totals-block text-end">
+                    @if($wht > 0)
+                        <div style="font-size: 8.5pt; font-weight: bold; margin-bottom: 2px;">
+                            <span class="total-label">LESS: WITHHOLDING TAX: </span><span style="border-bottom: 1.5px solid #000; padding: 0 8px;">₱{{ number_format($wht, 2) }}</span>
+                        </div>
+                        <div style="font-size: 9pt; font-weight: bold; margin-bottom: 2px;">
+                            <span class="total-label">TOTAL SALES: </span><span style="border-bottom: 1.5px solid #000; padding: 0 8px;">₱{{ number_format($totalSalesAmount, 2) }}</span>
+                        </div>
+                        <div class="total-sales-box" style="margin-top: 3px;">
+                            <span class="total-label">TOTAL AMOUNT DUE: </span><span>₱{{ number_format(max(0, $totalSalesAmount - $wht), 2) }}</span>
+                        </div>
+                    @else
+                        <div class="total-sales-box">
+                            <span class="total-label">TOTAL SALES: </span><span>₱{{ number_format($totalSalesAmount, 2) }}</span>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -511,7 +559,7 @@
                 </div>
                 <div class="bank-block">
                     <strong>Payments may be deposit thru the following bank accounts:</strong><br>
-                    <span>RCBC - SA# 1-191-48135-6</span> &nbsp;&nbsp;&nbsp; <span>Metrobank SA# 186-3-18617805-0</span><br>
+                    <span>RCBC - SA# 1-191-46138-6</span> &nbsp;&nbsp;&nbsp; <span>Metrobank SA# 186-3-18617805-0</span><br>
                     <span>BDO - SA# 3640009449</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span>BPI SA# 1993-0734-11</span>
                 </div>
             </div>
@@ -519,31 +567,43 @@
             <!-- Signatories -->
             <div class="signatories-row">
                 <div class="sig-col">
-                    <div>Prepared by:</div>
+                    <div class="sig-label">Prepared by:</div>
                     <div class="sig-line">{{ $order->preparedBy?->name ?? '' }}</div>
                 </div>
                 <div class="sig-col">
-                    <div>Approved by:</div>
+                    <div class="sig-label">Approved by:</div>
                     <div class="sig-line">{{ $order->mktApprovedBy?->name ?? ($order->prodApprovedBy?->name ?? '') }}</div>
                 </div>
                 <div class="sig-col">
-                    <div>Received by:</div>
-                    <div class="sig-line"></div>
+                    <div class="sig-label">Received by:</div>
+                    <div class="sig-line">{{ $custName }}</div>
                 </div>
             </div>
 
             <!-- Footer Notice -->
             <div class="footer-notice">
-                <div>
-                    100 Pads (50x4) 02251-57250<br>
-                    Looseleaf Permit No. LLAR-099-1022-00083
+                <div class="bir-details">
+                    <div>200 Pads (50x4) 60751-70750 | BIR Authority to Print No. OCN033AU20250000000745 (Date of ATP: 01-28-2026)</div>
+                    <div>Looseleaf Permit No. LLAR-039-1022-00083 | Date Issued: October 03, 2022</div>
+                    <div>TOPAZ PUBLISHING HAUS CO. | Tel: 822-3443 | Cell: 0945-548-2022 | 63-A Matahimik St., Teachers Village, Diliman Q.C.</div>
+                    <div>NON VAT Reg. TIN: 004-720-224-00000 | Printer's Accreditation No. 039MP20240000000003 (Valid: Feb 05, 2024 - Feb 05, 2029)</div>
                 </div>
-                <div style="font-weight: bold; font-size: 8pt; color: #000;">
+                <div class="input-tax-notice" style="font-weight: bold; font-size: 8pt; color: #000; text-align: center; text-decoration: underline; margin-top: 4px;">
                     *THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAXES*
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+        function togglePreprintedMode(checkbox) {
+            if (checkbox.checked) {
+                document.body.classList.add('preprinted-mode');
+            } else {
+                document.body.classList.remove('preprinted-mode');
+            }
+        }
+    </script>
 
 </body>
 </html>
