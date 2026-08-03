@@ -111,15 +111,12 @@ class InventoryController extends Controller
         $outOfStock = 0;
         $inventoryValue = 0;
 
+        $mainInventoryMap = $mainWarehouse 
+            ? $mainWarehouse->inventory()->pluck('quantity', 'book_id')->toArray() 
+            : [];
+
         foreach ($allBooks as $book) {
-            $mainWarehouseQuantity = 0;
-            
-            // Get quantity from Main Warehouse only
-            if ($mainWarehouse) {
-                $mainWarehouseQuantity = $mainWarehouse->inventory()
-                    ->where('book_id', $book->id)
-                    ->sum('quantity');
-            }
+            $mainWarehouseQuantity = $mainInventoryMap[$book->id] ?? 0;
 
             if ($mainWarehouseQuantity > 0) {
                 $totalBooks++;
@@ -133,11 +130,12 @@ class InventoryController extends Controller
             }
         }
 
+        $totalMovements = InventoryTransaction::count();
+
         $recentMovements = InventoryTransaction::with('book')
             ->latest()
+            ->take(200)
             ->get();
-
-        $totalMovements = $recentMovements->count();
 
         $user = Auth::user();
         $userApprovalDivision = StockTransfer::approvalDivisionForUser($user);

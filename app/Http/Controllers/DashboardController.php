@@ -121,10 +121,84 @@ class DashboardController extends Controller
 
     public function production()
     {
+        $activeJobRequests = \Illuminate\Support\Facades\Schema::hasTable('job_requests')
+            ? \App\Models\JobRequest::where('status', '!=', 'Completed')->count()
+            : 0;
+
+        $pendingPurchaseOrders = \Illuminate\Support\Facades\Schema::hasTable('purchase_orders')
+            ? \App\Models\PurchaseOrder::where('status', '!=', 'completed')->count()
+            : 0;
+
+        $activePrintingJobs = \Illuminate\Support\Facades\Schema::hasTable('production_costings')
+            ? \App\Models\ProductionCosting::count()
+            : 0;
+
+        $pendingPaymentRequests = \Illuminate\Support\Facades\Schema::hasTable('payment_requests')
+            ? \App\Models\PaymentRequest::where('status', 'like', 'pending%')->count()
+            : 0;
+
+        $recentActivities = \Illuminate\Support\Facades\Schema::hasTable('activity_logs')
+            ? \App\Models\ActivityLog::with('user')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function($log) {
+                    $actionLower = strtolower($log->action);
+                    $icon = 'las la-bell';
+                    $color = 'secondary';
+                    
+                    if (str_contains($actionLower, 'purchase') || str_contains($actionLower, 'po')) {
+                        $icon = 'las la-shopping-cart';
+                        $color = 'success';
+                    } elseif (str_contains($actionLower, 'job') || str_contains($actionLower, 'reconsignment') || str_contains($actionLower, 'delivery')) {
+                        $icon = 'las la-truck';
+                        $color = 'primary';
+                    } elseif (str_contains($actionLower, 'pick') || str_contains($actionLower, 'print')) {
+                        $icon = 'las la-print';
+                        $color = 'warning';
+                    } elseif (str_contains($actionLower, 'payment') || str_contains($actionLower, 'debit') || str_contains($actionLower, 'invoice') || str_contains($actionLower, 'si')) {
+                        $icon = 'las la-money-bill-wave';
+                        $color = 'info';
+                    }
+                    
+                    $details = '';
+                    if ($log->details) {
+                        $parsed = json_decode($log->details, true);
+                        if (is_array($parsed)) {
+                            if (isset($parsed['po_number'])) {
+                                $details = "PO #" . $parsed['po_number'];
+                            } elseif (isset($parsed['pick_list_number'])) {
+                                $details = "Pick List: " . $parsed['pick_list_number'];
+                            } elseif (isset($parsed['gathered_at'])) {
+                                $details = "Gathered at: " . date('M d, Y H:i', strtotime($parsed['gathered_at']));
+                            }
+                        }
+                    }
+                    if (empty($details)) {
+                        $details = $log->details ?: ($log->user->name ?? 'System Action');
+                    }
+                    
+                    return [
+                        'title' => $log->action,
+                        'desc' => $details,
+                        'time' => $log->created_at->diffForHumans(),
+                        'icon' => $icon,
+                        'color' => $color
+                    ];
+                })
+            : collect();
+
         return view('production.dashboard', [
             'title' => 'Production Division Dashboard',
             'role' => auth()->user()->position,
-            'sidebar' => 'production'
+            'sidebar' => 'production',
+            'stats' => [
+                'active_job_requests' => $activeJobRequests,
+                'pending_purchase_orders' => $pendingPurchaseOrders,
+                'active_printing_jobs' => $activePrintingJobs,
+                'pending_payment_requests' => $pendingPaymentRequests,
+            ],
+            'recentActivities' => $recentActivities
         ]);
     }
 }

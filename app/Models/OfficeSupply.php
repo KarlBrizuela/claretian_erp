@@ -15,6 +15,7 @@ class OfficeSupply extends Model
         'item_name',
         'item_price',
         'items_stock',
+        'unit',
     ];
 
     /**

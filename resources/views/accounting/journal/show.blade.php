@@ -44,7 +44,7 @@
                                 <tr>
                                     <td>
                                         <div class="fw-bold">{{ $item->memo ?: $item->account->name }}</div>
-                                        <div class="small text-muted">{{ $item->account->name }} - {{ $item->account->code }}</div>
+                                        {{-- <div class="small text-muted">{{ $item->account->name }} - {{ $item->account->code }}</div> --}}
                                     </td>
                                     <td class="text-end">
                                         {{ $item->debit > 0 ? number_format($item->debit, 2) : '' }}

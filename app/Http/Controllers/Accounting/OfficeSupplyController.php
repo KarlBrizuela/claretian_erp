@@ -33,6 +33,31 @@ class OfficeSupplyController extends Controller
         $suppliers = Supplier::orderBy('company_name', 'asc')->get();
 
         // Fetch paginated transaction logs with filtering
+        // Auto-sync initial beginning quantity logs for items without log history
+        $suppliesWithoutLogs = OfficeSupply::whereNotIn('id', OfficeSupplyLog::whereNotNull('office_supply_id')->pluck('office_supply_id')->unique()->toArray())->get();
+        foreach ($suppliesWithoutLogs as $sup) {
+            OfficeSupplyLog::create([
+                'office_supply_id' => $sup->id,
+                'item_name' => $sup->item_name,
+                'supplier_id' => null,
+                'added_by' => $user->id,
+                'quantity' => $sup->items_stock,
+                'unit_price' => $sup->item_price,
+                'previous_stock' => 0,
+                'new_stock' => $sup->items_stock,
+                'notes' => 'Beginning Quantity',
+                'created_at' => $sup->created_at ?: now(),
+            ]);
+        }
+
+        // Backfill unit_price for existing logs if 0
+        $logsWithoutPrice = OfficeSupplyLog::where('unit_price', 0)->whereNotNull('office_supply_id')->with('officeSupply')->get();
+        foreach ($logsWithoutPrice as $l) {
+            if ($l->officeSupply && $l->officeSupply->item_price > 0) {
+                $l->update(['unit_price' => $l->officeSupply->item_price]);
+            }
+        }
+
         $logSearch = $request->input('log_search');
         $logStartDate = $request->input('log_start_date');
         $logEndDate = $request->input('log_end_date');
@@ -41,8 +66,11 @@ class OfficeSupplyController extends Controller
             ->latest();
 
         if ($logSearch) {
-            $logsQuery->whereHas('officeSupply', function ($query) use ($logSearch) {
-                $query->where('item_name', 'like', '%' . $logSearch . '%');
+            $logsQuery->where(function($q) use ($logSearch) {
+                $q->where('item_name', 'like', '%' . $logSearch . '%')
+                  ->orWhereHas('officeSupply', function ($query) use ($logSearch) {
+                      $query->where('item_name', 'like', '%' . $logSearch . '%');
+                  });
             });
         }
 
@@ -85,12 +113,27 @@ class OfficeSupplyController extends Controller
             'item_name' => 'required|string|max:255',
             'item_price' => 'required|numeric|min:0',
             'items_stock' => 'required|integer|min:0',
+            'unit' => 'required|string|max:50',
         ]);
 
-        OfficeSupply::create([
+        $supply = OfficeSupply::create([
             'item_name' => $request->item_name,
             'item_price' => $request->item_price,
             'items_stock' => $request->items_stock,
+            'unit' => $request->input('unit', 'pcs'),
+        ]);
+
+        // Create initial Beginning Quantity stock log
+        OfficeSupplyLog::create([
+            'office_supply_id' => $supply->id,
+            'item_name' => $supply->item_name,
+            'supplier_id' => null,
+            'added_by' => $user->id,
+            'quantity' => $request->items_stock,
+            'unit_price' => $request->item_price,
+            'previous_stock' => 0,
+            'new_stock' => $request->items_stock,
+            'notes' => 'Beginning Quantity',
         ]);
 
         return redirect()->route('admin-finance.accounting.office-supplies.index')
@@ -111,14 +154,19 @@ class OfficeSupplyController extends Controller
         $request->validate([
             'item_name' => 'required|string|max:255',
             'item_price' => 'required|numeric|min:0',
-            'items_stock' => 'required|integer|min:0',
+            'unit' => 'required|string|max:50',
         ]);
 
         $supply = OfficeSupply::findOrFail($id);
         $supply->update([
             'item_name' => $request->item_name,
             'item_price' => $request->item_price,
-            'items_stock' => $request->items_stock,
+            'unit' => $request->input('unit', 'pcs'),
+        ]);
+
+        // Update item_name on logs associated with this supply
+        OfficeSupplyLog::where('office_supply_id', $supply->id)->update([
+            'item_name' => $supply->item_name,
         ]);
 
         return redirect()->route('admin-finance.accounting.office-supplies.index')
@@ -137,6 +185,13 @@ class OfficeSupplyController extends Controller
         }
 
         $supply = OfficeSupply::findOrFail($id);
+
+        // Preserve stock history logs before removing the item entity
+        OfficeSupplyLog::where('office_supply_id', $supply->id)->update([
+            'item_name' => $supply->item_name,
+            'office_supply_id' => null,
+        ]);
+
         $supply->delete();
 
         return redirect()->route('admin-finance.accounting.office-supplies.index')
@@ -171,12 +226,14 @@ class OfficeSupplyController extends Controller
             'items_stock' => $newStock,
         ]);
 
-        // Create log entry
+        // Create log entry with item_name snapshot
         OfficeSupplyLog::create([
             'office_supply_id' => $supply->id,
+            'item_name' => $supply->item_name,
             'supplier_id' => $request->supplier_id,
             'added_by' => $user->id,
             'quantity' => $quantity,
+            'unit_price' => $supply->item_price,
             'previous_stock' => $previousStock,
             'new_stock' => $newStock,
             'notes' => $request->notes,

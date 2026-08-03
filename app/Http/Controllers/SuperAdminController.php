@@ -257,6 +257,7 @@ class SuperAdminController extends Controller
                 'production.logistic.freight_quotation_review' => '— Freight Quotation (Review)',
                 'production.logistic.rider_collections' => '— Rider Collections',
                 'production.logistic.acknowledgement_receipt' => '— Acknowledgement Receipt (Area Sales Consignment)',
+                'production.logistic.area_consignment' => '— Consignment Receipt',
                 'production.dto' => 'DTO',
                 'production.dto.job_request_form' => '— Job Request Form',
                 'production.ford' => 'FORD',

@@ -7,7 +7,7 @@
                 <div class="card-body box-style">
                     <div class="media align-items-center">
                         <div class="media-body me-3">
-                            <h2 class="num-text text-black font-w700">24</h2>
+                            <h2 class="num-text text-black font-w700">{{ $stats['active_job_requests'] ?? 0 }}</h2>
                             <span class="fs-14">Active Job Requests</span>
                         </div>
                         <i class="las la-truck" style="font-size: 2rem; color: #ff0000;"></i>
@@ -21,7 +21,7 @@
                 <div class="card-body box-style">
                     <div class="media align-items-center">
                         <div class="media-body me-3">
-                            <h2 class="num-text text-black font-w700">18</h2>
+                            <h2 class="num-text text-black font-w700">{{ $stats['pending_purchase_orders'] ?? 0 }}</h2>
                             <span class="fs-14">Pending Purchase Orders</span>
                         </div>
                         <i class="las la-shopping-bag" style="font-size: 2rem; color: #68CF29;"></i>
@@ -35,7 +35,7 @@
                 <div class="card-body box-style">
                     <div class="media align-items-center">
                         <div class="media-body me-3">
-                            <h2 class="num-text text-black font-w700">12</h2>
+                            <h2 class="num-text text-black font-w700">{{ $stats['active_printing_jobs'] ?? 0 }}</h2>
                             <span class="fs-14">Active Printing Jobs</span>
                         </div>
                         <i class="las la-print" style="font-size: 2rem; color: #FFAC30;"></i>
@@ -49,7 +49,7 @@
                 <div class="card-body box-style">
                     <div class="media align-items-center">
                         <div class="media-body me-3">
-                            <h2 class="num-text text-black font-w700">9</h2>
+                            <h2 class="num-text text-black font-w700">{{ $stats['pending_payment_requests'] ?? 0 }}</h2>
                             <span class="fs-14">Pending Payment Requests</span>
                         </div>
                         <i class="las la-money-bill-wave" style="font-size: 2rem; color: #51A6F5;"></i>
@@ -157,46 +157,22 @@
                 </div>
                 <div class="card-body">
                     <div class="activity-timeline">
-                        <div class="d-flex align-items-start mb-4">
+                        @forelse($recentActivities as $index => $act)
+                        <div class="d-flex align-items-start {{ $index < count($recentActivities) - 1 ? 'mb-4' : '' }}">
                             <div class="activity-bx me-3">
-                                <i class="las la-truck text-primary"></i>
+                                <i class="{{ $act['icon'] }} text-{{ $act['color'] }}"></i>
                             </div>
                             <div class="media-body">
-                                <h6 class="fs-16 mb-1">New Job Request Received</h6>
-                                <p class="mb-0 text-muted">From: Marketing Department</p>
-                                <span class="fs-12 text-muted">10 minutes ago</span>
+                                <h6 class="fs-16 mb-1 text-black fw-bold">{{ $act['title'] }}</h6>
+                                <p class="mb-0 text-muted">{{ $act['desc'] }}</p>
+                                <span class="fs-12 text-muted">{{ $act['time'] }}</span>
                             </div>
                         </div>
-                        <div class="d-flex align-items-start mb-4">
-                            <div class="activity-bx me-3">
-                                <i class="las la-print text-warning"></i>
-                            </div>
-                            <div class="media-body">
-                                <h6 class="fs-16 mb-1">Print Job Completed</h6>
-                                <p class="mb-0 text-muted">Job #PRT-2023-1142</p>
-                                <span class="fs-12 text-muted">2 hours ago</span>
-                            </div>
+                        @empty
+                        <div class="text-center text-muted small py-3">
+                            No recent activities found.
                         </div>
-                        <div class="d-flex align-items-start mb-4">
-                            <div class="activity-bx me-3">
-                                <i class="las la-shopping-cart text-success"></i>
-                            </div>
-                            <div class="media-body">
-                                <h6 class="fs-16 mb-1">New Purchase Order</h6>
-                                <p class="mb-0 text-muted">PO #PO-2023-0856</p>
-                                <span class="fs-12 text-muted">5 hours ago</span>
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-start">
-                            <div class="activity-bx me-3">
-                                <i class="las la-money-bill-wave text-info"></i>
-                            </div>
-                            <div class="media-body">
-                                <h6 class="fs-16 mb-1">Payment Request Approved</h6>
-                                <p class="mb-0 text-muted">PR #PR-2023-0921</p>
-                                <span class="fs-12 text-muted">1 day ago</span>
-                            </div>
-                        </div>
+                        @endforelse
                     </div>
                 </div>
             </div>

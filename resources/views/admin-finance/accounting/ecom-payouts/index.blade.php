@@ -54,9 +54,42 @@
         </div>
 
         <!-- Data Table Card -->
-        <div class="card shadow">
-            <div class="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
-                <h4 class="fs-20 mb-0 text-black fw-bold">E-com Direct Payout Reconciliation</h4>
+        <div class="card shadow border-0" style="border-radius: 12px;">
+            <div class="card-header bg-white border-0 pt-4 pb-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="d-flex align-items-center gap-2">
+                    <h4 class="fs-20 mb-0 text-black fw-bold">E-com Direct Payout Reconciliation</h4>
+                    @if(($filters['platform'] ?? '') || ($filters['date_from'] ?? '') || ($filters['date_to'] ?? ''))
+                        <span class="badge bg-warning text-dark ms-1">Filtered</span>
+                    @endif
+                </div>
+
+                <!-- Inline Filters -->
+                <form method="GET" action="{{ route('admin-finance.accounting.ecom-payouts.index') }}" class="d-flex align-items-center gap-2 flex-wrap">
+                    <select name="platform" class="form-select form-select-sm border-light-subtle rounded-pill px-3" style="width: 140px; font-weight: 500;">
+                        <option value="">All Platforms</option>
+                        @foreach($platforms as $p)
+                            <option value="{{ $p }}" {{ strtolower($filters['platform'] ?? '') === strtolower($p) ? 'selected' : '' }}>
+                                {{ ucfirst($p) }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <input type="date" name="date_from" class="form-control form-control-sm border-light-subtle rounded-pill px-3" value="{{ $filters['date_from'] ?? '' }}" style="width: 140px;" title="Date From">
+
+                    <span class="text-muted small">to</span>
+
+                    <input type="date" name="date_to" class="form-control form-control-sm border-light-subtle rounded-pill px-3" value="{{ $filters['date_to'] ?? '' }}" style="width: 140px;" title="Date To">
+
+                    <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3" style="background:#ff0000; border:none; font-weight:600;">
+                        <i class="las la-filter me-1"></i> Filter
+                    </button>
+
+                    @if(($filters['platform'] ?? '') || ($filters['date_from'] ?? '') || ($filters['date_to'] ?? ''))
+                        <a href="{{ route('admin-finance.accounting.ecom-payouts.index') }}" class="btn btn-light btn-sm rounded-circle d-flex align-items-center justify-content-center text-muted" style="width: 32px; height: 32px;" title="Clear Filters">
+                            <i class="las la-times fs-16"></i>
+                        </a>
+                    @endif
+                </form>
             </div>
             <div class="card-body">
                 <div class="table-responsive">

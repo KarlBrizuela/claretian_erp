@@ -125,9 +125,9 @@
             <tbody>
                 @forelse($areaOrders as $order)
                 <tr>
-                    <td><span class="fw-bold text-dark">{{ $order->createdBy->name ?? 'Sales Rep' }}</span></td>
-                    <td>{{ $order->customer->area ?? 'Consignment Area' }}</td>
-                    <td class="text-end">-</td>
+                    <td><span class="fw-bold text-dark">{{ optional($order->areaSalesStaff)->name ?? (optional($order->createdBy)->name ?? 'Field Sales Rep') }}</span></td>
+                    <td>{{ optional($order->customer)->customer_name ?? (optional($order->customer)->company_name ?? 'Regional Consignment Area') }}</td>
+                    <td class="text-end"><span class="badge bg-light text-dark border">{{ strtoupper($order->type) }}</span></td>
                     <td class="text-end text-success fw-bold">₱{{ number_format($order->total_amount, 2) }}</td>
                     <td class="text-end fw-bold text-dark">₱{{ number_format($order->total_amount * 0.03, 2) }}</td>
                 </tr>

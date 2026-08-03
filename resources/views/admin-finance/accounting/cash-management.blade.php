@@ -72,9 +72,6 @@
                         <button class="btn btn-outline-danger btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="color: #D9251C; border-color: #D9251C; height: 40px;" data-bs-toggle="modal" data-bs-target="#addBankAccountModal">
                             <i class="las la-university fs-18"></i> Register Bank Account
                         </button>
-                        <button class="btn btn-outline-secondary btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" onclick="window.print()">
-                            <i class="las la-print fs-18"></i> Print Position Report
-                        </button>
                     </div>
                 </div>
             </div>
@@ -202,9 +199,21 @@
                                         </td>
                                         <td class="text-center"><span class="badge bg-success-subtle text-success">{{ $acct->status }}</span></td>
                                         <td class="text-center">
-                                            <a href="{{ route('admin-finance.cash-management.show', $acct->id) }}" class="btn btn-sm btn-outline-danger px-2 py-1" style="color: #D9251C; border-color: #D9251C;">
-                                                <i class="las la-eye"></i> View Statement
-                                            </a>
+                                            <div class="d-flex justify-content-center gap-1">
+                                                <a href="{{ route('admin-finance.cash-management.show', $acct->id) }}" class="btn btn-sm btn-outline-danger px-2 py-1" style="color: #D9251C; border-color: #D9251C;" title="View Statement">
+                                                    <i class="las la-eye"></i> Statement
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-primary px-2 py-1" data-bs-toggle="modal" data-bs-target="#editBankAccountModal_{{ $acct->id }}" title="Edit Bank Account">
+                                                    <i class="las la-edit"></i> Edit
+                                                </button>
+                                                <form action="{{ route('admin-finance.cash-management.bank.destroy', $acct->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete bank account \'{{ $acct->bank_name }}\'?');" class="d-inline">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary border-0 text-danger px-1 py-1" title="Delete Bank Account">
+                                                        <i class="las la-trash-alt fs-16"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                     @empty
@@ -459,4 +468,68 @@
             </div>
         </div>
     </div>
+
+    <!-- Edit Bank Account Modals -->
+    @foreach($bankAccounts as $acct)
+    <div class="modal fade" id="editBankAccountModal_{{ $acct->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius: 12px;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold text-dark"><i class="las la-edit me-1 text-primary"></i> Edit Bank Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ route('admin-finance.cash-management.bank.update', $acct->id) }}" method="POST">
+                    @csrf
+                    @method('PUT')
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Bank Name *</label>
+                            <input type="text" name="bank_name" class="form-control" value="{{ $acct->bank_name }}" required style="border-radius: 8px;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Account Name *</label>
+                            <input type="text" name="account_name" class="form-control" value="{{ $acct->account_name }}" required style="border-radius: 8px;">
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Account Number *</label>
+                                <input type="text" name="account_number" class="form-control" value="{{ $acct->account_number }}" required style="border-radius: 8px;">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Account Type *</label>
+                                <select name="account_type" class="form-select" required style="border-radius: 8px;">
+                                    <option value="Checking" {{ $acct->account_type == 'Checking' ? 'selected' : '' }}>Checking</option>
+                                    <option value="Savings" {{ $acct->account_type == 'Savings' ? 'selected' : '' }}>Savings</option>
+                                    <option value="E-Wallet" {{ $acct->account_type == 'E-Wallet' ? 'selected' : '' }}>E-Wallet</option>
+                                    <option value="Time Deposit" {{ $acct->account_type == 'Time Deposit' ? 'selected' : '' }}>Time Deposit</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Opening Balance (₱) *</label>
+                                <input type="number" step="0.01" name="opening_balance" class="form-control" value="{{ $acct->opening_balance }}" required style="border-radius: 8px;">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Status</label>
+                                <select name="status" class="form-select" style="border-radius: 8px;">
+                                    <option value="Active" {{ $acct->status == 'Active' ? 'selected' : '' }}>Active</option>
+                                    <option value="Inactive" {{ $acct->status == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Notes / Remarks</label>
+                            <textarea name="notes" class="form-control" rows="2" style="border-radius: 8px;">{{ $acct->notes }}</textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                        <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
+                        <button type="submit" class="btn btn-primary px-4" style="border-radius: 8px;">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endforeach
 </x-app-layout>

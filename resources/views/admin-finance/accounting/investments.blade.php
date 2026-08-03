@@ -2,49 +2,61 @@
     @push('styles')
     <style>
         .inv-header-card {
-            background: #fff;
+            background: #ffffff;
             border-radius: 12px;
-            padding: 1.75rem;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-            border: 0;
+            padding: 1.5rem 1.75rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
             margin-bottom: 1.5rem;
         }
 
-        .hover-row {
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .hover-row:hover {
-            background-color: #ffffff !important;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
-        }
-
-        .category-pill {
-            font-size: 0.82rem;
-            font-weight: 600;
-            padding: 7px 15px;
-            border-radius: 20px;
-            text-decoration: none;
-            transition: all 0.2s ease-in-out;
-            display: inline-block;
-        }
-
-        .category-pill.active {
+        .btn-inv-primary {
             background-color: #D9251C;
-            color: #fff !important;
-            box-shadow: 0 4px 12px rgba(217, 37, 28, 0.25);
+            border-color: #D9251C;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.8125rem;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s ease;
         }
 
-        .category-pill:not(.active) {
-            background-color: #f8f9fa;
-            color: #495057;
-            border: 1px solid #e9ecef;
+        .btn-inv-primary:hover {
+            background-color: #b91c1c;
+            border-color: #b91c1c;
+            color: #ffffff;
         }
 
-        .category-pill:not(.active):hover {
-            background-color: #e9ecef;
-            color: #212529;
+        .inv-kpi-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .inv-kpi-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        }
+
+        .kpi-icon-wrapper {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .table-custom-header thead th {
+            background-color: #f8fafc !important;
+            color: #475569 !important;
+            font-size: 0.725rem !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            border-bottom: 1px solid #e2e8f0 !important;
         }
     </style>
     @endpush
@@ -57,20 +69,22 @@
         </div>
         @endif
 
-        <!-- Master Title Header -->
+        <!-- Master Header -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="inv-header-card d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                    <div>
-                        <h4 class="fs-24 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Investments Module</h4>
-                        <p class="text-muted small mb-0">Standalone investment portfolio management tracking Time Deposits, Stocks, Mutual Funds, Bonds, Money Market, Dividend History, Interest, Maturity, and ROI Performance.</p>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background-color: rgba(217, 37, 28, 0.08); color: #D9251C;">
+                            <i class="las la-chart-pie fs-24"></i>
+                        </div>
+                        <div>
+                            <h4 class="fs-20 mb-1 fw-bold text-dark" style="letter-spacing: -0.3px;">Investments Ledger</h4>
+                            <p class="text-muted small mb-0">Record and track institutional investment assets, time deposits, stocks, and funds.</p>
+                        </div>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-danger btn-sm px-3 text-white rounded shadow-sm d-flex align-items-center gap-2" style="background-color: #D9251C; border-color: #D9251C; height: 40px;" data-bs-toggle="modal" data-bs-target="#addInvestmentModal">
-                            <i class="las la-plus-circle fs-18"></i> Add Investment Asset
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" onclick="window.print()">
-                            <i class="las la-print fs-18"></i> Print Portfolio Summary
+                    <div>
+                        <button class="btn btn-inv-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addInvestmentModal">
+                            <i class="las la-plus-circle fs-16"></i> Add Investment Asset
                         </button>
                     </div>
                 </div>
@@ -78,162 +92,91 @@
         </div>
 
         <!-- Metric summary cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light" style="width: 50px; height: 50px; color: #D9251C;">
-                            <i class="las la-chart-pie fs-28"></i>
-                        </div>
-                        <div>
-                            <span class="text-muted small d-block">Current Portfolio Value</span>
-                            <h4 class="fw-bold text-dark mb-0">₱{{ number_format($metrics['total_current_val'], 2) }}</h4>
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="inv-kpi-card h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.725rem; letter-spacing: 0.5px;">Current Portfolio Value</span>
+                        <div class="kpi-icon-wrapper" style="background-color: #f0fdf4; color: #16a34a;">
+                            <i class="las la-coins fs-20"></i>
                         </div>
                     </div>
+                    <h4 class="fw-bold text-dark mb-0 fs-20">₱{{ number_format($metrics['total_current_val'] ?? $metrics['total_current_value'] ?? 0, 2) }}</h4>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary" style="width: 50px; height: 50px;">
-                            <i class="las la-wallet fs-28"></i>
-                        </div>
-                        <div>
-                            <span class="text-muted small d-block">Principal Invested</span>
-                            <h4 class="fw-bold text-primary mb-0">₱{{ number_format($metrics['total_principal'], 2) }}</h4>
+            <div class="col-md-4">
+                <div class="inv-kpi-card h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.725rem; letter-spacing: 0.5px;">Total Principal Invested</span>
+                        <div class="kpi-icon-wrapper" style="background-color: #eff6ff; color: #2563eb;">
+                            <i class="las la-vault fs-20"></i>
                         </div>
                     </div>
+                    <h4 class="fw-bold text-dark mb-0 fs-20">₱{{ number_format($metrics['total_principal'], 2) }}</h4>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-success" style="width: 50px; height: 50px;">
-                            <i class="las la-hand-holding-usd fs-28"></i>
-                        </div>
-                        <div>
-                            <span class="text-muted small d-block">Dividends & Interest</span>
-                            <h4 class="fw-bold text-success mb-0">₱{{ number_format($metrics['total_dividends'] + $metrics['total_interest'], 2) }}</h4>
+            <div class="col-md-4">
+                <div class="inv-kpi-card h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.725rem; letter-spacing: 0.5px;">Total Investment Assets</span>
+                        <div class="kpi-icon-wrapper" style="background-color: #fef2f2; color: #D9251C;">
+                            <i class="las la-briefcase fs-20"></i>
                         </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light" style="width: 50px; height: 50px; color: #D9251C;">
-                            <i class="las la-percentage fs-28"></i>
-                        </div>
-                        <div>
-                            <span class="text-muted small d-block">Overall Portfolio ROI</span>
-                            <h4 class="fw-bold mb-0" style="color: #D9251C;">{{ $metrics['overall_roi_pct'] }}%</h4>
-                        </div>
-                    </div>
+                    <h4 class="fw-bold text-dark mb-0 fs-20">{{ $metrics['total_items_count'] }} <span class="fs-14 fw-normal text-muted">Assets</span></h4>
                 </div>
             </div>
         </div>
 
-        <!-- Asset Classes & Sub-Modules Filter Pills -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm p-3" style="border-radius: 12px; background: #fff;">
-                    <span class="text-muted small fw-bold mb-2 d-block text-uppercase">Investment Categories & Sub-Modules:</span>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ route('admin-finance.investments.index', ['type' => 'All']) }}" class="category-pill {{ $selectedType == 'All' ? 'active' : '' }}">
-                            All Investments ({{ $metrics['total_items_count'] }})
-                        </a>
-                        @foreach($types as $t)
-                        <a href="{{ route('admin-finance.investments.index', ['type' => $t]) }}" class="category-pill {{ $selectedType == $t ? 'active' : '' }}">
-                            {{ $t }}
-                        </a>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Investment Portfolio Ledger Table -->
+        <!-- Investment Ledger Table -->
         <div class="row">
             <div class="col-12">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
-                    <div class="card-header bg-white border-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="mb-0 fw-bold text-dark fs-18">Investment Portfolio Ledger</h5>
-                            <p class="text-muted small mb-0">Track principal, market valuation, dividend payouts, maturity dates, and cumulative return</p>
-                        </div>
-                        <form action="{{ route('admin-finance.investments.index') }}" method="GET" class="d-flex gap-2">
-                            <input type="hidden" name="type" value="{{ $selectedType }}">
-                            <input type="text" name="search" class="form-control form-control-sm" placeholder="Search Code, Name, Institution..." value="{{ request('search') }}">
-                            <button type="submit" class="btn btn-sm text-white px-3" style="background-color: #D9251C; border-color: #D9251C;">Filter</button>
+                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0 !important;">
+                    <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+                        <h6 class="fw-bold text-dark mb-0"><i class="las la-list me-2 fs-18"></i>Investment Records</h6>
+                        <form method="GET" action="{{ route('admin-finance.investments.index') }}" class="d-flex align-items-center gap-2">
+                            <input type="text" name="search" class="form-control form-control-sm" placeholder="Search investment..." value="{{ $search ?? '' }}" style="width: 220px; border-radius: 6px;">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="las la-search"></i></button>
                         </form>
                     </div>
-
-                    <div class="card-body pt-2">
+                    <div class="card-body pt-0">
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-dark text-white small text-uppercase">
+                            <table class="table table-hover align-middle table-custom-header">
+                                <thead>
                                     <tr>
                                         <th>Code</th>
-                                        <th>Investment Asset Name</th>
-                                        <th>Asset Class</th>
-                                        <th>Bank / Institution</th>
-                                        <th>Acquisition & Maturity</th>
+                                        <th>Asset Name</th>
+                                        <th>Category</th>
+                                        <th>Institution / Bank</th>
                                         <th class="text-end">Principal</th>
                                         <th class="text-end">Current Value</th>
-                                        <th class="text-end text-success">Dividends & Interest</th>
-                                        <th class="text-end" style="background-color: #D9251C;">Total Return</th>
-                                        <th class="text-center" style="background-color: #e53935;">ROI %</th>
-                                        <th class="text-center">Status</th>
-                                        <th class="text-center">Action</th>
+                                        <th>Acquisition Date</th>
+                                        <th class="text-center" style="width: 100px;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse($investments as $inv)
-                                    <tr class="hover-row">
-                                        <td><span class="fw-bold text-dark font-monospace">{{ $inv->portfolio_code }}</span></td>
-                                        <td>
-                                            <span class="fw-bold text-dark d-block fs-14">{{ $inv->name }}</span>
-                                            <span class="text-muted small">Yield: {{ $inv->interest_rate }}% p.a.</span>
-                                        </td>
-                                        <td><span class="badge bg-light text-dark border">{{ $inv->type }}</span></td>
-                                        <td><span class="fw-bold text-dark small">{{ $inv->institution }}</span></td>
-                                        <td>
-                                            <span class="fw-bold text-dark d-block small">Start: {{ $inv->acquisition_date ? $inv->acquisition_date->format('M d, Y') : 'N/A' }}</span>
-                                            <span class="text-muted small">
-                                                @if($inv->maturity_date)
-                                                Matures: {{ $inv->maturity_date->format('M d, Y') }}
-                                                @else
-                                                No fixed maturity
-                                                @endif
-                                            </span>
-                                        </td>
-                                        <td class="text-end fw-bold text-dark">₱{{ number_format($inv->principal_amount, 2) }}</td>
-                                        <td class="text-end fw-bold text-primary">₱{{ number_format($inv->current_value, 2) }}</td>
-                                        <td class="text-end text-success fw-bold">₱{{ number_format($inv->total_dividends + $inv->total_interest, 2) }}</td>
-                                        <td class="text-end fw-bold text-white" style="background-color: #D9251C;">
-                                            ₱{{ number_format($inv->total_return, 2) }}
-                                        </td>
-                                        <td class="text-center fw-bold text-white" style="background-color: #e53935;">
-                                            {{ $inv->roi_percentage }}%
-                                        </td>
+                                    <tr>
+                                        <td><span class="fw-bold text-dark">{{ $inv->portfolio_code ?: 'INV-'.$inv->id }}</span></td>
+                                        <td><span class="fw-bold text-dark">{{ $inv->name }}</span></td>
+                                        <td><span class="badge bg-light text-dark border px-2 py-1">{{ $inv->type }}</span></td>
+                                        <td><span class="text-muted small fw-medium">{{ $inv->institution }}</span></td>
+                                        <td class="text-end fw-medium text-secondary">₱{{ number_format($inv->principal_amount, 2) }}</td>
+                                        <td class="text-end fw-bold text-dark">₱{{ number_format($inv->current_value, 2) }}</td>
+                                        <td><span class="text-muted small">{{ $inv->acquisition_date ? \Carbon\Carbon::parse($inv->acquisition_date)->format('M d, Y') : 'N/A' }}</span></td>
                                         <td class="text-center">
-                                            @if($inv->status === 'Active')
-                                            <span class="badge bg-success-subtle text-success">Active</span>
-                                            @elseif($inv->status === 'Matured')
-                                            <span class="badge bg-info-subtle text-info">Matured</span>
-                                            @else
-                                            <span class="badge bg-secondary-subtle text-secondary">{{ $inv->status }}</span>
-                                            @endif
-                                        </td>
-                                        <td class="text-center">
-                                            <a href="{{ route('admin-finance.investments.show', $inv->id) }}" class="btn btn-sm btn-outline-danger px-2 py-1" style="color: #D9251C; border-color: #D9251C;">
-                                                <i class="las la-eye"></i> View Profile
-                                            </a>
+                                            <form action="{{ route('admin-finance.investments.destroy', $inv->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this investment asset?');" class="d-inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-outline-danger btn-sm border-0" title="Delete Investment">
+                                                    <i class="las la-trash-alt fs-18"></i>
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="12" class="text-center py-4 text-muted">No investments recorded yet. Click "Add Investment Asset" above to add your first Time Deposit, Stock, Fund, or Bond asset.</td>
+                                        <td colspan="8" class="text-center py-4 text-muted">No investment records found. Click "Add Investment Asset" above to add a record.</td>
                                     </tr>
                                     @endforelse
                                 </tbody>
@@ -245,63 +188,60 @@
         </div>
     </div>
 
-    <!-- MODAL: ADD INVESTMENT -->
+    <!-- Simple Add Investment Modal -->
     <div class="modal fade" id="addInvestmentModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 shadow">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius: 12px;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold text-dark"><i class="las la-plus-circle me-1 text-danger"></i> Add Investment Asset</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
                 <form action="{{ route('admin-finance.investments.store') }}" method="POST">
                     @csrf
-                    <div class="modal-header text-white" style="background-color: #D9251C;">
-                        <h5 class="modal-title fw-bold"><i class="las la-plus-circle me-2"></i>Add Investment Asset</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
                     <div class="modal-body p-4">
-                        <div class="row g-3">
-                            <div class="col-md-8">
-                                <label class="form-label fw-bold small text-muted">Investment Asset Name <span class="text-danger">*</span></label>
-                                <input type="text" name="name" class="form-control" placeholder="e.g. 5-Yr BDO Time Deposit, BPI Fixed Income Bond, COL Financial Bluechips" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small text-muted">Asset Class / Type <span class="text-danger">*</span></label>
-                                <select name="type" class="form-select" required>
-                                    @foreach($types as $t)
-                                    <option value="{{ $t }}">{{ $t }}</option>
-                                    @endforeach
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-muted">Asset Name *</label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g., BDO Time Deposit 5-Year" required style="border-radius: 8px;">
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-muted">Category / Type *</label>
+                                <select name="type" class="form-select" required style="border-radius: 8px;">
+                                    <option value="Time Deposits">Time Deposits</option>
+                                    <option value="Stocks">Stocks</option>
+                                    <option value="Mutual Funds">Mutual Funds</option>
+                                    <option value="Bonds">Bonds</option>
+                                    <option value="Money Market">Money Market</option>
+                                    <option value="Other">Other</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Institution / Bank / Broker <span class="text-danger">*</span></label>
-                                <input type="text" name="institution" class="form-control" placeholder="e.g. BDO Unibank, Metrobank, Sun Life, COL Financial" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Interest / Yield Rate (% p.a.)</label>
-                                <input type="number" step="0.01" name="interest_rate" class="form-control" placeholder="4.50">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Principal Invested Amount (₱) <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" name="principal_amount" class="form-control" placeholder="100000.00" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Current Market Value (₱) <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" name="current_value" class="form-control" placeholder="100000.00" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Acquisition / Start Date <span class="text-danger">*</span></label>
-                                <input type="date" name="acquisition_date" class="form-control" value="{{ date('Y-m-d') }}" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Maturity Date (For Bonds/Time Deposits)</label>
-                                <input type="date" name="maturity_date" class="form-control">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label fw-bold small text-muted">Investment Notes / Strategy</label>
-                                <textarea name="notes" class="form-control" rows="2" placeholder="Account numbers, terms, roll-over instructions..."></textarea>
+                                <label class="form-label fw-semibold small text-muted">Institution / Bank *</label>
+                                <input type="text" name="institution" class="form-control" placeholder="e.g., BDO Unibank" required style="border-radius: 8px;">
                             </div>
                         </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-muted">Principal Amount (₱) *</label>
+                                <input type="number" step="0.01" name="principal_amount" class="form-control" placeholder="0.00" required style="border-radius: 8px;">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-muted">Current Value (₱) *</label>
+                                <input type="number" step="0.01" name="current_value" class="form-control" placeholder="0.00" required style="border-radius: 8px;">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-muted">Acquisition Date *</label>
+                            <input type="date" name="acquisition_date" class="form-control" value="{{ date('Y-m-d') }}" required style="border-radius: 8px;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-muted">Notes / Remarks</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes or details..." style="border-radius: 8px;"></textarea>
+                        </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn text-white px-4 fw-bold" style="background-color: #D9251C; border-color: #D9251C;">Save Investment</button>
+                    <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                        <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
+                        <button type="submit" class="btn btn-inv-primary px-4">Save Investment</button>
                     </div>
                 </form>
             </div>

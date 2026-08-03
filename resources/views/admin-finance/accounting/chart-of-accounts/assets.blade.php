@@ -49,7 +49,7 @@
             
             <!-- Bank Accounts Card -->
             <div class="col-md-6 col-xl-4">
-                <div class="card h-100 border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; transition: all 0.2s ease; border-left: 4px solid #ff0000 !important; cursor: pointer;" onclick="showGenericModal('Bank Accounts', 'Savings, checking, and checking accounts in partner banks')">
+                <div class="card h-100 border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; transition: all 0.2s ease; border-left: 4px solid #ff0000 !important; cursor: pointer;" data-bs-toggle="modal" data-bs-target="#bankAccountsModal">
                     <div class="card-body p-3 d-flex flex-column justify-content-between">
                         <div class="d-flex align-items-center gap-3 mb-2">
                             <span class="text-primary"><i class="las la-university fs-24"></i></span>

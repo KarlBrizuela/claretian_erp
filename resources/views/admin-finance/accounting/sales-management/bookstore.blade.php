@@ -9,7 +9,7 @@
                 <p class="text-muted small mb-0">Revenues from physical bookstore walk-in cashier terminals, categorized by payment type</p>
             </div>
         </div>
-        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill fw-bold">8 Accounts</span>
+        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill fw-bold">7 Accounts</span>
     </div>
     <div class="card-body pt-2">
         <div class="row g-3 mb-4">
@@ -79,19 +79,6 @@
                 </div>
             </div>
 
-            <!-- Returns -->
-            <div class="col-md-6 col-xl-4">
-                <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #D9251C !important; cursor: pointer;" onclick="showSalesLedgerModal('Bookstore Returns', document.getElementById('returnsTemplate').innerHTML)">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-0 fw-bold text-dark fs-14">Returns</h6>
-                            <span class="text-muted small">Damaged or returned items ledger</span>
-                        </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱0.00</h5>
-                    </div>
-                </div>
-            </div>
-
             <!-- Discounts -->
             <div class="col-md-6 col-xl-4">
                 <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #D9251C !important; cursor: pointer;" onclick="showSalesLedgerModal('Discounts ledger', document.getElementById('discountsTemplate').innerHTML)">
@@ -100,7 +87,7 @@
                             <h6 class="mb-0 fw-bold text-dark fs-14">Discounts</h6>
                             <span class="text-muted small">Promotional & courtesy deductions</span>
                         </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱0.00</h5>
+                        <h5 class="mb-0 fw-bold text-dark fs-15">₱{{ number_format($bookstoreDiscountSales ?? 0, 2) }}</h5>
                     </div>
                 </div>
             </div>
@@ -311,16 +298,46 @@
             <thead class="table-light text-muted small text-uppercase">
                 <tr>
                     <th>Order No</th>
+                    <th>Customer</th>
                     <th>Discount Type</th>
                     <th>Discount Rate</th>
-                    <th>Order Amount</th>
+                    <th>Order Total</th>
                     <th class="text-end">Discount Deducted</th>
                 </tr>
             </thead>
             <tbody>
+                @forelse($bookstoreDiscountOrders ?? [] as $order)
+                @php
+                    $pct = (float) ($order->discount_percentage ?? 0);
+                    if ($pct > 0) {
+                        $discountTypeLabel = 'Percentage';
+                        $discountTypeBadge = 'bg-primary text-white';
+                        $rateStr = number_format($pct, 2) . '%';
+                    } elseif ((float)$order->discount_amount > 0) {
+                        $discountTypeLabel = 'Fixed Amount';
+                        $discountTypeBadge = 'bg-info text-white';
+                        $origTotal = (float)$order->total_amount + (float)$order->discount_amount;
+                        $calcPct = $origTotal > 0 ? (((float)$order->discount_amount / $origTotal) * 100) : 0;
+                        $rateStr = $calcPct > 0 ? number_format($calcPct, 2) . '%' : 'Fixed Amount';
+                    } else {
+                        $discountTypeLabel = 'None';
+                        $discountTypeBadge = 'bg-secondary text-white';
+                        $rateStr = '0.00%';
+                    }
+                @endphp
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-muted">No discount records found in the database.</td>
+                    <td><span class="fw-bold text-dark">#{{ $order->so_number }}</span></td>
+                    <td>{{ $order->customer->customer_name ?? ($order->customer->company_name ?? 'Walk-in Customer') }}</td>
+                    <td><span class="badge {{ $discountTypeBadge }} px-2 py-1">{{ $discountTypeLabel }}</span></td>
+                    <td>{{ $rateStr }}</td>
+                    <td>₱{{ number_format($order->total_amount + $order->discount_amount, 2) }}</td>
+                    <td class="text-end fw-bold text-danger">₱{{ number_format($order->discount_amount, 2) }}</td>
                 </tr>
+                @empty
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">No discount records found in the database.</td>
+                </tr>
+                @endforelse
             </tbody>
         </table>
     </div>

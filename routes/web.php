@@ -25,6 +25,9 @@ Route::middleware(['auth'])->group(function () {
   Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'index'])->name('profile');
   Route::post('/profile/change-password', [App\Http\Controllers\ProfileController::class, 'changePassword'])->name('profile.change-password');
   Route::post('/profile/test-email', [App\Http\Controllers\ProfileController::class, 'testEmail'])->name('profile.test-email');
+  Route::get('/session-keep-alive', function () {
+      return response()->json(['status' => 'alive']);
+  })->name('session-keep-alive');
 
   // Payment Requests Common Routes
   Route::get('/payment-requests/{id}', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'show'])->name('payment-requests.show');
@@ -80,6 +83,8 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'index'])->name('index');
       Route::get('/{id}', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'show'])->name('show');
       Route::post('/store', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'store'])->name('store');
+      Route::put('/{id}', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'update'])->name('update');
+      Route::delete('/{id}', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'destroy'])->name('destroy');
       Route::post('/maintenance/store', [App\Http\Controllers\Production\ProductionFixedAssetController::class, 'storeMaintenanceLog'])->name('maintenance.store');
     });
 
@@ -123,11 +128,19 @@ Route::middleware(['auth'])->group(function () {
       // Delivery Receipts (Restored)
       Route::get('/delivery-receipt-list', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceiptList'])->name('delivery-receipt-list');
       Route::get('/delivery-receipt/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('delivery-receipt');
+      Route::post('/delivery-receipt/import-excel', [App\Http\Controllers\Production\LogisticController::class, 'importDeliveryReceiptFromExcel'])->name('delivery-receipt.import-excel');
       Route::post('/mark-as-dr-prepared/{id}', [App\Http\Controllers\Production\LogisticController::class, 'markAsDRPrepared'])->name('mark-as-dr-prepared');
       Route::post('/approve-dr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'approveDR'])->name('approve-dr');
       Route::post('/link-consignment-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'linkConsignmentToSI'])->name('link-consignment-to-si');
       Route::post('/request-reconsignment/{id}', [App\Http\Controllers\Production\LogisticController::class, 'requestReconsignment'])->name('request-reconsignment');
       Route::post('/return-consignment/{id}', [App\Http\Controllers\Production\LogisticController::class, 'returnConsignment'])->name('return-consignment');
+      Route::post('/move-to-ar/{id}', [App\Http\Controllers\Production\LogisticController::class, 'moveToAR'])->name('move-to-ar');
+      Route::post('/move-to-cr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'moveToCR'])->name('move-to-cr');
+      Route::post('/delivery-receipt/{id}/update-pick-qty', [App\Http\Controllers\Production\LogisticController::class, 'updateDrPickQty'])->name('delivery-receipt.update-pick-qty');
+      Route::post('/upload-dr-pop/{id}', [App\Http\Controllers\Production\LogisticController::class, 'uploadDRProofOfPayment'])->name('upload-dr-pop');
+
+      // Area Consignment (Logistics)
+      Route::get('/area-consignment', [App\Http\Controllers\Production\LogisticController::class, 'areaConsignment'])->name('area-consignment');
 
       // Purchase Orders
       Route::get('/purchase-order-list', [App\Http\Controllers\Production\LogisticController::class, 'purchaseOrderList'])->name('purchase-order-list');
@@ -265,6 +278,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/marketing/non-books/{id}', [MarketingController::class, 'destroyNonBook'])->name('marketing.non-books.destroy');
 
     // Book Bundles
+    Route::get('/marketing/book-bundles/search-books', [MarketingController::class, 'searchBooks'])->name('marketing.bundles.search-books');
     Route::post('/marketing/book-bundles/store', [MarketingController::class, 'storeBundle'])->name('marketing.bundles.store');
     Route::get('/marketing/book-bundles/{id}/edit', [MarketingController::class, 'editBundle'])->name('marketing.bundles.edit');
     Route::post('/marketing/book-bundles/{id}/update', [MarketingController::class, 'updateBundle'])->name('marketing.bundles.update');
@@ -411,6 +425,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sales-order/{id}/approve', [App\Http\Controllers\AdminFinanceController::class, 'approveSalesOrder'])->name('admin-finance.sales-order.approve');
     Route::post('/sales-order/{id}/reject', [App\Http\Controllers\AdminFinanceController::class, 'rejectSalesOrder'])->name('admin-finance.sales-order.reject');
     Route::post('/sales-order/{id}/upload-attachment', [App\Http\Controllers\AdminFinanceController::class, 'uploadSalesOrderAttachment'])->name('admin-finance.sales-order.upload-attachment');
+    Route::post('/sales-order/{id}/update-payment-method', [App\Http\Controllers\AdminFinanceController::class, 'updatePaymentMethod'])->name('admin-finance.sales-order.update-payment-method');
 
     // Accounting
     Route::prefix('accounting')->group(function () {
@@ -498,8 +513,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');
     Route::get('/accounts-payable', [App\Http\Controllers\AdminFinanceController::class, 'accountsPayable'])->name('admin-finance.accounting.accounts-payable');
     Route::post('/accounts-payable/suppliers', [App\Http\Controllers\AdminFinanceController::class, 'storeSupplier'])->name('admin-finance.accounting.accounts-payable.supplier.store');
+    Route::post('/accounts-payable/suppliers/{id}/update', [App\Http\Controllers\AdminFinanceController::class, 'updateSupplier'])->name('admin-finance.accounting.accounts-payable.supplier.update');
+    Route::delete('/accounts-payable/suppliers/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroySupplier'])->name('admin-finance.accounting.accounts-payable.supplier.destroy');
+
     Route::post('/accounts-payable/invoices', [App\Http\Controllers\AdminFinanceController::class, 'storeSupplierInvoice'])->name('admin-finance.accounting.accounts-payable.invoice.store');
+    Route::post('/accounts-payable/invoices/{id}/update', [App\Http\Controllers\AdminFinanceController::class, 'updateSupplierInvoice'])->name('admin-finance.accounting.accounts-payable.invoice.update');
+    Route::delete('/accounts-payable/invoices/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroySupplierInvoice'])->name('admin-finance.accounting.accounts-payable.invoice.destroy');
+
     Route::post('/accounts-payable/payments', [App\Http\Controllers\AdminFinanceController::class, 'storeSupplierPayment'])->name('admin-finance.accounting.accounts-payable.payment.store');
+    Route::delete('/accounts-payable/payments/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroySupplierPayment'])->name('admin-finance.accounting.accounts-payable.payment.destroy');
     Route::post('/customers/{id}/update-rep', [App\Http\Controllers\AdminFinanceController::class, 'updateCustomerRep'])->name('admin-finance.customers.update-rep');
 
     // Credit Collection
@@ -507,6 +529,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/billing', [App\Http\Controllers\AdminFinanceController::class, 'billing'])->name('admin-finance.credit-collection.billing');
       Route::get('/reconsignments', [App\Http\Controllers\AdminFinanceController::class, 'reconsignmentsList'])->name('admin-finance.credit-collection.reconsignment.index');
       Route::get('/billing/create/{id}', [App\Http\Controllers\AdminFinanceController::class, 'createAccountStatement'])->name('admin-finance.credit-collection.billing.create');
+      Route::get('/billing/manual-create', [App\Http\Controllers\AdminFinanceController::class, 'createManualSOA'])->name('admin-finance.credit-collection.billing.manual-create');
       Route::post('/billing/store', [App\Http\Controllers\AdminFinanceController::class, 'storeAccountStatement'])->name('admin-finance.credit-collection.billing.store');
       Route::post('/billing/{id}/update-status', [App\Http\Controllers\AdminFinanceController::class, 'updateStatementStatus'])->name('admin-finance.credit-collection.billing.update-status');
       Route::get('/billing/edit/{id}', [App\Http\Controllers\AdminFinanceController::class, 'editAccountStatement'])->name('admin-finance.credit-collection.billing.edit');
@@ -608,6 +631,7 @@ Route::prefix('admin-finance/investments')->name('admin-finance.investments.')->
   Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'investments'])->name('index');
   Route::get('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showInvestment'])->name('show');
   Route::post('/store', [App\Http\Controllers\AdminFinanceController::class, 'storeInvestment'])->name('store');
+  Route::delete('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyInvestment'])->name('destroy');
   Route::post('/transaction/store', [App\Http\Controllers\AdminFinanceController::class, 'storeInvestmentTransaction'])->name('transaction.store');
 });
 
@@ -616,7 +640,10 @@ Route::prefix('admin-finance/donations')->name('admin-finance.donations.')->midd
   Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'donations'])->name('index');
   Route::get('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showDonation'])->name('show');
   Route::post('/donor/store', [App\Http\Controllers\AdminFinanceController::class, 'storeDonor'])->name('donor.store');
+  Route::put('/donor/{id}', [App\Http\Controllers\AdminFinanceController::class, 'updateDonor'])->name('donor.update');
+  Route::delete('/donor/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyDonor'])->name('donor.destroy');
   Route::post('/donation/store', [App\Http\Controllers\AdminFinanceController::class, 'storeDonation'])->name('donation.store');
+  Route::delete('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyDonation'])->name('destroy');
   Route::post('/campaign/store', [App\Http\Controllers\AdminFinanceController::class, 'storeDonationCampaign'])->name('campaign.store');
 });
 
@@ -625,6 +652,7 @@ Route::prefix('admin-finance/budgeting')->name('admin-finance.budgeting.')->midd
   Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'budgeting'])->name('index');
   Route::get('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showBudget'])->name('show');
   Route::post('/store', [App\Http\Controllers\AdminFinanceController::class, 'storeDepartmentBudget'])->name('store');
+  Route::delete('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyDepartmentBudget'])->name('destroy');
   Route::post('/line-item/store', [App\Http\Controllers\AdminFinanceController::class, 'storeBudgetLineItem'])->name('line-item.store');
 });
 
@@ -633,6 +661,8 @@ Route::prefix('admin-finance/cash-management')->name('admin-finance.cash-managem
   Route::get('/', [App\Http\Controllers\AdminFinanceController::class, 'cashManagement'])->name('index');
   Route::get('/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showCashManagementAccount'])->name('show');
   Route::post('/bank/store', [App\Http\Controllers\AdminFinanceController::class, 'storeCompanyBankAccount'])->name('bank.store');
+  Route::put('/bank/{id}', [App\Http\Controllers\AdminFinanceController::class, 'updateCompanyBankAccount'])->name('bank.update');
+  Route::delete('/bank/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyCompanyBankAccount'])->name('bank.destroy');
   Route::post('/transaction/store', [App\Http\Controllers\AdminFinanceController::class, 'storeCashTransaction'])->name('transaction.store');
 });
 

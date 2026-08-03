@@ -86,9 +86,14 @@
             <div class="card billing-card">
                 <div class="document-title mb-4 d-flex justify-content-between align-items-center">
                     <span>BILLING</span>
-                    <a href="{{ route('admin-finance.credit-collection.jv-requests.create') }}" class="btn btn-primary btn-sm shadow">
-                        <i class="las la-file-invoice me-1"></i> New Summary / JV Request
-                    </a>
+                    <div class="d-flex gap-2">
+                        <a href="{{ route('admin-finance.credit-collection.billing.manual-create') }}" class="btn btn-success btn-sm shadow">
+                            <i class="las la-plus me-1"></i> Add SOA
+                        </a>
+                        <a href="{{ route('admin-finance.credit-collection.jv-requests.create') }}" class="btn btn-primary btn-sm shadow">
+                            <i class="las la-file-invoice me-1"></i> New Summary / JV Request
+                        </a>
+                    </div>
                 </div>
 
                 <div class="card-body p-0">
@@ -239,7 +244,14 @@
                                                         </thead>
                                                         <tbody>
                                                             @forelse($statements->where('status', 'pending') as $soa)
-                                                            <tr>
+                                                            <tr
+                                                                data-soa-id="{{ $soa->id }}"
+                                                                data-contact="{{ $soa->contact_person ?? $soa->customer->contact_person ?? '' }}"
+                                                                data-address="{{ $soa->billing_address ?? $soa->customer->billing_address ?? '' }}"
+                                                                data-total="₱ {{ number_format($soa->total_amount, 2) }}"
+                                                                data-period-start="{{ $soa->billing_period_start ? \Carbon\Carbon::parse($soa->billing_period_start)->format('M d, Y') : '' }}"
+                                                                data-period-end="{{ $soa->billing_period_end ? \Carbon\Carbon::parse($soa->billing_period_end)->format('M d, Y') : '' }}"
+                                                            >
                                                                 <td class="fw-bold">{{ $soa->soa_number }}</td>
                                                                 <td>{{ $soa->customer ? ($soa->customer->customer_name ?? $soa->customer->company_name) : 'Unknown' }}</td>
                                                                 <td class="fw-bold">₱ {{ number_format($soa->total_amount, 2) }}</td>
@@ -329,7 +341,14 @@
                                                         </thead>
                                                         <tbody>
                                                             @forelse(($statements ?? collect())->where('status', 'approved') as $soa)
-                                                            <tr>
+                                                            <tr
+                                                                data-soa-id="{{ $soa->id }}"
+                                                            data-contact="{{ $soa->contact_person ?? $soa->customer->contact_person ?? '' }}"
+                                                                data-address="{{ $soa->billing_address ?? $soa->customer->billing_address ?? '' }}"
+                                                                data-total="₱ {{ number_format($soa->total_amount, 2) }}"
+                                                                data-period-start="{{ $soa->billing_period_start ? \Carbon\Carbon::parse($soa->billing_period_start)->format('M d, Y') : '' }}"
+                                                                data-period-end="{{ $soa->billing_period_end ? \Carbon\Carbon::parse($soa->billing_period_end)->format('M d, Y') : '' }}"
+                                                            >
                                                                 <td>
                                                                     <div class="form-check custom-checkbox">
                                                                         <input type="checkbox" class="form-check-input check-item" value="{{ $soa->id }}">
@@ -1437,15 +1456,27 @@
                     }
                 }
 
-                // Populate shared fields (simulated data based on ID)
-                const customer = row.cells[1].textContent.trim();
-                const department = row.cells[2].textContent.trim();
-                const period = row.cells[3].textContent.trim();
+                // Populate shared fields from row cells
+                const customer = row.cells[1]?.textContent.trim() ?? '';
+                const department = row.cells[2]?.textContent.trim() ?? '';
+                const period = row.cells[3]?.textContent.trim() ?? '';
+
+                // Populate from data attributes
+                const contact = row.dataset.contact || '—';
+                const address = row.dataset.address || '—';
+                const total = row.dataset.total || '—';
+                const periodStart = row.dataset.periodStart || '—';
+                const periodEnd = row.dataset.periodEnd || '—';
 
                 modal.find('.val-customer-name').text(customer).val(customer);
                 modal.find('.val-dept').text(department).val(department);
                 modal.find('.val-period').text(period).val(period);
                 modal.find('.val-request-id').text(id).val(id);
+                modal.find('.val-contact-person').text(contact);
+                modal.find('.val-address').text(address);
+                modal.find('.val-total-amount').text(total);
+                modal.find('.val-period-start').text(periodStart);
+                modal.find('.val-period-end').text(periodEnd);
 
                 modal.modal('show');
             }
@@ -1859,36 +1890,34 @@
                     <div class="view-mode-section">
                         <div class="row g-4 mb-4">
                             <div class="col-md-6">
-                                <label class="fw-bold mb-2">Section 1: Contract Information</label>
+                                <label class="fw-bold mb-2">Statement Details</label>
                                 <ul class="list-group list-group-flush small">
                                     <li class="list-group-item d-flex justify-content-between px-0">
                                         <span class="text-muted">Contact Person:</span>
-                                        <span class="fw-bold">John Doe</span>
+                                        <span class="fw-bold val-contact-person">—</span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between px-0">
-                                        <span class="text-muted">Address:</span>
-                                        <span class="text-end" style="width: 60%;">123 Business Ave, Quezon City</span>
+                                        <span class="text-muted">Billing Address:</span>
+                                        <span class="text-end val-address" style="width: 60%;">—</span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between px-0">
-                                        <span class="text-muted">Contract Rate:</span>
-                                        <span>₱ 25,000.00 / insertion</span>
+                                        <span class="text-muted">Total Amount:</span>
+                                        <span class="fw-bold val-total-amount">—</span>
                                     </li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
-                                <label class="fw-bold mb-2">Section 2: Attachments</label>
-                                <div class="border rounded p-2">
-                                    <div class="d-flex align-items-center mb-2">
-                                        <i class="las la-file-pdf text-danger fs-4 me-2"></i>
-                                        <div class="small flex-grow-1">Signed Contract.pdf</div>
-                                        <button class="btn btn-link btn-xs text-primary">Download</button>
-                                    </div>
-                                    <div class="d-flex align-items-center">
-                                        <i class="las la-file-image text-info fs-4 me-2"></i>
-                                        <div class="small flex-grow-1">Ad Material.jpeg</div>
-                                        <button class="btn btn-link btn-xs text-primary">Download</button>
-                                    </div>
-                                </div>
+                                <label class="fw-bold mb-2">Billing Period</label>
+                                <ul class="list-group list-group-flush small">
+                                    <li class="list-group-item d-flex justify-content-between px-0">
+                                        <span class="text-muted">From:</span>
+                                        <span class="val-period-start">—</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between px-0">
+                                        <span class="text-muted">To:</span>
+                                        <span class="val-period-end">—</span>
+                                    </li>
+                                </ul>
                             </div>
                         </div>
                     </div>

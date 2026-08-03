@@ -35,9 +35,15 @@
     <div class="row">
         <div class="col-12">
             <div class="mb-4 form-actions">
-                <a href="{{ route('production.logistic.driver-dashboard') }}" class="btn btn-dark btn-sm">
-                    <i class="las la-arrow-left me-2"></i>Back to Dashboard
-                </a>
+                @if(request('back') === 'consignment')
+                    <a href="{{ route('production.logistic.area-consignment') }}" class="btn btn-dark btn-sm">
+                        <i class="las la-arrow-left me-2"></i>Back to Consignment Receipt
+                    </a>
+                @else
+                    <a href="{{ route('production.logistic.driver-dashboard') }}" class="btn btn-dark btn-sm">
+                        <i class="las la-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                @endif
                 <button type="button" class="btn btn-primary btn-sm ms-2" onclick="window.print()">
                     <i class="las la-print me-2"></i>Print Form
                 </button>

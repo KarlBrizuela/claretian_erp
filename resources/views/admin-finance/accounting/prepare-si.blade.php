@@ -100,6 +100,17 @@
                                 <input type="date" class="form-control" name="date" value="{{ date('Y-m-d') }}">
                             </div>
                             <div class="mb-2">
+                                <label class="form-label fw-bold"><i class="las la-wallet me-1 text-primary"></i> Payment Method:</label>
+                                <select name="payment_method" class="form-select form-control" required style="border: 2px solid #0d6efd; background-color: #f0f7ff; font-weight: 600;">
+                                    <option value="cash" {{ strtolower($order->payment_method ?? '') === 'cash' ? 'selected' : '' }}>Cash</option>
+                                    <option value="gcash" {{ strtolower($order->payment_method ?? '') === 'gcash' ? 'selected' : '' }}>GCash (E-Wallet)</option>
+                                    <option value="maya" {{ strtolower($order->payment_method ?? '') === 'maya' ? 'selected' : '' }}>Maya (E-Wallet)</option>
+                                    <option value="bank_transfer" {{ strtolower($order->payment_method ?? '') === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                                    <option value="check" {{ strtolower($order->payment_method ?? '') === 'check' ? 'selected' : '' }}>Check</option>
+                                    <option value="card" {{ strtolower($order->payment_method ?? '') === 'card' ? 'selected' : '' }}>Credit / Debit Card</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
                                 <label class="form-label fw-bold">Terms:</label>
                                 <input type="text" class="form-control" value="{{ $order->terms }}" readonly>
                             </div>
@@ -172,9 +183,47 @@
                             @endforeach
                         </tbody>
                         <tfoot>
+                            @php
+                                $itemsSubtotal = $itemsToRender->sum(function($item) {
+                                    return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
+                                });
+                                $discountAmount = $order->discount_amount ?? 0;
+                                $discountPercentage = $order->discount_percentage ?? 0;
+                                $freightCharges = $order->freight_charges ?? 0;
+                                $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
+                            @endphp
                             <tr>
-                                <th colspan="5" class="text-end">TOTAL AMOUNT</th>
-                                <th class="text-end">₱{{ number_format($totalSalesAmount, 2) }}</th>
+                                <td colspan="5" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
+                                <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
+                            </tr>
+                            @if($discountAmount > 0)
+                            <tr>
+                                <td colspan="5" class="text-end text-uppercase">
+                                    <strong>
+                                        Discount
+                                        @if($discountPercentage > 0)
+                                            ({{ (float)$discountPercentage }}%)
+                                        @endif:
+                                    </strong>
+                                </td>
+                                <td class="text-end fw-bold text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
+                            </tr>
+                            @endif
+                            @if($freightCharges > 0)
+                            <tr>
+                                <td colspan="5" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                                <td class="text-end fw-bold">₱{{ number_format($freightCharges, 2) }}</td>
+                            </tr>
+                            @endif
+                            @if($serviceFee > 0)
+                            <tr>
+                                <td colspan="5" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                                <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
+                            </tr>
+                            @endif
+                            <tr style="background: #f8f9fa;">
+                                <th colspan="5" class="text-end text-uppercase"><strong>Grand Total:</strong></th>
+                                <th class="text-end fw-bold fs-5 text-primary">₱{{ number_format($totalSalesAmount, 2) }}</th>
                             </tr>
                         </tfoot>
                     </table>

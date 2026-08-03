@@ -41,7 +41,7 @@
         .totals-footer { margin-top: 3rem; padding-top: 1rem; border-top: 2px solid #333; }
         .totals-row.final { background: #f0f0f0; padding: 1rem; border-radius: 4px; font-weight: 800; font-size: 1.25rem; }
 
-        .signature-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem; margin-top: 4rem; }
+        .signature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; margin-top: 4rem; }
         .signature-item { text-align: center; }
         .signature-line { border-top: 1px solid #000; margin-bottom: 5px; padding-top: 5px; }
 
@@ -148,6 +148,30 @@
                                     <span class="me-2">PhP</span>
                                     <span id="finalBalance">0.00</span>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Signatures -->
+                        <div class="signature-grid">
+                            <div class="signature-item">
+                                <div class="fw-bold mb-5">Prepared by:</div>
+                                <div class="signature-line"></div>
+                                <div class="small italic text-muted">Employee</div>
+                            </div>
+                            <div class="signature-item">
+                                <div class="fw-bold mb-5">Checked by:</div>
+                                <div class="signature-line"></div>
+                                <div class="small italic text-muted">Accounting</div>
+                            </div>
+                            <div class="signature-item">
+                                <div class="fw-bold mb-5">Approved by:</div>
+                                <div class="signature-line"></div>
+                                <div class="small italic text-muted">Manager</div>
+                            </div>
+                            <div class="signature-item">
+                                <div class="fw-bold mb-5">Received by:</div>
+                                <div class="signature-line"></div>
+                                <div class="small italic text-muted">Cashier/Finance</div>
                             </div>
                         </div>
 

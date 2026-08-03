@@ -1,6 +1,28 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
+    <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
+        .select2-container .select2-selection--single {
+            height: 38px !important;
+            border: 1px solid #ddd !important;
+            border-radius: 6px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 36px !important;
+            padding-left: 12px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+        }
+        .select2-dropdown {
+            border: 1px solid #ddd !important;
+            border-radius: 6px !important;
+            z-index: 9999 !important;
+        }
+        .select2-container {
+            width: 100% !important;
+        }
+
         .invoice-form { background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
         .form-header { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #e0e0e0; }
         .form-header .company-info { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
@@ -126,7 +148,7 @@
                             <h5><i class="las la-user me-1"></i> Customer Information</h5>
                             <div class="form-group">
                                 <label>Sold to: *</label>
-                                <select class="form-control" name="customer_id" id="customerSelect" required>
+                                <select class="form-control select2-single" name="customer_id" id="customerSelect" required style="width: 100%;">
                                     <option value="" disabled selected>Select Customer...</option>
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->customer_id }}"
@@ -329,6 +351,7 @@
     </select>
 
     @push('scripts')
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const addItemBtn = document.getElementById('addItemBtn');
@@ -337,6 +360,25 @@
             const grandTotalEl = document.getElementById('grandTotal');
             const customerSelect = document.getElementById('customerSelect');
             const billingAddress = document.getElementById('billingAddress');
+
+            // Initialize Select2 on Customer Select
+            if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
+                $('#customerSelect').select2({
+                    placeholder: 'Search and select customer...',
+                    allowClear: true,
+                    width: '100%'
+                }).on('change', function() {
+                    const opt = this.options[this.selectedIndex];
+                    const addr = opt ? opt.getAttribute('data-address') : '';
+                    billingAddress.value = (addr && addr !== '') ? addr : '';
+                });
+            } else {
+                customerSelect.addEventListener('change', function() {
+                    const opt = this.options[this.selectedIndex];
+                    const addr = opt ? opt.getAttribute('data-address') : '';
+                    billingAddress.value = (addr && addr !== '') ? addr : '';
+                });
+            }
 
             // Transaction type workflow note
             const transType = document.getElementById('transactionType');
@@ -350,13 +392,6 @@
                 } else {
                     workflowNote.textContent = '';
                 }
-            });
-
-            // Auto-fill address on customer change
-            customerSelect.addEventListener('change', function() {
-                const opt = this.options[this.selectedIndex];
-                const addr = opt.getAttribute('data-address');
-                billingAddress.value = (addr && addr !== '') ? addr : '';
             });
 
             // File upload UI
@@ -409,7 +444,7 @@
                         </select>
                     </td>
                     <td>
-                        <select class="form-control product-select" name="items[${idx}][product_id]" required style="border:none;">
+                        <select class="form-control product-select" name="items[${idx}][product_id]" required style="width:100%;">
                             ${productSource.innerHTML}
                         </select>
                     </td>
@@ -427,23 +462,39 @@
                 const qtyInput = tr.querySelector('.qty-input');
                 const removeBtn = tr.querySelector('.remove-row');
 
-                select.addEventListener('change', function() {
-                    const opt = this.options[this.selectedIndex];
-                    priceInput.value = opt.dataset.price || 0;
-                    calculateRow(tr);
-                });
+                tbody.appendChild(tr);
+
+                // Initialize Select2 on Product dropdown with search
+                if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
+                    $(select).select2({
+                        placeholder: 'Search product...',
+                        allowClear: true,
+                        width: '100%'
+                    }).on('change', function() {
+                        const opt = this.options[this.selectedIndex];
+                        priceInput.value = (opt && opt.dataset) ? (opt.dataset.price || 0) : 0;
+                        calculateRow(tr);
+                    });
+                } else {
+                    select.addEventListener('change', function() {
+                        const opt = this.options[this.selectedIndex];
+                        priceInput.value = (opt && opt.dataset) ? (opt.dataset.price || 0) : 0;
+                        calculateRow(tr);
+                    });
+                }
 
                 qtyInput.addEventListener('input', () => calculateRow(tr));
                 priceInput.addEventListener('input', () => calculateRow(tr));
 
                 removeBtn.addEventListener('click', function() {
                     if (tbody.rows.length > 1) {
+                        if (window.jQuery && $(select).data('select2')) {
+                            $(select).select2('destroy');
+                        }
                         tr.remove();
                         updateGrandTotal();
                     }
                 });
-
-                tbody.appendChild(tr);
             }
 
             addItemBtn.addEventListener('click', addRow);

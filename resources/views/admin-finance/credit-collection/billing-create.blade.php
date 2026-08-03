@@ -95,20 +95,22 @@
 
     <form action="{{ route('admin-finance.credit-collection.billing.store') }}" method="POST" id="soa-form">
         @csrf
-        <input type="hidden" name="customer_id" value="{{ $mode == 'create' ? $order->customer_id : $soa->customer_id }}">
         @if($mode == 'create')
+            <input type="hidden" name="customer_id" value="{{ $order->customer_id }}">
             <input type="hidden" name="sales_order_ids[]" value="{{ $order->id }}">
-        @else
+        @elseif($mode == 'edit')
+            <input type="hidden" name="customer_id" value="{{ $soa->customer_id }}">
             @foreach($soa->salesOrders as $so)
                 <input type="hidden" name="sales_order_ids[]" value="{{ $so->id }}">
             @endforeach
         @endif
+        {{-- manual mode: customer_id submitted via select --}}
 
         <div class="row">
             <div class="col-xl-11 mx-auto">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div>
-                        <h4 class="fw-bold mb-0">Statement Preparation</h4>
+                        <h4 class="fw-bold mb-0">{{ $mode == 'manual' ? 'Add SOA' : 'Statement Preparation' }}</h4>
                         <nav aria-label="breadcrumb">
                             <ol class="breadcrumb mb-0">
                                 <li class="breadcrumb-item"><a href="{{ route('admin-finance.credit-collection.billing') }}">Billing</a></li>
@@ -117,7 +119,7 @@
                         </nav>
                     </div>
                     <div class="d-flex gap-2">
-                        <button type="submit" name="status" value="draft" class="btn btn-outline-secondary rounded shadow-sm px-4 d-flex align-items-center justify-content-center" style="height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important;"><i class="las la-save"></i>Save Draft</button>
+                        {{-- <button type="submit" name="status" value="draft" class="btn btn-outline-secondary rounded shadow-sm px-4 d-flex align-items-center justify-content-center" style="height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important;"><i class="las la-save"></i>Save Draft</button> --}}
                         <button type="submit" name="status" value="for_approval" class="btn btn-primary rounded shadow-sm px-5 d-flex align-items-center justify-content-center" style="background: #ff0000; color: #ffffff; border: none; height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important;"><i class="las la-check-circle"></i>Submit for Approval</button>
                     </div>
                 </div>
@@ -138,7 +140,7 @@
                             </div>
                         </div>
                         <div class="text-end text-muted small">
-                            {{ strtoupper($mode) }} MODE
+                            {{ $mode == 'manual' ? 'MANUAL CREATE' : strtoupper($mode) . ' MODE' }}
                         </div>
                     </div>
                     <div class="text-center mt-4 pt-3 border-top">
@@ -149,17 +151,17 @@
                 <div class="statement-header-info">
                     <div class="header-item">
                         <label>Statement Number</label>
-                        <input type="text" name="soa_number" class="form-control form-control-sm fw-bold border" value="{{ $mode == 'edit' ? $soa->soa_number : 'AS-'.date('Y').'-'.rand(1000,9999) }}" required>
+                        <input type="text" name="soa_number" class="form-control form-control-sm fw-bold border" value="{{ isset($soa) ? $soa->soa_number : 'AS-'.date('Y').'-'.rand(1000,9999) }}" required>
                     </div>
                     <div class="header-item">
                         <label>Statement Date</label>
-                        <input type="date" name="soa_date" class="form-control form-control-sm fw-bold border" value="{{ $mode == 'edit' ? $soa->created_at->format('Y-m-d') : now()->format('Y-m-d') }}">
+                        <input type="date" name="soa_date" class="form-control form-control-sm fw-bold border" value="{{ isset($soa) ? $soa->created_at->format('Y-m-d') : now()->format('Y-m-d') }}">
                     </div>
                     <div class="header-item">
                         <label>Billing Period</label>
                         <div class="d-flex gap-2">
-                            <input type="date" name="billing_period_start" class="form-control form-control-sm border" value="{{ $mode == 'edit' ? $soa->billing_period_start : now()->startOfMonth()->format('Y-m-d') }}">
-                            <input type="date" name="billing_period_end" class="form-control form-control-sm border" value="{{ $mode == 'edit' ? $soa->billing_period_end : now()->endOfMonth()->format('Y-m-d') }}">
+                            <input type="date" name="billing_period_start" class="form-control form-control-sm border" value="{{ isset($soa) ? $soa->billing_period_start : now()->startOfMonth()->format('Y-m-d') }}">
+                            <input type="date" name="billing_period_end" class="form-control form-control-sm border" value="{{ isset($soa) ? $soa->billing_period_end : now()->endOfMonth()->format('Y-m-d') }}">
                         </div>
                     </div>
                 </div>
@@ -168,18 +170,43 @@
                     <div class="col-md-6">
                         <label class="form-label fw-bold small text-muted text-uppercase small mb-3">Bill To:</label>
                         <div class="p-3 bg-white rounded border">
-                            <div class="mb-2">
-                                <label class="extra-small text-muted fw-bold">Customer Name</label>
-                                <input type="text" class="form-control form-control-sm border" value="{{ $mode == 'create' ? ($order->customer->customer_name ?? $order->customer->company_name) : ($soa->customer->customer_name ?? $soa->customer->company_name) }}" readonly>
-                            </div>
-                            <div class="mb-2">
-                                <label class="extra-small text-muted fw-bold">Contact Person</label>
-                                <input type="text" class="form-control form-control-sm border" value="{{ $mode == 'create' ? $order->customer->contact_person : $soa->customer->contact_person }}" readonly>
-                            </div>
-                            <div>
-                                <label class="extra-small text-muted fw-bold">Billing Address</label>
-                                <textarea class="form-control form-control-sm border" rows="2" readonly>{{ $mode == 'create' ? $order->customer->billing_address : $soa->customer->billing_address }}</textarea>
-                            </div>
+                            @if($mode == 'manual')
+                                <div class="mb-2">
+                                    <label class="extra-small text-muted fw-bold">Select Customer</label>
+                                    <select name="customer_id" id="customer_select" class="form-select form-select-sm border" required onchange="fillCustomerInfo(this)">
+                                        <option value="">-- Select Customer --</option>
+                                        @foreach($customers as $cust)
+                                            <option value="{{ $cust->customer_id }}"
+                                                data-contact="{{ $cust->contact_person }}"
+                                                data-address="{{ $cust->billing_address }}"
+                                                data-name="{{ $cust->customer_name ?? $cust->company_name }}">
+                                                {{ $cust->customer_name ?? $cust->company_name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="extra-small text-muted fw-bold">Contact Person</label>
+                                    <input type="text" id="customer_contact" name="contact_person" class="form-control form-control-sm border">
+                                </div>
+                                <div>
+                                    <label class="extra-small text-muted fw-bold">Billing Address</label>
+                                    <textarea id="customer_address" name="billing_address" class="form-control form-control-sm border" rows="2"></textarea>
+                                </div>
+                            @else
+                                <div class="mb-2">
+                                    <label class="extra-small text-muted fw-bold">Customer Name</label>
+                                    <input type="text" class="form-control form-control-sm border" value="{{ $mode == 'create' ? ($order->customer->customer_name ?? $order->customer->company_name ?? '') : (isset($soa) ? ($soa->customer->customer_name ?? $soa->customer->company_name ?? '') : '') }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="extra-small text-muted fw-bold">Contact Person</label>
+                                    <input type="text" name="contact_person" class="form-control form-control-sm border" value="{{ $mode == 'create' ? ($order->customer->contact_person ?? '') : (isset($soa) ? ($soa->contact_person ?? $soa->customer->contact_person ?? '') : '') }}">
+                                </div>
+                                <div>
+                                    <label class="extra-small text-muted fw-bold">Billing Address</label>
+                                    <textarea name="billing_address" class="form-control form-control-sm border" rows="2">{{ $mode == 'create' ? ($order->customer->billing_address ?? '') : (isset($soa) ? ($soa->billing_address ?? $soa->customer->billing_address ?? '') : '') }}</textarea>
+                                </div>
+                            @endif
                         </div>
                     </div>
                     <div class="col-md-6 text-end">
@@ -215,12 +242,21 @@
                         <tbody id="table-body">
                             @if($mode == 'create')
                             <tr class="item-row">
-                                <td><input type="text" name="items[0][service]" class="form-control form-control-sm border" value="Order #{{ $order->order_id }}"></td>
+                                <td><input type="text" name="items[0][service]" class="form-control form-control-sm border" value="Order #{{ $order->so_number }}"></td>
                                 <td><input type="text" name="items[0][description]" class="form-control form-control-sm border" value="Sales Order Reference"></td>
                                 <td><input type="text" name="items[0][qty]" class="form-control form-control-sm border item-qty" value="1"></td>
                                 <td><input type="number" name="items[0][price]" class="form-control form-control-sm border text-end unit-price" value="{{ $order->final_total }}"></td>
                                 <td align="right" class="fw-bold row-amount">₱ {{ number_format($order->final_total, 2) }}</td>
                                 <td></td>
+                            </tr>
+                            @elseif($mode == 'manual')
+                            <tr class="item-row">
+                                <td><input type="text" name="items[0][service]" class="form-control form-control-sm border" placeholder="Item / Service"></td>
+                                <td><input type="text" name="items[0][description]" class="form-control form-control-sm border" placeholder="Description"></td>
+                                <td><input type="text" name="items[0][qty]" class="form-control form-control-sm border item-qty" value="1"></td>
+                                <td><input type="number" name="items[0][price]" class="form-control form-control-sm border text-end unit-price" value="0.00"></td>
+                                <td align="right" class="fw-bold row-amount">₱ 0.00</td>
+                                <td class="text-center"></td>
                             </tr>
                             @else
                                 @foreach($soa->items ?? [] as $index => $item)
@@ -239,15 +275,17 @@
                              <!-- Totals -->
                              <tr>
                                 <td colspan="3" rowspan="3" class="border-0 align-top pt-4">
-                                    <button type="button" class="btn btn-primary rounded shadow-sm px-5 d-flex align-items-center justify-content-center" style="background: #ff0000; color: #ffffff; border: none; height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important;" id="btn-add-row">
-                                        <i class="las la-plus"></i>Add New Item
-                                    </button>
+                                    @if($mode == 'manual')
+                                        <button type="button" class="btn btn-success btn-sm rounded shadow-sm px-4 d-flex align-items-center gap-1" id="btn-add-row">
+                                            <i class="las la-plus"></i> Add Row
+                                        </button>
+                                    @endif
                                     <div class="alert alert-info py-2 small mt-3 mb-0">
                                         <i class="las la-info-circle me-1"></i> Totals are automatically calculated based on the input particulars.
                                     </div>
                                 </td>
                                 <td align="right" class="fw-bold bg-light">Subtotal</td>
-                                <td align="right" class="fw-bold bg-light" id="subtotal">₱ {{ number_format($mode == 'create' ? $order->final_total : $soa->total_amount, 2) }}</td>
+                                <td align="right" class="fw-bold bg-light" id="subtotal">₱ {{ number_format($mode == 'create' ? $order->final_total : ($mode == 'manual' ? 0 : $soa->total_amount), 2) }}</td>
                                 <td class="bg-light"></td>
                             </tr>
                             <tr>
@@ -257,8 +295,8 @@
                             </tr>
                             <tr>
                                 <td align="right" class="fw-bold bg-primary text-white">TOTAL AMOUNT</td>
-                                <td align="right" class="fw-bold bg-primary text-white" id="total-amount-display">₱ {{ number_format($mode == 'create' ? $order->final_total : $soa->total_amount, 2) }}</td>
-                                <input type="hidden" name="total_amount" id="total-amount-input" value="{{ $mode == 'create' ? $order->final_total : $soa->total_amount }}">
+                                <td align="right" class="fw-bold bg-primary text-white" id="total-amount-display">₱ {{ number_format($mode == 'create' ? $order->final_total : ($mode == 'manual' ? 0 : $soa->total_amount), 2) }}</td>
+                                <input type="hidden" name="total_amount" id="total-amount-input" value="{{ $mode == 'create' ? $order->final_total : ($mode == 'manual' ? 0 : $soa->total_amount) }}">
                                 <td class="bg-primary"></td>
                             </tr>
                         </tfoot>
@@ -305,7 +343,7 @@
 
                 <div class="invoice-actions d-flex justify-content-end align-items-center">
                     <a href="{{ route('admin-finance.credit-collection.billing') }}" class="btn btn-light px-4 me-2 shadow-sm border">Cancel</a>
-                    <button type="submit" name="status" value="draft" class="btn btn-outline-primary px-4 me-2 shadow-sm">Save Draft</button>
+                    {{-- <button type="submit" name="status" value="draft" class="btn btn-outline-primary px-4 me-2 shadow-sm">Save Draft</button> --}}
                     <button type="submit" name="status" value="pending" class="btn btn-primary px-4 shadow">
                         Submit for Approval <i class="las la-paper-plane ms-1"></i>
                     </button>
@@ -316,9 +354,10 @@
 
     @push('scripts')
     <script>
-        let rowCount = {{ $mode == 'create' ? 1 : ($soa->items->count() ?? 1) }};
+        let rowCount = {{ $mode == 'create' || $mode == 'manual' ? 1 : ($soa->items->count() ?? 1) }};
 
-        document.getElementById('btn-add-row').addEventListener('click', function() {
+        const addRowBtn = document.getElementById('btn-add-row');
+        if (addRowBtn) addRowBtn.addEventListener('click', function() {
             const tableBody = document.getElementById('table-body');
             const newRow = document.createElement('tr');
             newRow.className = 'item-row';
@@ -345,6 +384,14 @@
             newRow.querySelector('.unit-price').addEventListener('input', calculateTotals);
             newRow.querySelector('.item-qty').addEventListener('input', calculateTotals);
         });
+
+        function fillCustomerInfo(select) {
+            const opt = select.options[select.selectedIndex];
+            const contact = document.getElementById('customer_contact');
+            const address = document.getElementById('customer_address');
+            if (contact) contact.value = opt.dataset.contact || '';
+            if (address) address.value = opt.dataset.address || '';
+        }
 
         // Event listener for initial row
         document.querySelectorAll('.unit-price, .item-qty').forEach(input => {

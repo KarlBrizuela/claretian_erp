@@ -9,6 +9,7 @@ class PettyCashVoucher extends Model
 {
     protected $fillable = [
         'pcv_number',
+        'type',
         'date',
         'pay_to',
         'approved_by',

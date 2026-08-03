@@ -116,7 +116,7 @@
 
                             <div class="form-group">
                                 <label>Freight Option:</label>
-                                <select class="form-control" name="freight_option">
+                                <select class="form-control" name="freight_option" id="freightOptionSelect">
                                     <option value="">Select Freight Option</option>
                                     <option value="freight_collect" {{ ($isEdit && $order->freight_option == 'freight_collect') ? 'selected' : '' }}>Freight Collect</option>
                                     <option value="freight_billing" {{ ($isEdit && $order->freight_option == 'freight_billing') ? 'selected' : '' }}>Freight Billing</option>
@@ -253,9 +253,11 @@
 
                     <div class="form-actions">
                         <a href="{{ route('marketing.sales-orders.list') }}" class="btn btn-light border">Cancel</a>
+                        {{--
                         <button type="submit" class="btn btn-secondary px-4" id="saveDraftBtn" name="action" value="draft">
                             <i class="las la-save me-2"></i>{{ $isEdit ? 'Update as Draft' : 'Save as Draft' }}
                         </button>
+                        --}}
                         <button type="submit" class="btn btn-primary px-4" id="saveBtn" name="action" value="submit">
                             <i class="las la-check me-2"></i>{{ $isEdit ? 'Update Sales Order' : 'Create Sales Order' }}
                         </button>
@@ -602,14 +604,26 @@
                 const freightOpt = document.getElementById('freightOptionSelect');
                 const serviceFee = freightOpt?.value === 'freight_collect' ? 50 : 0;
 
+                // Show/hide service fee elements based on selected option
+                const serviceFeeGroup = document.getElementById('serviceFeeGroup');
+                const serviceFeeTotalRow = document.getElementById('serviceFeeTotalRow');
+                if (freightOpt?.value === 'freight_collect') {
+                    if (serviceFeeGroup) serviceFeeGroup.style.display = 'block';
+                    if (serviceFeeTotalRow) serviceFeeTotalRow.style.display = '';
+                } else {
+                    if (serviceFeeGroup) serviceFeeGroup.style.display = 'none';
+                    if (serviceFeeTotalRow) serviceFeeTotalRow.style.display = 'none';
+                }
+
                 const grandTotal = Math.max(0, total - discountAmount + freightCharges + serviceFee);
                 const grandTotalEl = document.getElementById('grandTotal');
                 if (grandTotalEl) grandTotalEl.textContent = '₱ ' + grandTotal.toFixed(2);
             }
 
-            // Wire discount inputs
+            // Wire inputs
             document.getElementById('discountValue')?.addEventListener('input', updateGrandTotal);
             document.getElementById('discountType')?.addEventListener('change', updateGrandTotal);
+            document.getElementById('freightOptionSelect')?.addEventListener('change', updateGrandTotal);
 
             // Document-level delegation for selectpicker product change
             $(document).on('changed.bs.select', '.product-select', function() {

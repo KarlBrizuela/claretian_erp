@@ -243,6 +243,18 @@
                 $('#preloader').fadeOut(500);
                 $('#main-wrapper').addClass('show');
             });
+
+            // Session Keep-Alive Ping (every 2 minutes)
+            setInterval(function() {
+                fetch('{{ route("session-keep-alive") }}')
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Session keep-alive status:', data.status);
+                    })
+                    .catch(err => {
+                        console.warn('Session keep-alive ping failed:', err);
+                    });
+            }, 120000);
         })();
     </script>
 

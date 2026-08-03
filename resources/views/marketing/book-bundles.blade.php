@@ -2,6 +2,49 @@
     @push('styles')
     <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
+        /* Fix Table Layout & Select Inputs in Bundle Modal */
+        #bundleItemsTable {
+            table-layout: fixed;
+            width: 100%;
+        }
+        #bundleItemsTable td, #bundleItemsTable th {
+            vertical-align: middle;
+        }
+        .select2-container {
+            width: 100% !important;
+        }
+        .select2-container .select2-selection--single {
+            height: 38px !important;
+            padding: 4px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            display: flex;
+            align-items: center;
+        }
+        .select2-container .select2-selection--single .select2-selection__rendered {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            line-height: 1.5 !important;
+            padding-left: 0 !important;
+            padding-right: 20px !important;
+            color: #333;
+        }
+        .select2-container .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+        }
+        .select2-dropdown {
+            max-width: 100% !important;
+            z-index: 1070 !important;
+        }
+        .select2-results__option {
+            font-size: 0.85rem !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            padding: 6px 10px !important;
+        }
+
         /* Custom Page Tabs Styling */
         .page-tabs {
             border-bottom: 2px solid #eee;
@@ -123,12 +166,22 @@
                                     <td>{{ $bundle->name }}</td>
                                     <td>{{ \Illuminate\Support\Str::limit($bundle->description ?? 'N/A', 50) }}</td>
                                     <td>
-                                        @foreach($bundle->books as $b)
-                                            <span class="badge badge-outline-danger mb-1" style="display:inline-block; font-size:0.75rem;">
-                                                {{ $b->name }} <strong class="text-dark">x{{ $b->pivot->quantity }}</strong>
-                                            </span>
-                                        @endforeach
-                                    </td>
+                                         @php
+                                             $totalBooksCount = $bundle->books->count();
+                                             $displayedBooks = $bundle->books->take(3);
+                                             $remainingCount = $totalBooksCount - 3;
+                                         @endphp
+                                         @foreach($displayedBooks as $b)
+                                             <span class="badge badge-outline-danger mb-1" style="display:inline-block; font-size:0.75rem;">
+                                                 {{ \Illuminate\Support\Str::limit($b->name, 30) }} <strong class="text-dark">x{{ $b->pivot->quantity }}</strong>
+                                             </span>
+                                         @endforeach
+                                         @if($remainingCount > 0)
+                                             <a href="javascript:void(0);" class="badge bg-secondary text-white mb-1 view-bundle-btn" data-id="{{ $bundle->id }}" style="text-decoration:none; font-size:0.75rem;" title="Click to view all included books">
+                                                 + {{ $remainingCount }} more...
+                                             </a>
+                                         @endif
+                                     </td>
                                     <td>₱{{ number_format($bundle->price, 2) }}</td>
                                     <td>
                                         @if($bundle->stock > 0)
@@ -181,86 +234,87 @@
     @push('modals')
     <!-- Add/Edit Bundle Modal -->
     <div class="modal" id="addBundleModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <form id="addBundleForm">
-                    @csrf
-                    <input type="hidden" name="bundle_id" id="modal_bundle_id">
-                    <div class="modal-header" style="background: #D9251C; color: #fff;">
-                        <h5 class="modal-title text-white" id="addBundleModalTitle">Add New Book Bundle</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <form id="addBundleForm" class="modal-content">
+                @csrf
+                <input type="hidden" name="bundle_id" id="modal_bundle_id">
+                <div class="modal-header" style="background: #D9251C; color: #fff;">
+                    <h5 class="modal-title text-white" id="addBundleModalTitle">Add New Book Bundle</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">BUNDLE NAME <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" name="name" id="bundle_name" required placeholder="e.g. Theological Starter Pack">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">SKU <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" name="sku" id="bundle_sku" required placeholder="e.g. BNDL-THEO-01">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">PRICE (₱) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="price" id="bundle_price" required placeholder="e.g. 1500.00">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">STOCK <span class="text-danger">*</span></label>
+                            <input type="number" min="0" class="form-control form-control-sm" name="stock" id="bundle_stock" required placeholder="e.g. 10">
+                        </div>
+                        <div class="col-md-6 mb-3 d-flex align-items-center">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="bundle_is_active" value="1" checked>
+                                <label class="form-check-label small fw-bold" for="bundle_is_active">ACTIVE ON POS</label>
+                            </div>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label small fw-bold">DESCRIPTION</label>
+                            <textarea class="form-control form-control-sm" name="description" id="bundle_description" rows="3" placeholder="Optional description..."></textarea>
+                        </div>
                     </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label small fw-bold">BUNDLE NAME <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control form-control-sm" name="name" id="bundle_name" required placeholder="e.g. Theological Starter Pack">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label small fw-bold">SKU <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control form-control-sm" name="sku" id="bundle_sku" required placeholder="e.g. BNDL-THEO-01">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label small fw-bold">PRICE (₱) <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="price" id="bundle_price" required placeholder="e.g. 1500.00">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label small fw-bold">STOCK <span class="text-danger">*</span></label>
-                                <input type="number" min="0" class="form-control form-control-sm" name="stock" id="bundle_stock" required placeholder="e.g. 10">
-                            </div>
-                            <div class="col-md-6 mb-3 d-flex align-items-center">
-                                <div class="form-check form-switch mt-4">
-                                    <input class="form-check-input" type="checkbox" name="is_active" id="bundle_is_active" value="1" checked>
-                                    <label class="form-check-label small fw-bold" for="bundle_is_active">ACTIVE ON POS</label>
-                                </div>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label class="form-label small fw-bold">DESCRIPTION</label>
-                                <textarea class="form-control form-control-sm" name="description" id="bundle_description" rows="3" placeholder="Optional description..."></textarea>
-                            </div>
-                        </div>
-                        
-                        <hr>
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="fw-bold mb-0"><i class="las la-book me-2"></i>Bundle Books List</h6>
-                            <button type="button" class="btn btn-xs btn-success text-white" id="addBundleItemRowBtn">
-                                <i class="las la-plus"></i> Add Book
-                            </button>
-                        </div>
+                    
+                    <hr>
+                    <div class="mb-3">
+                        <h6 class="fw-bold mb-0"><i class="las la-book me-2"></i>Bundle Books List</h6>
+                    </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-sm" id="bundleItemsTable">
-                                <thead class="bg-light">
-                                    <tr>
-                                        <th style="width: 70%">Book <span class="text-danger">*</span></th>
-                                        <th style="width: 20%">Quantity <span class="text-danger">*</span></th>
-                                        <th style="width: 10%" class="text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="bundleItemsContainer">
-                                    <!-- Dynamic rows go here -->
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" id="bundleItemsTable">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th style="width: 70%">Book <span class="text-danger">*</span></th>
+                                    <th style="width: 20%">Quantity <span class="text-danger">*</span></th>
+                                    <th style="width: 10%" class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bundleItemsContainer">
+                                <!-- Dynamic rows go here -->
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="modal-footer">
+                </div>
+                <div class="modal-footer d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-sm btn-success text-white" id="addBundleItemRowBtn">
+                        <i class="las la-plus me-1"></i> Add Book
+                    </button>
+                    <div>
                         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
                         <button type="submit" class="btn btn-primary btn-sm" id="saveBundleBtn" style="background: #D9251C; border-color: #D9251C;">Save Bundle</button>
                     </div>
-                </form>
-            </div>
+                </div>
+            </form>
+        </div>
         </div>
     </div>
 
     <!-- View Bundle Modal -->
     <div class="modal" id="viewBundleModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header bg-secondary">
                     <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>View Bundle Details</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
                     <div class="mb-3">
                         <label class="fw-bold small text-muted text-uppercase d-block">SKU</label>
                         <span id="view_bundle_sku" class="fw-bold"></span>
@@ -330,7 +384,7 @@
                 if (m) { m.style.display = 'none'; m.removeAttribute('aria-modal'); m.setAttribute('aria-hidden', 'true'); }
             });
             // Remove stale backdrops
-            document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+            document.querySelectorAll('#bundle-backdrop, .modal-backdrop').forEach(function(b) { b.remove(); });
             document.body.classList.remove('modal-open');
 
             var el = document.getElementById(id);
@@ -345,6 +399,9 @@
             var backdrop = document.createElement('div');
             backdrop.id = 'bundle-backdrop';
             backdrop.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1050;';
+            backdrop.addEventListener('click', function() {
+                hideBundleModal(id);
+            });
             document.body.appendChild(backdrop);
             document.body.classList.add('modal-open');
 
@@ -354,30 +411,32 @@
         }
 
         function hideBundleModal(id) {
-            var el = document.getElementById(id);
-            if (el) {
-                el.style.display = 'none';
-                el.setAttribute('aria-hidden', 'true');
-                el.removeAttribute('aria-modal');
-            }
-            var bd = document.getElementById('bundle-backdrop');
-            if (bd) bd.remove();
+            ['addBundleModal', 'viewBundleModal', 'deleteBundleModal'].forEach(function(mid) {
+                var m = document.getElementById(mid);
+                if (m) {
+                    m.style.display = 'none';
+                    m.setAttribute('aria-hidden', 'true');
+                    m.removeAttribute('aria-modal');
+                }
+            });
+            document.querySelectorAll('#bundle-backdrop, .modal-backdrop').forEach(function(b) {
+                b.remove();
+            });
             document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
         }
 
         let bundleItemIndex = 0;
-        const allBooks = @json($allBooks);
 
         // Helper to add bundle item row
-        function addBundleItemRow(bookId = '', quantity = 1) {
+        function addBundleItemRow(bookId = '', bookText = '', quantity = 1) {
             const container = document.getElementById('bundleItemsContainer');
             
-            // Build options list
             let optionsHtml = '<option value="">Select Book...</option>';
-            allBooks.forEach(book => {
-                const selected = book.id == bookId ? 'selected' : '';
-                optionsHtml += `<option value="${book.id}" ${selected}>${book.name} (₱${book.price})</option>`;
-            });
+            if (bookId && bookText) {
+                optionsHtml += `<option value="${bookId}" selected>${bookText}</option>`;
+            }
 
             const rowId = `bundle-item-row-${bundleItemIndex}`;
             const tr = document.createElement('tr');
@@ -400,28 +459,63 @@
 
             container.appendChild(tr);
 
+            const selectEl = tr.querySelector('.select-book-item');
+
             // Bind remove handler
             tr.querySelector('.remove-item-row').addEventListener('click', function() {
                 tr.remove();
             });
 
-            // Initialize select2 inside row if select2 is loaded and it's a function
+            // Initialize Select2 with Server-Side AJAX Search for 4000+ books
             if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
-                const $select = jQuery(tr).find('.select-book-item');
+                const $select = jQuery(selectEl);
                 $select.select2({
                     dropdownParent: jQuery('#addBundleModal'),
-                    width: '100%'
+                    width: '100%',
+                    placeholder: 'Type to search book by title or SKU...',
+                    allowClear: true,
+                    ajax: {
+                        url: "{{ route('marketing.bundles.search-books') }}",
+                        dataType: 'json',
+                        delay: 250,
+                        data: function(params) {
+                            const currentSelect = this[0];
+                            const excludeIds = Array.from(document.querySelectorAll('#bundleItemsContainer .select-book-item'))
+                                .filter(s => s !== currentSelect && s.value)
+                                .map(s => s.value);
+
+                            return {
+                                q: params.term,
+                                exclude_ids: excludeIds
+                            };
+                        },
+                        processResults: function(data) {
+                            return {
+                                results: data.results
+                            };
+                        },
+                        cache: true
+                    },
+                    minimumInputLength: 0
                 });
             }
 
             bundleItemIndex++;
         }
 
-        // Add item row event
+        // Add item row event (single pinned button in footer)
         const addRowBtn = document.getElementById('addBundleItemRowBtn');
         if (addRowBtn) {
-            addRowBtn.addEventListener('click', function() {
+            addRowBtn.addEventListener('click', function(e) {
+                e.preventDefault();
                 addBundleItemRow();
+                // Auto-scroll modal body down to newly added row
+                const modalBody = document.querySelector('#addBundleModal .modal-body');
+                if (modalBody) {
+                    setTimeout(() => {
+                        modalBody.scrollTop = modalBody.scrollHeight;
+                    }, 50);
+                }
             });
         }
 
@@ -587,7 +681,8 @@
                         bundleItemIndex = 0;
                         
                         data.books.forEach(b => {
-                            addBundleItemRow(b.id, b.pivot.quantity);
+                            const text = `${b.name} (₱${parseFloat(b.price).toFixed(2)})`;
+                            addBundleItemRow(b.id, text, b.pivot.quantity);
                         });
 
                         document.getElementById('addBundleModalTitle').innerText = "Edit Book Bundle";

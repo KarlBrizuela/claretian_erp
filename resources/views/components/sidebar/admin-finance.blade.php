@@ -113,10 +113,10 @@
 		</a>
 		<div class="modern-nav-submenu" data-submenu="finance">
 			@if($hasPettyCashVoucher)
-			<a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
+			<a href="{{ route('admin-finance.petty-cash.index', ['sidebar' => 'admin-finance']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
 			@endif
 			@if($hasFreightVoucher)
-			<a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
+			<a href="{{ route('admin-finance.freight-voucher.index', ['sidebar' => 'admin-finance']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
 			@endif
 		</div>
 	</div>
@@ -134,9 +134,10 @@
 		</a>
 		<div class="modern-nav-submenu" data-submenu="chart-of-accounts">
 			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'assets']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'assets' ? 'active' : '' }}">Assets</a>
-			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'liabilities']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'liabilities' ? 'active' : '' }}">Liabilities</a>
-			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'equity']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'equity' ? 'active' : '' }}">Equity</a>
+			{{-- <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'liabilities']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'liabilities' ? 'active' : '' }}">Liabilities</a> --}}
+			{{-- <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'equity']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'equity' ? 'active' : '' }}">Equity</a> --}}
 			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'income']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'income' ? 'active' : '' }}">Income</a>
+			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'expenses']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'expenses' ? 'active' : '' }}">Expenses</a>
 		</div>
 	</div>
 	@endif

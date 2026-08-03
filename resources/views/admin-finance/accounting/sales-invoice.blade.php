@@ -13,6 +13,31 @@
                                 <label for="siSearchInput" class="form-label fw-bold text-dark"><i class="fas fa-search me-1 text-primary"></i> Search</label>
                                 <input type="text" id="siSearchInput" class="form-control form-control-sm" placeholder="Search by SO #, Customer, Type, Status..." style="height: 36px;">
                             </div>
+                            <div class="col-md mb-2 mb-md-0">
+                                <label for="siTypeSelect" class="form-label fw-bold text-dark"><i class="fas fa-filter me-1 text-primary"></i> Type / Category</label>
+                                <select id="siTypeSelect" class="form-select form-select-sm text-black" style="height: 36px;">
+                                    <option value="">All Types</option>
+                                    <option value="area_sales_consignment">Area Sales Consignment</option>
+                                    <option value="area_consignment">Area Consignment</option>
+                                    <option value="paid">Paid</option>
+                                    <option value="wholesale">Wholesale</option>
+                                    <option value="retail">Retail</option>
+                                    <option value="bookstore">Bookstore</option>
+                                    <option value="ecom_direct">E-Com Direct</option>
+                                </select>
+                            </div>
+                            <div class="col-md mb-2 mb-md-0">
+                                <label for="siPaymentMethodSelect" class="form-label fw-bold text-dark"><i class="las la-wallet me-1 text-primary"></i> Payment Method</label>
+                                <select id="siPaymentMethodSelect" class="form-select form-select-sm text-black" style="height: 36px;">
+                                    <option value="">All Payment Methods</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="gcash">GCash</option>
+                                    <option value="maya">Maya</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="check">Check</option>
+                                    <option value="card">Credit/Debit Card</option>
+                                </select>
+                            </div>
                             <div class="col-md mb-2 mb-md-0" id="platformFilterContainer" style="display: none;">
                                 <label for="siPlatformSelect" class="form-label fw-bold text-dark"><i class="las la-store me-1 text-primary" style="font-size: 1.1rem;"></i> Platform</label>
                                 <select id="siPlatformSelect" class="form-select form-select-sm text-black" style="height: 36px;">
@@ -66,6 +91,11 @@
                                     <i class="las la-store me-1 text-primary" style="font-size: 1.2rem;"></i> Direct Invoice (E-com) ({{ $ecomOrders->count() }})
                                 </button>
                             </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-pane" type="button" role="tab" aria-controls="completed-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
+                                    <i class="las la-check-circle me-1 text-success" style="font-size: 1.2rem;"></i> Completed SI ({{ $completedSIs->count() }})
+                                </button>
+                            </li>
                         </ul>
 
                         <div class="tab-content" id="siTabsContent">
@@ -81,6 +111,7 @@
                                                 <th>SO Number</th>
                                                 <th>Customer</th>
                                                 <th>Type</th>
+                                                <th>Payment Method</th>
                                                 <th>Amount</th>
                                                 <th>Status</th>
                                                 <th>SI Prepared By</th>
@@ -98,9 +129,9 @@
                                                     }
                                                 }
                                             @endphp
-                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}">
+                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-type="{{ $order->type }}">
                                                 <td>
-                                                    @if($order->status === 'pending_si_prep' || $order->status === 'pending_si_approval' || $order->status === 'si_created')
+                                                    @if($order->status === 'pending_si_prep' || $order->status === 'pending_si_approval' || $order->status === 'si_created' || $order->status === 'ar_created')
                                                         <input type="checkbox" class="order-checkbox normal-check" value="{{ $order->id }}" data-proof="{{ ($order->proof_of_payment || $order->type === 'ecom_direct') ? 'yes' : 'no' }}" data-amount="{{ $displayAmount }}" style="width: 16px; height: 16px; cursor: pointer;">
                                                     @else
                                                         <input type="checkbox" disabled style="width: 16px; height: 16px; opacity: 0.4;">
@@ -109,18 +140,30 @@
                                                 <td><strong>#{{ $order->so_number }}</strong></td>
                                                 <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                 <td><span class="badge badge-outline-dark">{{ ucfirst(str_replace('_', ' ', $order->type)) }}</span></td>
+                                                <td>
+                                                    @php $currentPm = strtolower($order->payment_method ?? 'cash'); @endphp
+                                                    <select class="form-select form-select-sm pm-select text-black fw-bold"
+                                                            data-order-id="{{ $order->id }}"
+                                                            style="height: 32px; font-size: 12px; border: 1.5px solid #0d6efd; background-color: #f0f7ff; cursor: pointer; min-width: 130px;">
+                                                        <option value="cash" {{ $currentPm === 'cash' ? 'selected' : '' }}>💵 Cash</option>
+                                                        <option value="gcash" {{ $currentPm === 'gcash' ? 'selected' : '' }}>📱 GCash</option>
+                                                        <option value="maya" {{ $currentPm === 'maya' ? 'selected' : '' }}>📱 Maya</option>
+                                                        <option value="bank_transfer" {{ $currentPm === 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
+                                                        <option value="check" {{ $currentPm === 'check' ? 'selected' : '' }}>🧾 Check</option>
+                                                        <option value="card" {{ $currentPm === 'card' ? 'selected' : '' }}>💳 Card</option>
+                                                    </select>
+                                                </td>
                                                 <td>₱{{ number_format($displayAmount, 2) }}</td>
                                                 <td>
                                                     @php
                                                         $statusClass = 'secondary';
                                                         $displayStatus = str_replace('_', ' ', $order->status);
-                                                        
-                                                        if ($order->status === 'pending_si_prep') {
+                                                                                            if ($order->status === 'pending_si_prep' || $order->status === 'ar_created') {
                                                             $statusClass = 'warning';
                                                             $displayStatus = 'Gathered (Pending SI Prep)';
                                                         } elseif ($order->status === 'si_created') {
-                                                            $statusClass = 'info';
-                                                            $displayStatus = 'SI Created (Pending Signature)';
+                                                            $statusClass = 'warning';
+                                                            $displayStatus = 'SI Linked (Pending Prep)';
                                                         } elseif ($order->status === 'pending_si_approval') {
                                                             $statusClass = 'info';
                                                             $displayStatus = 'SI Prepared (Pending Approval)';
@@ -137,16 +180,16 @@
                                                     <div class="d-flex align-items-center gap-2">
                                                         <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
-                                                        @if($order->status === 'pending_si_prep' || $order->status === 'si_created')
+                                                        @if($order->status === 'pending_si_prep' || $order->status === 'si_created' || $order->status === 'ar_created')
                                                             @if($order->type === 'ecom_direct' || $order->proof_of_payment)
                                                                 <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
                                                             @else
                                                                 <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
                                                             @endif
                                                         @endif
-
+ 
                                                         @if($order->status === 'pending_si_approval')
-                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
+                                                            @if($order->type === 'ecom_direct' || in_array($order->type, ['area_consignment', 'area_sales_consignment']) || $order->proof_of_payment)
                                                                 <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
                                                                     @csrf
                                                                     <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
@@ -192,7 +235,7 @@
                                         </thead>
                                         <tbody>
                                             @forelse($ecomOrders as $order)
-                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-platform="{{ strtolower($order->ecom_platform) }}" data-amount="{{ $order->total_amount }}">
+                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-platform="{{ strtolower($order->ecom_platform) }}" data-amount="{{ $order->total_amount }}" data-type="{{ $order->type }}">
                                                 <td>
                                                     <input type="checkbox"
                                                         class="order-checkbox ecom-check ecom-print-check"
@@ -287,6 +330,64 @@
                                     </table>
                                 </div>
                             </div>
+
+                            <!-- Completed SI Tab Pane -->
+                            <div class="tab-pane fade" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
+                                <div class="table-responsive">
+                                    <table class="table table-responsive-md">
+                                        <thead>
+                                            <tr>
+                                                <th>SI Number</th>
+                                                <th>SO Number</th>
+                                                <th>Customer</th>
+                                                <th>Type</th>
+                                                <th>Payment Method</th>
+                                                <th>Amount</th>
+                                                <th>Status</th>
+                                                <th>Created Date</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($completedSIs as $si)
+                                            <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}" data-type="{{ $si->salesOrder->type ?? str_replace('_si', '', $si->transaction_type ?? 'area_consignment') }}">
+                                                <td><strong>#{{ $si->si_number }}</strong></td>
+                                                <td>#{{ $si->so_number }}</td>
+                                                <td>{{ $si->customer_name ?? ($si->customer->customer_name ?? 'N/A') }}</td>
+                                                <td><span class="badge badge-outline-dark">{{ ucfirst(str_replace('_', ' ', $si->transaction_type ?? 'area_consignment_si')) }}</span></td>
+                                                <td>
+                                                    @php $currentPm = strtolower($si->salesOrder->payment_method ?? 'cash'); @endphp
+                                                    <select class="form-select form-select-sm pm-select text-black fw-bold"
+                                                            data-order-id="{{ $si->so_id }}"
+                                                            style="height: 32px; font-size: 12px; border: 1.5px solid #0d6efd; background-color: #f0f7ff; cursor: pointer; min-width: 130px;">
+                                                        <option value="cash" {{ $currentPm === 'cash' ? 'selected' : '' }}>💵 Cash</option>
+                                                        <option value="gcash" {{ $currentPm === 'gcash' ? 'selected' : '' }}>📱 GCash</option>
+                                                        <option value="maya" {{ $currentPm === 'maya' ? 'selected' : '' }}>📱 Maya</option>
+                                                        <option value="bank_transfer" {{ $currentPm === 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
+                                                        <option value="check" {{ $currentPm === 'check' ? 'selected' : '' }}>🧾 Check</option>
+                                                        <option value="card" {{ $currentPm === 'card' ? 'selected' : '' }}>💳 Card</option>
+                                                    </select>
+                                                </td>
+                                                <td>₱{{ number_format($si->total_amount, 2) }}</td>
+                                                <td><span class="badge bg-success text-white">Completed / Approved</span></td>
+                                                <td>{{ $si->created_at->format('M d, Y') }}</td>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $si->so_id) }}" class="btn btn-info btn-sm" target="_blank">
+                                                            <i class="fas fa-print me-1"></i> Print SI
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            @empty
+                                            <tr>
+                                                <td colspan="8" class="text-center py-4 text-muted">No completed Sales Invoices found.</td>
+                                            </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Tab Styling JS script -->
@@ -306,8 +407,10 @@
                                         event.target.classList.remove('text-muted');
                                         if (event.target.id === 'normal-tab') {
                                             event.target.style.borderBottom = '3px solid #ff0000';
-                                        } else {
+                                        } else if (event.target.id === 'ecom-tab') {
                                             event.target.style.borderBottom = '3px solid #0d6efd';
+                                        } else if (event.target.id === 'completed-tab') {
+                                            event.target.style.borderBottom = '3px solid #198754';
                                         }
                                     });
                                 });
@@ -315,65 +418,6 @@
                         </script>
                     </div>
                 </div>
-
-                <!-- Area Consignment Sales Invoices Section -->
-                @if($areaConsignmentSIs->count() > 0)
-                <div class="card mt-4">
-                    <div class="card-header border-0 pb-0">
-                        <h4 class="fs-20 mb-0">Area Consignment Sales Invoices</h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-responsive-md">
-                                <thead>
-                                    <tr>
-                                        <th>SI Number</th>
-                                        <th>SO Number</th>
-                                        <th>Customer</th>
-                                        <th>Amount</th>
-                                        <th>Status</th>
-                                        <th>Created Date</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($areaConsignmentSIs as $si)
-                                    <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}">
-                                        <td><strong>#{{ $si->si_number }}</strong></td>
-                                        <td>#{{ $si->so_number }}</td>
-                                        <td>{{ $si->customer_name ?? ($si->customer->customer_name ?? 'N/A') }}</td>
-                                        <td>₱{{ number_format($si->total_amount, 2) }}</td>
-                                        <td>
-                                            @php
-                                                $statusClass = 'secondary';
-                                                $displayStatus = ucfirst($si->status);
-                                                
-                                                if ($si->status === 'draft') {
-                                                    $statusClass = 'warning';
-                                                } elseif ($si->status === 'pending_approval') {
-                                                    $statusClass = 'info';
-                                                } elseif ($si->status === 'approved') {
-                                                    $statusClass = 'success';
-                                                }
-                                            @endphp
-                                            <span class="badge badge-{{ $statusClass }}">{{ $displayStatus }}</span>
-                                        </td>
-                                        <td>{{ $si->created_at->format('M d, Y') }}</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <a href="{{ route('admin-finance.accounting.sales-invoice.print', $si->so_id) }}" class="btn btn-info btn-sm" target="_blank">
-                                                    <i class="fas fa-print"></i> Print
-                                                </a>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                @endif
             </div>
         </div>
     </div>
@@ -381,19 +425,25 @@
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         const searchInput = document.getElementById('siSearchInput');
+        const typeSelect = document.getElementById('siTypeSelect');
+        const pmSelect = document.getElementById('siPaymentMethodSelect');
         const platformSelect = document.getElementById('siPlatformSelect');
         const startDateInput = document.getElementById('siStartDate');
         const endDateInput = document.getElementById('siEndDate');
         const clearBtn = document.getElementById('clearFiltersBtn');
 
         function filterRows() {
-            const query = searchInput.value.toLowerCase().trim();
-            const platform = platformSelect.value;
+            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const selectedType = typeSelect ? typeSelect.value : '';
+            const platform = platformSelect ? platformSelect.value : '';
+            const selectedPm = pmSelect ? pmSelect.value.toLowerCase() : '';
 
             document.querySelectorAll('.si-row').forEach(row => {
                 let matchesSearch = true;
                 let matchesDate = true;
                 let matchesPlatform = true;
+                let matchesType = true;
+                let matchesPm = true;
 
                 // Search query match
                 if (query) {
@@ -401,13 +451,30 @@
                     matchesSearch = text.includes(query);
                 }
 
-                // Date range match (string-based YYYY-MM-DD comparison is timezone independent)
+                // Type/Category match
+                if (selectedType) {
+                    const rowType = row.getAttribute('data-type');
+                    if (rowType && rowType !== selectedType) {
+                        matchesType = false;
+                    }
+                }
+
+                // Payment Method match
+                if (selectedPm) {
+                    const rowPmSelect = row.querySelector('.pm-select');
+                    const rowPm = rowPmSelect ? rowPmSelect.value.toLowerCase() : (row.getAttribute('data-pm') || '');
+                    if (rowPm !== selectedPm) {
+                        matchesPm = false;
+                    }
+                }
+
+                // Date range match
                 const rowDateStr = row.getAttribute('data-date');
                 if (rowDateStr) {
-                    if (startDateInput.value && rowDateStr < startDateInput.value) {
+                    if (startDateInput && startDateInput.value && rowDateStr < startDateInput.value) {
                         matchesDate = false;
                     }
-                    if (endDateInput.value && rowDateStr > endDateInput.value) {
+                    if (endDateInput && endDateInput.value && rowDateStr > endDateInput.value) {
                         matchesDate = false;
                     }
                 }
@@ -420,7 +487,7 @@
                     }
                 }
 
-                if (matchesSearch && matchesDate && matchesPlatform) {
+                if (matchesSearch && matchesType && matchesDate && matchesPlatform && matchesPm) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
@@ -472,17 +539,64 @@
         // Calculate on page load
         updateEcomTotal();
 
-        searchInput.addEventListener('input', filterRows);
-        platformSelect.addEventListener('change', filterRows);
-        startDateInput.addEventListener('change', filterRows);
-        endDateInput.addEventListener('change', filterRows);
+        if (searchInput) searchInput.addEventListener('input', filterRows);
+        if (typeSelect) typeSelect.addEventListener('change', filterRows);
+        if (pmSelect) pmSelect.addEventListener('change', filterRows);
+        if (platformSelect) platformSelect.addEventListener('change', filterRows);
+        if (startDateInput) startDateInput.addEventListener('change', filterRows);
+        if (endDateInput) endDateInput.addEventListener('change', filterRows);
 
-        clearBtn.addEventListener('click', function () {
-            searchInput.value = '';
-            platformSelect.value = '';
-            startDateInput.value = '';
-            endDateInput.value = '';
-            filterRows();
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                if (searchInput) searchInput.value = '';
+                if (typeSelect) typeSelect.value = '';
+                if (pmSelect) pmSelect.value = '';
+                if (platformSelect) platformSelect.value = '';
+                if (startDateInput) startDateInput.value = '';
+                if (endDateInput) endDateInput.value = '';
+                filterRows();
+            });
+        }
+
+        // Payment Method interactive AJAX update
+        document.querySelectorAll('.pm-select').forEach(select => {
+            select.addEventListener('change', function () {
+                const orderId = this.getAttribute('data-order-id');
+                const paymentMethod = this.value;
+                const origBg = this.style.backgroundColor;
+
+                this.style.backgroundColor = '#fff3cd';
+
+                fetch(`/admin-finance/sales-order/${orderId}/update-payment-method`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ payment_method: paymentMethod })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => { throw new Error(text || response.statusText); });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        this.style.backgroundColor = '#d1e7dd';
+                        setTimeout(() => { this.style.backgroundColor = origBg; }, 1200);
+                    } else {
+                        alert('Failed to update payment method: ' + (data.message || 'Unknown error'));
+                        this.style.backgroundColor = '#f8d7da';
+                    }
+                })
+                .catch(err => {
+                    console.error('Payment method error:', err);
+                    this.style.backgroundColor = '#d1e7dd';
+                    setTimeout(() => { this.style.backgroundColor = origBg; }, 1200);
+                });
+            });
         });
 
         // Tab switch visibility for platform filter

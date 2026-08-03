@@ -43,6 +43,7 @@
                                         <th class="ps-4">Item Name</th>
                                         <th>Item Price</th>
                                         <th>Items Stock</th>
+                                        <th>Total Valuation</th>
                                         <th class="text-end pe-4">Actions</th>
                                     </tr>
                                 </thead>
@@ -54,14 +55,15 @@
                                         <td class="py-3">
                                             @if($supply->items_stock <= 5)
                                                 <span class="badge badge-danger rounded-pill px-3 text-white fw-600" style="background-color: #dc3545;">
-                                                    Low Stock ({{ $supply->items_stock }})
+                                                    Low Stock ({{ $supply->items_stock }} {{ $supply->unit ?? 'pcs' }})
                                                 </span>
                                             @else
                                                 <span class="badge badge-success rounded-pill px-3 text-white fw-600" style="background-color: #28a745;">
-                                                    {{ $supply->items_stock }} in stock
+                                                    {{ $supply->items_stock }} {{ $supply->unit ?? 'pcs' }} in stock
                                                 </span>
                                             @endif
                                         </td>
+                                        <td class="py-3 text-danger fw-bold fs-15">₱{{ number_format($supply->item_price * $supply->items_stock, 2) }}</td>
                                         <td class="text-end pe-4 py-3">
                                             <div class="d-flex justify-content-end gap-2 align-items-center">
                                                 <button class="btn btn-success btn-sm text-white px-3 py-1.5 add-stock-btn shadow-sm"
@@ -79,7 +81,8 @@
                                                         data-id="{{ $supply->id }}"
                                                         data-name="{{ $supply->item_name }}"
                                                         data-price="{{ $supply->item_price }}"
-                                                        data-stock="{{ $supply->items_stock }}">
+                                                        data-stock="{{ $supply->items_stock }}"
+                                                        data-unit="{{ $supply->unit ?? 'pcs' }}">
                                                     <i class="fas fa-edit me-1"></i> Edit
                                                 </button>
                                                 
@@ -174,8 +177,10 @@
                                         <th class="ps-4">Date & Time</th>
                                         <th>Item Name</th>
                                         <th>Qty Added</th>
+                                        <th>Unit Price</th>
                                         <th>Prev Stock</th>
                                         <th>New Stock</th>
+                                        <th>Total Expense</th>
                                         <th>Supplier</th>
                                         <th>Added By</th>
                                         <th class="pe-4">Notes</th>
@@ -183,19 +188,25 @@
                                 </thead>
                                 <tbody>
                                     @forelse($logs as $log)
+                                    @php
+                                        $price = $log->unit_price > 0 ? $log->unit_price : ($log->officeSupply->item_price ?? 0);
+                                        $totalCost = $log->quantity * $price;
+                                    @endphp
                                     <tr class="bg-white shadow-sm" style="border-radius: 8px;">
                                         <td class="ps-4 py-3 text-dark small">{{ $log->created_at->format('Y-m-d h:i A') }}</td>
-                                        <td class="py-3 fw-bold text-dark">{{ $log->officeSupply->item_name ?? 'Deleted Item' }}</td>
+                                        <td class="py-3 fw-bold text-dark">{{ $log->item_name ?? ($log->officeSupply->item_name ?? 'Deleted Item') }}</td>
                                         <td class="py-3"><span class="text-success fw-bold">+{{ $log->quantity }}</span></td>
+                                        <td class="py-3 text-dark fw-medium">₱{{ number_format($price, 2) }}</td>
                                         <td class="py-3 text-muted">{{ $log->previous_stock }}</td>
                                         <td class="py-3 fw-bold text-dark">{{ $log->new_stock }}</td>
+                                        <td class="py-3 fw-bold text-danger">₱{{ number_format($totalCost, 2) }}</td>
                                         <td class="py-3 text-dark">{{ $log->supplier->company_name ?? 'N/A' }}</td>
                                         <td class="py-3 text-muted small">{{ $log->addedBy->name ?? 'N/A' }}</td>
                                         <td class="pe-4 py-3 text-muted small">{{ $log->notes ?: '—' }}</td>
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="8" class="text-center py-5 text-muted">
+                                        <td colspan="10" class="text-center py-5 text-muted">
                                             <div class="mb-3"><i class="fas fa-history fs-30 text-light"></i></div>
                                             <span>No stock transaction history logs found.</span>
                                         </td>
@@ -236,13 +247,32 @@
                             <input type="text" class="form-control border-light-subtle rounded px-3 py-2" id="item_name" name="item_name" placeholder="e.g. A4 Bond Paper" required>
                         </div>
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label for="item_price" class="form-label fw-bold text-dark small">Item Price (₱) <span class="text-danger">*</span></label>
                                 <input type="number" step="0.01" min="0" class="form-control border-light-subtle rounded px-3 py-2" id="item_price" name="item_price" placeholder="0.00" required>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label for="items_stock" class="form-label fw-bold text-dark small">Items Stock <span class="text-danger">*</span></label>
                                 <input type="number" min="0" class="form-control border-light-subtle rounded px-3 py-2" id="items_stock" name="items_stock" placeholder="0" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="unit" class="form-label fw-bold text-dark small">Unit <span class="text-danger">*</span></label>
+                                <select class="form-select border-light-subtle rounded px-3 py-2" id="unit" name="unit" required>
+                                    <option value="pcs">pcs (Pieces)</option>
+                                    <option value="box">box (Box)</option>
+                                    <option value="pack">pack (Pack)</option>
+                                    <option value="ream">ream (Ream)</option>
+                                    <option value="set">set (Set)</option>
+                                    <option value="roll">roll (Roll)</option>
+                                    <option value="pad">pad (Pad)</option>
+                                    <option value="bundle">bundle (Bundle)</option>
+                                    <option value="bottle">bottle (Bottle)</option>
+                                    <option value="pair">pair (Pair)</option>
+                                    <option value="cartridge">cartridge (Cartridge/Toner)</option>
+                                    <option value="unit">unit (Unit)</option>
+                                    <option value="kg">kg (Kilogram)</option>
+                                    <option value="liter">liter (Liter)</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -277,8 +307,23 @@
                                 <input type="number" step="0.01" min="0" class="form-control border-light-subtle rounded px-3 py-2" id="edit_item_price" name="item_price" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="edit_items_stock" class="form-label fw-bold text-dark small">Items Stock <span class="text-danger">*</span></label>
-                                <input type="number" min="0" class="form-control border-light-subtle rounded px-3 py-2" id="edit_items_stock" name="items_stock" required>
+                                <label for="edit_unit" class="form-label fw-bold text-dark small">Unit <span class="text-danger">*</span></label>
+                                <select class="form-select border-light-subtle rounded px-3 py-2" id="edit_unit" name="unit" required>
+                                    <option value="pcs">pcs (Pieces)</option>
+                                    <option value="box">box (Box)</option>
+                                    <option value="pack">pack (Pack)</option>
+                                    <option value="ream">ream (Ream)</option>
+                                    <option value="set">set (Set)</option>
+                                    <option value="roll">roll (Roll)</option>
+                                    <option value="pad">pad (Pad)</option>
+                                    <option value="bundle">bundle (Bundle)</option>
+                                    <option value="bottle">bottle (Bottle)</option>
+                                    <option value="pair">pair (Pair)</option>
+                                    <option value="cartridge">cartridge (Cartridge/Toner)</option>
+                                    <option value="unit">unit (Unit)</option>
+                                    <option value="kg">kg (Kilogram)</option>
+                                    <option value="liter">liter (Liter)</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -370,10 +415,12 @@
                 const name = $(this).data('name');
                 const price = $(this).data('price');
                 const stock = $(this).data('stock');
+                const unit = $(this).data('unit') || 'pcs';
                 
                 $('#edit_item_name').val(name);
                 $('#edit_item_price').val(price);
                 $('#edit_items_stock').val(stock);
+                $('#edit_unit').val(unit);
                 
                 // Update form action URL dynamically
                 const route = "{{ route('admin-finance.accounting.office-supplies.update', ':id') }}";

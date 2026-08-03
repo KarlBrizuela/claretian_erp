@@ -94,11 +94,6 @@
                         </h4>
                         <p class="text-muted small mb-0">CCFI Sales Management ledger containing {{ ucfirst($tab) }} sales accounts, performance tracking, and payment gateways.</p>
                     </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-secondary btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" onclick="window.print()">
-                            <i class="las la-print fs-18"></i> Print Report
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>

@@ -37,7 +37,7 @@
         .voucher-table th { padding: 0.75rem; border: 1px solid #ddd; }
         .voucher-table td { padding: 0.65rem 0.75rem; border: 1px solid #ddd; }
         .voucher-table tfoot { background: #f8f9fa; font-weight: 600; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; background: #f8f9fa; padding: 1rem; border-radius: 6px; }
+        .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; background: #f8f9fa; padding: 1rem; border-radius: 6px; }
         .info-item label { font-size: 0.75rem; font-weight: 600; color: #888; text-transform: uppercase; margin-bottom: 0; }
         .info-item .value { font-size: 1rem; font-weight: 600; color: #333; }
         .signature-row { display: flex; gap: 2rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e0e0e0; }
@@ -87,6 +87,10 @@
                     <div class="info-item">
                         <label>PCV No.</label>
                         <div class="value text-danger">{{ $voucher->pcv_number }}</div>
+                    </div>
+                    <div class="info-item">
+                        <label>Voucher Type</label>
+                        <div class="value text-uppercase" style="font-size: 0.9rem;">{{ $voucher->type === 'freight' ? 'Freight' : 'Fund' }}</div>
                     </div>
                     <div class="info-item">
                         <label>Pay To</label>

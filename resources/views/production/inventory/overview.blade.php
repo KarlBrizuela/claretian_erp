@@ -185,6 +185,7 @@
                             </div>
                         </div>
                     </div>
+                    {{-- 
                     <div class="col-xl-3 col-xxl-3 col-lg-6 col-sm-6">
                         <div class="card card-bd">
                             <div class="bg-success card-border"></div>
@@ -201,6 +202,7 @@
                             </div>
                         </div>
                     </div>
+                    --}}
                 </div>
         
                 <!-- Product Inventory Table with Sub-Tabs -->
@@ -665,7 +667,7 @@
                 <script>
                 let currentMovementCategory = 'all';
                 let currentMovementPage = 1;
-                const movementsPerPage = 5;
+                const movementsPerPage = 10;
 
                 function filterStockMovements(category, btn) {
                     if (btn) {
@@ -715,15 +717,37 @@
                     if (controlsEl) {
                         let html = '';
                         const prevDisabled = currentMovementPage === 1 ? 'disabled' : '';
-                        html += `<li class="page-item ${prevDisabled}"><button type="button" class="page-link" onclick="changeMovementPage(${currentMovementPage - 1})" ${prevDisabled}>Previous</button></li>`;
+                        html += `<li class="page-item ${prevDisabled}"><button type="button" class="page-link" style="white-space: nowrap; min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" onclick="changeMovementPage(${currentMovementPage - 1})" ${prevDisabled}><i class="las la-angle-left"></i></button></li>`;
 
-                        for (let p = 1; p <= totalPages; p++) {
+                        const maxButtons = 5;
+                        let startPage = Math.max(1, currentMovementPage - 2);
+                        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+                        if (endPage - startPage < maxButtons - 1) {
+                            startPage = Math.max(1, endPage - maxButtons + 1);
+                        }
+
+                        if (startPage > 1) {
+                            html += `<li class="page-item"><button type="button" class="page-link" style="min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" onclick="changeMovementPage(1)">1</button></li>`;
+                            if (startPage > 2) {
+                                html += `<li class="page-item disabled"><span class="page-link" style="min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">...</span></li>`;
+                            }
+                        }
+
+                        for (let p = startPage; p <= endPage; p++) {
                             const activeClass = p === currentMovementPage ? 'active' : '';
-                            html += `<li class="page-item ${activeClass}"><button type="button" class="page-link" onclick="changeMovementPage(${p})">${p}</button></li>`;
+                            html += `<li class="page-item ${activeClass}"><button type="button" class="page-link" style="min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" onclick="changeMovementPage(${p})">${p}</button></li>`;
+                        }
+
+                        if (endPage < totalPages) {
+                            if (endPage < totalPages - 1) {
+                                html += `<li class="page-item disabled"><span class="page-link" style="min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">...</span></li>`;
+                            }
+                            html += `<li class="page-item"><button type="button" class="page-link" style="min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" onclick="changeMovementPage(${totalPages})">${totalPages}</button></li>`;
                         }
 
                         const nextDisabled = currentMovementPage === totalPages || totalPages === 0 ? 'disabled' : '';
-                        html += `<li class="page-item ${nextDisabled}"><button type="button" class="page-link" onclick="changeMovementPage(${currentMovementPage + 1})" ${nextDisabled}>Next</button></li>`;
+                        html += `<li class="page-item ${nextDisabled}"><button type="button" class="page-link" style="white-space: nowrap; min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" onclick="changeMovementPage(${currentMovementPage + 1})" ${nextDisabled}><i class="las la-angle-right"></i></button></li>`;
 
                         controlsEl.innerHTML = html;
                     }

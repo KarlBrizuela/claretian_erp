@@ -181,6 +181,7 @@ class User extends Authenticatable
                 'production.logistic.receiving_reports',
                 'production.logistic.freight_quotation_review',
                 'production.logistic.rider_collections',
+                'production.logistic.area_consignment',
             ],
             'production.dto' => [
                 'production.dto.job_request_form',
@@ -307,6 +308,7 @@ class User extends Authenticatable
             'production.logistic.receiving_reports' => 'production.logistic.receiving-report-list',
             'production.logistic.freight_quotation_review' => 'production.logistic.pending-freight-quotations',
             'production.logistic.rider_collections' => 'rider.collections.index',
+            'production.logistic.area_consignment' => 'production.logistic.area-consignment',
             'production.dto' => 'production.dto.job-request-form',
             'production.ford' => 'production.ford.client-payment-posting',
             'production.dto.job_request_form' => 'production.dto.job-request-form',

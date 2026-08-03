@@ -227,9 +227,14 @@ class AdminFinanceController extends Controller
     }
 
     // Financial summaries within the selected period
-    $totalRevenue = \App\Models\SalesOrder::where('payment_status', 'paid')
+    $totalRevenue = \App\Models\SalesOrder::where(function($q) {
+        $q->where('payment_status', 'paid')
+          ->orWhereIn('type', ['paid', 'calculator_pos'])
+          ->orWhere('status', 'completed');
+      })
+      ->where('status', '!=', 'cancelled')
       ->whereBetween('created_at', [$start, $end])
-      ->sum('total_amount');
+      ->sum('total_amount') ?: 0.00;
 
     $accountsReceivable = \App\Models\SalesOrder::where('payment_status', '!=', 'paid')
       ->where(function($q) {
@@ -546,6 +551,22 @@ class AdminFinanceController extends Controller
     }
     $pendingPaymentRequests = $paymentRequestQuery->orderBy('created_at', 'desc')->get();
 
+    // --- Auto Debit Requests ---
+    $autoDebitQuery = \App\Models\AutoDebit::with(['preparer']);
+    if ($pos === 'Director') {
+        $autoDebitQuery->where('status', 'pending_director');
+    } elseif ($pos === 'Super Admin') {
+        $autoDebitQuery->whereIn('status', ['pending_director', 'pending_finance']);
+    } else {
+        $isAFManager = str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor');
+        if ($isAFManager) {
+            $autoDebitQuery->where('status', 'pending_finance');
+        } else {
+            $autoDebitQuery->whereRaw('1 = 0');
+        }
+    }
+    $pendingAutoDebits = $autoDebitQuery->orderBy('created_at', 'desc')->get();
+
     // Combine into a unified approval queue for the bottom card
     $pendingApprovals = [];
     foreach ($cctvRequests as $req) {
@@ -712,6 +733,23 @@ class AdminFinanceController extends Controller
         'status' => $req->status,
         'amount' => (float)$req->total_amount,
         'url' => route('payment-requests.show', $req->id),
+        'original' => $req
+      ];
+    }
+
+    foreach ($pendingAutoDebits as $req) {
+      $pendingApprovals[] = [
+        'type' => 'Auto Debit Letter',
+        'id' => $req->id,
+        'reference_no' => 'AD-' . str_pad($req->id, 5, '0', STR_PAD_LEFT),
+        'submitted_by' => $req->preparer->name ?? 'N/A',
+        'submitted_date' => $req->created_at->format('M. d, Y'),
+        'description' => 'Auto debit for: ' . $req->item_reason . ' (' . $req->source_origin . ')',
+        'full_description' => 'Auto debit letter for ' . $req->item_reason . ' (' . $req->source_origin . '). Scheduled Debit Date: ' . date('M. d, Y', strtotime($req->debit_date)),
+        'department' => 'FORD',
+        'status' => $req->status === 'pending_director' ? 'Pending Director Approval' : 'Pending Finance Approval',
+        'amount' => (float)$req->amount,
+        'url' => route('production.ford.auto-debit.show', $req->id),
         'original' => $req
       ];
     }
@@ -1213,27 +1251,60 @@ public function checkVoucher()
 
   public function salesInvoice()
   {
-    // Get SalesOrders pending SI prep/approval
-    $allOrders = \App\Models\SalesOrder::with('customer', 'preparedBy', 'siPreparedBy')
-      ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created'])
+    // 1. Get SalesOrders pending SI prep/approval (NOT YET signed and approved)
+    $pendingOrders = \App\Models\SalesOrder::with('customer', 'preparedBy', 'siPreparedBy')
       ->whereNull('signed_by_af_manager')
+      ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created', 'ar_created'])
       ->latest()
       ->get();
 
-    $normalOrders = $allOrders->filter(function($order) {
+    $normalOrders = $pendingOrders->filter(function($order) {
         return $order->type !== 'ecom_direct';
     });
 
-    $ecomOrders = $allOrders->filter(function($order) {
+    $ecomOrders = $pendingOrders->filter(function($order) {
         return $order->type === 'ecom_direct';
     });
 
-    // Get SalesInvoices from area consignment
-    $areaConsignmentSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder')
-      ->where('transaction_type', 'area_consignment_si')
-      ->whereIn('status', ['draft', 'pending_approval'])
+    // 2. Get all Completed / Finalized Sales Invoices
+    $completedSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder', 'createdBy')
+      ->where('status', 'approved')
       ->latest()
       ->get();
+
+    // Ensure all signed/approved SalesOrders have a corresponding entry in $completedSIs
+    $existingSiSoIds = $completedSIs->pluck('so_id')->filter()->toArray();
+    $signedOrdersWithoutSI = \App\Models\SalesOrder::with('customer', 'preparedBy')
+      ->where(function($q) {
+          $q->whereNotNull('signed_by_af_manager')
+            ->orWhereIn('status', ['ready_for_delivery', 'completed']);
+      })
+      ->whereNotIn('id', $existingSiSoIds)
+      ->latest()
+      ->get();
+
+    foreach ($signedOrdersWithoutSI as $so) {
+        \App\Models\SalesInvoice::firstOrCreate(
+            ['so_id' => $so->id],
+            [
+                'si_number' => 'SI-' . $so->so_number,
+                'customer_id' => $so->customer_id,
+                'customer_name' => $so->customer->customer_name ?? 'N/A',
+                'total_amount' => $so->total_amount,
+                'transaction_type' => $so->type . '_si',
+                'payment_method' => $so->payment_method ?? 'cash',
+                'status' => 'approved',
+                'created_by' => $so->signed_by_af_manager ?? (auth()->id() ?? 1)
+            ]
+        );
+    }
+
+    if ($signedOrdersWithoutSI->count() > 0) {
+        $completedSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder', 'createdBy')
+          ->where('status', 'approved')
+          ->latest()
+          ->get();
+    }
 
     return view('admin-finance.accounting.sales-invoice', [
       'title' => 'Sales Invoice Management',
@@ -1241,7 +1312,7 @@ public function checkVoucher()
       'sidebar' => 'admin-finance',
       'normalOrders' => $normalOrders,
       'ecomOrders' => $ecomOrders,
-      'areaConsignmentSIs' => $areaConsignmentSIs
+      'completedSIs' => $completedSIs
     ]);
   }
 
@@ -1249,7 +1320,7 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
 
-    $isExempt = in_array($order->type, ['ecom_direct']);
+    $isExempt = in_array($order->type, ['ecom_direct', 'area_consignment', 'area_sales_consignment']);
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
@@ -1267,13 +1338,19 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
-    $isExempt = in_array($order->type, ['ecom_direct']);
+    if ($request->filled('payment_method')) {
+      $order->payment_method = strtolower($request->input('payment_method'));
+      $order->save();
+    }
+
+    $isExempt = in_array($order->type, ['ecom_direct', 'area_consignment', 'area_sales_consignment']);
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->route('admin-finance.accounting.sales-invoice')->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
     }
 
     $isEcomDirect = $order->type === 'ecom_direct';
+    $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
 
     if ($isEcomDirect) {
       $order->update([
@@ -1317,6 +1394,50 @@ public function checkVoucher()
       return redirect()->route('admin-finance.accounting.sales-invoice')->with('success', 'Sales Invoice for #' . $order->so_number . ' has been prepared and finalized. Routed to pick list.');
     }
 
+    // Consignment / Area Sales Consignment flow (Requires prep -> approval flow)
+    $isAR = $order->type === 'area_sales_consignment';
+    $isCR = $order->type === 'area_consignment';
+
+    if ($isAR || $isCR) {
+      // 1. Update Sales Order
+      $order->update([
+        'status' => 'pending_si_approval',
+        'si_prepared_by' => auth()->id(),
+        'si_prepared_at' => now(),
+        'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared by ' . auth()->user()->name
+      ]);
+
+      // 2. Handle Sales Invoice
+      $si = \App\Models\SalesInvoice::firstOrCreate(
+        ['so_id' => $order->id],
+        [
+          'si_number' => 'SI-' . $order->so_number,
+          'customer_id' => $order->customer_id,
+          'customer_name' => $order->customer->customer_name ?? 'N/A',
+          'total_amount' => $order->total_amount,
+          'transaction_type' => $order->type . '_si',
+          'created_by' => auth()->id()
+        ]
+      );
+      
+      $si->update([
+        'status' => 'pending_approval',
+        'payment_method' => $order->payment_method ?? 'cash'
+      ]);
+
+      // Send Notification to Director if status is "pending_si_approval"
+      $director = \App\Models\User::where('position', 'Director')->first();
+      if ($director) {
+          try {
+              $director->notify(new \App\Notifications\DirectorApprovalRequested($order, 'Sales Order'));
+          } catch (\Exception $e) {
+              \Log::error("Failed to send Sales Order SI approval notification: " . $e->getMessage());
+          }
+      }
+
+      return redirect()->route('admin-finance.accounting.sales-invoice')->with('success', 'Sales Invoice for #' . $order->so_number . ' has been prepared and is waiting for Manager signature.');
+    }
+
     // Normal flow
     $order->update([
       'status' => 'pending_si_approval',
@@ -1324,10 +1445,6 @@ public function checkVoucher()
       'si_prepared_at' => now(),
       'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared by ' . auth()->user()->name
     ]);
-
-    if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
-      \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', 'draft')->update(['status' => 'pending_approval']);
-    }
 
     // Send Notification to Director if status is "pending_si_approval"
     $director = \App\Models\User::where('position', 'Director')->first();
@@ -1425,8 +1542,9 @@ public function checkVoucher()
                 }
             }
           } elseif ($order->status === 'pending_si_approval' || $actionType === 'sign') {
+            $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment']) ? 'completed' : 'ready_for_delivery';
             $order->update([
-              'status' => 'ready_for_delivery',
+              'status' => $newStatus,
               'signed_by_af_manager' => auth()->id(),
               'signed_at' => now(),
               'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Signed & Approved in bulk by ' . auth()->user()->name
@@ -1472,14 +1590,17 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
-    $isExempt = in_array($order->type, ['ecom_direct']);
+    $isExempt = in_array($order->type, ['ecom_direct', 'area_consignment', 'area_sales_consignment']);
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
     }
 
     $isEcomDirect = $order->type === 'ecom_direct';
-    $newStatus = $isEcomDirect ? 'picking' : 'ready_for_delivery';
+    $isAreaSalesConsignment = $order->type === 'area_sales_consignment';
+    $isConsignment = $order->type === 'area_consignment';
+
+    $newStatus = $isEcomDirect ? 'picking' : (($isAreaSalesConsignment || $isConsignment) ? 'completed' : 'ready_for_delivery');
 
     $order->update([
       'status' => $newStatus,
@@ -1487,9 +1608,18 @@ public function checkVoucher()
       'signed_at' => now()
     ]);
 
-    if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
-      \App\Models\SalesInvoice::where('so_id', $order->id)->whereIn('status', ['draft', 'pending_approval'])->update(['status' => 'approved']);
-    }
+    $si = \App\Models\SalesInvoice::firstOrCreate(
+      ['so_id' => $order->id],
+      [
+        'si_number' => 'SI-' . $order->so_number,
+        'customer_id' => $order->customer_id,
+        'customer_name' => $order->customer->customer_name ?? 'N/A',
+        'total_amount' => $order->total_amount,
+        'transaction_type' => $order->type . '_si',
+        'created_by' => auth()->id()
+      ]
+    );
+    $si->update(['status' => 'approved', 'posted_at' => now(), 'payment_method' => $order->payment_method ?? 'cash']);
 
     // --- ACCOUNTING INTEGRATION ---
     $this->accounting->postSalesOrderEntry($order);
@@ -1841,7 +1971,7 @@ public function checkVoucher()
 
   public function reconsignmentsList()
   {
-      $reconsignmentRequests = \App\Models\SalesOrder::with('customer')
+      $reconsignmentRequests = \App\Models\SalesOrder::with(['customer', 'items.book', 'preparedBy'])
           ->where('status', 'reconsignment_pending')
           ->latest()
           ->get();
@@ -1862,14 +1992,15 @@ public function checkVoucher()
           return redirect()->back()->with('error', 'Order is not in pending reconsignment status.');
       }
 
-      // 1. Calculate return books for this request
+      // 1. Calculate return/reconsignment books for this request (remaining = sent_qty - picked_qty)
       $returnedBooks = [];
       foreach ($order->items as $item) {
           $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
               $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
           })->where('book_id', $item->book_id)->sum('quantity');
           
-          $returnedQty = max(0, $item->quantity - $alreadyPurchasedQty);
+          $pickedQty = max($alreadyPurchasedQty, (int)($item->customer_selected_qty ?? 0));
+          $returnedQty = max(0, $item->quantity - $pickedQty);
           if ($returnedQty > 0) {
               $returnedBooks[] = [
                   'book_id' => $item->book_id,
@@ -1899,9 +2030,9 @@ public function checkVoucher()
               $suffix++;
           }
 
-          // 3. Create the new Sales Order (starts from the beginning of the approval cycle)
+          // 3. Create the new Sales Order (starts from the beginning of the approval cycle with no customer assigned for new cycle)
           $newOrder = \App\Models\SalesOrder::create([
-              'customer_id' => $order->customer_id,
+              'customer_id' => null,
               'area_sales_staff_id' => $order->area_sales_staff_id,
               'so_number' => $newSoNumber,
               'type' => $order->type, // 'area_consignment'
@@ -2015,11 +2146,12 @@ public function checkVoucher()
 
   public function showAccountStatement($id)
   {
+    $soa = \App\Models\StatementOfAccount::with(['customer', 'items', 'salesOrders'])->findOrFail($id);
     return view('admin-finance.credit-collection.billing-show', [
       'title' => 'Statement Detail',
       'role' => 'Finance Manager',
       'sidebar' => 'admin-finance',
-      'id' => $id
+      'soa' => $soa
     ]);
   }
 
@@ -2032,6 +2164,18 @@ public function checkVoucher()
       'sidebar' => 'admin-finance',
       'order' => $order,
       'mode' => 'create'
+    ]);
+  }
+
+  public function createManualSOA()
+  {
+    $customers = \App\Models\Customer::orderBy('customer_name')->get();
+    return view('admin-finance.credit-collection.billing-create', [
+      'title' => 'Add SOA',
+      'role' => 'Finance Manager',
+      'sidebar' => 'admin-finance',
+      'customers' => $customers,
+      'mode' => 'manual'
     ]);
   }
 
@@ -2065,7 +2209,7 @@ public function checkVoucher()
           'billing_period_start' => 'required|date',
           'billing_period_end' => 'required|date',
           'total_amount' => 'required|numeric',
-          'sales_order_ids' => 'required|array',
+          'sales_order_ids' => 'nullable|array',
           'items' => 'required|array',
           'status' => 'required'
       ]);
@@ -2073,6 +2217,8 @@ public function checkVoucher()
       $soa = \App\Models\StatementOfAccount::create([
           'soa_number' => $request->soa_number,
           'customer_id' => $request->customer_id,
+          'contact_person' => $request->contact_person,
+          'billing_address' => $request->billing_address,
           'billing_period_start' => $request->billing_period_start,
           'billing_period_end' => $request->billing_period_end,
           'total_amount' => $request->total_amount,
@@ -2082,15 +2228,17 @@ public function checkVoucher()
       foreach ($request->items as $item) {
           \App\Models\StatementOfAccountItem::create([
               'statement_of_account_id' => $soa->id,
-              'service' => $item['service'],
+              'service' => $item['service'] ?? '',
               'description' => $item['description'] ?? '',
-              'qty' => $item['qty'] ?? '',
+              'qty' => $item['qty'] ?? 1,
               'price' => $item['price'] ?? 0
           ]);
       }
 
-      \App\Models\SalesOrder::whereIn('id', $request->sales_order_ids)
-          ->update(['statement_of_account_id' => $soa->id]);
+      if (!empty($request->sales_order_ids)) {
+          \App\Models\SalesOrder::whereIn('id', $request->sales_order_ids)
+              ->update(['statement_of_account_id' => $soa->id]);
+      }
 
       return redirect()->route('admin-finance.credit-collection.billing')->with('success', 'Statement of Account created successfully.');
   }
@@ -2348,19 +2496,50 @@ public function checkVoucher()
     }
   }
 
-  public function ecomPayoutsIndex()
+  public function ecomPayoutsIndex(Request $request)
   {
-    $orders = \App\Models\SalesOrder::with(['customer', 'preparedBy'])
+    $query = \App\Models\SalesOrder::with(['customer', 'preparedBy'])
       ->where('type', 'ecom_direct')
-      ->whereIn('status', ['picking', 'ready_for_delivery', 'completed', 'verified'])
-      ->latest()
-      ->get();
+      ->whereIn('status', ['picking', 'ready_for_delivery', 'completed', 'verified']);
+
+    if ($request->filled('platform')) {
+      $query->where('ecom_platform', $request->platform);
+    }
+
+    if ($request->filled('date_from')) {
+      $query->whereDate('created_at', '>=', $request->date_from);
+    }
+
+    if ($request->filled('date_to')) {
+      $query->whereDate('created_at', '<=', $request->date_to);
+    }
+
+    $orders = $query->latest()->get();
+
+    $dbPlatforms = \App\Models\SalesOrder::where('type', 'ecom_direct')
+      ->whereNotNull('ecom_platform')
+      ->pluck('ecom_platform')
+      ->toArray();
+
+    $platforms = collect(['Shopee', 'Lazada', 'TikTok'])
+      ->merge($dbPlatforms)
+      ->filter()
+      ->unique(function ($p) {
+        return strtolower($p);
+      })
+      ->values();
 
     return view('admin-finance.accounting.ecom-payouts.index', [
-      'title' => 'E-com Direct Payouts',
-      'role' => auth()->user()->position ?? 'Finance Manager',
-      'sidebar' => 'admin-finance',
-      'orders' => $orders
+      'title'     => 'E-com Direct Payouts',
+      'role'      => auth()->user()->position ?? 'Finance Manager',
+      'sidebar'   => 'admin-finance',
+      'orders'    => $orders,
+      'platforms' => $platforms,
+      'filters'   => [
+        'platform'  => $request->platform,
+        'date_from' => $request->date_from,
+        'date_to'   => $request->date_to,
+      ],
     ]);
   }
 
@@ -2411,6 +2590,18 @@ public function checkVoucher()
     $order->save();
 
     return redirect()->back()->with('success', 'Attachment uploaded successfully.');
+  }
+
+  public function updatePaymentMethod(Request $request, $id)
+  {
+    $order = \App\Models\SalesOrder::findOrFail($id);
+    $paymentMethod = strtolower($request->input('payment_method', 'cash'));
+    $order->payment_method = $paymentMethod;
+    $order->save();
+
+    \App\Models\SalesInvoice::where('so_id', $order->id)->update(['payment_method' => $paymentMethod]);
+
+    return response()->json(['success' => true, 'message' => 'Payment method updated to ' . strtoupper($paymentMethod)]);
   }
 
   public function approveSalesOrder(Request $request, $id)
@@ -3004,35 +3195,58 @@ public function checkVoucher()
         }
 
         $tab = $request->query('tab', 'assets');
-        if (!in_array($tab, ['assets', 'liabilities', 'equity', 'income'])) {
+        if (!in_array($tab, ['assets', 'liabilities', 'equity', 'income', 'expenses'])) {
             $tab = 'assets';
         }
 
-        // --- Fetch unposted sales orders that have proof of payment or are ecom_direct ---
+        // --- Fetch unposted sales orders (POS, SO, E-Com, Area Sales, etc.) ---
         $postedOrderNumbers = \App\Models\JournalEntry::pluck('reference')->filter()->toArray();
 
-        $unpostedOrders = \App\Models\SalesOrder::whereNotIn('so_number', $postedOrderNumbers)
-            ->where(function($q) {
-                $q->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', '')
-                  ->orWhere('type', 'ecom_direct');
-            })
+        $unpostedOrders = \App\Models\SalesOrder::where('status', '!=', 'cancelled')
+            ->whereNotIn('so_number', $postedOrderNumbers)
             ->get();
 
         $unpostedLazada = $unpostedOrders->where('ecom_platform', 'lazada')->sum('total_amount');
         $unpostedShopee = $unpostedOrders->where('ecom_platform', 'shopee')->sum('total_amount');
         $unpostedTiktok = $unpostedOrders->where('ecom_platform', 'tiktok')->sum('total_amount');
         $unpostedFacebook = $unpostedOrders->where('ecom_platform', 'facebook')->sum('total_amount');
-        $unpostedCob = $unpostedOrders->where('type', 'website_direct')->sum('total_amount');
+        $unpostedCob = $unpostedOrders->filter(function($o) {
+            return $o->type === 'website_direct' || in_array($o->ecom_platform, ['website', 'cob']);
+        })->sum('total_amount');
         $unpostedExport = $unpostedOrders->where('transaction_subtype', 'foreign')->sum('total_amount');
         
-        $unpostedDirect = $unpostedOrders->filter(function($o) {
-            return in_array($o->type, ['paid', 'calculator_pos']) 
-                && !in_array($o->ecom_platform, ['lazada', 'shopee', 'tiktok', 'facebook'])
+        $unpostedPos = $unpostedOrders->where('type', 'calculator_pos')->sum('total_amount');
+        $unpostedSo = $unpostedOrders->filter(function($o) {
+            return !in_array($o->type, ['calculator_pos', 'area_consignment', 'area_sales_consignment', 'website_direct']) 
+                && empty($o->ecom_platform)
                 && $o->transaction_subtype !== 'foreign';
         })->sum('total_amount');
-        
+        $unpostedEcomDirect = $unpostedOrders->where('type', 'ecom_direct')->sum('total_amount');
+
+        $unpostedCash = $unpostedOrders->filter(function($o) {
+            return strtolower($o->payment_method ?? '') === 'cash' || empty($o->payment_method);
+        })->sum('total_amount');
+
+        $unpostedEwallet = $unpostedOrders->filter(function($o) {
+            return in_array(strtolower($o->payment_method ?? ''), ['gcash', 'paymaya', 'qr_ph', 'ewallet', 'qrph']);
+        })->sum('total_amount');
+
+        $unpostedBank = $unpostedOrders->filter(function($o) {
+            return in_array(strtolower($o->payment_method ?? ''), ['bank', 'check', 'bank_transfer', 'cheque']);
+        })->sum('total_amount');
+
+        $unpostedCard = $unpostedOrders->filter(function($o) {
+            return in_array(strtolower($o->payment_method ?? ''), ['card', 'credit_card', 'debit_card']);
+        })->sum('total_amount');
+
         $unpostedArea = $unpostedOrders->filter(function($o) {
             return in_array($o->type, ['area_consignment', 'area_sales_consignment']);
+        })->sum('total_amount');
+        
+        $unpostedDirect = $unpostedOrders->filter(function($o) {
+            return !in_array($o->ecom_platform, ['lazada', 'shopee', 'tiktok', 'facebook', 'website', 'cob'])
+                && !in_array($o->type, ['area_consignment', 'area_sales_consignment', 'website_direct'])
+                && $o->transaction_subtype !== 'foreign';
         })->sum('total_amount');
         
         $unpostedBookSales = $unpostedOrders->sum('total_amount');
@@ -3043,7 +3257,10 @@ public function checkVoucher()
             // Assets
             'cash_on_hand' => $this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds) ?: (\App\Models\SalesInvoice::sum('total_amount') + \App\Models\Payment::sum('amount') + \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where(function($q) { $q->where('payment_status', 'paid')->orWhere(function($sub) { $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', ''); })->orWhere('type', 'calculator_pos'); })->sum('total_amount')),
             'petty_cash' => $this->getAccountBalanceAndTrack('%Petty Cash%', 'Asset', $trackedIds) ?: \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
-            'bank_accounts' => $this->getAccountBalanceAndTrack('%Bank%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash in Bank%', 'Asset', $trackedIds),
+            'bank_accounts' => max(
+                $this->getAccountBalanceAndTrack('%Bank%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash in Bank%', 'Asset', $trackedIds),
+                (float) \App\Models\CompanyBankAccount::sum('current_balance')
+            ),
             'receivables' => \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where('payment_status', '!=', 'paid')->where(function($q) { $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', ''); })->whereNotIn('type', ['calculator_pos', 'ecom_direct'])->sum('total_amount') + \App\Models\StatementOfAccount::where('status', '!=', 'paid')->sum('total_amount'),
             'inventory_raw_materials' => max(0, $this->getAccountBalanceAndTrack('%Raw Materials%', 'Asset', $trackedIds)),
             'inventory_work_in_progress' => max(0, $this->getAccountBalanceAndTrack('%Work in Progress%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%WIP%', 'Asset', $trackedIds)),
@@ -3081,6 +3298,13 @@ public function checkVoucher()
             'print_lamination' => $this->getAccountBalanceAndTrack('%Lamination%', 'Income', $trackedIds),
 
             // Income (Marketing)
+            'mkt_pos_sales' => $this->getAccountBalanceAndTrack('%POS%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Point of Sale%', 'Income', $trackedIds) + $unpostedPos,
+            'mkt_so_sales' => $this->getAccountBalanceAndTrack('%Sales Order%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%SO Sales%', 'Income', $trackedIds) + $unpostedSo,
+            'mkt_ecom_direct' => $this->getAccountBalanceAndTrack('%E-Commerce%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Ecom%', 'Income', $trackedIds) + $unpostedEcomDirect,
+            'mkt_pay_cash' => $this->getAccountBalanceAndTrack('%Cash Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash Income%', 'Income', $trackedIds) + $unpostedCash,
+            'mkt_pay_ewallet' => $this->getAccountBalanceAndTrack('%E-Wallet%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%GCash%', 'Income', $trackedIds) + $unpostedEwallet,
+            'mkt_pay_bank' => $this->getAccountBalanceAndTrack('%Bank Transfer%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Check Income%', 'Income', $trackedIds) + $unpostedBank,
+            'mkt_pay_card' => $this->getAccountBalanceAndTrack('%Card Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Credit Card%', 'Income', $trackedIds) + $unpostedCard,
             'mkt_direct_sales' => $this->getAccountBalanceAndTrack('%Direct Sales%', 'Income', $trackedIds) + $unpostedDirect,
             'mkt_area_sales' => $this->getAccountBalanceAndTrack('%Area Sales%', 'Income', $trackedIds) + $unpostedArea,
             'mkt_cob_sales' => $this->getAccountBalanceAndTrack('%COB%', 'Income', $trackedIds) + $unpostedCob,
@@ -3098,6 +3322,16 @@ public function checkVoucher()
             'oth_investments' => $this->getAccountBalanceAndTrack('%Other Investment%', 'Income', $trackedIds),
             'oth_interest_income' => $this->getAccountBalanceAndTrack('%Interest%', 'Income', $trackedIds),
             'oth_rental_income' => $this->getAccountBalanceAndTrack('%Rental%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Rent%', 'Income', $trackedIds),
+
+            // Expenses
+            'exp_fixed_assets' => max($this->getAccountBalanceAndTrack('%Fixed Asset%', 'Expense', $trackedIds), (float) \App\Models\ProductionFixedAsset::sum('purchase_price')),
+            'exp_supplies' => max($this->getAccountBalanceAndTrack('%Supplies%', 'Expense', $trackedIds), (float) \App\Models\OfficeSupply::sum(\DB::raw('item_price * items_stock'))),
+            'exp_operational' => $this->getAccountBalanceAndTrack('%Operational%', 'Expense', $trackedIds) ?: \App\Models\Expense::sum('amount'),
+            'exp_cogs' => $this->getAccountBalanceAndTrack('%Cost of Goods%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%COGS%', 'Expense', $trackedIds),
+            'exp_payroll' => $this->getAccountBalanceAndTrack('%Payroll%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Salaries%', 'Expense', $trackedIds),
+            'exp_utilities' => $this->getAccountBalanceAndTrack('%Utilities%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Electricity%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Water%', 'Expense', $trackedIds),
+            'exp_marketing' => $this->getAccountBalanceAndTrack('%Marketing%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Advertising%', 'Expense', $trackedIds),
+            'exp_petty_cash' => \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
         ];
 
         // Also fetch any dynamic/uncategorized accounts from the database that don't match our pre-defined names
@@ -3110,6 +3344,8 @@ public function checkVoucher()
             $typeFilter = 'Equity';
         } elseif ($tab === 'income') {
             $typeFilter = 'Income';
+        } elseif ($tab === 'expenses') {
+            $typeFilter = 'Expense';
         }
 
         $uncategorizedAccounts = \App\Models\ChartOfAccount::where('type', $typeFilter)
@@ -3123,6 +3359,11 @@ public function checkVoucher()
                 } else {
                     $acc->balance = $credit - $debit;
                 }
+
+                if (stripos($acc->name, 'supplies') !== false) {
+                    $acc->balance = max($acc->balance, (float) \App\Models\OfficeSupply::sum(\DB::raw('item_price * items_stock')));
+                }
+
                 return $acc;
             });
 
@@ -3169,11 +3410,14 @@ public function checkVoucher()
             });
 
         $soaList = \App\Models\StatementOfAccount::with('customer')->latest()->get()->map(function($soa) {
+            $rawStatus = strtolower($soa->status ?? '');
+            $displayStatus = ($rawStatus === 'paid') ? 'Paid' : 'Unpaid';
+
             return (object)[
                 'soa_number' => $soa->soa_number,
                 'customer_name' => $soa->customer->customer_name ?? ($soa->customer->company_name ?? 'N/A'),
                 'type' => 'Statement of Account',
-                'status' => ucfirst($soa->status ?? 'Unpaid'),
+                'status' => $displayStatus,
                 'total_amount' => $soa->total_amount,
                 'created_at' => $soa->created_at,
             ];
@@ -3181,7 +3425,53 @@ public function checkVoucher()
 
         $statementOfAccounts = $unpaidReceivables->concat($soaList);
         $books = \App\Models\Book::select('name', 'stock', 'cost')->where('stock', '>', 0)->get();
-        $purchaseOrders = \App\Models\PurchaseOrder::select('po_number', 'total_amount', 'status', 'created_at')->latest()->get();
+        $purchaseOrders = \Illuminate\Support\Facades\Schema::hasTable('purchase_orders') ? \App\Models\PurchaseOrder::select('po_number', 'total_amount', 'status', 'created_at')->latest()->get() : collect();
+        $companyBankAccounts = \App\Models\CompanyBankAccount::latest()->get();
+        if ($companyBankAccounts->isEmpty()) {
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => 'BANK-BDO-101',
+                'bank_name' => 'BDO Unibank',
+                'account_name' => 'Claretian Communications Foundation Inc.',
+                'account_number' => '0012-3456-7890',
+                'account_type' => 'Checking',
+                'currency' => 'PHP',
+                'opening_balance' => 250000.00,
+                'current_balance' => 250000.00,
+                'status' => 'Active',
+                'notes' => 'Primary operational & clearing account'
+            ]);
+
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => 'BANK-BPI-102',
+                'bank_name' => 'BPI (Bank of the Philippine Islands)',
+                'account_name' => 'CCFI Operating Account',
+                'account_number' => '0987-6543-2100',
+                'account_type' => 'Savings',
+                'currency' => 'PHP',
+                'opening_balance' => 150000.00,
+                'current_balance' => 150000.00,
+                'status' => 'Active',
+                'notes' => 'Secondary operational account'
+            ]);
+
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => 'BANK-GCASH-103',
+                'bank_name' => 'GCash / Merchant E-Wallet',
+                'account_name' => 'Claretian Digital Collections',
+                'account_number' => '0917-888-9999',
+                'account_type' => 'E-Wallet',
+                'currency' => 'PHP',
+                'opening_balance' => 50000.00,
+                'current_balance' => 50000.00,
+                'status' => 'Active',
+                'notes' => 'Merchant collections & mobile QR'
+            ]);
+            $companyBankAccounts = \App\Models\CompanyBankAccount::latest()->get();
+        }
+
+        $officeSuppliesList = \App\Models\OfficeSupply::latest()->get();
+        $expensesRecordsList = \App\Models\Expense::with(['department', 'addedBy'])->latest()->get();
+        $fixedAssetsRecordsList = \App\Models\ProductionFixedAsset::latest()->get();
 
         return view('admin-finance.accounting.chart-of-accounts', [
             'title' => 'Chart of Accounts - ' . ucfirst($tab),
@@ -3195,6 +3485,10 @@ public function checkVoucher()
             'statementOfAccounts' => $statementOfAccounts,
             'books' => $books,
             'purchaseOrders' => $purchaseOrders,
+            'companyBankAccounts' => $companyBankAccounts,
+            'officeSuppliesList' => $officeSuppliesList,
+            'expensesRecordsList' => $expensesRecordsList,
+            'fixedAssetsRecordsList' => $fixedAssetsRecordsList,
         ]);
     }
 
@@ -3223,6 +3517,10 @@ public function checkVoucher()
         $bookstoreChargeSales = \App\Models\SalesOrder::where('type', 'charge')
             ->sum('total_amount') ?: 0.00;
 
+        $bookstoreDiscountSales = \App\Models\SalesOrder::where('status', '!=', 'cancelled')
+            ->where('discount_amount', '>', 0)
+            ->sum('discount_amount') ?: 0.00;
+
         // Bookstore Detail Lists
         $bookstoreDailyOrders = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
             ->latest()
@@ -3247,25 +3545,48 @@ public function checkVoucher()
             ->latest()
             ->get();
 
-        // 2. E-Commerce Platform Data
-        $ecomWebsiteSales = \App\Models\SalesOrder::where('platform', 'website')->sum('total_amount') ?: 0.00;
-        $ecomShopeeSales = \App\Models\SalesOrder::where('platform', 'shopee')->sum('total_amount') ?: 0.00;
-        $ecomLazadaSales = \App\Models\SalesOrder::where('platform', 'lazada')->sum('total_amount') ?: 0.00;
-        $ecomFacebookSales = \App\Models\SalesOrder::where('platform', 'facebook')->sum('total_amount') ?: 0.00;
-        $ecomTiktokSales = \App\Models\SalesOrder::where('platform', 'tiktok')->sum('total_amount') ?: 0.00;
-        
-        $ecomWebsiteOrders = \App\Models\SalesOrder::where('platform', 'website')->latest()->get();
-        $ecomShopeeOrders = \App\Models\SalesOrder::where('platform', 'shopee')->latest()->get();
-        $ecomLazadaOrders = \App\Models\SalesOrder::where('platform', 'lazada')->latest()->get();
-        $ecomFacebookOrders = \App\Models\SalesOrder::where('platform', 'facebook')->latest()->get();
-        $ecomTiktokOrders = \App\Models\SalesOrder::where('platform', 'tiktok')->latest()->get();
-
-        // 3. Area Sales Data
-        $areaRepSales = \App\Models\SalesOrder::whereNotNull('area_sales_staff_id')->sum('total_amount') ?: 0.00;
-        $areaOrders = \App\Models\SalesOrder::whereNotNull('area_sales_staff_id')
-            ->with(['createdBy', 'customer'])
+        $bookstoreDiscountOrders = \App\Models\SalesOrder::where('status', '!=', 'cancelled')
+            ->where('discount_amount', '>', 0)
+            ->with(['customer', 'preparedBy'])
             ->latest()
             ->get();
+
+        // 2. E-Commerce Platform Data
+        $getEcomQuery = function($pName, $typeFallback = null) {
+            return \App\Models\SalesOrder::where(function($q) use ($pName, $typeFallback) {
+                $q->where('platform', $pName)
+                  ->orWhere('ecom_platform', $pName);
+                if ($typeFallback) {
+                    $q->orWhere('type', $typeFallback);
+                }
+            });
+        };
+
+        $ecomWebsiteSales  = (clone $getEcomQuery('website', 'direct_invoice_website'))->sum('total_amount') ?: 0.00;
+        $ecomShopeeSales   = (clone $getEcomQuery('shopee'))->sum('total_amount') ?: 0.00;
+        $ecomLazadaSales   = (clone $getEcomQuery('lazada'))->sum('total_amount') ?: 0.00;
+        $ecomFacebookSales = (clone $getEcomQuery('facebook'))->sum('total_amount') ?: 0.00;
+        $ecomTiktokSales   = (clone $getEcomQuery('tiktok'))->sum('total_amount') ?: 0.00;
+
+        $ecomWebsiteOrders  = (clone $getEcomQuery('website', 'direct_invoice_website'))->with(['customer', 'preparedBy'])->latest()->get();
+        $ecomShopeeOrders   = (clone $getEcomQuery('shopee'))->with(['customer', 'preparedBy'])->latest()->get();
+        $ecomLazadaOrders   = (clone $getEcomQuery('lazada'))->with(['customer', 'preparedBy'])->latest()->get();
+        $ecomFacebookOrders = (clone $getEcomQuery('facebook'))->with(['customer', 'preparedBy'])->latest()->get();
+        $ecomTiktokOrders   = (clone $getEcomQuery('tiktok'))->with(['customer', 'preparedBy'])->latest()->get();
+
+        // 3. Area Sales Data
+        $areaRepSales = \App\Models\SalesOrder::where(function($q) {
+            $q->whereNotNull('area_sales_staff_id')
+              ->orWhere('type', 'area_sales_consignment');
+        })->sum('total_amount') ?: 0.00;
+
+        $areaOrders = \App\Models\SalesOrder::where(function($q) {
+            $q->whereNotNull('area_sales_staff_id')
+              ->orWhere('type', 'area_sales_consignment');
+        })
+        ->with(['createdBy', 'preparedBy', 'areaSalesStaff', 'customer'])
+        ->latest()
+        ->get();
 
         return view('admin-finance.accounting.sales-management', [
             'title' => 'Sales Management - ' . ucfirst($tab),
@@ -3279,6 +3600,7 @@ public function checkVoucher()
             'bookstoreGcashSales' => $bookstoreGcashSales,
             'bookstoreCardSales' => $bookstoreCardSales,
             'bookstoreChargeSales' => $bookstoreChargeSales,
+            'bookstoreDiscountSales' => $bookstoreDiscountSales,
             
             // Bookstore lists
             'bookstoreDailyOrders' => $bookstoreDailyOrders,
@@ -3286,6 +3608,7 @@ public function checkVoucher()
             'bookstoreGcashOrders' => $bookstoreGcashOrders,
             'bookstoreCardOrders' => $bookstoreCardOrders,
             'bookstoreChargeOrders' => $bookstoreChargeOrders,
+            'bookstoreDiscountOrders' => $bookstoreDiscountOrders,
             
             // Ecom metrics
             'ecomWebsiteSales' => $ecomWebsiteSales,
@@ -3316,6 +3639,7 @@ public function checkVoucher()
 
         foreach ($dbCustomers as $cust) {
             $allOrders = \App\Models\SalesOrder::where('customer_id', $cust->customer_id)
+                ->with(['areaSalesStaff', 'preparedBy'])
                 ->latest()
                 ->get();
 
@@ -3340,9 +3664,19 @@ public function checkVoucher()
                 $so->computed_remaining = $rem;
                 $so->computed_status = $status;
 
+                $salesRep = 'N/A';
+                if ($so->areaSalesStaff) {
+                    $salesRep = $so->areaSalesStaff->name;
+                } elseif ($so->preparedBy) {
+                    $salesRep = $so->preparedBy->name;
+                } elseif ($so->type === 'calculator_pos') {
+                    $salesRep = 'Admin - POS';
+                }
+
                 return (object)[
                     'so_number' => $so->so_number,
                     'date' => $so->created_at ? $so->created_at->format('M d, Y') : 'N/A',
+                    'sales_rep' => $salesRep,
                     'total_amount' => $so->total_amount,
                     'paid_amount' => $paid,
                     'remaining_balance' => $rem,
@@ -3625,7 +3959,95 @@ public function checkVoucher()
             'notes' => $request->notes,
         ]);
 
-        return redirect()->back()->with('success', 'Supplier payment recorded successfully!');
+        return redirect()->back()->with('success', 'Payment recorded successfully!');
+    }
+
+    public function updateSupplier(Request $request, $id)
+    {
+        $supplier = \App\Models\Supplier::findOrFail($id);
+        
+        $request->validate([
+            'company_name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'contact_person' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:50',
+            'tin' => 'nullable|string|max:50',
+            'address' => 'nullable|string',
+            'tax_rate' => 'nullable|numeric|min:0|max:100',
+            'terms' => 'nullable|string|max:100',
+            'status' => 'required|string',
+        ]);
+
+        $supplier->update([
+            'company_name' => $request->company_name,
+            'category' => $request->category,
+            'contact_person' => $request->contact_person,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'tin' => $request->tin,
+            'address' => $request->address,
+            'tax_rate' => $request->tax_rate ?: 1.00,
+            'terms' => $request->terms ?: '30 Days',
+            'status' => $request->status,
+        ]);
+
+        return redirect()->back()->with('success', 'Supplier updated successfully!');
+    }
+
+    public function destroySupplier($id)
+    {
+        $supplier = \App\Models\Supplier::findOrFail($id);
+        $supplier->delete();
+        return redirect()->back()->with('success', 'Supplier deleted successfully!');
+    }
+
+    public function updateSupplierInvoice(Request $request, $id)
+    {
+        $invoice = \App\Models\SupplierInvoice::findOrFail($id);
+        
+        $request->validate([
+            'invoice_number' => 'required|string|unique:supplier_invoices,invoice_number,' . $id,
+            'invoice_date' => 'required|date',
+            'due_date' => 'required|date|after_or_equal:invoice_date',
+            'subtotal' => 'required|numeric|min:0',
+            'withholding_tax_rate' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
+
+        $subtotal = (float) $request->subtotal;
+        $taxRate = $request->has('withholding_tax_rate') && $request->withholding_tax_rate !== null ? (float) $request->withholding_tax_rate : (float) ($invoice->supplier->tax_rate ?: 1.00);
+        $withholdingTaxAmount = round(($subtotal * $taxRate) / 100, 2);
+        $taxAmount = round($subtotal * 0.12, 2);
+        $totalAmount = ($subtotal + $taxAmount) - $withholdingTaxAmount;
+
+        $invoice->update([
+            'invoice_number' => $request->invoice_number,
+            'invoice_date' => $request->invoice_date,
+            'due_date' => $request->due_date,
+            'subtotal' => $subtotal,
+            'tax_amount' => $taxAmount,
+            'withholding_tax_rate' => $taxRate,
+            'withholding_tax_amount' => $withholdingTaxAmount,
+            'total_amount' => $totalAmount,
+            'notes' => $request->notes,
+        ]);
+
+        return redirect()->back()->with('success', 'Supplier invoice updated successfully!');
+    }
+
+    public function destroySupplierInvoice($id)
+    {
+        $invoice = \App\Models\SupplierInvoice::findOrFail($id);
+        $invoice->delete();
+        return redirect()->back()->with('success', 'Supplier invoice deleted successfully!');
+    }
+
+    public function destroySupplierPayment($id)
+    {
+        $payment = \App\Models\SupplierPayment::findOrFail($id);
+        $payment->delete();
+        return redirect()->back()->with('success', 'Supplier payment deleted successfully!');
     }
 
     public function investments(Request $request)
@@ -3682,6 +4104,7 @@ public function checkVoucher()
             'metrics' => [
                 'total_principal' => $totalPrincipal,
                 'total_current_val' => $totalCurrentVal,
+                'total_current_value' => $totalCurrentVal,
                 'total_dividends' => $totalDividendsAll,
                 'total_interest' => $totalInterestAll,
                 'total_return' => $totalReturnAll,
@@ -3713,13 +4136,11 @@ public function checkVoucher()
             'institution' => 'required|string|max:255',
             'principal_amount' => 'required|numeric|min:0',
             'current_value' => 'required|numeric|min:0',
-            'interest_rate' => 'nullable|numeric|min:0',
             'acquisition_date' => 'required|date',
-            'maturity_date' => 'nullable|date',
             'notes' => 'nullable|string',
         ]);
 
-        $code = 'INV-PORT-' . date('Ym') . '-' . rand(1000, 9999);
+        $code = 'INV-' . date('Ym') . '-' . rand(100, 999);
 
         $investment = new \App\Models\Investment($request->all());
         $investment->portfolio_code = $code;
@@ -3727,8 +4148,18 @@ public function checkVoucher()
         $investment->recalculatePerformance();
         $investment->save();
 
-        return redirect()->route('admin-finance.investments.show', $investment->id)
-            ->with('success', "Investment portfolio '{$investment->name}' created successfully!");
+        return redirect()->route('admin-finance.investments.index')
+            ->with('success', "Investment asset '{$investment->name}' added successfully!");
+    }
+
+    public function destroyInvestment($id)
+    {
+        $investment = \App\Models\Investment::findOrFail($id);
+        $name = $investment->name;
+        $investment->delete();
+
+        return redirect()->route('admin-finance.investments.index')
+            ->with('success', "Investment asset '{$name}' has been deleted successfully.");
     }
 
     public function storeInvestmentTransaction(Request $request)
@@ -3887,6 +4318,30 @@ public function checkVoucher()
         return redirect()->back()->with('success', "Donor '{$donor->name}' registered successfully!");
     }
 
+    public function updateDonor(Request $request, $id)
+    {
+        $donor = \App\Models\Donor::findOrFail($id);
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|string',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:100',
+        ]);
+
+        $donor->update($request->only(['name', 'type', 'email', 'phone']));
+
+        return redirect()->back()->with('success', "Donor '{$donor->name}' updated successfully!");
+    }
+
+    public function destroyDonor($id)
+    {
+        $donor = \App\Models\Donor::findOrFail($id);
+        $name = $donor->name;
+        $donor->delete();
+
+        return redirect()->back()->with('success', "Donor '{$name}' has been deleted successfully.");
+    }
+
     public function storeDonation(Request $request)
     {
         $request->validate([
@@ -3928,8 +4383,18 @@ public function checkVoucher()
             }
         }
 
-        return redirect()->route('admin-finance.donations.show', $donation->id)
+        return redirect()->route('admin-finance.donations.index')
             ->with('success', "Donation {$no} recorded and Acknowledgement Receipt {$receipt} issued!");
+    }
+
+    public function destroyDonation($id)
+    {
+        $donation = \App\Models\Donation::findOrFail($id);
+        $no = $donation->donation_no;
+        $donation->delete();
+
+        return redirect()->route('admin-finance.donations.index')
+            ->with('success', "Donation record '{$no}' has been deleted successfully.");
     }
 
     public function storeDonationCampaign(Request $request)
@@ -4074,8 +4539,18 @@ public function checkVoucher()
         $budget->recalculateMetrics();
         $budget->save();
 
-        return redirect()->route('admin-finance.budgeting.show', $budget->id)
+        return redirect()->route('admin-finance.budgeting.index')
             ->with('success', "Annual Budget for '{$budget->department}' saved successfully!");
+    }
+
+    public function destroyDepartmentBudget($id)
+    {
+        $budget = \App\Models\DepartmentBudget::findOrFail($id);
+        $dept = $budget->department;
+        $budget->delete();
+
+        return redirect()->route('admin-finance.budgeting.index')
+            ->with('success', "Department budget for '{$dept}' has been deleted successfully.");
     }
 
     public function storeBudgetLineItem(Request $request)
@@ -4101,6 +4576,140 @@ public function checkVoucher()
 
     public function cashManagement(Request $request)
     {
+        // 0. Ensure default institutional bank accounts exist
+        if (\App\Models\CompanyBankAccount::count() === 0) {
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => 'BANK-BDO-101',
+                'bank_name' => 'BDO Unibank',
+                'account_name' => 'Claretian Communications Foundation Inc.',
+                'account_number' => '0012-3456-7890',
+                'account_type' => 'Checking',
+                'currency' => 'PHP',
+                'opening_balance' => 250000.00,
+                'current_balance' => 250000.00,
+                'status' => 'Active',
+                'notes' => 'Primary operational & clearing account'
+            ]);
+
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => 'BANK-BPI-102',
+                'bank_name' => 'BPI (Bank of the Philippine Islands)',
+                'account_name' => 'CCFI Operating Account',
+                'account_number' => '0987-6543-2100',
+                'account_type' => 'Savings',
+                'currency' => 'PHP',
+                'opening_balance' => 150000.00,
+                'current_balance' => 150000.00,
+                'status' => 'Active',
+                'notes' => 'Secondary operational account'
+            ]);
+
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => 'BANK-GCASH-103',
+                'bank_name' => 'GCash / Merchant E-Wallet',
+                'account_name' => 'Claretian Digital Collections',
+                'account_number' => '0917-888-9999',
+                'account_type' => 'E-Wallet',
+                'currency' => 'PHP',
+                'opening_balance' => 50000.00,
+                'current_balance' => 50000.00,
+                'status' => 'Active',
+                'notes' => 'Merchant collections & mobile QR'
+            ]);
+        }
+
+        // 1. Sync paid Sales Orders & Payments to Cash Transactions if none exist yet
+        if (\App\Models\CashTransaction::count() === 0) {
+            $primaryBank = \App\Models\CompanyBankAccount::first();
+            $bankId = $primaryBank ? $primaryBank->id : null;
+
+            // Inflows from Sales Orders
+            $salesOrders = \App\Models\SalesOrder::whereIn('type', ['paid', 'calculator_pos'])
+                ->orWhere('status', 'completed')
+                ->latest()
+                ->take(50)
+                ->get();
+
+            foreach ($salesOrders as $so) {
+                \App\Models\CashTransaction::create([
+                    'transaction_no' => 'CTX-IN-' . str_pad($so->id, 5, '0', STR_PAD_LEFT),
+                    'bank_account_id' => $bankId,
+                    'transaction_type' => 'Deposit',
+                    'category' => 'Inflow',
+                    'amount' => $so->total_amount,
+                    'reference_no' => $so->so_number ?: ('SO-' . $so->id),
+                    'payee_or_payer' => $so->customer ? ($so->customer->customer_name ?? $so->customer->company_name) : 'Walk-in Cash Customer',
+                    'transaction_date' => $so->created_at ? $so->created_at->format('Y-m-d') : date('Y-m-d'),
+                    'status' => 'Cleared',
+                    'notes' => 'Customer Sales Order revenue collection (' . ucfirst($so->payment_method ?: 'cash') . ')'
+                ]);
+            }
+
+            // Outflows from Supplier Payments
+            $supplierPayments = \App\Models\Payment::with(['supplier', 'invoice'])->latest()->take(20)->get();
+            foreach ($supplierPayments as $sp) {
+                \App\Models\CashTransaction::create([
+                    'transaction_no' => 'CTX-OUT-' . str_pad($sp->id, 5, '0', STR_PAD_LEFT),
+                    'bank_account_id' => $bankId,
+                    'transaction_type' => 'Check Issuance',
+                    'category' => 'Outflow',
+                    'amount' => $sp->amount_paid,
+                    'reference_no' => $sp->reference_number ?: ('PAY-' . $sp->id),
+                    'payee_or_payer' => $sp->supplier ? $sp->supplier->company_name : 'Supplier Vendor',
+                    'transaction_date' => $sp->payment_date ? date('Y-m-d', strtotime($sp->payment_date)) : date('Y-m-d'),
+                    'status' => 'Cleared',
+                    'notes' => 'Supplier invoice settlement disbursement'
+                ]);
+            }
+        }
+
+        // 2. Ensure Petty Cash Vouchers are created & synced into Cash Transactions
+        if (\App\Models\PettyCashVoucher::count() === 0) {
+            $pcv1 = \App\Models\PettyCashVoucher::create([
+                'pcv_number' => 'PCV-2026-001',
+                'type' => 'Store & Office Supplies',
+                'date' => date('Y-m-d', strtotime('-2 days')),
+                'pay_to' => 'Juan Dela Cruz (Store Custodian)',
+                'status' => 'completed',
+                'created_by' => auth()->id() ?: 1,
+            ]);
+            $pcv1->items()->create(['description' => 'Office stationeries & receipt paper rolls', 'amount' => 1250.00]);
+
+            $pcv2 = \App\Models\PettyCashVoucher::create([
+                'pcv_number' => 'PCV-2026-002',
+                'type' => 'Local Transportation & Freight',
+                'date' => date('Y-m-d', strtotime('-1 days')),
+                'pay_to' => 'Maria Santos (Courier Transport)',
+                'status' => 'completed',
+                'created_by' => auth()->id() ?: 1,
+            ]);
+            $pcv2->items()->create(['description' => 'Local messenger & document dispatch fee', 'amount' => 850.00]);
+        }
+
+        $primaryBank = \App\Models\CompanyBankAccount::first();
+        $bankId = $primaryBank ? $primaryBank->id : null;
+
+        $pettyVouchers = \App\Models\PettyCashVoucher::with('items')->get();
+        foreach ($pettyVouchers as $pcv) {
+            $txNo = 'CTX-PCV-' . str_pad($pcv->id, 5, '0', STR_PAD_LEFT);
+            $amount = $pcv->items->sum('amount') ?: 0.00;
+
+            \App\Models\CashTransaction::firstOrCreate(
+                ['transaction_no' => $txNo],
+                [
+                    'bank_account_id' => $bankId,
+                    'transaction_type' => 'Petty Cash',
+                    'category' => 'Outflow',
+                    'amount' => $amount,
+                    'reference_no' => $pcv->pcv_number ?: ('PCV-' . $pcv->id),
+                    'payee_or_payer' => $pcv->pay_to ?: 'Petty Cash Custodian',
+                    'transaction_date' => $pcv->date ? date('Y-m-d', strtotime($pcv->date)) : date('Y-m-d'),
+                    'status' => 'Cleared',
+                    'notes' => 'Petty Cash Voucher Disbursement (' . ($pcv->type ?: 'Expense') . ')'
+                ]
+            );
+        }
+
         $filterTabs = [
             'Cash Position',
             'Bank Accounts',
@@ -4212,6 +4821,43 @@ public function checkVoucher()
         return redirect()->back()->with('success', "Bank Account '{$acct->bank_name} - {$acct->account_number}' registered successfully!");
     }
 
+    public function updateCompanyBankAccount(Request $request, $id)
+    {
+        $acct = \App\Models\CompanyBankAccount::findOrFail($id);
+        $request->validate([
+            'bank_name' => 'required|string|max:255',
+            'account_name' => 'required|string|max:255',
+            'account_number' => 'required|string|max:255',
+            'account_type' => 'required|string',
+            'opening_balance' => 'required|numeric|min:0',
+            'status' => 'nullable|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        $acct->update($request->only([
+            'bank_name',
+            'account_name',
+            'account_number',
+            'account_type',
+            'opening_balance',
+            'status',
+            'notes',
+        ]));
+
+        $acct->recalculateBalance()->save();
+
+        return redirect()->back()->with('success', "Bank Account '{$acct->bank_name}' updated successfully!");
+    }
+
+    public function destroyCompanyBankAccount($id)
+    {
+        $acct = \App\Models\CompanyBankAccount::findOrFail($id);
+        $name = $acct->bank_name;
+        $acct->delete();
+
+        return redirect()->back()->with('success', "Bank Account '{$name}' has been deleted successfully.");
+    }
+
     public function storeCashTransaction(Request $request)
     {
         $request->validate([
@@ -4256,15 +4902,15 @@ public function checkVoucher()
             'Balance Sheet',
             'Income Statement',
             'Cash Flow',
-            'Trial Balance',
+            // 'Trial Balance',
             'General Ledger',
-            'Subsidiary Ledgers',
+            // 'Subsidiary Ledgers',
             'Sales Reports',
             'Expense Reports',
-            'Department Reports',
+            // 'Department Reports',
             'Profit by Product',
             'Profit by Customer',
-            'Profit by Branch',
+            'Profit by Sales Channel',
             'Profit by Salesperson',
         ];
 
@@ -4328,15 +4974,63 @@ public function checkVoucher()
                 ],
             ];
         } elseif ($selectedReport === 'Income Statement') {
-            $bookstoreRev = \App\Models\SalesOrder::where('type', 'calculator_pos')->sum('total_amount') ?: 0.00;
-            $areaRev = \App\Models\SalesOrder::whereIn('type', ['area_consignment', 'area_sales_consignment'])->sum('total_amount') ?: 0.00;
-            $ecomRev = \App\Models\SalesOrder::where('type', 'ecom_direct')->sum('total_amount') ?: 0.00;
-            $otherRev = \App\Models\SalesOrder::whereNotIn('type', ['calculator_pos', 'area_consignment', 'area_sales_consignment', 'ecom_direct'])->sum('total_amount') ?: 0.00;
+            $salesFilter = function($q) {
+                $q->where(function($sub) {
+                    $sub->whereNotNull('sales_orders.proof_of_payment')->where('sales_orders.proof_of_payment', '!=', '')
+                       ->orWhere('sales_orders.type', 'ecom_direct')
+                       ->orWhere('sales_orders.type', 'calculator_pos')
+                       ->orWhere('sales_orders.payment_method', 'cash');
+                });
+            };
+
+            $query = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->where($salesFilter)
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+
+            $bookstoreRev = (float) (clone $query)->where('sales_orders.type', 'calculator_pos')->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+            $areaRev = (float) (clone $query)->whereIn('sales_orders.type', ['area_consignment', 'area_sales_consignment'])->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+            $ecomRev = (float) (clone $query)->where('sales_orders.type', 'ecom_direct')->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+            $otherRev = (float) (clone $query)->whereNotIn('sales_orders.type', ['calculator_pos', 'area_consignment', 'area_sales_consignment', 'ecom_direct'])->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+
+            $realExpenses = \Illuminate\Support\Facades\Schema::hasTable('expenses')
+                ? \App\Models\Expense::whereBetween('expense_date', [$startDate, $endDate])->get()
+                : collect();
+
+            $salaries = 0;
+            $utilities = 0;
+            $depreciation = 0;
+            $marketing = 0;
+            $otherOpex = 0;
+
+            foreach ($realExpenses as $exp) {
+                $titleLower = strtolower($exp->title);
+                if (str_contains($titleLower, 'salary') || str_contains($titleLower, 'wage') || str_contains($titleLower, 'personnel') || str_contains($titleLower, 'payroll')) {
+                    $salaries += (float) $exp->amount;
+                } elseif (str_contains($titleLower, 'electric') || str_contains($titleLower, 'utility') || str_contains($titleLower, 'water') || str_contains($titleLower, 'internet') || str_contains($titleLower, 'power')) {
+                    $utilities += (float) $exp->amount;
+                } elseif (str_contains($titleLower, 'depreciation') || str_contains($titleLower, 'amortization')) {
+                    $depreciation += (float) $exp->amount;
+                } elseif (str_contains($titleLower, 'ad') || str_contains($titleLower, 'promo') || str_contains($titleLower, 'marketing') || str_contains($titleLower, 'campaign')) {
+                    $marketing += (float) $exp->amount;
+                } else {
+                    $otherOpex += (float) $exp->amount;
+                }
+            }
+
+            $operatingExpenses = [
+                ['category' => 'Salaries & Personnel Expenses', 'amount' => $salaries],
+                ['category' => 'Electricity & Utility Bills', 'amount' => $utilities],
+                ['category' => 'Depreciation & Amortization', 'amount' => $depreciation],
+                ['category' => 'Advertising & Promotions', 'amount' => $marketing],
+            ];
+            if ($otherOpex > 0) {
+                $operatingExpenses[] = ['category' => 'Other Operating Expenses', 'amount' => $otherOpex];
+            }
 
             $reportData = [
                 'revenue' => [
-                    ['category' => 'Bookstore Sales Revenue', 'amount' => $bookstoreRev],
-                    ['category' => 'Area Sales Revenue', 'amount' => $areaRev],
+                    ['category' => 'Bookstore Sales Revenue (POS)', 'amount' => $bookstoreRev],
+                    ['category' => 'Area Sales Revenue (Consignment)', 'amount' => $areaRev],
                     ['category' => 'E-Commerce Website Sales', 'amount' => $ecomRev],
                     ['category' => 'Wholesale & Institution Direct Sales', 'amount' => $otherRev],
                 ],
@@ -4344,13 +5038,84 @@ public function checkVoucher()
                     ['category' => 'Direct Production COGS (Paper, Ink, Labor)', 'amount' => 0.00],
                     ['category' => 'Outside Printing & Freight', 'amount' => 0.00],
                 ],
-                'operating_expenses' => [
-                    ['category' => 'Salaries & Personnel Expenses', 'amount' => 0.00],
-                    ['category' => 'Electricity & Utility Bills', 'amount' => 0.00],
-                    ['category' => 'Depreciation & Amortization', 'amount' => 0.00],
-                    ['category' => 'Advertising & Promotions', 'amount' => 0.00],
-                ],
+                'operating_expenses' => $operatingExpenses,
             ];
+        } elseif ($selectedReport === 'Cash Flow') {
+            $salesFilter = function($q) {
+                $q->where(function($sub) {
+                    $sub->whereNotNull('sales_orders.proof_of_payment')->where('sales_orders.proof_of_payment', '!=', '')
+                       ->orWhere('sales_orders.type', 'ecom_direct')
+                       ->orWhere('sales_orders.type', 'calculator_pos')
+                       ->orWhere('sales_orders.payment_method', 'cash');
+                });
+            };
+
+            $cashReceipts = (float) \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->where($salesFilter)
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                ->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+
+            $cashPaidExpenses = \Illuminate\Support\Facades\Schema::hasTable('expenses')
+                ? (float) \App\Models\Expense::whereBetween('expense_date', [$startDate, $endDate])->sum('amount')
+                : 0.00;
+
+            $fixedAssetPurchases = \Illuminate\Support\Facades\Schema::hasTable('production_fixed_assets')
+                ? (float) \App\Models\ProductionFixedAsset::whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])->sum('purchase_price')
+                : 0.00;
+
+            $netChange = $cashReceipts - $cashPaidExpenses - $fixedAssetPurchases;
+            $beginningCash = max(0, $totalCash - $netChange);
+            $endingCash = $beginningCash + $netChange;
+
+            $reportData = [
+                'operating' => [
+                    ['category' => 'Cash Receipts from Customers', 'amount' => $cashReceipts],
+                    ['category' => 'Cash Paid for Operating Expenses', 'amount' => -$cashPaidExpenses],
+                ],
+                'investing' => [
+                    ['category' => 'Purchase of Fixed Assets & Equipment', 'amount' => -$fixedAssetPurchases],
+                ],
+                'financing' => [
+                    ['category' => 'Repayment of Loans / Capital Transactions', 'amount' => 0.00],
+                ],
+                'summary' => [
+                    'net_change' => $netChange,
+                    'beginning' => $beginningCash,
+                    'ending' => $endingCash,
+                ]
+            ];
+        } elseif ($selectedReport === 'Sales Reports') {
+            $salesFilter = function($q) {
+                $q->where(function($sub) {
+                    $sub->whereNotNull('sales_orders.proof_of_payment')->where('sales_orders.proof_of_payment', '!=', '')
+                       ->orWhere('sales_orders.type', 'ecom_direct')
+                       ->orWhere('sales_orders.type', 'calculator_pos')
+                       ->orWhere('sales_orders.payment_method', 'cash');
+                });
+            };
+
+            $reportData = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->select(
+                    'sales_orders.id',
+                    'sales_orders.so_number',
+                    'sales_orders.customer_id',
+                    'sales_orders.type',
+                    'sales_orders.status',
+                    \DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at) as effective_date'),
+                    \DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount) as effective_amount')
+                )
+                ->with('customer')
+                ->where($salesFilter)
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                ->orderBy('effective_date', 'desc')
+                ->get();
+        } elseif ($selectedReport === 'Expense Reports') {
+            $reportData = \Illuminate\Support\Facades\Schema::hasTable('expenses')
+                ? \App\Models\Expense::whereBetween('expense_date', [$startDate, $endDate])
+                    ->with('department')
+                    ->orderBy('expense_date', 'desc')
+                    ->get()
+                : collect();
         } elseif ($selectedReport === 'Profit by Product') {
             $reportData = \App\Models\Book::select('id', 'name', 'sku', 'price', 'cost')
                 ->take(20)
@@ -4378,15 +5143,30 @@ public function checkVoucher()
                         'margin_pct' => $margin,
                     ];
                 });
-        } elseif ($selectedReport === 'Profit by Branch') {
-            $posRev = \App\Models\SalesOrder::where('type', 'calculator_pos')->sum('total_amount') ?: 0.00;
-            $ecomRev = \App\Models\SalesOrder::where('type', 'ecom_direct')->sum('total_amount') ?: 0.00;
-            $areaRev = \App\Models\SalesOrder::whereIn('type', ['area_consignment', 'area_sales_consignment'])->sum('total_amount') ?: 0.00;
+        } elseif ($selectedReport === 'Profit by Sales Channel') {
+            $salesFilter = function($q) {
+                $q->where(function($sub) {
+                    $sub->whereNotNull('sales_orders.proof_of_payment')->where('sales_orders.proof_of_payment', '!=', '')
+                       ->orWhere('sales_orders.type', 'ecom_direct')
+                       ->orWhere('sales_orders.type', 'calculator_pos')
+                       ->orWhere('sales_orders.payment_method', 'cash');
+                });
+            };
+
+            $query = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->where($salesFilter)
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+
+            $posRev = (float) (clone $query)->where('sales_orders.type', 'calculator_pos')->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+            $soRev = (float) (clone $query)->whereNotIn('sales_orders.type', ['calculator_pos', 'area_consignment', 'area_sales_consignment', 'ecom_direct'])->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+            $nbsRev = (float) (clone $query)->whereIn('sales_orders.type', ['area_consignment', 'area_sales_consignment'])->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+            $ecomRev = (float) (clone $query)->where('sales_orders.type', 'ecom_direct')->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
 
             $reportData = [
-                ['branch' => 'Main Bookstore - Manila (POS)', 'revenue' => $posRev, 'expenses' => 0.00, 'profit' => $posRev, 'margin' => $posRev > 0 ? 100.0 : 0.0],
-                ['branch' => 'E-Commerce Central Warehouse', 'revenue' => $ecomRev, 'expenses' => 0.00, 'profit' => $ecomRev, 'margin' => $ecomRev > 0 ? 100.0 : 0.0],
-                ['branch' => 'Area Sales & Regional Hubs', 'revenue' => $areaRev, 'expenses' => 0.00, 'profit' => $areaRev, 'margin' => $areaRev > 0 ? 100.0 : 0.0],
+                ['channel' => 'POS', 'revenue' => $posRev, 'expenses' => 0.00, 'profit' => $posRev, 'margin' => $posRev > 0 ? 100.0 : 0.0],
+                ['channel' => 'SO', 'revenue' => $soRev, 'expenses' => 0.00, 'profit' => $soRev, 'margin' => $soRev > 0 ? 100.0 : 0.0],
+                ['channel' => 'NBS', 'revenue' => $nbsRev, 'expenses' => 0.00, 'profit' => $nbsRev, 'margin' => $nbsRev > 0 ? 100.0 : 0.0],
+                ['channel' => 'E-Com', 'revenue' => $ecomRev, 'expenses' => 0.00, 'profit' => $ecomRev, 'margin' => $ecomRev > 0 ? 100.0 : 0.0],
             ];
         } elseif ($selectedReport === 'Profit by Customer') {
             $reportData = \App\Models\Customer::orderBy('customer_name')
@@ -4406,32 +5186,56 @@ public function checkVoucher()
                     ];
                 });
         } elseif ($selectedReport === 'Profit by Salesperson') {
-            $salesUsers = \App\Models\User::where('department', 'like', '%Sales%')
-                ->orWhere('position', 'like', '%Sales%')
-                ->orWhere('position', 'like', '%Rep%')
-                ->orWhere('role', 'like', '%Sales%')
+            $salesFilter = function($q) {
+                $q->where(function($sub) {
+                    $sub->whereNotNull('sales_orders.proof_of_payment')->where('sales_orders.proof_of_payment', '!=', '')
+                       ->orWhere('sales_orders.type', 'ecom_direct')
+                       ->orWhere('sales_orders.type', 'calculator_pos')
+                       ->orWhere('sales_orders.payment_method', 'cash');
+                });
+            };
+
+            $orders = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->select(
+                    'sales_orders.prepared_by',
+                    'sales_orders.area_sales_staff_id',
+                    \DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount) as amount')
+                )
+                ->where($salesFilter)
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->get();
 
-            if ($salesUsers->isEmpty()) {
-                $salesUsers = \App\Models\User::take(5)->get();
+            $userSales = [];
+
+            foreach ($orders as $ord) {
+                $amount = (float) $ord->amount;
+                $creatorId = $ord->prepared_by;
+                $staffId = $ord->area_sales_staff_id;
+
+                if ($staffId) {
+                    $userSales[$staffId] = ($userSales[$staffId] ?? 0.00) + $amount;
+                }
+                if ($creatorId && $creatorId != $staffId) {
+                    $userSales[$creatorId] = ($userSales[$creatorId] ?? 0.00) + $amount;
+                }
             }
 
-            $reportData = $salesUsers->map(function($usr) {
-                $achieved = \App\Models\SalesOrder::where(function($q) use ($usr) {
-                        $q->where('area_sales_staff_id', $usr->id)
-                          ->orWhere('prepared_by', $usr->id);
-                    })
-                    ->where('status', '!=', 'cancelled')
-                    ->sum('total_amount') ?: 0.00;
+            $userIds = array_keys($userSales);
+            $users = \App\Models\User::whereIn('id', $userIds)->get()->keyBy('id');
+
+            $reportData = collect($userSales)->map(function($salesAmount, $userId) use ($users) {
+                $user = $users->get($userId);
+                $name = $user ? $user->name : 'System / Guest';
+                $territory = $user ? ($user->department ?: 'Direct Sales') : 'Direct Sales';
 
                 return [
-                    'salesperson' => $usr->name,
-                    'territory' => $usr->department ?: 'Sales Department',
+                    'salesperson' => $name,
+                    'territory' => $territory,
                     'quota' => 0.00,
-                    'achieved' => $achieved,
-                    'net_margin' => $achieved,
+                    'achieved' => $salesAmount,
+                    'net_margin' => $salesAmount,
                 ];
-            });
+            })->sortByDesc('achieved')->values();
         }
 
         return view('admin-finance.accounting.financial-reports', [

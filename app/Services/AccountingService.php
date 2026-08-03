@@ -41,15 +41,34 @@ class AccountingService
                 );
             }
 
-            $cashAccount = ChartOfAccount::where('code', '1010')
-                ->orWhere('code', '1000')
+            $cashAccount = ChartOfAccount::where('code', '1000')
                 ->orWhere('name', 'like', '%Cash%Bank%')
-                ->orWhere('name', 'like', '%Cash%Hand%')
                 ->first();
             if (!$cashAccount) {
                 $cashAccount = ChartOfAccount::firstOrCreate(
                     ['code' => '1000'],
                     ['name' => 'Cash in Bank', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
+
+            $cashHandAccount = ChartOfAccount::where('name', 'like', '%Cash%Hand%')
+                ->orWhere('name', 'like', '%Cash on Hand%')
+                ->first();
+            if (!$cashHandAccount) {
+                $cashHandAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1010'],
+                    ['name' => 'Cash on Hand', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
+
+            $ewalletAccount = ChartOfAccount::where('name', 'like', '%E-Wallet%')
+                ->orWhere('name', 'like', '%GCash%')
+                ->orWhere('name', 'like', '%Maya%')
+                ->first();
+            if (!$ewalletAccount) {
+                $ewalletAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1020'],
+                    ['name' => 'Cash Equivalents - E-Wallet', 'type' => 'Asset', 'category' => 'Current Asset']
                 );
             }
 
@@ -74,8 +93,20 @@ class AccountingService
                 ->orWhere('name', 'like', '%COGS%')
                 ->first();
 
-            // Determine which account to debit based on order type
-            $debitAccount = ($order->type === 'calculator_pos' || $order->type === 'ecom_direct') ? $cashAccount : $arAccount;
+            // Determine which account to debit based on payment_method / order type
+            $paymentMethod = strtolower($order->payment_method ?? '');
+
+            if (in_array($paymentMethod, ['gcash', 'maya', 'paymaya', 'e-wallet', 'ewallet'])) {
+                $debitAccount = $ewalletAccount;
+            } elseif ($paymentMethod === 'cash') {
+                $debitAccount = $cashHandAccount;
+            } elseif (in_array($paymentMethod, ['bank_transfer', 'check', 'card'])) {
+                $debitAccount = $cashAccount;
+            } elseif ($order->type === 'calculator_pos' || $order->type === 'ecom_direct') {
+                $debitAccount = $cashAccount;
+            } else {
+                $debitAccount = $arAccount;
+            }
 
             // 2. Create Journal Entry Header
             $entry = JournalEntry::create([

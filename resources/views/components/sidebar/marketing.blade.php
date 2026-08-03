@@ -216,10 +216,10 @@
 		</a>
 		<div class="modern-nav-submenu" data-submenu="finance">
 			@if($hasPettyCashVoucher)
-			<a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
+			<a href="{{ route('admin-finance.petty-cash.index', ['sidebar' => 'marketing']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
 			@endif
 			@if($hasFreightVoucher)
-			<a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
+			<a href="{{ route('admin-finance.freight-voucher.index', ['sidebar' => 'marketing']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
 			@endif
 		</div>
 	</div>

@@ -32,6 +32,7 @@
                             <thead>
                                 <tr>
                                     <th><strong>PCV NO.</strong></th>
+                                    <th><strong>TYPE</strong></th>
                                     <th><strong>DATE</strong></th>
                                     <th><strong>PAY TO</strong></th>
                                     <th><strong>ITEMS</strong></th>
@@ -44,6 +45,11 @@
                                 @forelse($vouchers as $voucher)
                                 <tr>
                                     <td><strong>{{ $voucher->pcv_number }}</strong></td>
+                                    <td>
+                                        <span class="badge light {{ $voucher->type === 'freight' ? 'badge-info' : 'badge-secondary' }}">
+                                            {{ ucfirst($voucher->type ?? 'fund') }}
+                                        </span>
+                                    </td>
                                     <td>{{ date('M d, Y', strtotime($voucher->date)) }}</td>
                                     <td>{{ $voucher->pay_to }}</td>
                                     <td><span class="badge light badge-primary">{{ $voucher->items_count ?? 0 }} item(s)</span></td>
@@ -73,7 +79,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-4"><i class="las la-file-invoice la-2x d-block mb-2"></i>No petty cash vouchers found.</td>
+                                    <td colspan="8" class="text-center text-muted py-4"><i class="las la-file-invoice la-2x d-block mb-2"></i>No petty cash vouchers found.</td>
                                 </tr>
                                 @endforelse
                             </tbody>

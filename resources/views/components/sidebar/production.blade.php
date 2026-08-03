@@ -146,6 +146,11 @@
 			@if($user->hasPermission('production.logistic.rider_collections'))
 			<a href="{{ route('rider.collections.index') }}" class="modern-nav-subitem {{ request()->routeIs('rider.collections.*') ? 'active' : '' }}">Rider Collections</a>
 			@endif
+			@if($user->hasPermission('production.logistic.area_consignment') || $user->hasPermission('production.logistic.acknowledgement_receipt') || $user->isSuperAdmin())
+			<a href="{{ route('production.logistic.area-consignment') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.area-consignment') ? 'active' : '' }}">
+				<i class="las la-boxes me-1"></i>Consignment Receipt
+			</a>
+			@endif
 			@if($user->hasPermission('production.logistic.acknowledgement_receipt'))
 			<a href="{{ route('production.logistic.acknowledgement-receipt') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.acknowledgement-receipt') ? 'active' : '' }}">
 				<i class="las la-file-import me-1"></i>Acknowledgement Receipt
@@ -242,10 +247,10 @@
 		</a>
 		<div class="modern-nav-submenu" data-submenu="finance">
 			@if($hasPettyCashVoucher)
-			<a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
+			<a href="{{ route('admin-finance.petty-cash.index', ['sidebar' => 'production']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
 			@endif
 			@if($hasFreightVoucher)
-			<a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
+			<a href="{{ route('admin-finance.freight-voucher.index', ['sidebar' => 'production']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
 			@endif
 		</div>
 	</div>

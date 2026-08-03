@@ -97,6 +97,24 @@
                                 <td class="fw-bold text-dark">Prepared By:</td>
                                 <td class="text-black">{{ $order->preparedBy->name ?? 'N/A' }}</td>
                             </tr>
+                            <tr>
+                                <td class="fw-bold text-dark">Payment Method:</td>
+                                <td>
+                                    @php
+                                        $pm = strtolower($order->payment_method ?? 'cash');
+                                        $pmBadges = [
+                                            'cash'          => ['Cash', 'bg-success'],
+                                            'gcash'         => ['GCash', 'bg-primary'],
+                                            'maya'          => ['Maya', 'bg-info text-white'],
+                                            'bank_transfer' => ['Bank Transfer', 'bg-secondary'],
+                                            'check'         => ['Check', 'bg-dark'],
+                                            'card'          => ['Card', 'bg-warning text-dark']
+                                        ];
+                                        [$pmLabel, $pmClass] = $pmBadges[$pm] ?? [ucfirst($pm), 'bg-secondary'];
+                                    @endphp
+                                    <span class="badge {{ $pmClass }}"><i class="las la-wallet me-1"></i>{{ $pmLabel }}</span>
+                                </td>
+                            </tr>
                         </table>
                     </div>
                 </div>
@@ -213,9 +231,47 @@
                         @endforeach
                     </tbody>
                     <tfoot>
+                        @php
+                            $itemsSubtotal = $itemsToRender->sum(function($item) {
+                                return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
+                            });
+                            $discountAmount = $order->discount_amount ?? 0;
+                            $discountPercentage = $order->discount_percentage ?? 0;
+                            $freightCharges = $order->freight_charges ?? 0;
+                            $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
+                        @endphp
                         <tr>
+                            <td colspan="4" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
+                        </tr>
+                        @if($discountAmount > 0)
+                        <tr>
+                            <td colspan="4" class="text-end text-uppercase">
+                                <strong>
+                                    Discount
+                                    @if($discountPercentage > 0)
+                                        ({{ (float)$discountPercentage }}%)
+                                    @endif:
+                                </strong>
+                            </td>
+                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
+                        </tr>
+                        @endif
+                        @if($freightCharges > 0)
+                        <tr>
+                            <td colspan="4" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($freightCharges, 2) }}</td>
+                        </tr>
+                        @endif
+                        @if($serviceFee > 0)
+                        <tr>
+                            <td colspan="4" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
+                        </tr>
+                        @endif
+                        <tr style="background: #f8f9fa;">
                             <td colspan="4" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
-                            <td class="text-end fw-bold fs-5">₱{{ number_format($totalSalesAmount, 2) }}</td>
+                            <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($totalSalesAmount, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -252,7 +308,7 @@
                                     <i class="fas fa-exclamation-triangle me-1"></i>Prepare Sales Invoice (Proof Required)
                                 </button>
                             @endif
-                        @elseif($order->status === 'pending_si_approval')
+                        @elseif($order->status === 'pending_si_approval' || !$order->signed_by_af_manager)
                             <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="btn btn-primary">

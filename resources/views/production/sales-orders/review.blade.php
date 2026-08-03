@@ -155,9 +155,49 @@
                         @endforeach
                     </tbody>
                     <tfoot>
+                        @php
+                            $itemsToRender = $order->items;
+                            $totalSalesAmount = (float) $order->total_amount;
+                            $itemsSubtotal = $itemsToRender->sum(function($item) {
+                                return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
+                            });
+                            $discountAmount = $order->discount_amount ?? 0;
+                            $discountPercentage = $order->discount_percentage ?? 0;
+                            $freightCharges = $order->freight_charges ?? 0;
+                            $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
+                        @endphp
                         <tr>
+                            <td colspan="4" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
+                        </tr>
+                        @if($discountAmount > 0)
+                        <tr>
+                            <td colspan="4" class="text-end text-uppercase">
+                                <strong>
+                                    Discount
+                                    @if($discountPercentage > 0)
+                                        ({{ (float)$discountPercentage }}%)
+                                    @endif:
+                                </strong>
+                            </td>
+                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
+                        </tr>
+                        @endif
+                        @if($freightCharges > 0)
+                        <tr>
+                            <td colspan="4" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($freightCharges, 2) }}</td>
+                        </tr>
+                        @endif
+                        @if($serviceFee > 0)
+                        <tr>
+                            <td colspan="4" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
+                        </tr>
+                        @endif
+                        <tr style="background: #f8f9fa;">
                             <td colspan="4" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
-                            <td class="text-end fw-bold fs-5">₱{{ number_format($order->total_amount, 2) }}</td>
+                            <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($totalSalesAmount, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>

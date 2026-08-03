@@ -24,6 +24,20 @@ class FreightVoucherController extends Controller
      */
     protected function getUserSidebar()
     {
+        // 1. Check if sidebar parameter is explicitly passed in the request
+        if (request()->has('sidebar')) {
+            $sidebar = request()->query('sidebar');
+            if (in_array($sidebar, ['admin-finance', 'marketing', 'production', 'unified'])) {
+                session(['freight_voucher_sidebar' => $sidebar]);
+                return $sidebar;
+            }
+        }
+
+        // 2. Check if there's a persisted sidebar in the session
+        if (session()->has('freight_voucher_sidebar')) {
+            return session('freight_voucher_sidebar');
+        }
+
         $user = auth()->user();
         if (!$user) return 'admin-finance';
 

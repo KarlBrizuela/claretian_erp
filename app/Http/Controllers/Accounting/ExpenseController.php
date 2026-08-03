@@ -38,6 +38,23 @@ class ExpenseController extends Controller
 
         // Fetch departments for dropdown
         $departments = Department::orderBy('dept_name', 'asc')->get();
+        if ($departments->isEmpty()) {
+            $defaultDepts = [
+                'Accounting & Finance',
+                'Sales & Marketing',
+                'Production & Printing',
+                'Logistics & Warehouse',
+                'Human Resources',
+                'Executive Office',
+                'General Services (GSD)',
+                'IT & MIS',
+                'Bookstore Operations',
+            ];
+            foreach ($defaultDepts as $name) {
+                Department::firstOrCreate(['dept_name' => $name]);
+            }
+            $departments = Department::orderBy('dept_name', 'asc')->get();
+        }
 
         return view('admin-finance.accounting.expenses.index', [
             'title' => 'Expenses Management',

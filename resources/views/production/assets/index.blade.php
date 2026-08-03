@@ -69,9 +69,6 @@
                         <button class="btn btn-danger btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2 text-white" style="background-color: #D9251C; border-color: #D9251C; height: 40px;" data-bs-toggle="modal" data-bs-target="#addAssetModal">
                             <i class="las la-plus-circle fs-18"></i> Register Machine / Asset
                         </button>
-                        <button class="btn btn-outline-secondary btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" onclick="window.print()">
-                            <i class="las la-print fs-18"></i> Print Asset Register
-                        </button>
                     </div>
                 </div>
             </div>
@@ -133,25 +130,6 @@
             </div>
         </div>
 
-        <!-- Asset Categories Filters -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm p-3" style="border-radius: 12px; background: #fff;">
-                    <span class="text-muted small fw-bold mb-2 d-block text-uppercase">Asset Categories:</span>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ route('production.assets.index', ['category' => 'All']) }}" class="category-pill {{ $selectedCategory == 'All' ? 'active' : '' }}">
-                            All Fixed Assets ({{ $metrics['total_assets_count'] }})
-                        </a>
-                        @foreach($categories as $cat)
-                        <a href="{{ route('production.assets.index', ['category' => $cat]) }}" class="category-pill {{ $selectedCategory == $cat ? 'active' : '' }}">
-                            {{ $cat }}
-                        </a>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Master Fixed Assets Table -->
         <div class="row">
             <div class="col-12">
@@ -159,12 +137,17 @@
                     <div class="card-header bg-white border-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
                         <div>
                             <h5 class="mb-0 fw-bold text-dark fs-18">Fixed Asset Register</h5>
-                            <p class="text-muted small mb-0">Machine inventory, useful life, straight-line depreciation, and current book valuation</p>
+                            <p class="text-muted small mb-0">Production machinery, equipment inventory, and asset valuation</p>
                         </div>
-                        <form action="{{ route('production.assets.index') }}" method="GET" class="d-flex gap-2">
-                            <input type="hidden" name="category" value="{{ $selectedCategory }}">
-                            <input type="text" name="search" class="form-control form-control-sm" placeholder="Search Code, Name, Serial..." value="{{ request('search') }}">
-                            <button type="submit" class="btn btn-sm text-white px-3" style="background-color: #D9251C; border-color: #D9251C;">Filter</button>
+                        <form action="{{ route('production.assets.index') }}" method="GET" class="d-flex gap-2 align-items-center">
+                            <select name="category" class="form-select form-select-sm border-light-subtle rounded-pill px-3" style="width: 160px; font-weight: 500;">
+                                <option value="All" {{ $selectedCategory == 'All' ? 'selected' : '' }}>All Categories</option>
+                                @foreach($categories as $cat)
+                                    <option value="{{ $cat }}" {{ $selectedCategory == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                @endforeach
+                            </select>
+                            <input type="text" name="search" class="form-control form-control-sm border-light-subtle rounded-pill px-3" placeholder="Search Code, Name..." value="{{ request('search') }}">
+                            <button type="submit" class="btn btn-sm text-white px-3 rounded-pill" style="background-color: #D9251C; border-color: #D9251C; font-weight: 600;">Filter</button>
                         </form>
                     </div>
 
@@ -176,15 +159,10 @@
                                         <th>Asset Code</th>
                                         <th>Machine / Asset Name</th>
                                         <th>Category</th>
-                                        <th>Serial Number</th>
-                                        <th>Purchase Date & Supplier</th>
-                                        <th class="text-center">Useful Life</th>
                                         <th class="text-end">Purchase Price</th>
-                                        <th class="text-end">Accum. Depreciation</th>
-                                        <th class="text-end" style="color: #ff6b6b;">Total Repairs</th>
-                                        <th class="text-end" style="background-color: #D9251C;">Current Value</th>
+                                        <th class="text-end">Current Book Value</th>
                                         <th class="text-center">Status</th>
-                                        <th class="text-center">Action</th>
+                                        <th class="text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -193,39 +171,101 @@
                                         <td><span class="fw-bold text-dark font-monospace">{{ $ast->asset_code }}</span></td>
                                         <td>
                                             <span class="fw-bold text-dark d-block fs-14">{{ $ast->name }}</span>
-                                            <span class="text-muted small">{{ $ast->location }}</span>
+                                            <span class="text-muted small">{{ $ast->location ?: 'Main Facility' }}</span>
                                         </td>
                                         <td><span class="badge bg-light text-dark border">{{ $ast->category }}</span></td>
-                                        <td><span class="font-monospace text-muted small">{{ $ast->serial_number ?: 'N/A' }}</span></td>
-                                        <td>
-                                            <span class="fw-bold text-dark d-block small">{{ $ast->purchase_date ? $ast->purchase_date->format('M d, Y') : 'N/A' }}</span>
-                                            <span class="text-muted small">{{ $ast->supplier ?: 'Direct Purchase' }}</span>
-                                        </td>
-                                        <td class="text-center fw-bold text-dark">{{ $ast->useful_life_years }} yrs</td>
                                         <td class="text-end fw-bold text-dark">₱{{ number_format($ast->purchase_price, 2) }}</td>
-                                        <td class="text-end text-muted">₱{{ number_format($ast->accumulated_depreciation, 2) }}</td>
-                                        <td class="text-end fw-bold" style="color: #D9251C;">₱{{ number_format($ast->total_repair_cost, 2) }}</td>
-                                        <td class="text-end fw-bold text-white" style="background-color: #D9251C;">
-                                            ₱{{ number_format($ast->current_value, 2) }}
-                                        </td>
+                                        <td class="text-end fw-bold text-danger">₱{{ number_format($ast->current_value, 2) }}</td>
                                         <td class="text-center">
                                             @if($ast->status === 'Operational')
-                                            <span class="badge bg-success-subtle text-success">Operational</span>
+                                            <span class="badge bg-success text-white px-3 py-1 rounded-pill">Operational</span>
                                             @elseif($ast->status === 'Under Maintenance')
-                                            <span class="badge bg-warning-subtle text-warning">Maintenance</span>
+                                            <span class="badge bg-warning text-dark px-3 py-1 rounded-pill">Maintenance</span>
                                             @else
-                                            <span class="badge bg-secondary-subtle text-secondary">{{ $ast->status }}</span>
+                                            <span class="badge bg-secondary text-white px-3 py-1 rounded-pill">{{ $ast->status }}</span>
                                             @endif
                                         </td>
                                         <td class="text-center">
-                                            <a href="{{ route('production.assets.show', $ast->id) }}" class="btn btn-sm btn-outline-danger px-2 py-1" style="color: #D9251C; border-color: #D9251C;">
-                                                <i class="las la-eye"></i> View Profile
-                                            </a>
+                                            <div class="d-flex justify-content-center gap-1">
+                                                <a href="{{ route('production.assets.show', $ast->id) }}" class="btn btn-sm btn-outline-primary px-2 py-1" title="View Profile">
+                                                    <i class="las la-eye"></i>
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-warning px-2 py-1" data-bs-toggle="modal" data-bs-target="#editAssetModal_{{ $ast->id }}" title="Edit Asset">
+                                                    <i class="las la-edit"></i>
+                                                </button>
+                                                <form action="{{ route('production.assets.destroy', $ast->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete asset {{ $ast->name }}?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1" title="Delete Asset">
+                                                        <i class="las la-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
+
+                                    <!-- EDIT MODAL -->
+                                    <div class="modal fade" id="editAssetModal_{{ $ast->id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                                            <div class="modal-content border-0 shadow">
+                                                <form action="{{ route('production.assets.update', $ast->id) }}" method="POST">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <div class="modal-header text-white" style="background-color: #D9251C;">
+                                                        <h5 class="modal-title fw-bold"><i class="las la-edit me-2"></i>Edit Machine / Fixed Asset</h5>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body p-4">
+                                                        <div class="row g-3">
+                                                            <div class="col-md-8">
+                                                                <label class="form-label fw-bold small text-muted">Machine / Asset Name <span class="text-danger">*</span></label>
+                                                                <input type="text" name="name" class="form-control" value="{{ $ast->name }}" required>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="form-label fw-bold small text-muted">Asset Category <span class="text-danger">*</span></label>
+                                                                <select name="category" class="form-select" required>
+                                                                    @foreach($categories as $cat)
+                                                                    <option value="{{ $cat }}" {{ $ast->category === $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="form-label fw-bold small text-muted">Purchase Date <span class="text-danger">*</span></label>
+                                                                <input type="date" name="purchase_date" class="form-control" value="{{ $ast->purchase_date ? $ast->purchase_date->format('Y-m-d') : '' }}" required>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="form-label fw-bold small text-muted">Purchase Price (₱) <span class="text-danger">*</span></label>
+                                                                <input type="number" step="0.01" name="purchase_price" class="form-control" value="{{ $ast->purchase_price }}" required>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="form-label fw-bold small text-muted">Status <span class="text-danger">*</span></label>
+                                                                <select name="status" class="form-select" required>
+                                                                    <option value="Operational" {{ $ast->status === 'Operational' ? 'selected' : '' }}>Operational</option>
+                                                                    <option value="Under Maintenance" {{ $ast->status === 'Under Maintenance' ? 'selected' : '' }}>Under Maintenance</option>
+                                                                    <option value="Decommissioned" {{ $ast->status === 'Decommissioned' ? 'selected' : '' }}>Decommissioned</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label fw-bold small text-muted">Supplier Name</label>
+                                                                <input type="text" name="supplier" class="form-control" value="{{ $ast->supplier }}">
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label fw-bold small text-muted">Serial Number</label>
+                                                                <input type="text" name="serial_number" class="form-control" value="{{ $ast->serial_number }}">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer bg-light">
+                                                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="submit" class="btn text-white px-4 fw-bold" style="background-color: #D9251C; border-color: #D9251C;">Update Asset</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
                                     @empty
                                     <tr>
-                                        <td colspan="12" class="text-center py-4 text-muted">No fixed assets registered yet. Click "Register Machine / Asset" above to add your first machinery or property.</td>
+                                        <td colspan="7" class="text-center py-4 text-muted">No fixed assets registered yet. Click "Register Machine / Asset" above to add your first machinery or property.</td>
                                     </tr>
                                     @endforelse
                                 </tbody>
@@ -251,7 +291,7 @@
                         <div class="row g-3">
                             <div class="col-md-8">
                                 <label class="form-label fw-bold small text-muted">Machine / Asset Name <span class="text-danger">*</span></label>
-                                <input type="text" name="name" class="form-control" placeholder="e.g. Heidelberger Speedmaster Press, RISO RZ-970, Delivery Van" required>
+                                <input type="text" name="name" class="form-control" placeholder="e.g. Digital Press, Printing Machine, Delivery Van" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold small text-muted">Asset Category <span class="text-danger">*</span></label>
@@ -270,32 +310,16 @@
                                 <input type="number" step="0.01" name="purchase_price" class="form-control" placeholder="0.00" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label fw-bold small text-muted">Supplier Name / Source</label>
-                                <input type="text" name="supplier" class="form-control" placeholder="e.g. Heidelberg PH, Riso Inc, Toyota">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small text-muted">Serial Number</label>
-                                <input type="text" name="serial_number" class="form-control" placeholder="e.g. SN-99482710">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small text-muted">Warranty Expiry Date</label>
-                                <input type="date" name="warranty_expiry" class="form-control">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small text-muted">Useful Life (Years) <span class="text-danger">*</span></label>
-                                <input type="number" name="useful_life_years" class="form-control" value="5" min="1" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Salvage Value (₱)</label>
-                                <input type="number" step="0.01" name="salvage_value" class="form-control" placeholder="0.00">
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">Asset Location / Facility</label>
                                 <input type="text" name="location" class="form-control" value="Main Production Facility">
                             </div>
-                            <div class="col-12">
-                                <label class="form-label fw-bold small text-muted">Machine Specs / Description</label>
-                                <textarea name="notes" class="form-control" rows="2" placeholder="Model specs, capacity, voltage, operator notes..."></textarea>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Supplier Name / Source</label>
+                                <input type="text" name="supplier" class="form-control" placeholder="e.g. Heidelberg PH, Riso Inc">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Serial Number</label>
+                                <input type="text" name="serial_number" class="form-control" placeholder="e.g. SN-99482710">
                             </div>
                         </div>
                     </div>
@@ -306,5 +330,4 @@
                 </form>
             </div>
         </div>
-    </div>
 </x-app-layout>

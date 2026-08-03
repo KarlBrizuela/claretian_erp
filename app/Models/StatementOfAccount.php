@@ -12,6 +12,8 @@ class StatementOfAccount extends Model
     protected $fillable = [
         'soa_number',
         'customer_id',
+        'contact_person',
+        'billing_address',
         'billing_period_start',
         'billing_period_end',
         'total_amount',

@@ -126,7 +126,6 @@
                                         <th>Account No</th>
                                         <th>Client Name</th>
                                         <th>Credit Rating</th>
-                                        <th>Sales Representative</th>
                                         <th class="text-end">Credit Limit</th>
                                         <th>Terms</th>
                                         <th class="text-end">Outstanding Balance</th>
@@ -147,7 +146,6 @@
                                                 {{ $cust->credit_rating }}
                                             </span>
                                         </td>
-                                        <td>{{ $cust->sales_rep }}</td>
                                         <td class="text-end text-dark">₱{{ number_format($cust->credit_limit, 2) }}</td>
                                         <td><span class="badge bg-light text-dark border">{{ $cust->payment_terms }}</span></td>
                                         <td class="text-end fw-bold text-dark">₱{{ number_format($cust->outstanding_balance, 2) }}</td>
@@ -162,7 +160,7 @@
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="9" class="text-center py-4 text-muted">No accounts receivable ledger records found.</td>
+                                        <td colspan="8" class="text-center py-4 text-muted">No accounts receivable ledger records found.</td>
                                     </tr>
                                     @endforelse
                                 </tbody>
@@ -194,15 +192,11 @@
     <div id="template-cust-{{ $cust->customer_id }}" style="display: none;">
         <!-- Ledger Header details -->
         <div class="row mb-3 pb-3 border-bottom align-items-center g-2">
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <span class="text-muted small d-block">Account Name</span>
                 <strong class="text-dark">{{ $cust->company_name }}</strong>
             </div>
-            <div class="col-md-4">
-                <span class="text-muted small d-block">Terms & Assigned Rep</span>
-                <strong class="text-dark" id="modal-rep-header-{{ $cust->customer_id }}">{{ $cust->payment_terms }} | Assigned: {{ $cust->sales_rep }}</strong>
-            </div>
-            <div class="col-md-4 text-md-end">
+            <div class="col-md-6 text-md-end">
                 <span class="text-muted small d-block">Remaining Balance</span>
                 <strong class="text-danger fs-16">₱{{ number_format($cust->outstanding_balance, 2) }}</strong>
             </div>
@@ -323,6 +317,7 @@
                             <tr>
                                 <th>Invoice No</th>
                                 <th>Invoice Date</th>
+                                <th>Sales Representative</th>
                                 <th class="text-end">Total Amount</th>
                                 <th class="text-end">Paid Amount</th>
                                 <th class="text-end">Remaining Balance</th>
@@ -334,6 +329,7 @@
                             <tr>
                                 <td><span class="fw-bold text-dark">#{{ $inv->so_number }}</span></td>
                                 <td>{{ $inv->date }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ $inv->sales_rep }}</span></td>
                                 <td class="text-end">₱{{ number_format($inv->total_amount, 2) }}</td>
                                 <td class="text-end">₱{{ number_format($inv->paid_amount, 2) }}</td>
                                 <td class="text-end fw-bold text-dark">₱{{ number_format($inv->remaining_balance, 2) }}</td>
@@ -345,7 +341,7 @@
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="6" class="text-center py-3 text-muted">No invoices logged for this customer.</td>
+                                <td colspan="7" class="text-center py-3 text-muted">No invoices logged for this customer.</td>
                             </tr>
                             @endforelse
                         </tbody>

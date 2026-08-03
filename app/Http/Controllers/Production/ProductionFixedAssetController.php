@@ -100,9 +100,7 @@ class ProductionFixedAssetController extends Controller
             'purchase_price' => 'required|numeric|min:0',
             'supplier' => 'nullable|string|max:255',
             'serial_number' => 'nullable|string|max:255',
-            'warranty_expiry' => 'nullable|date',
-            'useful_life_years' => 'required|integer|min:1',
-            'salvage_value' => 'nullable|numeric|min:0',
+            'useful_life_years' => 'nullable|integer|min:1',
             'location' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
@@ -111,12 +109,13 @@ class ProductionFixedAssetController extends Controller
 
         $asset = new ProductionFixedAsset($request->all());
         $asset->asset_code = $assetCode;
+        $asset->useful_life_years = $request->useful_life_years ?: 5;
         $asset->salvage_value = $request->salvage_value ?: 0.00;
         $asset->calculateDepreciation();
         $asset->save();
 
-        return redirect()->route('production.assets.show', $asset->id)
-            ->with('success', "Fixed Asset '{$asset->name}' created successfully!");
+        return redirect()->route('production.assets.index')
+            ->with('success', "Fixed Asset '{$asset->name}' registered successfully!");
     }
 
     public function storeMaintenanceLog(Request $request)
@@ -137,5 +136,37 @@ class ProductionFixedAssetController extends Controller
         $asset->save();
 
         return redirect()->back()->with('success', 'Maintenance & Repair Log recorded successfully!');
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'purchase_date' => 'required|date',
+            'purchase_price' => 'required|numeric|min:0',
+            'supplier' => 'nullable|string|max:255',
+            'serial_number' => 'nullable|string|max:255',
+            'useful_life_years' => 'required|integer|min:1',
+            'location' => 'nullable|string|max:255',
+            'status' => 'required|string',
+        ]);
+
+        $asset = ProductionFixedAsset::findOrFail($id);
+        $asset->fill($request->all());
+        $asset->calculateDepreciation();
+        $asset->save();
+
+        return redirect()->route('production.assets.index')
+            ->with('success', "Fixed Asset '{$asset->name}' updated successfully!");
+    }
+
+    public function destroy($id)
+    {
+        $asset = ProductionFixedAsset::findOrFail($id);
+        $asset->delete();
+
+        return redirect()->route('production.assets.index')
+            ->with('success', 'Fixed Asset deleted successfully!');
     }
 }

@@ -1,83 +1,172 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
+    <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
     <style>
         .ap-header-card {
-            background: #fff;
+            background: #ffffff;
             border-radius: 12px;
-            padding: 1.75rem;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-            border: 0;
+            padding: 1.5rem 1.75rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
             margin-bottom: 1.5rem;
         }
 
-        .hover-row {
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        .btn-ap-primary {
+            background-color: #D9251C;
+            border-color: #D9251C;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.8125rem;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s ease;
         }
 
-        .hover-row:hover {
-            background-color: #ffffff !important;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+        .btn-ap-primary:hover {
+            background-color: #b91c1c;
+            border-color: #b91c1c;
+            color: #ffffff;
+        }
+
+        .btn-ap-outline {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            font-weight: 600;
+            font-size: 0.8125rem;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-ap-outline:hover {
+            background-color: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+        }
+
+        .btn-ap-success {
+            background-color: #059669;
+            border-color: #059669;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.8125rem;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-ap-success:hover {
+            background-color: #047857;
+            border-color: #047857;
+            color: #ffffff;
+        }
+
+        .ap-kpi-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .ap-kpi-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        }
+
+        .kpi-icon-wrapper {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .category-segmented-bar {
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
         }
 
         .category-pill {
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 8px 16px;
-            border-radius: 20px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            padding: 6px 14px;
+            border-radius: 7px;
             text-decoration: none;
-            transition: all 0.2s ease-in-out;
+            color: #64748b;
+            transition: all 0.15s ease;
             display: inline-block;
         }
 
         .category-pill.active {
-            background-color: #D9251C;
-            color: #fff !important;
-            box-shadow: 0 4px 12px rgba(217, 37, 28, 0.25);
-        }
-
-        .category-pill:not(.active) {
-            background-color: #f8f9fa;
-            color: #495057;
-            border: 1px solid #e9ecef;
+            background-color: #ffffff;
+            color: #0f172a !important;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
         }
 
         .category-pill:not(.active):hover {
-            background-color: #e9ecef;
-            color: #212529;
+            color: #1e293b;
+            background-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .ap-nav-tabs {
+            border-bottom: 1px solid #e2e8f0;
         }
 
         .ap-nav-tabs .nav-link {
             border: none;
-            color: #6c757d;
-            font-weight: 600;
-            padding: 12px 20px;
-            font-size: 0.9rem;
-            border-bottom: 3px solid transparent;
+            color: #64748b;
+            font-weight: 500;
+            padding: 10px 18px;
+            font-size: 0.875rem;
+            border-bottom: 2px solid transparent;
             border-radius: 0;
+            transition: all 0.15s ease;
+        }
+
+        .ap-nav-tabs .nav-link:hover {
+            color: #0f172a;
         }
 
         .ap-nav-tabs .nav-link.active {
             color: #D9251C;
-            border-bottom: 3px solid #D9251C;
+            font-weight: 600;
+            border-bottom: 2px solid #D9251C;
             background: transparent;
         }
 
         .badge-category {
             font-size: 0.75rem;
             font-weight: 600;
-            padding: 5px 10px;
+            padding: 4px 10px;
             border-radius: 6px;
         }
 
-        .cat-paper { background-color: rgba(13, 110, 253, 0.1); color: #0d6efd; }
-        .cat-ink { background-color: rgba(111, 66, 193, 0.1); color: #6f42c1; }
-        .cat-freight { background-color: rgba(253, 126, 20, 0.1); color: #fd7e14; }
-        .cat-utilities { background-color: rgba(255, 193, 7, 0.15); color: #856404; }
-        .cat-printers { background-color: rgba(32, 201, 151, 0.1); color: #20c997; }
-        .cat-government { background-color: rgba(220, 53, 69, 0.1); color: #dc3545; }
-        .cat-services { background-color: rgba(13, 202, 240, 0.1); color: #0dcaf0; }
-        .cat-default { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
+        .cat-paper { background-color: #eff6ff; color: #1d4ed8; }
+        .cat-ink { background-color: #faf5ff; color: #7e22ce; }
+        .cat-freight { background-color: #fff7ed; color: #c2410c; }
+        .cat-utilities { background-color: #fefce8; color: #a16207; }
+        .cat-printers { background-color: #f0fdf4; color: #15803d; }
+        .cat-government { background-color: #fef2f2; color: #b91c1c; }
+        .cat-services { background-color: #ecfeff; color: #0e7490; }
+        .cat-default { background-color: #f1f5f9; color: #475569; }
+
+        .table-custom-header thead th {
+            background-color: #f8fafc !important;
+            color: #475569 !important;
+            font-size: 0.725rem !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
     </style>
     @endpush
 
@@ -89,103 +178,69 @@
         </div>
         @endif
 
-        <!-- Master Title Header -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="ap-header-card d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                    <div>
-                        <h4 class="fs-24 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Accounts Payable Ledger</h4>
-                        <p class="text-muted small mb-0">Manage supplier directory, Purchase Orders, Receiving Reports, Invoices, Payments, Withholding Tax, and 1099 / EWT tax reports.</p>
-                    </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-outline-danger btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
-                            <i class="las la-plus-circle fs-18"></i> Add Supplier
-                        </button>
-                        <button class="btn btn-danger btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" data-bs-toggle="modal" data-bs-target="#addInvoiceModal">
-                            <i class="las la-file-invoice-dollar fs-18"></i> Record Invoice
-                        </button>
-                        <button class="btn btn-success btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
-                            <i class="las la-money-check-alt fs-18"></i> Record Payment
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" onclick="window.print()">
-                            <i class="las la-print fs-18"></i> Print Overview
-                        </button>
-                    </div>
-                </div>
+        <!-- Clean Compact Title Header -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+            <div>
+                <h4 class="fs-22 mb-1 fw-bold text-dark"><i class="las la-wallet me-2 text-danger"></i>Accounts Payable Ledger</h4>
+                <p class="text-muted small mb-0">Manage supplier directory, purchase orders, invoices, settlements, and EWT tax tracking.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button class="btn btn-ap-outline d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+                    <i class="las la-plus-circle fs-16"></i> Add Supplier
+                </button>
+                <button class="btn btn-ap-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addInvoiceModal">
+                    <i class="las la-file-invoice-dollar fs-16"></i> Record Invoice
+                </button>
+                <button class="btn btn-ap-success d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                    <i class="las la-money-check-alt fs-16"></i> Record Payment
+                </button>
             </div>
         </div>
 
         <!-- Metric summary cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-danger" style="width: 50px; height: 50px;">
-                            <i class="las la-receipt fs-28"></i>
-                        </div>
-                        <div>
-                            <span class="text-muted small d-block">Total A/P Balance</span>
-                            <h4 class="fw-bold text-dark mb-0">₱{{ number_format($metrics['total_ap_balance'], 2) }}</h4>
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-xl-3">
+                <div class="ap-kpi-card h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.725rem; letter-spacing: 0.5px;">Total A/P Balance</span>
+                        <div class="kpi-icon-wrapper" style="background-color: #fef2f2; color: #dc2626;">
+                            <i class="las la-receipt fs-20"></i>
                         </div>
                     </div>
+                    <h4 class="fw-bold text-dark mb-0 fs-20">₱{{ number_format($metrics['total_ap_balance'], 2) }}</h4>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-warning" style="width: 50px; height: 50px;">
-                            <i class="las la-exclamation-triangle fs-28"></i>
-                        </div>
-                        <div>
-                            <span class="text-muted small d-block">Total Overdue A/P</span>
-                            <h4 class="fw-bold text-warning mb-0">₱{{ number_format($metrics['total_overdue_ap'], 2) }}</h4>
+            <div class="col-sm-6 col-xl-3">
+                <div class="ap-kpi-card h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.725rem; letter-spacing: 0.5px;">Total Overdue A/P</span>
+                        <div class="kpi-icon-wrapper" style="background-color: #fffbeb; color: #d97706;">
+                            <i class="las la-exclamation-triangle fs-20"></i>
                         </div>
                     </div>
+                    <h4 class="fw-bold mb-0 fs-20" style="color: #d97706;">₱{{ number_format($metrics['total_overdue_ap'], 2) }}</h4>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-info" style="width: 50px; height: 50px;">
-                            <i class="las la-file-contract fs-28"></i>
-                        </div>
-                        <div>
-                            <span class="text-muted small d-block">Total Withheld Tax (EWT)</span>
-                            <h4 class="fw-bold text-info mb-0">₱{{ number_format($metrics['total_withheld_tax'], 2) }}</h4>
+            <div class="col-sm-6 col-xl-3">
+                <div class="ap-kpi-card h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.725rem; letter-spacing: 0.5px;">Total Withheld Tax (EWT)</span>
+                        <div class="kpi-icon-wrapper" style="background-color: #f0f9ff; color: #0284c7;">
+                            <i class="las la-file-contract fs-20"></i>
                         </div>
                     </div>
+                    <h4 class="fw-bold mb-0 fs-20" style="color: #0284c7;">₱{{ number_format($metrics['total_withheld_tax'], 2) }}</h4>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-success" style="width: 50px; height: 50px;">
-                            <i class="las la-truck-loading fs-28"></i>
-                        </div>
-                        <div>
-                            <span class="text-muted small d-block">Active Suppliers</span>
-                            <h4 class="fw-bold text-success mb-0">{{ $metrics['active_suppliers_count'] }} Suppliers</h4>
+            <div class="col-sm-6 col-xl-3">
+                <div class="ap-kpi-card h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.725rem; letter-spacing: 0.5px;">Active Suppliers</span>
+                        <div class="kpi-icon-wrapper" style="background-color: #f0fdf4; color: #16a34a;">
+                            <i class="las la-truck-loading fs-20"></i>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Category Filters -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm p-3" style="border-radius: 12px; background: #fff;">
-                    <span class="text-muted small fw-bold mb-2 d-block text-uppercase">Supplier Category Filter:</span>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ route('admin-finance.accounting.accounts-payable', ['category' => 'All']) }}" class="category-pill {{ $selectedCategory == 'All' ? 'active' : '' }}">
-                            All Categories
-                        </a>
-                        @foreach($categories as $cat)
-                        <a href="{{ route('admin-finance.accounting.accounts-payable', ['category' => $cat]) }}" class="category-pill {{ $selectedCategory == $cat ? 'active' : '' }}">
-                            {{ $cat }}
-                        </a>
-                        @endforeach
-                    </div>
+                    <h4 class="fw-bold mb-0 fs-20" style="color: #16a34a;">{{ $metrics['active_suppliers_count'] }} <span class="fs-14 fw-normal text-muted">Suppliers</span></h4>
                 </div>
             </div>
         </div>
@@ -193,40 +248,51 @@
         <!-- Master Tabs & Content -->
         <div class="row">
             <div class="col-12">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
-                    <div class="card-header bg-white border-0 pt-3 pb-0">
-                        <ul class="nav nav-tabs ap-nav-tabs" id="apTab" role="tablist">
+                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0 !important;">
+                    <div class="card-header bg-white border-0 pt-3 pb-0 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                        <ul class="nav nav-tabs ap-nav-tabs mb-0" id="apTab" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="suppliers-tab" data-bs-toggle="tab" data-bs-target="#suppliers-pane" type="button" role="tab">
                                     <i class="las la-truck me-1 fs-18"></i> Suppliers Directory
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="po-tab" data-bs-toggle="tab" data-bs-target="#po-pane" type="button" role="tab">
-                                    <i class="las la-shopping-cart me-1 fs-18"></i> Purchase Orders ({{ $purchaseOrders->count() }})
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="rr-tab" data-bs-toggle="tab" data-bs-target="#rr-pane" type="button" role="tab">
-                                    <i class="las la-boxes me-1 fs-18"></i> Receiving Reports ({{ $receivingReports->count() }})
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="invoices-tab" data-bs-toggle="tab" data-bs-target="#invoices-pane" type="button" role="tab">
-                                    <i class="las la-file-invoice-dollar me-1 fs-18"></i> Invoices & Due Dates ({{ $invoices->count() }})
+                                    <i class="las la-file-invoice-dollar me-1 fs-18"></i> Invoices & Due Dates <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $invoices->count() }}</span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments-pane" type="button" role="tab">
-                                    <i class="las la-money-check-alt me-1 fs-18"></i> Payments ({{ $payments->count() }})
+                                    <i class="las la-money-check-alt me-1 fs-18"></i> Payments <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $payments->count() }}</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="po-tab" data-bs-toggle="tab" data-bs-target="#po-pane" type="button" role="tab">
+                                    <i class="las la-shopping-cart me-1 fs-18"></i> Purchase Orders <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $purchaseOrders->count() }}</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="rr-tab" data-bs-toggle="tab" data-bs-target="#rr-pane" type="button" role="tab">
+                                    <i class="las la-boxes me-1 fs-18"></i> Receiving Reports <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $receivingReports->count() }}</span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="ewt-tab" data-bs-toggle="tab" data-bs-target="#ewt-pane" type="button" role="tab">
-                                    <i class="las la-calculator me-1 fs-18"></i> Withholding Tax / 1099 Reports
+                                    <i class="las la-calculator me-1 fs-18"></i> Withholding Tax
                                 </button>
                             </li>
                         </ul>
+
+                        <!-- Compact Category Dropdown Filter -->
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="text-muted small fw-bold text-nowrap"><i class="las la-filter me-1"></i>Category:</span>
+                            <select class="form-select form-select-sm shadow-none" style="width: 180px; font-size: 0.8125rem; border-radius: 6px;" onchange="location = this.value;">
+                                <option value="{{ route('admin-finance.accounting.accounts-payable', ['category' => 'All']) }}" {{ $selectedCategory == 'All' ? 'selected' : '' }}>All Categories</option>
+                                @foreach($categories as $cat)
+                                <option value="{{ route('admin-finance.accounting.accounts-payable', ['category' => $cat]) }}" {{ $selectedCategory == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
                     <div class="card-body pt-3">
@@ -235,7 +301,7 @@
                             <!-- 1. SUPPLIERS DIRECTORY -->
                             <div class="tab-pane fade show active" id="suppliers-pane" role="tabpanel">
                                 <div class="table-responsive">
-                                    <table class="table table-hover align-middle" id="suppliersTable">
+                                    <table class="table table-hover align-middle table-custom-header" id="suppliersTable">
                                         <thead class="table-light text-muted small text-uppercase">
                                             <tr>
                                                 <th>Supplier Code</th>
@@ -247,6 +313,7 @@
                                                 <th class="text-end">EWT %</th>
                                                 <th class="text-end">Total Unpaid Invoices</th>
                                                 <th class="text-center">Status</th>
+                                                <th class="text-center" style="width: 100px;">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -286,10 +353,20 @@
                                                 <td class="text-center">
                                                     <span class="badge bg-success-subtle text-success text-capitalize px-3 py-1">{{ $supp->status }}</span>
                                                 </td>
+                                                <td class="text-center">
+                                                    <div class="d-flex justify-content-center gap-1">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary shadow-sm px-2 py-0" data-bs-toggle="modal" data-bs-target="#editSupplierModal-{{ $supp->id }}" title="Edit Supplier"><i class="las la-edit"></i></button>
+                                                        <form action="{{ route('admin-finance.accounting.accounts-payable.supplier.destroy', $supp->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete supplier {{ $supp->company_name }}?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Supplier"><i class="las la-trash"></i></button>
+                                                        </form>
+                                                    </div>
+                                                </td>
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="9" class="text-center py-4 text-muted">No suppliers found for the selected category.</td>
+                                                <td colspan="10" class="text-center py-4 text-muted">No suppliers found for the selected category.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
@@ -300,7 +377,7 @@
                             <!-- 2. PURCHASE ORDERS -->
                             <div class="tab-pane fade" id="po-pane" role="tabpanel">
                                 <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
+                                    <table class="table table-hover align-middle table-custom-header" id="poTable">
                                         <thead class="table-light text-muted small text-uppercase">
                                             <tr>
                                                 <th>PO Number</th>
@@ -345,7 +422,7 @@
                             <!-- 3. RECEIVING REPORTS -->
                             <div class="tab-pane fade" id="rr-pane" role="tabpanel">
                                 <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
+                                    <table class="table table-hover align-middle table-custom-header" id="rrTable">
                                         <thead class="table-light text-muted small text-uppercase">
                                             <tr>
                                                 <th>RR Number</th>
@@ -393,7 +470,7 @@
                             <!-- 4. INVOICES & DUE DATES -->
                             <div class="tab-pane fade" id="invoices-pane" role="tabpanel">
                                 <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
+                                    <table class="table table-hover align-middle table-custom-header" id="invoicesTable">
                                         <thead class="table-light text-muted small text-uppercase">
                                             <tr>
                                                 <th>Invoice No</th>
@@ -406,6 +483,7 @@
                                                 <th class="text-end">Amount Paid</th>
                                                 <th class="text-end">Balance</th>
                                                 <th class="text-center">Status</th>
+                                                <th class="text-center" style="width: 100px;">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -443,10 +521,20 @@
                                                         {{ $inv->is_overdue && $inv->status === 'unpaid' ? 'overdue' : $inv->status }}
                                                     </span>
                                                 </td>
+                                                <td class="text-center">
+                                                    <div class="d-flex justify-content-center gap-1">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary shadow-sm px-2 py-0" data-bs-toggle="modal" data-bs-target="#editInvoiceModal-{{ $inv->id }}" title="Edit Invoice"><i class="las la-edit"></i></button>
+                                                        <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.destroy', $inv->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete invoice {{ $inv->invoice_number }}?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Invoice"><i class="las la-trash"></i></button>
+                                                        </form>
+                                                    </div>
+                                                </td>
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="10" class="text-center py-4 text-muted">No supplier invoices recorded yet.</td>
+                                                <td colspan="11" class="text-center py-4 text-muted">No supplier invoices recorded yet.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
@@ -457,7 +545,7 @@
                             <!-- 5. PAYMENTS -->
                             <div class="tab-pane fade" id="payments-pane" role="tabpanel">
                                 <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
+                                    <table class="table table-hover align-middle table-custom-header" id="paymentsTable">
                                         <thead class="table-light text-muted small text-uppercase">
                                             <tr>
                                                 <th>Payment No</th>
@@ -469,6 +557,7 @@
                                                 <th class="text-end">EWT Deduction</th>
                                                 <th class="text-end">Amount Paid</th>
                                                 <th class="text-center">Status</th>
+                                                <th class="text-center" style="width: 80px;">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -485,10 +574,17 @@
                                                 <td class="text-center">
                                                     <span class="badge bg-success-subtle text-success text-capitalize px-3 py-1">{{ $pay->status }}</span>
                                                 </td>
+                                                <td class="text-center">
+                                                    <form action="{{ route('admin-finance.accounting.accounts-payable.payment.destroy', $pay->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete payment {{ $pay->payment_number }}?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Payment"><i class="las la-trash"></i></button>
+                                                    </form>
+                                                </td>
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="9" class="text-center py-4 text-muted">No supplier payments logged yet.</td>
+                                                <td colspan="10" class="text-center py-4 text-muted">No supplier payments logged yet.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
@@ -508,7 +604,7 @@
                                     </button>
                                 </div>
                                 <div class="table-responsive">
-                                    <table class="table table-bordered align-middle">
+                                    <table class="table table-bordered align-middle" id="ewtTable">
                                         <thead class="table-light text-muted small text-uppercase">
                                             <tr>
                                                 <th>Supplier Code</th>
@@ -631,46 +727,72 @@
     <!-- MODAL 2: RECORD INVOICE -->
     <div class="modal fade" id="addInvoiceModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 shadow">
+            <div class="modal-content border-0 shadow" style="border-radius: 12px; overflow: hidden;">
                 <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.store') }}" method="POST">
                     @csrf
-                    <div class="modal-header bg-dark text-white">
-                        <h5 class="modal-title fw-bold"><i class="las la-file-invoice-dollar me-2"></i>Record Supplier Invoice</h5>
+                    <div class="modal-header bg-dark text-white py-3">
+                        <h5 class="modal-title fw-bold text-white"><i class="las la-file-invoice-dollar me-2 text-danger"></i>Record Supplier Invoice</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-4">
                         <div class="row g-3">
+                            <!-- Supplier -->
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Supplier <span class="text-danger">*</span></label>
-                                <select name="supplier_id" class="form-select" required>
+                                <label class="form-label fw-bold small text-dark">Supplier <span class="text-danger">*</span></label>
+                                <select name="supplier_id" id="invoiceSupplierSelect" class="form-select" required>
                                     <option value="">Select Supplier</option>
                                     @foreach($suppliers as $supp)
-                                    <option value="{{ $supp->id }}">{{ $supp->company_name }} ({{ $supp->category }})</option>
+                                    <option value="{{ $supp->id }}" data-category="{{ $supp->category }}" data-tax-rate="{{ $supp->tax_rate ?: '1.00' }}">
+                                        {{ $supp->company_name }} ({{ $supp->supplier_code }})
+                                    </option>
                                     @endforeach
                                 </select>
                             </div>
+                            
+                            <!-- Category -->
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Supplier Invoice No <span class="text-danger">*</span></label>
-                                <input type="text" name="invoice_number" class="form-control" placeholder="e.g. INV-2026-0091" required>
+                                <label class="form-label fw-bold small text-dark">Category <span class="text-danger">*</span></label>
+                                <select name="category" id="invoiceCategorySelect" class="form-select" required>
+                                    <option value="">Select Category</option>
+                                    @foreach($categories as $cat)
+                                    <option value="{{ $cat }}">{{ $cat }}</option>
+                                    @endforeach
+                                </select>
                             </div>
+
+                            <!-- Invoice Date -->
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Invoice Date <span class="text-danger">*</span></label>
+                                <label class="form-label fw-bold small text-dark">Invoice Date <span class="text-danger">*</span></label>
                                 <input type="date" name="invoice_date" class="form-control" value="{{ date('Y-m-d') }}" required>
                             </div>
+
+                            <!-- Due Date -->
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Due Date <span class="text-danger">*</span></label>
+                                <label class="form-label fw-bold small text-dark">Due Date <span class="text-danger">*</span></label>
                                 <input type="date" name="due_date" class="form-control" value="{{ date('Y-m-d', strtotime('+30 days')) }}" required>
                             </div>
+
+                            <!-- Supplier Invoice No -->
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Subtotal (₱) <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" name="subtotal" class="form-control" placeholder="0.00" required>
+                                <label class="form-label fw-bold small text-dark">Supplier Invoice No <span class="text-danger">*</span></label>
+                                <input type="text" name="invoice_number" class="form-control" placeholder="e.g. INV-2026-0091" required>
                             </div>
+
+                            <!-- Subtotal -->
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Withholding Tax Rate % (Override default)</label>
-                                <input type="number" step="0.01" name="withholding_tax_rate" class="form-control" placeholder="Default supplier rate">
+                                <label class="form-label fw-bold small text-dark">Subtotal Amount (₱) <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" name="subtotal" class="form-control fw-bold text-dark" placeholder="0.00" required>
                             </div>
+
+                            <!-- Withholding Tax Rate -->
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Linked Purchase Order (Optional)</label>
+                                <label class="form-label fw-bold small text-dark">Withholding Tax Rate (%)</label>
+                                <input type="number" step="0.01" name="withholding_tax_rate" id="invoiceTaxRateInput" class="form-control" placeholder="Default supplier rate (e.g. 1.00)">
+                            </div>
+
+                            <!-- Linked PO -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-dark">Linked Purchase Order (Optional)</label>
                                 <select name="purchase_order_id" class="form-select">
                                     <option value="">None</option>
                                     @foreach($purchaseOrders as $po)
@@ -678,24 +800,17 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Linked Receiving Report (Optional)</label>
-                                <select name="receiving_report_id" class="form-select">
-                                    <option value="">None</option>
-                                    @foreach($receivingReports as $rr)
-                                    <option value="{{ $rr->id }}">{{ $rr->rr_number }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
+
+                            <!-- Notes -->
                             <div class="col-12">
-                                <label class="form-label fw-bold small text-muted">Notes / Item Details</label>
+                                <label class="form-label fw-bold small text-dark">Notes / Description</label>
                                 <textarea name="notes" class="form-control" rows="2" placeholder="Description of goods/services billed..."></textarea>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-dark px-4 fw-bold">Save Invoice</button>
+                    <div class="modal-footer bg-light border-0">
+                        <button type="button" class="btn btn-secondary px-4 shadow-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4 fw-bold shadow-sm"><i class="las la-save me-1"></i> Save Invoice</button>
                     </div>
                 </form>
             </div>
@@ -793,9 +908,140 @@
         </div>
     </div>
 
+    <!-- EDIT SUPPLIER MODALS -->
+    @foreach($suppliers as $supp)
+    <div class="modal fade" id="editSupplierModal-{{ $supp->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <form action="{{ route('admin-finance.accounting.accounts-payable.supplier.update', $supp->id) }}" method="POST">
+                    @csrf
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title fw-bold text-white"><i class="las la-edit me-2 text-danger"></i>Edit Supplier: {{ $supp->company_name }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold small text-muted">Company Name <span class="text-danger">*</span></label>
+                                <input type="text" name="company_name" class="form-control" value="{{ $supp->company_name }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted">Category <span class="text-danger">*</span></label>
+                                <select name="category" class="form-select" required>
+                                    @foreach($categories as $cat)
+                                    <option value="{{ $cat }}" {{ $supp->category == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Contact Person</label>
+                                <input type="text" name="contact_person" class="form-control" value="{{ $supp->contact_person }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Tax ID Number (TIN)</label>
+                                <input type="text" name="tin" class="form-control" value="{{ $supp->tin }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Email Address</label>
+                                <input type="email" name="email" class="form-control" value="{{ $supp->email }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Phone Number</label>
+                                <input type="text" name="phone" class="form-control" value="{{ $supp->phone }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted">Withholding Tax Rate (%)</label>
+                                <input type="number" step="0.01" name="tax_rate" class="form-control" value="{{ $supp->tax_rate }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted">Payment Terms</label>
+                                <input type="text" name="terms" class="form-control" value="{{ $supp->terms }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted">Status</label>
+                                <select name="status" class="form-select">
+                                    <option value="active" {{ $supp->status == 'active' ? 'selected' : '' }}>Active</option>
+                                    <option value="inactive" {{ $supp->status == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold small text-muted">Business Address</label>
+                                <textarea name="address" class="form-control" rows="2">{{ $supp->address }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4 fw-bold">Update Supplier</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
+    <!-- EDIT INVOICE MODALS -->
+    @foreach($invoices as $inv)
+    <div class="modal fade" id="editInvoiceModal-{{ $inv->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.update', $inv->id) }}" method="POST">
+                    @csrf
+                    <div class="modal-header bg-dark text-white py-3">
+                        <h5 class="modal-title fw-bold text-white"><i class="las la-edit me-2 text-danger"></i>Edit Invoice: {{ $inv->invoice_number }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-dark">Supplier Invoice No <span class="text-danger">*</span></label>
+                                <input type="text" name="invoice_number" class="form-control" value="{{ $inv->invoice_number }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-dark">Subtotal Amount (₱) <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" name="subtotal" class="form-control fw-bold" value="{{ $inv->subtotal }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-dark">Invoice Date <span class="text-danger">*</span></label>
+                                <input type="date" name="invoice_date" class="form-control" value="{{ \Carbon\Carbon::parse($inv->invoice_date)->format('Y-m-d') }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-dark">Due Date <span class="text-danger">*</span></label>
+                                <input type="date" name="due_date" class="form-control" value="{{ \Carbon\Carbon::parse($inv->due_date)->format('Y-m-d') }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-dark">Withholding Tax Rate (%)</label>
+                                <input type="number" step="0.01" name="withholding_tax_rate" class="form-control" value="{{ $inv->withholding_tax_rate }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold small text-dark">Notes / Description</label>
+                                <textarea name="notes" class="form-control" rows="2">{{ $inv->notes }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4 fw-bold">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
     @push('scripts')
+    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
         $(document).ready(function() {
+            if ($.fn.DataTable) {
+                $('#suppliersTable').DataTable({ pageLength: 10, responsive: true });
+                $('#invoicesTable').DataTable({ pageLength: 10, responsive: true });
+                $('#paymentsTable').DataTable({ pageLength: 10, responsive: true });
+                $('#poTable').DataTable({ pageLength: 10, responsive: true });
+                $('#rrTable').DataTable({ pageLength: 10, responsive: true });
+                $('#ewtTable').DataTable({ pageLength: 10, responsive: true });
+            }
+
             $(document).on('click', '.view-po-details', function(e) {
                 e.preventDefault();
                 const poId = $(this).data('id');
@@ -837,6 +1083,41 @@
                 printWindow.print();
             }, 500);
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const suppSelect = document.getElementById('invoiceSupplierSelect');
+            const catSelect = document.getElementById('invoiceCategorySelect');
+            const taxInput = document.getElementById('invoiceTaxRateInput');
+
+            if (suppSelect && catSelect) {
+                suppSelect.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    if (!selectedOption) return;
+                    const cat = selectedOption.getAttribute('data-category');
+                    const tax = selectedOption.getAttribute('data-tax-rate');
+
+                    if (cat) {
+                        catSelect.value = cat;
+                    }
+                    if (tax && taxInput && (!taxInput.value || taxInput.value === '1.00')) {
+                        taxInput.value = tax;
+                    }
+                });
+
+                catSelect.addEventListener('change', function() {
+                    const selectedCat = this.value;
+                    Array.from(suppSelect.options).forEach(opt => {
+                        if (!opt.value) return;
+                        const optCat = opt.getAttribute('data-category');
+                        if (!selectedCat || optCat === selectedCat) {
+                            opt.style.display = '';
+                        } else {
+                            opt.style.display = 'none';
+                        }
+                    });
+                });
+            }
+        });
     </script>
     @endpush
 </x-app-layout>

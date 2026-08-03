@@ -90,106 +90,144 @@
         <div class="col-xl-10 mx-auto">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                    <h4 class="fw-bold mb-0">Account Statement Request</h4>
+                    <h4 class="fw-bold mb-0">Account Statement — {{ $soa->soa_number }}</h4>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb mb-0">
                             <li class="breadcrumb-item"><a href="{{ route('admin-finance.credit-collection.billing') }}">Billing List</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">Request Details</li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ $soa->soa_number }}</li>
                         </ol>
                     </nav>
                 </div>
-                <a href="{{ route('admin-finance.credit-collection.billing') }}" class="btn btn-outline-secondary btn-sm">
-                    <i class="las la-arrow-left me-1"></i> Back to List
-                </a>
+                <div class="d-flex gap-2 align-items-center">
+                    @php
+                        $statusColors = ['draft' => 'secondary', 'pending' => 'warning', 'approved' => 'success', 'compiled' => 'dark'];
+                        $statusColor = $statusColors[$soa->status] ?? 'secondary';
+                    @endphp
+                    <span class="badge bg-{{ $statusColor }} fs-6">{{ ucfirst($soa->status) }}</span>
+                    <a href="{{ route('admin-finance.credit-collection.billing') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="las la-arrow-left me-1"></i> Back to List
+                    </a>
+                </div>
             </div>
 
             <div class="detail-card">
                 <div class="section-title">
                     <i class="las la-file-contract text-primary"></i>
-                    Section 1: Contract Information
+                    Statement Information
                 </div>
                 <div class="info-grid">
                     <div class="info-item">
-                        <label>Contract Number / Request ID</label>
-                        <p>CONT-2026-0042</p>
+                        <label>Statement Number</label>
+                        <p>{{ $soa->soa_number }}</p>
                     </div>
                     <div class="info-item">
-                        <label>Source Department</label>
-                        <p>Ads & Promo</p>
+                        <label>Status</label>
+                        <p><span class="badge bg-{{ $statusColor }}">{{ ucfirst($soa->status) }}</span></p>
                     </div>
                     <div class="info-item col-12">
                         <label>Customer Name</label>
-                        <p>ABC Corporation</p>
+                        <p>{{ $soa->customer->customer_name ?? $soa->customer->company_name ?? 'N/A' }}</p>
                     </div>
                     <div class="info-item">
                         <label>Contact Person</label>
-                        <p>John Doe</p>
+                        <p>{{ $soa->contact_person ?? $soa->customer->contact_person ?? '—' }}</p>
                     </div>
                     <div class="info-item">
-                        <label>Address</label>
-                        <p>123 Business Ave, Quezon City, Metro Manila</p>
+                        <label>Billing Address</label>
+                        <p>{{ $soa->billing_address ?? $soa->customer->billing_address ?? '—' }}</p>
                     </div>
                     <div class="info-item">
-                        <label>Products / Services Selected</label>
-                        <p>Inside Back (Full Color) 8.5x11 - Monthly Magazine</p>
+                        <label>Billing Period Start</label>
+                        <p>{{ $soa->billing_period_start ? \Carbon\Carbon::parse($soa->billing_period_start)->format('M d, Y') : '—' }}</p>
                     </div>
                     <div class="info-item">
-                        <label>Contract Rates / Prices</label>
-                        <p>₱ 25,000.00 / insertion</p>
+                        <label>Billing Period End</label>
+                        <p>{{ $soa->billing_period_end ? \Carbon\Carbon::parse($soa->billing_period_end)->format('M d, Y') : '—' }}</p>
                     </div>
                     <div class="info-item">
-                        <label>Contract Period</label>
-                        <p>Jan 01, 2026 - Dec 31, 2026</p>
+                        <label>Total Amount</label>
+                        <p class="fw-bold text-primary">₱ {{ number_format($soa->total_amount, 2) }}</p>
                     </div>
                     <div class="info-item">
-                        <label>Remarks from Ads & Promo</label>
-                        <p>Client requested priority placement for the first quarter of 2026.</p>
+                        <label>Date Created</label>
+                        <p>{{ $soa->created_at->format('M d, Y') }}</p>
                     </div>
                 </div>
             </div>
 
+            {{-- Particulars / Line Items --}}
+            @if($soa->items && $soa->items->count() > 0)
             <div class="detail-card">
                 <div class="section-title">
-                    <i class="las la-paperclip text-primary"></i>
-                    Section 2: Attachments
+                    <i class="las la-list text-primary"></i>
+                    Particulars
                 </div>
-                <ul class="attachment-list">
-                    <li class="attachment-item">
-                        <div class="attachment-info">
-                            <i class="las la-file-pdf attachment-icon"></i>
-                            <div>
-                                <div class="fw-bold small">Signed Contract.pdf</div>
-                                <div class="text-muted extra-small">Uploaded: Feb 01, 2026</div>
-                            </div>
-                        </div>
-                        <button class="btn btn-outline-primary btn-xs"><i class="las la-download"></i> Download</button>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Item / Service</th>
+                                <th>Description</th>
+                                <th>Qty / Size</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($soa->items as $item)
+                            <tr>
+                                <td>{{ $item->service }}</td>
+                                <td>{{ $item->description }}</td>
+                                <td>{{ $item->qty }}</td>
+                                <td class="text-end">₱ {{ number_format($item->price, 2) }}</td>
+                                <td class="text-end fw-bold">₱ {{ number_format((float)$item->qty * (float)$item->price, 2) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="text-end fw-bold">TOTAL AMOUNT</td>
+                                <td class="text-end fw-bold text-primary">₱ {{ number_format($soa->total_amount, 2) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            @endif
+
+            {{-- Linked Sales Orders --}}
+            @if($soa->salesOrders && $soa->salesOrders->count() > 0)
+            <div class="detail-card">
+                <div class="section-title">
+                    <i class="las la-shopping-cart text-primary"></i>
+                    Linked Sales Orders
+                </div>
+                <ul class="list-group list-group-flush">
+                    @foreach($soa->salesOrders as $so)
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span class="fw-bold text-primary">{{ $so->so_number }}</span>
+                        <span>₱ {{ number_format($so->final_total, 2) }}</span>
                     </li>
-                    <li class="attachment-item">
-                        <div class="attachment-info">
-                            <i class="las la-file-image attachment-icon"></i>
-                            <div>
-                                <div class="fw-bold small">Advertisement Material - Jan2026.jpeg</div>
-                                <div class="text-muted extra-small">Uploaded: Feb 02, 2026</div>
-                            </div>
-                        </div>
-                        <button class="btn btn-outline-primary btn-xs"><i class="las la-download"></i> Download</button>
-                    </li>
+                    @endforeach
                 </ul>
             </div>
+            @endif
 
             <div class="detail-card bg-light">
                 <div class="section-title">
                     <i class="las la-cog text-primary"></i>
-                    Section 3: Actions
+                    Actions
                 </div>
                 <div class="action-footer">
                     <div class="text-muted small">
-                        <i class="las la-info-circle me-1"></i> Review all contract details and materials above. Clicking "Prepare Account Statement" will open the preparation editor.
+                        <i class="las la-info-circle me-1"></i> Review all statement details above.
                     </div>
                     <div class="d-flex gap-2">
-                        <a href="{{ route('admin-finance.credit-collection.billing.create', $id) }}" class="btn btn-primary d-flex align-items-center">
-                            <i class="las la-file-invoice me-2 fs-5"></i> Prepare Account Statement
-                        </a>
+                        @if($soa->status === 'draft')
+                            <a href="{{ route('admin-finance.credit-collection.billing.edit', $soa->id) }}" class="btn btn-warning d-flex align-items-center">
+                                <i class="las la-edit me-2 fs-5"></i> Edit Statement
+                            </a>
+                        @endif
                     </div>
                 </div>
             </div>

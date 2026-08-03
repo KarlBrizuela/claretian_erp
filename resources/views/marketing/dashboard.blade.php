@@ -105,6 +105,7 @@
                 </div>
             </div>
         </div>
+        {{-- 
         <div class="col-xl-3 col-xxl-3 col-lg-6 col-sm-6">
             <div class="card card-bd">
                 <div class="bg-warning card-border"></div>
@@ -120,6 +121,7 @@
                 </div>
             </div>
         </div>
+        --}}
         <div class="col-xl-3 col-xxl-3 col-lg-6 col-sm-6">
             <div class="card card-bd">
                 <div class="bg-info card-border"></div>
@@ -140,6 +142,10 @@
                                     'area_sales' => 'Area Sales',
                                     'direct_pos' => 'Direct POS',
                                     'ecom_pos' => 'E‑commerce',
+                                    'pos' => 'POS',
+                                    'so' => 'SO',
+                                    'nbs' => 'NBS',
+                                    'e-com' => 'E-Com',
                                 ];
                                 $topDisplay = $topMap[strtolower($topLabel)] ?? ucwords(str_replace(['_','-'], ' ', strtolower($topLabel)));
                             @endphp
@@ -192,6 +198,10 @@
                                     'direct_consignment' => 'Direct Consignment',
                                     'ecom_direct' => 'E‑commerce',
                                     'paid' => 'Paid',
+                                    'pos' => 'POS',
+                                    'so' => 'SO',
+                                    'nbs' => 'NBS',
+                                    'e-com' => 'E-Com',
                                 ];
                                 $key = strtolower($label);
                                 $displayLabel = $map[$key] ?? ucwords(str_replace(['_','-'], ' ', $key));

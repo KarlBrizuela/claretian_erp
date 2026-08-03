@@ -37,6 +37,8 @@ class SalesOrder extends Model
         'dr_prepared_at',
         'ar_prepared_at',
         'ar_prepared_by',
+        'cr_prepared_at',
+        'cr_prepared_by',
         'remarks',
         'billing_address',
         'payment_method',
@@ -67,6 +69,7 @@ class SalesOrder extends Model
         'freight_charges',
         'freight_notes',
         'freight_option',
+        'ecom_payout_status',
     ];
 
     public function customer()
@@ -85,6 +88,11 @@ class SalesOrder extends Model
     }
 
     public function preparedBy()
+    {
+        return $this->belongsTo(User::class, 'prepared_by');
+    }
+
+    public function createdBy()
     {
         return $this->belongsTo(User::class, 'prepared_by');
     }
@@ -137,6 +145,16 @@ class SalesOrder extends Model
     public function freightQuotation()
     {
         return $this->hasOne(FreightQuotation::class, 'sales_order_id');
+    }
+
+    public function invoice()
+    {
+        return $this->hasOne(SalesInvoice::class, 'so_id');
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(SalesInvoice::class, 'so_id');
     }
 
     /**

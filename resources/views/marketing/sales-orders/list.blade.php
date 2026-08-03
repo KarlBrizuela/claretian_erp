@@ -90,6 +90,7 @@
                                         $typeDisplay = str_replace('_', ' ', $order->type);
                                         if ($order->type == 'calculator_pos') $typeDisplay = 'direct POS';
                                         if ($order->type == 'ecom_direct') $typeDisplay = 'ECOM POS';
+                                        if ($order->type == 'paid') $typeDisplay = 'paid transac';
                                     @endphp
                                     <td class="text-uppercase {{ $order->type === 'paid' ? 'text-success' : 'text-primary' }}">{{ $typeDisplay }}</td>
                                     <td>₱{{ number_format($order->total_amount, 2) }}</td>
@@ -97,36 +98,59 @@
                                     <td>
                                         @php
                                             $totalItems = $order->items->count();
-                                            $pickedActivity = $order->activities()
-                                                ->where('action', 'Pick list items saved')
-                                                ->latest()
-                                                ->first();
-                                            $pickedCount = $pickedActivity ? count(json_decode($pickedActivity->details, true)) : 0;
+                                            
+                                            // Check if already gathered or in completed/later stages
+                                            $packingData = json_decode($order->packing_data ?? '{}', true);
+                                            $isGathered = isset($packingData['status']) && $packingData['status'] === 'gathered';
+                                            $isCompletedOrLater = in_array($order->status, ['completed', 'ready_for_delivery', 'ready_for_pickup', 'ar_created', 'cr_created']);
+                                            
+                                            if ($isGathered || $isCompletedOrLater) {
+                                                $pickedCount = $totalItems;
+                                            } else {
+                                                $pickedActivity = $order->activities()
+                                                    ->where('action', 'Pick list items saved')
+                                                    ->latest()
+                                                    ->first();
+                                                $pickedCount = $pickedActivity ? count(json_decode($pickedActivity->details, true)) : 0;
+                                            }
+                                            
+                                            $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
                                         @endphp
-                                        {{-- Only show items picked for non-PAID orders that are in picking/delivery phases --}}
-                                        @if($order->type !== 'paid' && ($order->status == 'picking' || $order->status == 'ready_for_delivery' || $order->status == 'completed'))
+                                        {{-- Only show items picked for non-PAID and non-POS orders that are in picking/delivery phases --}}
+                                        @if(!in_array($order->type, ['paid', 'calculator_pos', 'ecom_direct']) && ($order->status == 'picking' || $order->status == 'ready_for_delivery' || $order->status == 'completed'))
                                             <span class="badge bg-info">{{ $pickedCount }}/{{ $totalItems }} picked</span>
                                         @else
                                             <span class="text-muted">—</span>
                                         @endif
                                     </td>
                                     <td>
-                                        <span class="status-badge status-{{ $order->status }}">
-                                            @php
-                                                $displayStatus = str_replace('_', ' ', $order->status);
-                                                if ($order->status == 'draft') {
-                                                    if ($order->freight_charges && $order->freight_charges > 0) {
-                                                        $displayStatus = 'Draft (Freight Approved)';
-                                                    } else {
-                                                        $displayStatus = 'Draft (Pending Freight)';
-                                                    }
+                                        @php
+                                            $displayStatus = str_replace('_', ' ', $order->status);
+                                            $badgeClass = 'status-' . $order->status;
+
+                                            if ($order->status == 'picking' || ($isConsignment && $pickedCount < $totalItems)) {
+                                                $displayStatus = 'Picklist Pend';
+                                                $badgeClass = 'status-picking';
+                                            } elseif ($order->status == 'draft') {
+                                                if ($order->freight_charges && $order->freight_charges > 0) {
+                                                    $displayStatus = 'Draft (Freight Approved)';
+                                                } else {
+                                                    $displayStatus = 'Draft (Pending Freight)';
                                                 }
-                                                if ($order->status == 'pending_si_prep') $displayStatus = 'Gathered (In SI Prep)';
-                                                if ($order->status == 'si_created') $displayStatus = 'SI Created';
-                                                if ($order->status == 'pending_dr_prep') $displayStatus = 'SI Signed (In DR Prep)';
-                                                if ($order->status == 'pending_mkt_approval') $displayStatus = 'Pending Marketing Approval';
-                                                if ($order->status == 'pending_prod_approval') $displayStatus = 'Pending Production Approval';
-                                            @endphp
+                                            } elseif ($order->status == 'pending_si_prep') {
+                                                $displayStatus = 'Gathered (In SI Prep)';
+                                            } elseif ($order->status == 'si_created') {
+                                                $displayStatus = 'SI Created';
+                                            } elseif ($order->status == 'pending_dr_prep') {
+                                                $displayStatus = 'Pending DR';
+                                                $badgeClass = 'status-pending_dr_prep';
+                                            } elseif ($order->status == 'pending_mkt_approval') {
+                                                $displayStatus = 'Pending Marketing Approval';
+                                            } elseif ($order->status == 'pending_prod_approval') {
+                                                $displayStatus = 'Pending Production Approval';
+                                            }
+                                        @endphp
+                                        <span class="status-badge {{ $badgeClass }}">
                                             {{ ucwords($displayStatus) }}
                                         </span>
                                     </td>

@@ -13,9 +13,11 @@ class OfficeSupplyLog extends Model
 
     protected $fillable = [
         'office_supply_id',
+        'item_name',
         'supplier_id',
         'added_by',
         'quantity',
+        'unit_price',
         'previous_stock',
         'new_stock',
         'notes',

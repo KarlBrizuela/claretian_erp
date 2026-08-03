@@ -246,13 +246,42 @@
                     </div>
 
                     {{-- Action Buttons --}}
-                    <div class="print-actions d-flex justify-content-between gap-2 mt-4 pt-3 border-top">
+                    <div class="print-actions d-flex justify-content-between align-items-center gap-2 mt-4 pt-3 border-top">
                         <a href="{{ route('production.ford.auto-debit') }}" class="btn btn-secondary rounded shadow-sm px-4">
                             <i class="las la-arrow-left me-1"></i>Back to List
                         </a>
-                        <button type="button" class="btn btn-light rounded shadow-sm px-4" onclick="window.print()">
-                            <i class="las la-print me-1"></i>Print
-                        </button>
+                        <div class="d-flex gap-2">
+                            @if($debit->status === 'pending_director' && (auth()->user()->position === 'Director' || auth()->user()->isSuperAdmin()))
+                                <form action="{{ route('auto-debit.approve-director', $debit->id) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success text-white rounded shadow-sm px-4">
+                                        <i class="las la-check me-1"></i>Approve as Director
+                                    </button>
+                                </form>
+                                <form action="{{ route('auto-debit.reject', $debit->id) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-danger text-white rounded shadow-sm px-4" onclick="return confirm('Are you sure you want to reject this Auto Debit letter?')">
+                                        <i class="las la-times me-1"></i>Reject
+                                    </button>
+                                </form>
+                            @elseif($debit->status === 'pending_finance' && (str_contains(auth()->user()->position, 'Manager') || str_contains(auth()->user()->position, 'Supervisor') || auth()->user()->isSuperAdmin()))
+                                <form action="{{ route('auto-debit.approve-finance', $debit->id) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success text-white rounded shadow-sm px-4">
+                                        <i class="las la-check-double me-1"></i>Approve as Finance Manager/Supervisor
+                                    </button>
+                                </form>
+                                <form action="{{ route('auto-debit.reject', $debit->id) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-danger text-white rounded shadow-sm px-4" onclick="return confirm('Are you sure you want to reject this Auto Debit letter?')">
+                                        <i class="las la-times me-1"></i>Reject
+                                    </button>
+                                </form>
+                            @endif
+                            <button type="button" class="btn btn-light rounded shadow-sm px-4" onclick="window.print()">
+                                <i class="las la-print me-1"></i>Print
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

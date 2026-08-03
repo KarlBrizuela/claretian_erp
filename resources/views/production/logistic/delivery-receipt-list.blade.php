@@ -216,6 +216,10 @@
                                                 <span class="table-status-badge status-in-transit">Pending Approval</span>
                                             @elseif($order->status === 'ready_for_delivery')
                                                 <span class="table-status-badge status-completed">Ready for Delivery</span>
+                                            @elseif($order->status === 'ar_created')
+                                                <span class="table-status-badge bg-info text-white text-nowrap">Moved to AR</span>
+                                            @elseif($order->status === 'cr_created')
+                                                <span class="table-status-badge bg-success text-white text-nowrap">Moved to CR</span>
                                             @elseif($order->status === 'si_created')
                                                 <span class="table-status-badge bg-secondary text-white">Closed</span>
                                             @elseif($order->status === 'reconsignment_pending')
@@ -229,6 +233,31 @@
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 
+                                                @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
+                                                     <button type="button" class="btn btn-success shadow btn-xs sharp" title="Import Excel (Customer Name + Pick Qty)" data-bs-toggle="modal" data-bs-target="#importExcelModalDr{{ $order->id }}">
+                                                         <i class="las la-file-excel"></i>
+                                                     </button>
+                                                     @php
+                                                         $isMovedToAR = $order->status === 'ar_created' || $order->ar_prepared_at !== null;
+                                                         $isMovedToCR = $order->status === 'cr_created' || $order->cr_prepared_at !== null;
+                                                     @endphp
+                                                     @if($order->type === 'area_sales_consignment')
+                                                          <form action="{{ route('production.logistic.move-to-ar', $order->id) }}" method="POST" style="display:inline;">
+                                                              @csrf
+                                                              <button type="submit" class="btn btn-info shadow btn-xs sharp text-white" title="{{ $isMovedToAR ? 'Already Moved to AR' : 'Move to Acknowledgement Receipt (AR)' }}" {{ $isMovedToAR ? 'disabled' : '' }}>
+                                                                  <i class="las la-file-signature"></i>
+                                                              </button>
+                                                          </form>
+                                                      @elseif($order->type === 'area_consignment')
+                                                          <form action="{{ route('production.logistic.move-to-cr', $order->id) }}" method="POST" style="display:inline;">
+                                                              @csrf
+                                                              <button type="submit" class="btn btn-success shadow btn-xs sharp" title="{{ $isMovedToCR ? 'Already Moved to CR' : 'Move to Consignment Receipt (CR)' }}" {{ $isMovedToCR ? 'disabled' : '' }}>
+                                                                  <i class="las la-file-contract"></i>
+                                                              </button>
+                                                          </form>
+                                                      @endif
+                                                @endif
+
                                                 @if($order->status === 'pending_dr_prep' && $canPrep)
                                                     <form action="{{ route('production.logistic.mark-as-dr-prepared', $order->id) }}" method="POST" style="display:inline;">
                                                         @csrf
@@ -258,6 +287,51 @@
             </div>
         </div>
     </div>
+
+    {{-- Import Excel Modals for DR --}}
+    @foreach($orders as $order)
+    @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
+    <div class="modal fade" id="importExcelModalDr{{ $order->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('production.logistic.delivery-receipt.import-excel') }}" enctype="multipart/form-data">
+                    @csrf
+                    <input type="hidden" name="order_id" value="{{ $order->id }}">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title text-white">
+                            <i class="las la-file-excel me-2"></i>
+                            Import Excel into DR — <strong>{{ $order->so_number }}</strong>
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info mb-3" style="font-size:0.85rem;">
+                            <strong><i class="las la-info-circle me-1"></i> Steps:</strong>
+                            <ol class="mb-0 mt-1 ps-3">
+                                <li>Export <strong>{{ $order->so_number }}</strong> from Sales Orders.</li>
+                                <li>Row 7 Col B: Fill in <strong>Customer Name</strong>.</li>
+                                <li>Column G (Row 10+): Fill in <strong>Pick Qty</strong> per item.</li>
+                                <li>Upload the updated Excel file below.</li>
+                            </ol>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Upload Excel File <span class="text-danger">*</span></label>
+                            <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls" required>
+                            <small class="text-muted">Only .xlsx / .xls — must match SO <strong>{{ $order->so_number }}</strong>.</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="las la-upload me-1"></i> Import to DR
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+    @endforeach
 
     @push('scripts')
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>

@@ -8,10 +8,84 @@ class ProductionController extends Controller
 {
     public function dashboard()
     {
+        $activeJobRequests = \Illuminate\Support\Facades\Schema::hasTable('job_requests')
+            ? \App\Models\JobRequest::where('status', '!=', 'Completed')->count()
+            : 0;
+
+        $pendingPurchaseOrders = \Illuminate\Support\Facades\Schema::hasTable('purchase_orders')
+            ? \App\Models\PurchaseOrder::where('status', '!=', 'completed')->count()
+            : 0;
+
+        $activePrintingJobs = \Illuminate\Support\Facades\Schema::hasTable('production_costings')
+            ? \App\Models\ProductionCosting::count()
+            : 0;
+
+        $pendingPaymentRequests = \Illuminate\Support\Facades\Schema::hasTable('payment_requests')
+            ? \App\Models\PaymentRequest::where('status', 'like', 'pending%')->count()
+            : 0;
+
+        $recentActivities = \Illuminate\Support\Facades\Schema::hasTable('activity_logs')
+            ? \App\Models\ActivityLog::with('user')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function($log) {
+                    $actionLower = strtolower($log->action);
+                    $icon = 'las la-bell';
+                    $color = 'secondary';
+                    
+                    if (str_contains($actionLower, 'purchase') || str_contains($actionLower, 'po')) {
+                        $icon = 'las la-shopping-cart';
+                        $color = 'success';
+                    } elseif (str_contains($actionLower, 'job') || str_contains($actionLower, 'reconsignment') || str_contains($actionLower, 'delivery')) {
+                        $icon = 'las la-truck';
+                        $color = 'primary';
+                    } elseif (str_contains($actionLower, 'pick') || str_contains($actionLower, 'print')) {
+                        $icon = 'las la-print';
+                        $color = 'warning';
+                    } elseif (str_contains($actionLower, 'payment') || str_contains($actionLower, 'debit') || str_contains($actionLower, 'invoice') || str_contains($actionLower, 'si')) {
+                        $icon = 'las la-money-bill-wave';
+                        $color = 'info';
+                    }
+                    
+                    $details = '';
+                    if ($log->details) {
+                        $parsed = json_decode($log->details, true);
+                        if (is_array($parsed)) {
+                            if (isset($parsed['po_number'])) {
+                                $details = "PO #" . $parsed['po_number'];
+                            } elseif (isset($parsed['pick_list_number'])) {
+                                $details = "Pick List: " . $parsed['pick_list_number'];
+                            } elseif (isset($parsed['gathered_at'])) {
+                                $details = "Gathered at: " . date('M d, Y H:i', strtotime($parsed['gathered_at']));
+                            }
+                        }
+                    }
+                    if (empty($details)) {
+                        $details = $log->details ?: ($log->user->name ?? 'System Action');
+                    }
+                    
+                    return [
+                        'title' => $log->action,
+                        'desc' => $details,
+                        'time' => $log->created_at->diffForHumans(),
+                        'icon' => $icon,
+                        'color' => $color
+                    ];
+                })
+            : collect();
+
         return view('production.dashboard', [
             'title' => 'Production Dashboard',
             'role' => auth()->user()->position,
-            'sidebar' => 'production'
+            'sidebar' => 'production',
+            'stats' => [
+                'active_job_requests' => $activeJobRequests,
+                'pending_purchase_orders' => $pendingPurchaseOrders,
+                'active_printing_jobs' => $activePrintingJobs,
+                'pending_payment_requests' => $pendingPaymentRequests,
+            ],
+            'recentActivities' => $recentActivities
         ]);
     }
 
@@ -86,6 +160,21 @@ class ProductionController extends Controller
                 ->get()
             : collect();
 
+        $autoDebitQuery = \App\Models\AutoDebit::with('preparer');
+        if ($pos === 'Director') {
+            $autoDebitQuery->where('status', 'pending_director');
+        } elseif ($pos === 'Super Admin') {
+            $autoDebitQuery->whereIn('status', ['pending_director', 'pending_finance']);
+        } else {
+            $isApprover = str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor');
+            if ($isApprover) {
+                $autoDebitQuery->where('status', 'pending_finance');
+            } else {
+                $autoDebitQuery->whereRaw('1 = 0');
+            }
+        }
+        $pendingAutoDebits = $autoDebitQuery->latest()->get();
+
         // 3. Unified Listing for "My Approvals" tab
         $myApprovals = [];
         
@@ -124,7 +213,7 @@ class ProductionController extends Controller
             $myApprovals[] = [
                 'type' => 'Material',
                 'id' => $req->material_req_id,
-                'reference_no' => 'MAT-' . str_pad($req->material_req_id, 5, '0', STR_PAD_LEFT),
+                'reference_no' => 'MAT-' . str_pad($req->material_req_id, 4, '0', STR_PAD_LEFT),
                 'submitted_by' => $req->user->name ?? $req->requested_by,
                 'submitted_date' => $req->created_at,
                 'amount' => '₱' . number_format($req->amount, 2),
@@ -167,6 +256,20 @@ class ProductionController extends Controller
                     'original' => $transfer
                 ];
             }
+        }
+
+        foreach ($pendingAutoDebits as $debit) {
+            $myApprovals[] = [
+                'type' => 'Auto Debit Letter',
+                'id' => $debit->id,
+                'reference_no' => 'AD-' . str_pad($debit->id, 5, '0', STR_PAD_LEFT),
+                'submitted_by' => $debit->preparer->name ?? 'N/A',
+                'submitted_date' => $debit->created_at,
+                'amount' => '₱' . number_format($debit->amount, 2),
+                'attachment' => null,
+                'status' => $debit->status === 'pending_director' ? 'Pending Director' : 'Pending Finance',
+                'original' => $debit
+            ];
         }
 
         // 4. My Submissions
@@ -376,7 +479,51 @@ class ProductionController extends Controller
 
         $netIncome = $thisMonthsRevenue - $totalExpenses;
 
-        $cashPosition = (float) \App\Models\CompanyBankAccount::sum('current_balance');
+        // Calculate dynamic cash position from General Ledger balances + unposted cash/POS sales orders
+        $cashPosition = 0.00;
+        if (\Schema::hasTable('chart_of_accounts') && \Schema::hasTable('journal_entry_items')) {
+            $cashAccountIds = \App\Models\ChartOfAccount::where('type', 'Asset')
+                ->where(function($q) {
+                    $q->where('name', 'like', '%Cash%')
+                      ->orWhere('name', 'like', '%Bank%')
+                      ->orWhere('name', 'like', '%Undeposited%');
+                })
+                ->pluck('id');
+            
+            if ($cashAccountIds->isNotEmpty()) {
+                $debits = \DB::table('journal_entry_items')
+                    ->whereIn('chart_of_account_id', $cashAccountIds)
+                    ->sum('debit');
+                $credits = \DB::table('journal_entry_items')
+                    ->whereIn('chart_of_account_id', $cashAccountIds)
+                    ->sum('credit');
+                $cashPosition = (float) ($debits - $credits);
+            }
+        }
+
+        if (\Schema::hasTable('sales_orders')) {
+            $unpostedOrders = \App\Models\SalesOrder::where('status', '!=', 'cancelled')
+                ->where(function($q) {
+                    $q->where('payment_status', 'paid')
+                      ->orWhere('type', 'calculator_pos')
+                      ->orWhere('payment_method', 'cash')
+                      ->orWhere(function($sub) {
+                          $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', '');
+                      });
+                })
+                ->get();
+            
+            foreach ($unpostedOrders as $order) {
+                $hasJE = \Schema::hasTable('journal_entries') && \App\Models\JournalEntry::where('reference', $order->so_number)->exists();
+                if (!$hasJE) {
+                    $cashPosition += (float) $order->total_amount;
+                }
+            }
+        }
+
+        if ($cashPosition <= 0 && \Schema::hasTable('company_bank_accounts')) {
+            $cashPosition = (float) \App\Models\CompanyBankAccount::sum('current_balance');
+        }
 
         $outstandingReceivables = \Schema::hasTable('sales_invoices') ? (float) \DB::table('sales_invoices')->where('status', '!=', 'Paid')->sum('total_amount') : 0.00;
 
@@ -405,17 +552,52 @@ class ProductionController extends Controller
 
         $forecastedCash = $cashPosition + ($outstandingReceivables - $payablesDue);
 
-        // 2. Real Database Ranking Lists
+        // 2. Real Database Ranking Lists - Top Selling Books based on actual quantity and revenue sold
         $topSellingBooks = [];
-        if (\Schema::hasTable('books')) {
-            $topSellingBooks = \App\Models\Book::orderBy(\DB::raw('price * stock'), 'desc')->take(5)->get()->map(function($bk) {
-                return [
+        if (\Schema::hasTable('sales_order_items') && \Schema::hasTable('books')) {
+            $topItems = \App\Models\SalesOrderItem::select(
+                    'book_id',
+                    \DB::raw('SUM(quantity) as total_units_sold'),
+                    \DB::raw('SUM(subtotal) as total_revenue')
+                )
+                ->whereHas('order', function($q) use ($salesFilter) {
+                    $q->where('status', '!=', 'cancelled')->where($salesFilter);
+                })
+                ->whereNotNull('book_id')
+                ->groupBy('book_id')
+                ->orderByDesc('total_revenue')
+                ->take(5)
+                ->with('book')
+                ->get();
+
+            foreach ($topItems as $item) {
+                if ($item->book) {
+                    $topSellingBooks[] = [
+                        'name' => $item->book->name,
+                        'sku' => $item->book->sku ?: 'N/A',
+                        'units_sold' => (int) $item->total_units_sold,
+                        'revenue' => (float) $item->total_revenue,
+                    ];
+                }
+            }
+        }
+
+        // Fallback/Padding: If less than 5 books have sales, pad with other books ordered by stock descending but with 0 revenue/sales.
+        if (count($topSellingBooks) < 5 && \Schema::hasTable('books')) {
+            $excludeIds = isset($topItems) ? $topItems->pluck('book_id')->toArray() : [];
+            $otherBooks = \App\Models\Book::whereNotIn('id', $excludeIds)
+                ->orderBy('stock', 'desc')
+                ->take(5 - count($topSellingBooks))
+                ->get();
+                
+            foreach ($otherBooks as $bk) {
+                $topSellingBooks[] = [
                     'name' => $bk->name,
                     'sku' => $bk->sku ?: 'N/A',
-                    'units_sold' => (int) $bk->stock,
-                    'revenue' => (float) ($bk->price * $bk->stock),
+                    'units_sold' => 0,
+                    'revenue' => 0.00,
                 ];
-            })->toArray();
+            }
         }
 
         $worstSellingBooks = [];
@@ -503,6 +685,120 @@ class ProductionController extends Controller
             ];
         }
 
+        // Fetch detailed list records for card drill-down modals
+        $todaysCashInflows = \App\Models\CashTransaction::where('category', 'Inflow')->whereDate('transaction_date', $today)->get()->map(function($ct) {
+            return (object) [
+                'so_number' => 'CASH-IN-' . $ct->id,
+                'customer_name' => $ct->description ?: 'Cash Inflow Transaction',
+                'type' => $ct->transaction_type ?: 'Cash Inflow',
+                'payment_method' => 'Cash',
+                'status' => 'completed',
+                'total_amount' => (float) $ct->amount,
+                'created_at' => \Carbon\Carbon::parse($ct->transaction_date),
+            ];
+        });
+
+        $todaysOrders = \Schema::hasTable('sales_orders') 
+            ? \App\Models\SalesOrder::whereDate('created_at', $today)->where($salesFilter)->with('customer')->get()->map(function($so) {
+                return (object) [
+                    'so_number' => $so->so_number,
+                    'customer_name' => $so->customer->customer_name ?? ($so->customer->company_name ?? 'Walk-in Customer'),
+                    'type' => $so->type,
+                    'payment_method' => $so->payment_method ?: 'Cash',
+                    'status' => $so->status,
+                    'total_amount' => (float) $so->total_amount,
+                    'created_at' => $so->created_at,
+                ];
+            }) 
+            : collect();
+
+        $todaysSalesOrdersList = $todaysCashInflows->concat($todaysOrders)->sortByDesc('created_at')->values();
+
+        $monthsCashInflows = \App\Models\CashTransaction::where('category', 'Inflow')->where('transaction_date', 'like', "{$thisMonth}%")->get()->map(function($ct) {
+            return (object) [
+                'so_number' => 'CASH-IN-' . $ct->id,
+                'customer_name' => $ct->description ?: 'Cash Inflow Transaction',
+                'type' => $ct->transaction_type ?: 'Cash Inflow',
+                'payment_method' => 'Cash',
+                'status' => 'completed',
+                'total_amount' => (float) $ct->amount,
+                'created_at' => \Carbon\Carbon::parse($ct->transaction_date),
+            ];
+        });
+
+        $monthsOrders = \Schema::hasTable('sales_orders') 
+            ? \App\Models\SalesOrder::where('created_at', 'like', "{$thisMonth}%")->where($salesFilter)->with('customer')->get()->map(function($so) {
+                return (object) [
+                    'so_number' => $so->so_number,
+                    'customer_name' => $so->customer->customer_name ?? ($so->customer->company_name ?? 'Client Account'),
+                    'type' => $so->type,
+                    'payment_method' => $so->payment_method ?: 'Cash',
+                    'status' => $so->status,
+                    'total_amount' => (float) $so->total_amount,
+                    'created_at' => $so->created_at,
+                ];
+            }) 
+            : collect();
+
+        $thisMonthsRevenueOrdersList = $monthsCashInflows->concat($monthsOrders)->sortByDesc('created_at')->values();
+
+        $cashInflowsList = \App\Models\CashTransaction::where('category', 'Inflow')->get()->map(function($ct) {
+            return (object) [
+                'account_code' => 'CASH-REC-' . $ct->id,
+                'bank_name' => $ct->description ?: 'Cash Collection / Receipt',
+                'account_name' => $ct->transaction_type ?: 'Cash Inflow',
+                'account_number' => 'Cash On Hand',
+                'current_balance' => (float) $ct->amount,
+            ];
+        });
+
+        $cashOrdersList = \Schema::hasTable('sales_orders') 
+            ? \App\Models\SalesOrder::where('status', '!=', 'cancelled')
+                ->where(function($q) {
+                    $q->where('payment_status', 'paid')
+                      ->orWhere('type', 'calculator_pos')
+                      ->orWhere('payment_method', 'cash');
+                })
+                ->with('customer')
+                ->get()
+                ->map(function($so) {
+                    return (object) [
+                        'account_code' => $so->so_number,
+                        'bank_name' => $so->customer->customer_name ?? ($so->customer->company_name ?? 'POS / Cash Customer'),
+                        'account_name' => 'Cash Sales Order (' . strtoupper($so->type) . ')',
+                        'account_number' => 'Direct Cash Payment',
+                        'current_balance' => (float) $so->total_amount,
+                    ];
+                })
+            : collect();
+
+        $cashAccountsList = $cashInflowsList->concat($cashOrdersList)->values();
+
+        $outstandingARList = \Schema::hasTable('sales_invoices') 
+            ? \DB::table('sales_invoices')->where('status', '!=', 'Paid')->latest()->get() 
+            : collect();
+
+        $payablesDueList = \Schema::hasTable('supplier_invoices') 
+            ? \DB::table('supplier_invoices')->where('status', '!=', 'paid')->latest()->get() 
+            : collect();
+
+        $productionCostList = \Schema::hasTable('production_costings') 
+            ? \App\Models\ProductionCosting::latest()->get() 
+            : collect();
+
+        $inventoryValueList = \Schema::hasTable('site_inventories') 
+            ? \DB::table('site_inventories')
+                ->join('books', 'site_inventories.book_id', '=', 'books.id')
+                ->select('site_inventories.*', 'books.name as book_name', 'books.price', \DB::raw('(site_inventories.quantity * books.price) as total_val'))
+                ->get() 
+            : collect();
+
+        $payrollList = \App\Models\CashTransaction::where('transaction_type', 'Payroll')->latest()->get();
+
+        $donationIncomeList = \Schema::hasTable('donations') 
+            ? \App\Models\Donation::latest()->get() 
+            : collect();
+
         return view('production.executive-dashboard.index', [
             'title' => 'Production Executive Dashboard',
             'role' => 'Production Manager',
@@ -522,12 +818,22 @@ class ProductionController extends Controller
                 'investment_valuation' => $investmentValuation,
                 'budget_utilization' => $budgetUtilization,
                 'forecasted_cash' => $forecastedCash,
+                'total_expenses' => $totalExpenses,
             ],
             'topSellingBooks' => $topSellingBooks,
             'worstSellingBooks' => $worstSellingBooks,
             'bestCustomers' => $bestCustomers,
             'mostOverdueCustomers' => $mostOverdueCustomers,
             'executiveAlerts' => $executiveAlerts,
+            'todaysSalesOrdersList' => $todaysSalesOrdersList,
+            'thisMonthsRevenueOrdersList' => $thisMonthsRevenueOrdersList,
+            'cashAccountsList' => $cashAccountsList,
+            'outstandingARList' => $outstandingARList,
+            'payablesDueList' => $payablesDueList,
+            'productionCostList' => $productionCostList,
+            'inventoryValueList' => $inventoryValueList,
+            'payrollList' => $payrollList,
+            'donationIncomeList' => $donationIncomeList,
         ]);
     }
 }

@@ -377,8 +377,44 @@
                 @endforelse
             </tbody>
             <tfoot>
+                @php
+                    $itemsSubtotal = $order->items->sum('subtotal');
+                    $discountAmount = $order->discount_amount ?? 0;
+                    $discountPercentage = $order->discount_percentage ?? 0;
+                    $freightCharges = $order->freight_charges ?? 0;
+                    $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
+                @endphp
                 <tr>
-                    <th colspan="4">TOTAL AMOUNT DUE</th>
+                    <td colspan="4" class="text-right"><strong>Subtotal:</strong></td>
+                    <td class="text-right">₱{{ number_format($itemsSubtotal, 2) }}</td>
+                </tr>
+                @if($discountAmount > 0)
+                <tr>
+                    <td colspan="4" class="text-right text-danger">
+                        <strong>
+                            Discount
+                            @if($discountPercentage > 0)
+                                ({{ (float)$discountPercentage }}%)
+                            @endif:
+                        </strong>
+                    </td>
+                    <td class="text-right text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
+                </tr>
+                @endif
+                @if($freightCharges > 0)
+                <tr>
+                    <td colspan="4" class="text-right"><strong>Freight Charges:</strong></td>
+                    <td class="text-right">₱{{ number_format($freightCharges, 2) }}</td>
+                </tr>
+                @endif
+                @if($serviceFee > 0)
+                <tr>
+                    <td colspan="4" class="text-right"><strong>Service Fee:</strong></td>
+                    <td class="text-right">₱{{ number_format($serviceFee, 2) }}</td>
+                </tr>
+                @endif
+                <tr>
+                    <th colspan="4" class="text-right">TOTAL AMOUNT DUE</th>
                     <th class="text-right">₱{{ number_format($order->total_amount, 2) }}</th>
                 </tr>
             </tfoot>

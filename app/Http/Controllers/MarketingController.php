@@ -43,37 +43,67 @@ class MarketingController extends Controller
         // Filter helper query for valid sales orders (have proof of payment, or are ecom_direct, calculator_pos, or cash)
         $salesFilter = function($q) {
             $q->where(function($sub) {
-                $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', '')
-                   ->orWhere('type', 'ecom_direct')
-                   ->orWhere('type', 'calculator_pos')
-                   ->orWhere('payment_method', 'cash');
+                $sub->whereNotNull('sales_orders.proof_of_payment')->where('sales_orders.proof_of_payment', '!=', '')
+                   ->orWhere('sales_orders.type', 'ecom_direct')
+                   ->orWhere('sales_orders.type', 'calculator_pos')
+                   ->orWhere('sales_orders.payment_method', 'cash');
             });
         };
 
-        // Orders in period
-        $ordersQuery = \App\Models\SalesOrder::whereBetween('created_at', [$start, $end])->where($salesFilter);
-        $totalOrders = (int) $ordersQuery->count();
-        $totalSales = (float) $ordersQuery->sum('total_amount');
+        // Orders in period (using effective invoice date if invoiced, otherwise order date)
+        $baseOrdersQuery = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+            ->where($salesFilter)
+            ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$start, $end]);
+
+        $totalOrders = (int) $baseOrdersQuery->count();
+        $totalSales = (float) $baseOrdersQuery->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)'));
         $avgOrder = $totalOrders > 0 ? ($totalSales / $totalOrders) : 0;
 
-        // Sales by channel (platform) - Using fromSub to avoid ONLY_FULL_GROUP_BY issues on production
-        $subQuery = \App\Models\SalesOrder::select(
+        // Sales by channel (platform) - Categorized into pos, so, nbs, e-com
+        $subQuery = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+            ->select(
                 \DB::raw("CASE 
-                    WHEN ecom_platform IS NOT NULL AND ecom_platform != '' THEN ecom_platform 
-                    WHEN platform IS NOT NULL AND platform != '' THEN platform 
-                    ELSE 'direct_pos' 
+                    WHEN sales_orders.type = 'calculator_pos' THEN 'pos'
+                    WHEN sales_orders.type = 'ecom_direct' OR (sales_orders.ecom_platform IS NOT NULL AND sales_orders.ecom_platform != '') THEN 'e-com'
+                    WHEN sales_orders.type = 'area_sales_consignment' THEN 'nbs'
+                    ELSE 'so' 
                 END as platform"),
-                'total_amount'
+                \DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount) as total_amount')
             )
-            ->whereBetween('created_at', [$start, $end])
-            ->where($salesFilter);
+            ->where($salesFilter)
+            ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$start, $end]);
 
-        $channels = \DB::query()
+        $dbChannels = \DB::query()
             ->fromSub($subQuery, 'sub')
             ->select('platform', \DB::raw('COALESCE(SUM(total_amount),0) as total'))
             ->groupBy('platform')
-            ->orderByDesc('total')
-            ->get();
+            ->get()
+            ->pluck('total', 'platform')
+            ->toArray();
+
+        $allCategories = [
+            'pos' => 0.00,
+            'so' => 0.00,
+            'nbs' => 0.00,
+            'e-com' => 0.00,
+        ];
+
+        foreach ($dbChannels as $plat => $total) {
+            if (array_key_exists($plat, $allCategories)) {
+                $allCategories[$plat] = (float) $total;
+            } else {
+                $allCategories['so'] += (float) $total;
+            }
+        }
+
+        $channels = collect();
+        foreach ($allCategories as $plat => $total) {
+            $channels->push((object)[
+                'platform' => $plat,
+                'total' => $total
+            ]);
+        }
+        $channels = $channels->sortByDesc('total')->values();
         $topChannel = $channels->first();
 
         // Chart categories and values
@@ -86,10 +116,14 @@ class MarketingController extends Controller
                 $chartCategories[] = $h == 0 ? '12 AM' : ($h < 12 ? $h . ' AM' : ($h == 12 ? '12 PM' : ($h - 12) . ' PM'));
                 $chartRevenue[$h] = 0;
             }
-            $rows = \App\Models\SalesOrder::select(\DB::raw('HOUR(created_at) as hour'), \DB::raw('SUM(total_amount) as total'))
-                ->whereBetween('created_at', [$start, $end])
+            $rows = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->select(
+                    \DB::raw('HOUR(COALESCE(sales_invoices.created_at, sales_orders.created_at)) as hour'),
+                    \DB::raw('SUM(COALESCE(sales_invoices.total_amount, sales_orders.total_amount)) as total')
+                )
                 ->where($salesFilter)
-                ->groupBy(\DB::raw('HOUR(created_at)'))
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$start, $end])
+                ->groupBy(\DB::raw('HOUR(COALESCE(sales_invoices.created_at, sales_orders.created_at))'))
                 ->get();
             foreach ($rows as $r) {
                 $chartRevenue[(int)$r->hour] = (float)$r->total;
@@ -101,10 +135,14 @@ class MarketingController extends Controller
                 $chartCategories[] = $day;
                 $chartRevenue[$day] = 0;
             }
-            $rows = \App\Models\SalesOrder::select(\DB::raw('DAYNAME(created_at) as day'), \DB::raw('SUM(total_amount) as total'))
-                ->whereBetween('created_at', [$start, $end])
+            $rows = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->select(
+                    \DB::raw('DAYNAME(COALESCE(sales_invoices.created_at, sales_orders.created_at)) as day'),
+                    \DB::raw('SUM(COALESCE(sales_invoices.total_amount, sales_orders.total_amount)) as total')
+                )
                 ->where($salesFilter)
-                ->groupBy(\DB::raw('DAYNAME(created_at)'))
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$start, $end])
+                ->groupBy(\DB::raw('DAYNAME(COALESCE(sales_invoices.created_at, sales_orders.created_at))'))
                 ->get();
             foreach ($rows as $r) {
                 $chartRevenue[$r->day] = (float)$r->total;
@@ -117,10 +155,14 @@ class MarketingController extends Controller
                 $chartCategories[] = substr($month, 0, 3); // Jan, Feb...
                 $chartRevenue[$month] = 0;
             }
-            $rows = \App\Models\SalesOrder::select(\DB::raw('MONTHNAME(created_at) as month'), \DB::raw('SUM(total_amount) as total'))
-                ->whereBetween('created_at', [$start, $end])
+            $rows = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->select(
+                    \DB::raw('MONTHNAME(COALESCE(sales_invoices.created_at, sales_orders.created_at)) as month'),
+                    \DB::raw('SUM(COALESCE(sales_invoices.total_amount, sales_orders.total_amount)) as total')
+                )
                 ->where($salesFilter)
-                ->groupBy(\DB::raw('MONTHNAME(created_at)'))
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$start, $end])
+                ->groupBy(\DB::raw('MONTHNAME(COALESCE(sales_invoices.created_at, sales_orders.created_at))'))
                 ->get();
             foreach ($rows as $r) {
                 $chartRevenue[$r->month] = (float)$r->total;
@@ -133,10 +175,14 @@ class MarketingController extends Controller
                 $chartCategories[] = (string)$d;
                 $chartRevenue[$d] = 0;
             }
-            $rows = \App\Models\SalesOrder::select(\DB::raw('DAY(created_at) as day'), \DB::raw('SUM(total_amount) as total'))
-                ->whereBetween('created_at', [$start, $end])
+            $rows = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->select(
+                    \DB::raw('DAY(COALESCE(sales_invoices.created_at, sales_orders.created_at)) as day'),
+                    \DB::raw('SUM(COALESCE(sales_invoices.total_amount, sales_orders.total_amount)) as total')
+                )
                 ->where($salesFilter)
-                ->groupBy(\DB::raw('DAY(created_at)'))
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$start, $end])
+                ->groupBy(\DB::raw('DAY(COALESCE(sales_invoices.created_at, sales_orders.created_at))'))
                 ->get();
             foreach ($rows as $r) {
                 $chartRevenue[(int)$r->day] = (float)$r->total;
@@ -145,11 +191,13 @@ class MarketingController extends Controller
         }
 
         // Top products (filtered by same period and paid filter)
-        $topProducts = \App\Models\SalesOrderItem::select('book_id', \DB::raw('SUM(quantity) as qty'))
+        $topProducts = \App\Models\SalesOrderItem::select('sales_order_items.book_id', \DB::raw('SUM(sales_order_items.quantity) as qty'))
             ->whereHas('order', function($query) use ($start, $end, $salesFilter) {
-                $query->whereBetween('created_at', [$start, $end])->where($salesFilter);
+                $query->leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                    ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$start, $end])
+                    ->where($salesFilter);
             })
-            ->groupBy('book_id')
+            ->groupBy('sales_order_items.book_id')
             ->orderByDesc('qty')
             ->with('book')
             ->take(5)
@@ -425,6 +473,37 @@ class MarketingController extends Controller
         ]);
     }
 
+    public function searchBooks(Request $request)
+    {
+        $q = trim($request->input('q', ''));
+        $excludeIds = $request->input('exclude_ids', []);
+
+        $query = Book::select('id', 'name', 'price', 'sku')
+            ->orderBy('name', 'asc');
+
+        if (!empty($q)) {
+            $query->where(function($sub) use ($q) {
+                $sub->where('name', 'like', "%{$q}%")
+                   ->orWhere('sku', 'like', "%{$q}%");
+            });
+        }
+
+        if (!empty($excludeIds) && is_array($excludeIds)) {
+            $query->whereNotIn('id', array_filter($excludeIds));
+        }
+
+        $books = $query->limit(30)->get();
+
+        $results = $books->map(function($b) {
+            return [
+                'id' => $b->id,
+                'text' => $b->name . ' (₱' . number_format((float)$b->price, 2) . ')'
+            ];
+        });
+
+        return response()->json(['results' => $results]);
+    }
+
     public function bundles(Request $request)
     {
         $bundleSearch = $request->input('bundle_search');
@@ -438,11 +517,9 @@ class MarketingController extends Controller
         }
         $bundles = $bundleQuery->paginate(15, ['*'], 'bundles_page')->withQueryString();
 
-        $allBooks = Book::orderBy('name', 'asc')->get();
-
         return view('marketing.book-bundles', [
             'bundles' => $bundles,
-            'allBooks' => $allBooks,
+            'allBooks' => [],
             'title' => 'Book Bundles Registry',
             'role' => 'Marketing Manager',
             'sidebar' => 'marketing',
@@ -1319,6 +1396,7 @@ class MarketingController extends Controller
             $typeDisplay = str_replace('_', ' ', $order->type);
             if ($order->type === 'calculator_pos') $typeDisplay = 'Direct POS';
             if ($order->type === 'ecom_direct')    $typeDisplay = 'ECOM POS';
+            if ($order->type === 'paid')           $typeDisplay = 'paid transac';
             $typeDisplay = strtoupper($typeDisplay);
 
             $displayStatus = str_replace('_', ' ', $order->status);

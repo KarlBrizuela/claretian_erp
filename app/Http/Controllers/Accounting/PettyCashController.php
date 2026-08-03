@@ -23,6 +23,20 @@ class PettyCashController extends Controller
      */
     protected function getUserSidebar()
     {
+        // 1. Check if sidebar parameter is explicitly passed in the request
+        if (request()->has('sidebar')) {
+            $sidebar = request()->query('sidebar');
+            if (in_array($sidebar, ['admin-finance', 'marketing', 'production', 'unified'])) {
+                session(['petty_cash_sidebar' => $sidebar]);
+                return $sidebar;
+            }
+        }
+
+        // 2. Check if there's a persisted sidebar in the session
+        if (session()->has('petty_cash_sidebar')) {
+            return session('petty_cash_sidebar');
+        }
+
         $user = auth()->user();
         if (!$user) return 'admin-finance';
 
@@ -90,6 +104,7 @@ class PettyCashController extends Controller
 
         $validated = $request->validate([
             'pcv_number' => 'required|unique:petty_cash_vouchers,pcv_number',
+            'type' => 'required|string|in:fund,freight',
             'date' => 'required|date',
             'pay_to' => 'required|string',
             'approved_by' => 'nullable|string',
@@ -109,6 +124,7 @@ class PettyCashController extends Controller
             DB::transaction(function () use ($validated) {
                 $voucher = PettyCashVoucher::create([
                     'pcv_number' => $validated['pcv_number'],
+                    'type'       => $validated['type'],
                     'date'       => $validated['date'],
                     'pay_to'     => $validated['pay_to'],
                     'approved_by' => $validated['approved_by'] ?? null,
@@ -218,7 +234,7 @@ class PettyCashController extends Controller
             ->withSum('items', 'amount')
             ->withCount('items')
             ->latest()
-            ->paginate(15);
+            ->get();
 
         return view('admin-finance.accounting.cashier.index', [
             'title' => 'Cashier Petty Cash Approvals',

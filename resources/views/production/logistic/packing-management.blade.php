@@ -56,7 +56,7 @@
                                     </span>
                                     <div class="d-flex gap-2">
                                         <button type="button" id="setReadyPickupBtn" class="btn btn-primary" style="background-color: #28a745; border: none; padding: 0.5rem 1.5rem;">
-                                            <i class="fas fa-check" style="margin-right: 0.5rem;"></i>Set as Ready for Pickup/Drop-off
+                                            <i class="fas fa-check" style="margin-right: 0.5rem;"></i>Mark Selected as Packed
                                         </button>
                                         <button type="button" id="clearSelectionBtn" class="btn btn-secondary" style="padding: 0.5rem 1.5rem;">
                                             Clear Selection
@@ -121,25 +121,14 @@
                                                     style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
                                                 <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
                                             </button>
-                                            @if($isFullyPacked)
-                                                <button type="button" class="btn btn-success shadow mark-ready-btn"
-                                                        onclick="setReadyForPickupSingle({{ $order->id }}, '{{ $order->so_number }}')"
-                                                        data-order-id="{{ $order->id }}"
-                                                        data-so-number="{{ $order->so_number }}"
-                                                        title="Set as Ready for Pickup/Drop-off"
-                                                        style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                    <i class="fas fa-truck" style="font-size: 0.9rem; pointer-events: none;"></i>
-                                                </button>
-                                            @else
-                                                <button type="button" class="btn btn-success shadow mark-packed-btn"
-                                                        onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
-                                                        data-order-id="{{ $order->id }}"
-                                                        data-so-number="{{ $order->so_number }}"
-                                                        title="Mark as Packed"
-                                                        style="background: #ffc107; color: #000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                    <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
-                                                </button>
-                                            @endif
+                                            <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                    onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                    data-order-id="{{ $order->id }}"
+                                                    data-so-number="{{ $order->so_number }}"
+                                                    title="Mark as Packed"
+                                                    style="background: {{ $isFullyPacked ? '#28a745' : '#ffc107' }}; color: {{ $isFullyPacked ? '#fff' : '#000' }}; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1278,6 +1267,19 @@
                     setInputValue('packingStatus', packingData.status || 'not_started');
                     setInputValue('packingBoxesCount', packingData.boxes_count || '');
 
+                    // Show/hide "Ready for Pickup" status based on order type
+                    const packingStatusSelect = document.getElementById('packingStatus');
+                    if (packingStatusSelect) {
+                        const readyPickupOption = packingStatusSelect.querySelector('option[value="ready_for_pickup"]');
+                        if (readyPickupOption) {
+                            if (order.type === 'ecom_direct') {
+                                readyPickupOption.style.display = 'block';
+                            } else {
+                                readyPickupOption.style.display = 'none';
+                            }
+                        }
+                    }
+
                     // Show/hide attachments section based on order type
                     const attachmentsSection = document.getElementById('attachmentsSection');
                     if (attachmentsSection) {
@@ -1639,7 +1641,7 @@
                         return;
                     }
                     
-                    if (confirm(`Set ${selectedOrderIds.size} order(s) as ready for pickup/drop-off?`)) {
+                    if (confirm(`Mark ${selectedOrderIds.size} order(s) as packed?`)) {
                         setOrdersAsReadyForPickup();
                     }
                 });

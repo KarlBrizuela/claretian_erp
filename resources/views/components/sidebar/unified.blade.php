@@ -202,8 +202,8 @@
             <a href="{{ route('accounting.journal.index') }}" class="modern-nav-subitem">General Journal</a>
             <a href="{{ route('admin-finance.accounting.sales-invoice') }}" class="modern-nav-subitem">Sales Invoice</a>
             <a href="{{ route('admin-finance.check-voucher') }}" class="modern-nav-subitem">Check Voucher</a>
-            <a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem">Petty Cash Voucher</a>
-            <a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem">Freight Voucher</a>
+            <a href="{{ route('admin-finance.petty-cash.index', ['sidebar' => 'unified']) }}" class="modern-nav-subitem">Petty Cash Voucher</a>
+            <a href="{{ route('admin-finance.freight-voucher.index', ['sidebar' => 'unified']) }}" class="modern-nav-subitem">Freight Voucher</a>
             <a href="{{ route('admin-finance.accounting.payment-requests') }}" class="modern-nav-subitem">Payment Requests</a>
             <a href="{{ route('admin-finance.accounting.eford-payouts') }}" class="modern-nav-subitem">E-FORD Payouts</a>
             <a href="{{ route('admin-finance.accounting.ecom-payouts.index') }}" class="modern-nav-subitem">E-com Payouts</a>
@@ -296,10 +296,10 @@
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-calculator"></i></div><span class="modern-nav-label">Finance</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu">
             @if($hasPettyCash)
-            <a href="{{ route('admin-finance.petty-cash.index') }}" class="modern-nav-subitem">Petty Cash Voucher</a>
+            <a href="{{ route('admin-finance.petty-cash.index', ['sidebar' => 'unified']) }}" class="modern-nav-subitem">Petty Cash Voucher</a>
             @endif
             @if($hasFreightVoucher)
-            <a href="{{ route('admin-finance.freight-voucher.index') }}" class="modern-nav-subitem">Freight Voucher</a>
+            <a href="{{ route('admin-finance.freight-voucher.index', ['sidebar' => 'unified']) }}" class="modern-nav-subitem">Freight Voucher</a>
             @endif
         </div>
     </div>
@@ -314,9 +314,10 @@
         </a>
         <div class="modern-nav-submenu" data-submenu="chart-of-accounts">
             <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'assets']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'assets' ? 'active' : '' }}">Assets</a>
-            <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'liabilities']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'liabilities' ? 'active' : '' }}">Liabilities</a>
-            <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'equity']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'equity' ? 'active' : '' }}">Equity</a>
+            {{-- <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'liabilities']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'liabilities' ? 'active' : '' }}">Liabilities</a> --}}
+            {{-- <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'equity']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'equity' ? 'active' : '' }}">Equity</a> --}}
             <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'income']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'income' ? 'active' : '' }}">Income</a>
+            <a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'expenses']) }}" class="modern-nav-subitem {{ request()->query('tab') == 'expenses' ? 'active' : '' }}">Expenses</a>
         </div>
     </div>
     @endif

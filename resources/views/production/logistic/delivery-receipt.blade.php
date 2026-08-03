@@ -2,6 +2,8 @@
     <div class="row">
         <div class="col-xl-12">
             <div class="card receipt-form">
+
+
                 <!-- Form Header -->
                 <div class="form-header">
                     <div class="company-info">
@@ -54,366 +56,78 @@
                         </div>
                     @endif
 
-                    <!-- Items Table for Area Consignment (Item Selection) -->
-                    @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']) && in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created', 'reconsignment_pending']))
-                        @php
-                            $hasRemainingItems = false;
-                            foreach($order->items as $item) {
-                                $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
-                                    $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
-                                })->where('book_id', $item->book_id)->sum('quantity');
-                                if ($item->quantity > $alreadyPurchasedQty) {
-                                    $hasRemainingItems = true;
-                                    break;
-                                }
-                            }
-                        @endphp
-                        <div style="background: #e7f3ff; border: 2px solid #0d6efd; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
-                            <h5 style="color: #0d6efd; margin-bottom: 0;">Area Consignment - Select Items to Purchase</h5>
-                            <p style="color: #666; font-size: 0.9rem; margin-bottom: 0;">Select the quantity you want to purchase for each item below. Items not selected will remain in consignment.</p>
-                        </div>
+                    <!-- Delivery Receipt Items Table -->
+                    @php
+                        $isConsignment = $order && in_array($order->type, ['area_consignment', 'area_sales_consignment']);
+                        $displayItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
+                        $calculatedTotal = 0;
+                    @endphp
 
-                        <form id="areaConsignmentForm" method="POST" action="{{ route('production.logistic.link-consignment-to-si', $order->id) }}" enctype="multipart/form-data">
-                            @csrf
-                            <div class="table-responsive">
-                                <table class="receipt-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 80px;">SENT QTY</th>
-                                            <th>PRODUCT NAME</th>
-                                            <th style="width: 120px; text-align: right;">UNIT PRICE</th>
-                                            <th style="width: 120px;">SELECT QTY</th>
-                                            <th style="width: 120px; text-align: right;">SUBTOTAL</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse($order->items as $index => $item)
-                                            @php
-                                                $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
-                                                    $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
-                                                })->where('book_id', $item->book_id)->sum('quantity');
-                                                $remainingQty = max(0, $item->quantity - $alreadyPurchasedQty);
-                                            @endphp
-                                            <tr class="consignment-item" data-item-id="{{ $item->id }}" data-unit-price="{{ $item->price }}">
-                                                <td style="text-align: center;">
-                                                     {{ $item->quantity }}
-                                                     @if($alreadyPurchasedQty > 0)
-                                                         <br><small class="text-muted">({{ $remainingQty }} remaining)</small>
-                                                     @endif
-                                                </td>
-                                                <td>{{ $item->book->name ?? 'Unknown Item' }}</td>
-                                                <td style="text-align: right;">₱{{ number_format($item->price, 2) }}</td>
-                                                <td>
-                                                     <input type="number" 
-                                                            class="form-control selected-qty" 
-                                                            name="items[{{ $item->id }}][selected_qty]" 
-                                                            min="0" 
-                                                            max="{{ $remainingQty }}" 
-                                                            value="0"
-                                                            style="text-align: center;"
-                                                            {{ ($remainingQty <= 0 || $order->status === 'reconsignment_pending') ? 'disabled' : '' }}>
-                                                </td>
-                                                <td style="text-align: right; font-weight: 600;">
-                                                     <span class="item-subtotal">₱0.00</span>
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr>
-                                                <td colspan="5" class="text-center">No items found</td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                    <tfoot>
-                                        <tr style="background: #f8f9fa; font-weight: 600;">
-                                            <td colspan="4" style="text-align: right; padding: 0.75rem;">
-                                                <strong>TOTAL PURCHASE AMOUNT:</strong>
-                                            </td>
-                                            <td style="text-align: right; font-weight: 700; padding: 0.75rem;">
-                                                <span id="consignmentTotal">₱0.00</span>
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-
-                            <!-- Proof of Payment Upload -->
-                            <div class="mb-4 mt-3" id="popUploadContainer" style="max-width: 450px; background: #f8f9fa; padding: 1.25rem; border-radius: 6px; border: 1px dashed #ced4da;">
-                                <label for="proof_of_payment" class="form-label fw-bold text-dark mb-1">
-                                    Upload Proof of Payment <span class="text-danger">*</span>
-                                </label>
-                                <input type="file" class="form-control" name="proof_of_payment" id="proof_of_payment" accept=".pdf,.png,.jpg,.jpeg">
-                                <small class="text-muted d-block mt-1">Required to link this consignment selection to a Sales Invoice.</small>
-                            </div>
-
-                            <!-- Hidden inputs to pass item selections -->
-                            <input type="hidden" name="order_id" value="{{ $order->id }}">
-
-                            <div class="form-actions" style="margin-top: 1.5rem;">
-                                <button type="button" class="btn btn-light" onclick="window.print()">
-                                    <i class="las la-print"></i> Print
-                                </button>
-                                <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-secondary">
-                                    <i class="las la-arrow-left"></i> Back to List
-                                </a>
-                                <button type="button" class="btn btn-info" id="saveSelectionsBtn" style="display: none;">
-                                    <i class="las la-save"></i> Save Selections
-                                </button>
-                                <button type="submit" class="btn btn-primary" id="linkToSIBtn" {{ (!$hasRemainingItems || $order->status === 'reconsignment_pending') ? 'disabled' : '' }}>
-                                    <i class="las la-link"></i> Link to Sales Invoice
-                                </button>
-                                <button type="submit" class="btn btn-warning" id="reconsignmentBtn" formaction="{{ route('production.logistic.request-reconsignment', $order->id) }}" style="margin-left: 0.5rem;" {{ (!$hasRemainingItems || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created'])) ? 'disabled' : '' }}>
-                                    <i class="las la-retweet"></i> Reconsignment
-                                </button>
-                                <button type="submit" class="btn btn-danger" id="returnBtn" formaction="{{ route('production.logistic.return-consignment', $order->id) }}" style="margin-left: 0.5rem;" {{ (!$hasRemainingItems || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created'])) ? 'disabled' : '' }}>
-                                    <i class="las la-undo-alt"></i> Return
-                                </button>
-                            </div>
-                        </form>
-
-                        <script>
-                        document.addEventListener('DOMContentLoaded', function() {
-                            const form = document.getElementById('areaConsignmentForm');
-                            const items = document.querySelectorAll('.consignment-item');
-                            const saveBtn = document.getElementById('saveSelectionsBtn');
-                            const orderId = '{{ $order->id }}';
-                            const storageKey = `consignment_selections_${orderId}`;
-                            
-                            // Service fee if freight_collect is selected
-                            const serviceFee = {{ $order->freight_option === 'freight_collect' ? 50 : 0 }};
-
-                            // Load saved selections from localStorage
-                            function loadSavedSelections() {
-                                const saved = localStorage.getItem(storageKey);
-                                if (saved) {
-                                    try {
-                                        const selections = JSON.parse(saved);
-                                        document.querySelectorAll('.selected-qty').forEach(input => {
-                                            const itemId = input.closest('.consignment-item').dataset.itemId;
-                                            if (selections[itemId]) {
-                                                input.value = selections[itemId];
-                                            }
-                                        });
-                                        updateTotals();
-                                    } catch (e) {
-                                        console.log('Error loading saved selections');
-                                    }
-                                }
-                            }
-
-                            // Save selections to localStorage
-                            function saveSelectionsToStorage() {
-                                const selections = {};
-                                document.querySelectorAll('.consignment-item').forEach(row => {
-                                    const itemId = row.dataset.itemId;
-                                    const qty = parseInt(row.querySelector('.selected-qty').value) || 0;
-                                    selections[itemId] = qty;
-                                });
-                                localStorage.setItem(storageKey, JSON.stringify(selections));
-                            }
-
-                            // Clear saved selections
-                            function clearSavedSelections() {
-                                localStorage.removeItem(storageKey);
-                            }
-
-                            function updateTotals() {
-                                let grandTotal = 0;
-                                let hasSelections = false;
-                                items.forEach(row => {
-                                    const selectedQtyInput = row.querySelector('.selected-qty');
-                                    const unitPrice = parseFloat(row.dataset.unitPrice);
-                                    const selectedQty = parseInt(selectedQtyInput.value) || 0;
-                                    const subtotal = selectedQty * unitPrice;
-                                    
-                                    if (selectedQty > 0) hasSelections = true;
-                                    row.querySelector('.item-subtotal').textContent = '₱' + subtotal.toFixed(2);
-                                    grandTotal += subtotal;
-                                });
-                                
-                                // Add service fee to grand total
-                                const totalWithFee = grandTotal + serviceFee;
-                                document.getElementById('consignmentTotal').textContent = '₱' + totalWithFee.toFixed(2);
-                                
-                                // Show Save button only when items are selected
-                                saveBtn.style.display = hasSelections ? 'inline-block' : 'none';
-                            }
-
-                            // Update totals when quantities change
-                            document.querySelectorAll('.selected-qty').forEach(input => {
-                                input.addEventListener('change', function() {
-                                    updateTotals();
-                                    saveSelectionsToStorage(); // Auto-save on each change
-                                });
-                                input.addEventListener('input', updateTotals);
-                            });
-
-                            // Save Selections button handler
-                            saveBtn.addEventListener('click', function(e) {
-                                e.preventDefault();
-                                let totalSelected = 0;
-                                let selectedCount = 0;
-                                
-                                document.querySelectorAll('.selected-qty').forEach(input => {
-                                    const qty = parseInt(input.value) || 0;
-                                    if (qty > 0) {
-                                        totalSelected += qty;
-                                        selectedCount++;
-                                    }
-                                });
-                                
-                                if (selectedCount === 0) {
-                                    alert('Please select at least 1 item');
-                                    return;
-                                }
-                                
-                                // Save to storage
-                                saveSelectionsToStorage();
-                                
-                                // Show success message
-                                const message = `✓ Saved! ${selectedCount} item(s) selected (${totalSelected} pcs total)`;
-                                alert(message);
-                            });
-
-                            // Form submission validation
-                            form.addEventListener('submit', function(e) {
-                                // Skip validation if reconsignment or return button is clicked
-                                const submitter = e.submitter;
-                                if (submitter && (submitter.id === 'reconsignmentBtn' || submitter.id === 'returnBtn')) {
-                                    return true;
-                                }
-
-                                let totalSelected = 0;
-                                document.querySelectorAll('.selected-qty').forEach(input => {
-                                    totalSelected += parseInt(input.value) || 0;
-                                });
-
-                                if (totalSelected === 0) {
-                                    e.preventDefault();
-                                    alert('Please select at least 1 item to purchase');
-                                    return false;
-                                }
-
-                                const popInput = document.getElementById('proof_of_payment');
-                                if (popInput && !popInput.files.length) {
-                                    e.preventDefault();
-                                    alert('Please upload a Proof of Payment before linking to a Sales Invoice.');
-                                    return false;
-                                }
-
-                                // Clear saved selections after successful submission
-                                clearSavedSelections();
-                            });
-
-                            // Load saved selections on page load
-                            loadSavedSelections();
-
-                            // Handle received-by and prepared-by fields for print
-                            const receivedByInput = document.getElementById('receivedBy');
-                            const receivedByDisplay = document.getElementById('receivedByDisplay');
-                            const preparedByInput = document.getElementById('preparedBy');
-                            
-                            function updateReceivedByDisplay() {
-                                if (receivedByInput && receivedByDisplay) {
-                                    const value = receivedByInput.value;
-                                    receivedByDisplay.textContent = value;
-                                }
-                            }
-                            
-                            if (receivedByInput && receivedByDisplay) {
-                                receivedByInput.addEventListener('input', function() {
-                                    updateReceivedByDisplay();
-                                });
-                                receivedByInput.addEventListener('change', function() {
-                                    updateReceivedByDisplay();
-                                });
-                                // Initialize display
-                                updateReceivedByDisplay();
-                            }
-
-                            if (preparedByInput) {
-                                preparedByInput.addEventListener('input', function() {
-                                    this.setAttribute('data-print-value', this.value);
-                                });
-                                preparedByInput.setAttribute('data-print-value', preparedByInput.value || '');
-                            }
-
-                            // Hide logo and show received-by display before print
-                            window.addEventListener('beforeprint', function() {
-                                const logo = document.querySelector('.company-logo');
-                                if (logo) {
-                                    logo.style.display = 'none';
-                                    logo.style.visibility = 'hidden';
-                                    logo.style.opacity = '0';
-                                    logo.style.position = 'fixed';
-                                    logo.style.left = '-9999px';
-                                    logo.style.top = '-9999px';
-                                }
-                                
-                                // Show received-by display in print
-                                if (receivedByDisplay) {
-                                    receivedByDisplay.style.display = 'block';
-                                    updateReceivedByDisplay();
-                                }
-                                if (receivedByInput) {
-                                    receivedByInput.style.display = 'none';
-                                }
-                            });
-
-                            // Restore after print
-                            window.addEventListener('afterprint', function() {
-                                const logo = document.querySelector('.company-logo');
-                                if (logo) {
-                                    logo.style.display = '';
-                                    logo.style.visibility = '';
-                                    logo.style.opacity = '';
-                                    logo.style.position = '';
-                                    logo.style.left = '';
-                                    logo.style.top = '';
-                                }
-                                
-                                // Restore received-by input
-                                if (receivedByDisplay) {
-                                    receivedByDisplay.style.display = 'none';
-                                }
-                                if (receivedByInput) {
-                                    receivedByInput.style.display = 'block';
-                                }
-                            });
-                        });
-</script>
-                    @else
-                        <!-- Regular Delivery Receipt Items Table -->
-                        <div class="table-responsive">
-                            <table class="receipt-table">
+                    <form action="{{ route('production.logistic.delivery-receipt.update-pick-qty', $order->id) }}" method="POST" id="drPickQtyForm">
+                        @csrf
+                        <div class="my-3" style="width: 100%;">
+                            <table class="receipt-table table border">
                                 <thead>
                                     <tr>
-                                        <th style="width: 80px;">QUANTITY</th>
+                                        <th style="width: 110px; text-align: center;">{{ $isConsignment ? 'SENT QTY' : 'QUANTITY' }}</th>
+                                        @if($isConsignment)
+                                            <th style="width: 130px; text-align: center; background-color: #0d6efd !important; color: #fff;">PICK QTY</th>
+                                        @endif
                                         <th>DESCRIPTION</th>
-                                        <th style="width: 120px; text-align: right;">UNIT PRICE</th>
-                                        <th style="width: 120px; text-align: right;">AMOUNT</th>
+                                        <th style="width: 140px; text-align: right;">UNIT PRICE</th>
+                                        <th style="width: 140px; text-align: right;">AMOUNT</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse(($deliveryReceipt && count($deliveryReceipt->items) > 0 ? $deliveryReceipt->items : $order->items) as $item)
+                                    @forelse($displayItems as $item)
+                                        @php
+                                            $qty = (int)($item->quantity ?? 0);
+                                            $pickQty = (int)($item->customer_selected_qty ?? 0);
+                                            $unitPrice = $item->unit_price ?? $item->price ?? 0;
+                                            $rowAmount = ($isConsignment && $pickQty > 0 ? $pickQty : $qty) * $unitPrice;
+                                            $calculatedTotal += $rowAmount;
+                                        @endphp
                                         <tr>
-                                            <td>{{ $item->quantity }}</td>
-                                            <td>{{ $item->book->name ?? ($item->product_name ?? 'Unknown Item') }}</td>
-                                            <td style="text-align: right;">₱{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
-                                            <td style="text-align: right;">₱{{ number_format($item->quantity * ($item->unit_price ?? $item->price), 2) }}</td>
+                                            <td style="text-align: center;">{{ $qty }}</td>
+                                            @if($isConsignment)
+                                                <td style="text-align: center; background-color: #f0f7ff; padding: 4px;">
+                                                    <input type="number" 
+                                                           class="form-control form-control-sm text-center fw-bold pick-qty-input" 
+                                                           name="pick_qty[{{ $item->id }}]" 
+                                                           value="{{ $pickQty }}" 
+                                                           min="0" 
+                                                           max="{{ $qty }}" 
+                                                           data-price="{{ $unitPrice }}"
+                                                           data-qty="{{ $qty }}"
+                                                           style="width: 90px; margin: 0 auto; color: #0d6efd; border-color: #0d6efd; background-color: #fff;">
+                                                </td>
+                                            @endif
+                                            <td>{{ $item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item')) }}</td>
+                                            <td style="text-align: right;">₱{{ number_format($unitPrice, 2) }}</td>
+                                            <td style="text-align: right; font-weight: 600;" class="row-amount-td">₱{{ number_format($rowAmount, 2) }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="4" class="text-center">No items found</td>
+                                            <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-center py-3 text-muted">No items found for this delivery receipt</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
                             </table>
                         </div>
-                    @endif
+
+                        @if($isConsignment && count($displayItems) > 0)
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <small class="text-muted"><i class="las la-info-circle me-1"></i> You can edit Pick Qty directly here and click Save Pick Qty to update the record.</small>
+                                <button type="submit" class="btn btn-sm btn-primary px-3 shadow-sm">
+                                    <i class="las la-save me-1"></i> Save Pick Qty
+                                </button>
+                            </div>
+                        @endif
+                    </form>
 
                     <!-- Total Amount -->
                     <div style="text-align: right; margin-bottom: 1.5rem; font-size: 1.1rem; font-weight: 600;">
-                        <strong>Total Amount: ₱{{ number_format($order->total_amount, 2) }}</strong>
+                        <strong>Total Amount: <span id="drTotalAmountDisplay">₱{{ number_format($calculatedTotal > 0 ? $calculatedTotal : $order->total_amount, 2) }}</span></strong>
                     </div>
                 @else
                     <!-- Empty Form for Creating New Receipt -->
@@ -476,6 +190,52 @@
                     </div>
                 </div>
 
+                @if($order && in_array($order->type, ['area_consignment', 'area_sales_consignment']))
+                <div class="card p-3 my-3 border bg-light">
+                    <h6 class="fw-bold text-dark mb-2"><i class="las la-exchange-alt me-1 text-primary"></i> Move Order & Proof of Payment Options</h6>
+                    <p class="small text-muted mb-3">Uploading Proof of Payment or moving the order will make it visible on the Acknowledgement Receipt or Consignment Receipt page.</p>
+
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-6">
+                            <form action="{{ route('production.logistic.upload-dr-pop', $order->id) }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2">
+                                @csrf
+                                <input type="file" name="proof_of_payment" class="form-control form-control-sm" required accept=".pdf,.png,.jpg,.jpeg">
+                                <button type="submit" class="btn btn-outline-info btn-sm text-nowrap"><i class="las la-upload me-1"></i> Upload POP</button>
+                            </form>
+                            @if($order->proof_of_payment)
+                                <small class="text-success fw-bold mt-1 d-block"><i class="las la-check-circle me-1"></i> Proof of payment attached (Visible in Acknowledgement Receipt)</small>
+                            @endif
+                        </div>
+                        <div class="col-md-6 d-flex gap-2 justify-content-md-end flex-wrap">
+                            @php
+                                $isMovedToAR = $order->status === 'ar_created' || $order->ar_prepared_at !== null;
+                                $isMovedToCR = $order->status === 'cr_created' || $order->cr_prepared_at !== null;
+                            @endphp
+
+                            @if($order->type === 'area_consignment')
+                                <form action="{{ route('production.logistic.move-to-ar', $order->id) }}" method="POST" style="display:inline-block;">
+                                    @csrf
+                                    <button type="submit" class="btn btn-info text-white btn-sm" {{ $isMovedToAR ? 'disabled' : '' }}>
+                                        <i class="las la-file-signature me-1"></i> {{ $isMovedToAR ? 'Moved to AR' : 'Move to AR' }}
+                                    </button>
+                                </form>
+                            @elseif($order->type === 'area_sales_consignment')
+                                <form action="{{ route('production.logistic.move-to-cr', $order->id) }}" method="POST" style="display:inline-block;">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success btn-sm" {{ $isMovedToCR ? 'disabled' : '' }}>
+                                        <i class="las la-file-contract me-1"></i> {{ $isMovedToCR ? 'Moved to CR' : 'Move to CR' }}
+                                    </button>
+                                </form>
+                            @endif
+
+                            <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-primary btn-sm">
+                                <i class="las la-file-invoice me-1"></i> Move to SI
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <!-- Form Actions -->
                 <div class="form-actions">
                     <button type="button" class="btn btn-light" onclick="window.print()">
@@ -492,6 +252,20 @@
                         <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-secondary">
                             <i class="las la-arrow-left"></i> Back to List
                         </a>
+                        @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
+                            <form action="{{ route('production.logistic.request-reconsignment', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
+                                @csrf
+                                <button type="submit" class="btn btn-warning" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created']) ? 'disabled' : '' }}>
+                                    <i class="las la-retweet"></i> Reconsignment
+                                </button>
+                            </form>
+                            <form action="{{ route('production.logistic.return-consignment', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
+                                @csrf
+                                <button type="submit" class="btn btn-danger" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created']) ? 'disabled' : '' }}>
+                                    <i class="las la-undo-alt"></i> Return
+                                </button>
+                            </form>
+                        @endif
                     @endif
                 </div>
 
@@ -666,34 +440,45 @@
         }
 
         .receipt-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 1.5rem;
-            table-layout: fixed;
-            min-width: 800px;
-        }
-
-        .table-responsive {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+            width: 100% !important;
+            border-collapse: collapse !important;
+            margin-bottom: 1.5rem !important;
+            display: table !important;
         }
 
         .receipt-table thead {
-            background: #ff0000;
-            color: #fff;
+            background: #ff0000 !important;
+            color: #ffffff !important;
+            display: table-header-group !important;
+        }
+
+        .receipt-table tbody {
+            display: table-row-group !important;
+        }
+
+        .receipt-table tr {
+            display: table-row !important;
         }
 
         .receipt-table th {
-            padding: 0.75rem;
+            padding: 0.75rem 1rem !important;
             text-align: left;
-            font-weight: 600;
-            font-size: 0.9rem;
-            border: 1px solid #ddd;
+            font-weight: 700 !important;
+            font-size: 0.9rem !important;
+            border: 1px solid #dee2e6 !important;
+            background-color: #ff0000 !important;
+            color: #ffffff !important;
+            display: table-cell !important;
         }
 
         .receipt-table td {
-            padding: 0.5rem;
-            border: 1px solid #ddd;
+            padding: 0.75rem 1rem !important;
+            border: 1px solid #dee2e6 !important;
+            vertical-align: middle !important;
+            color: #212529 !important;
+            background-color: #ffffff !important;
+            display: table-cell !important;
+            font-size: 0.9rem !important;
         }
 
         .receipt-table input[type="text"],
@@ -1079,5 +864,47 @@
             }
         }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.pick-qty-input').forEach(input => {
+                input.addEventListener('input', function() {
+                    const row = this.closest('tr');
+                    const price = parseFloat(this.dataset.price) || 0;
+                    const sentQty = parseInt(this.dataset.qty) || 0;
+                    let val = parseInt(this.value) || 0;
+
+                    if (val > sentQty) {
+                        val = sentQty;
+                        this.value = sentQty;
+                    } else if (val < 0) {
+                        val = 0;
+                        this.value = 0;
+                    }
+
+                    const effectiveQty = val > 0 ? val : sentQty;
+                    const rowAmount = effectiveQty * price;
+
+                    const amountTd = row.querySelector('.row-amount-td');
+                    if (amountTd) {
+                        amountTd.textContent = '₱' + rowAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
+
+                    let total = 0;
+                    document.querySelectorAll('.pick-qty-input').forEach(i => {
+                        const p = parseFloat(i.dataset.price) || 0;
+                        const q = parseInt(i.dataset.qty) || 0;
+                        const v = parseInt(i.value) || 0;
+                        const eff = v > 0 ? v : q;
+                        total += eff * p;
+                    });
+
+                    const totalElem = document.getElementById('drTotalAmountDisplay');
+                    if (totalElem) {
+                        totalElem.textContent = '₱' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
+                });
+            });
+        });
+    </script>
     @endpush
 </x-app-layout>

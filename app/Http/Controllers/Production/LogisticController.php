@@ -278,7 +278,7 @@ class LogisticController extends Controller
     {
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
             ->where('status', 'ready_for_delivery')
-            ->whereNotIn('type', ['calculator_pos'])
+            ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
             ->whereNotNull('packing_data')
             ->where('packing_data->status', 'gathered')
             ->orderByRaw('COALESCE(signed_at, created_at) DESC')
@@ -678,9 +678,9 @@ class LogisticController extends Controller
 
     public function deliveryReceiptList()
     {
-        // Get sales orders pending DR prep/approval or linked/pending reconsignment
+        // Get sales orders pending DR prep/approval or linked/pending reconsignment, moved to AR/CR
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval', 'ready_for_delivery', 'si_created', 'reconsignment_pending'])
+            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'reconsignment_pending'])
             ->latest()
             ->get();
 
@@ -693,11 +693,27 @@ class LogisticController extends Controller
 
     public function requestReconsignment($id)
     {
-        $order = \App\Models\SalesOrder::findOrFail($id);
+        $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
         
         // Ensure order is area_consignment or area_sales_consignment and status is in valid statuses
-        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'si_created'])) {
+        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created'])) {
             return redirect()->back()->with('error', 'Invalid order status for reconsignment.');
+        }
+
+        // Calculate remaining items to reconsign (Sent Qty - Picked Qty)
+        $remainingCount = 0;
+        foreach ($order->items as $item) {
+            $alreadyPurchasedQty = \App\Models\SalesInvoiceItem::whereHas('invoice', function($query) use ($order) {
+                $query->where('so_id', $order->id)->where('status', '!=', 'cancelled');
+            })->where('book_id', $item->book_id)->sum('quantity');
+
+            $pickedQty = max($alreadyPurchasedQty, (int)($item->customer_selected_qty ?? 0));
+            $rem = max(0, $item->quantity - $pickedQty);
+            $remainingCount += $rem;
+        }
+
+        if ($remainingCount <= 0) {
+            return redirect()->back()->with('error', 'All items in this order have been picked/purchased. No remaining items left to reconsign.');
         }
 
         // Update Sales Order status to reconsignment_pending
@@ -713,12 +729,12 @@ class LogisticController extends Controller
         \App\Models\ActivityLog::create([
             'user_id' => auth()->id(),
             'action' => 'Reconsignment Requested',
-            'description' => "Reconsignment request submitted for Sales Order {$order->so_number}.",
+            'description' => "Reconsignment request submitted for Sales Order {$order->so_number} ({$remainingCount} remaining pcs to reconsign).",
             'affected_model' => 'SalesOrder',
             'affected_model_id' => $order->id,
         ]);
 
-        return redirect()->back()->with('success', 'Reconsignment request submitted to Credit and Collection.');
+        return redirect()->back()->with('success', "Reconsignment request for {$remainingCount} remaining item(s) submitted to Credit and Collection.");
     }
 
     public function deliveryReceipt($id = null)
@@ -753,8 +769,11 @@ class LogisticController extends Controller
             // Set $order from the delivery receipt if it exists, otherwise find the Sales Order by ID
             if ($deliveryReceipt) {
                 $order = $deliveryReceipt->salesOrder;
+                if ($order) {
+                    $order->load(['customer', 'items.book', 'items.product', 'preparedBy']);
+                }
             } else {
-                $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
+                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.product', 'preparedBy'])->findOrFail($id);
             }
         }
 
@@ -900,14 +919,23 @@ class LogisticController extends Controller
     {
         $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'preparedBy', 'siPreparedBy', 'drPreparedBy'])->findOrFail($id);
         
-        // Logic to determine form type and title
-        $documentType = 'DELIVERY RECEIPT';
-        if (str_contains($order->type, 'consignment')) {
-            $documentType = 'CONSIGNMENT RECEIPT';
-        } elseif ($order->si_prepared_at) {
-            $documentType = 'SALES INVOICE';
-        } elseif ($order->ar_prepared_at) {
+        $requestedType = request('type');
+        if ($requestedType === 'AR') {
             $documentType = 'ACKNOWLEDGEMENT RECEIPT';
+        } elseif ($requestedType === 'CR') {
+            $documentType = 'CONSIGNMENT RECEIPT';
+        } elseif ($requestedType === 'DR') {
+            $documentType = 'DELIVERY RECEIPT';
+        } else {
+            // Logic to determine form type and title
+            $documentType = 'DELIVERY RECEIPT';
+            if (str_contains($order->type, 'consignment')) {
+                $documentType = 'CONSIGNMENT RECEIPT';
+            } elseif ($order->si_prepared_at) {
+                $documentType = 'SALES INVOICE';
+            } elseif ($order->ar_prepared_at) {
+                $documentType = 'ACKNOWLEDGEMENT RECEIPT';
+            }
         }
 
         return view('production.logistic.view-delivery-form', [
@@ -920,12 +948,211 @@ class LogisticController extends Controller
     }
 
     /**
+     * Consignment Receipt Tab in Logistics.
+     */
+    public function areaConsignment()
+    {
+        $orders = \App\Models\SalesOrder::with(['areaSalesStaff', 'items.book', 'customer', 'preparedBy'])
+            ->whereIn('type', ['area_consignment', 'area_sales_consignment'])
+            ->where(function($query) {
+                $query->whereNotNull('cr_prepared_at')
+                      ->orWhere('status', 'cr_created');
+            })
+            ->whereNotIn('status', ['draft', 'pending_mkt_approval', 'picking', 'cancelled'])
+            ->latest()
+            ->get();
+
+        return view('production.logistic.area-consignment', [
+            'title'   => 'Consignment Receipt',
+            'role'    => auth()->user()->position,
+            'sidebar' => 'production',
+            'orders'  => $orders,
+        ]);
+    }
+
+    /**
+     * Move SO to Acknowledgement Receipt (AR).
+     */
+    public function moveToAR($id, Request $request)
+    {
+        $order = \App\Models\SalesOrder::findOrFail($id);
+
+        if ($order->status === 'cr_created' || $order->cr_prepared_at !== null) {
+            return redirect()->back()->with('error', "Sales Order {$order->so_number} has already been moved to Consignment Receipt and cannot be moved to Acknowledgement Receipt.");
+        }
+
+        if ($request->hasFile('proof_of_payment')) {
+            $path = $request->file('proof_of_payment')->store('sales_orders/proof_of_payments', 'public');
+            $order->proof_of_payment = $path;
+        }
+
+        // Proof of Payment is required before moving to Acknowledgement Receipt
+        if (empty($order->proof_of_payment)) {
+            return redirect()->back()->with('error', "Proof of Payment is required to move Sales Order {$order->so_number} to Acknowledgement Receipt. Please upload Proof of Payment first.");
+        }
+
+        $order->ar_prepared_at = now();
+        $order->ar_prepared_by = auth()->id();
+        $order->status = 'ar_created';
+        $order->save();
+
+        return redirect()->route('production.logistic.acknowledgement-receipt')
+            ->with('success', "Sales Order {$order->so_number} moved to Acknowledgement Receipt.");
+    }
+
+    /**
+     * Move SO to Consignment Receipt (CR).
+     */
+    public function moveToCR($id, Request $request)
+    {
+        $order = \App\Models\SalesOrder::findOrFail($id);
+
+        if ($order->status === 'ar_created' || $order->ar_prepared_at !== null) {
+            return redirect()->back()->with('error', "Sales Order {$order->so_number} has already been moved to Acknowledgement Receipt and cannot be moved to Consignment Receipt.");
+        }
+
+        $order->cr_prepared_at = now();
+        $order->cr_prepared_by = auth()->id();
+        $order->status = 'cr_created';
+        $order->save();
+
+        return redirect()->route('production.logistic.area-consignment')
+            ->with('success', "Sales Order {$order->so_number} moved to Consignment Receipt.");
+    }
+
+    /**
+     * Upload Proof of Payment in DR (makes it visible in Acknowledgement Receipt).
+     */
+    public function uploadDRProofOfPayment($id, Request $request)
+    {
+        $request->validate([
+            'proof_of_payment' => 'required|file|mimes:pdf,jpg,jpeg,png',
+        ]);
+
+        $order = \App\Models\SalesOrder::findOrFail($id);
+        $path = $request->file('proof_of_payment')->store('sales_orders/proof_of_payments', 'public');
+
+        $order->update([
+            'proof_of_payment' => $path,
+            'ar_prepared_at' => $order->ar_prepared_at ?? now(),
+            'ar_prepared_by' => $order->ar_prepared_by ?? auth()->id(),
+        ]);
+
+        return redirect()->back()->with('success', "Proof of payment uploaded for SO {$order->so_number}. It is now visible in Acknowledgement Receipt.");
+    }
+
+    /**
+     * Update Pick Qty directly from Delivery Receipt page.
+     */
+    public function updateDrPickQty($id, Request $request)
+    {
+        $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
+
+        if ($request->has('pick_qty') && is_array($request->pick_qty)) {
+            foreach ($request->pick_qty as $itemId => $qty) {
+                $item = $order->items->where('id', $itemId)->first();
+                if ($item) {
+                    $pickQty = max(0, min((int)$qty, (int)$item->quantity));
+                    $item->update(['customer_selected_qty' => $pickQty]);
+                }
+            }
+        }
+
+        return redirect()->back()->with('success', "Pick quantities updated successfully for SO {$order->so_number}.");
+    }
+
+    /**
+     * Import Pick Quantities + Customer Name from Excel in Delivery Receipt (DR).
+     */
+    public function importDeliveryReceiptFromExcel(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|mimes:xlsx,xls',
+            'order_id'   => 'required|exists:sales_orders,id',
+        ]);
+
+        try {
+            $file        = $request->file('excel_file');
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $sheet       = $spreadsheet->getActiveSheet();
+
+            $soNumberFromFile = trim((string) $sheet->getCell('B2')->getValue());
+
+            $order = \App\Models\SalesOrder::with('items')
+                ->whereIn('type', ['area_consignment', 'area_sales_consignment'])
+                ->findOrFail($request->order_id);
+
+            if (!empty($soNumberFromFile) && $soNumberFromFile !== $order->so_number) {
+                return back()->withErrors([
+                    'excel_file' => "The uploaded Excel is for SO \"{$soNumberFromFile}\" but this import is for SO \"{$order->so_number}\". Please upload the correct file.",
+                ]);
+            }
+
+            // Read Customer Name from B7
+            $customerName = trim((string) $sheet->getCell('B7')->getValue());
+
+            if (!empty($customerName)) {
+                $customer = \App\Models\Customer::whereRaw('LOWER(customer_name) = ?', [strtolower($customerName)])->first();
+
+                if (!$customer) {
+                    $customer = \App\Models\Customer::create([
+                        'customer_name'  => $customerName,
+                        'company_name'   => 'Individual',
+                        'account_number' => 'CUST-' . strtoupper(uniqid()),
+                        'manual_status'  => 'good',
+                    ]);
+                }
+
+                $order->update(['customer_id' => $customer->customer_id]);
+            }
+
+            // Read Pick Qty from column G, starting row 10
+            $dataStartRow = 10;
+            $pickQtyCol   = 'G';
+
+            $items    = $order->items->values();
+            $updated  = 0;
+            $rowIndex = $dataStartRow;
+
+            foreach ($items as $item) {
+                $cellValue = $sheet->getCell("{$pickQtyCol}{$rowIndex}")->getValue();
+
+                if (!is_null($cellValue) && $cellValue !== '') {
+                    $pickQty = (int) $cellValue;
+                    $pickQty = max(0, min($pickQty, (int) $item->quantity));
+                    $item->update(['customer_selected_qty' => $pickQty]);
+                    $updated++;
+                }
+
+                $rowIndex++;
+            }
+
+            $msg = "Excel imported for SO {$order->so_number}. {$updated} item(s) Pick Qty saved.";
+            if (!empty($customerName)) {
+                $msg .= " Customer linked: {$customerName}.";
+            }
+
+            return redirect()->back()->with('success', $msg);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error importing Excel in DR: ' . $e->getMessage());
+            return back()->withErrors(['excel_file' => 'Import failed: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
      * Acknowledgement Receipt — lists Area Sales Consignment SOs for logistics import.
      */
     public function acknowledgementReceipt()
     {
         $orders = \App\Models\SalesOrder::with(['areaSalesStaff', 'items.book', 'customer', 'preparedBy'])
-            ->where('type', 'area_sales_consignment')
+            ->whereIn('type', ['area_consignment', 'area_sales_consignment'])
+            ->where(function($query) {
+                $query->whereNotNull('ar_prepared_at')
+                      ->orWhereNotNull('proof_of_payment')
+                      ->orWhere('status', 'ar_created');
+            })
+            ->whereNotIn('status', ['draft', 'pending_mkt_approval', 'picking', 'cancelled'])
             ->latest()
             ->get();
 
@@ -1276,7 +1503,7 @@ class LogisticController extends Controller
         // Get orders ready for pickup (only those marked as 'ready_for_pickup' but NOT gathered)
         $readyForPickupOrders = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
-            ->where('type', '!=', 'ecom_direct')
+            ->where('type', '=', 'ecom_direct')
             ->whereNotNull('packing_data')
             ->where('packing_data->status', '=', 'ready_for_pickup')
             ->where(function($query) {
@@ -1364,9 +1591,11 @@ class LogisticController extends Controller
             $existingPackingData = json_decode($order->packing_data ?? '{}', true) ?: [];
             $attachmentData = $existingPackingData['attachments'] ?? [];
 
+            $isCompleted = ($packingStatus === 'completed');
+
             // Build packing data structure
             $packingData = [
-                'status' => $packingStatus,
+                'status' => $isCompleted ? ($order->type === 'ecom_direct' ? 'ready_for_pickup' : 'gathered') : $packingStatus,
                 'boxes_count' => $boxesCount !== null && $boxesCount !== '' ? (int) $boxesCount : null,
                 'packed_by' => auth()->user()->name,
                 'packed_at' => now()->toDateTimeString(),
@@ -1400,17 +1629,38 @@ class LogisticController extends Controller
                 $packingData['attachments'] = $attachmentData;
             }
 
-            // Update order with packing data
-            $order->update([
+            if ($isCompleted) {
+                if ($order->type === 'ecom_direct') {
+                    $packingData['ready_for_pickup_at'] = now()->toDateTimeString();
+                    $packingData['ready_for_pickup_by'] = auth()->user()->name;
+                } else {
+                    $packingData['gathered_at'] = now()->toDateTimeString();
+                    $packingData['gathered_by'] = auth()->user()->name;
+                }
+            }
+
+            // Update order with packing data and optional status change
+            $updateData = [
                 'packing_data' => json_encode($packingData),
                 'packing_prepared_by' => auth()->user()->name,
-            ]);
+            ];
+
+            if ($isCompleted && $order->type !== 'ecom_direct') {
+                $isPickup = in_array($order->delivery_method, ['pickup']) || in_array($order->shipping_method, ['pickup']);
+                $updateData['status'] = $isPickup ? 'ready_for_pickup' : 'ready_for_delivery';
+            }
+
+            $order->update($updateData);
 
             // Log the activity
             \App\Models\ActivityLog::create([
                 'user_id' => auth()->id(),
-                'action' => 'Packing items marked',
-                'description' => 'Items packed for SO ' . $order->so_number,
+                'action' => $isCompleted ? 'Order packing complete' : 'Packing items marked',
+                'description' => $isCompleted 
+                    ? ($order->type === 'ecom_direct' 
+                        ? 'SO ' . $order->so_number . ' marked as packed and ready for dropoff' 
+                        : 'SO ' . $order->so_number . ' marked as packed and sent directly to delivery scheduling')
+                    : 'Items packed for SO ' . $order->so_number,
                 'reference_type' => 'SalesOrder',
                 'reference_id' => $order->id,
                 'details' => json_encode([
@@ -1487,21 +1737,42 @@ class LogisticController extends Controller
             foreach ($orderIds as $orderId) {
                 $order = \App\Models\SalesOrder::find($orderId);
                 if ($order) {
-                    // Update packing data status to ready for pickup
                     $packingData = json_decode($order->packing_data ?? '{}', true);
-                    $packingData['status'] = 'ready_for_pickup';
-                    $packingData['ready_for_pickup_at'] = now()->toDateTimeString();
-                    $packingData['ready_for_pickup_by'] = auth()->user()->name;
-
-                    $order->update([
-                        'packing_data' => json_encode($packingData)
-                    ]);
+                    
+                    if ($order->type === 'ecom_direct') {
+                        $packingData['status'] = 'ready_for_pickup';
+                        $packingData['ready_for_pickup_at'] = now()->toDateTimeString();
+                        $packingData['ready_for_pickup_by'] = auth()->user()->name;
+                        
+                        $order->update([
+                            'packing_data' => json_encode($packingData)
+                        ]);
+                        
+                        $action = 'Order marked as ready for pickup';
+                        $description = 'SO ' . $order->so_number . ' marked as ready for pickup/drop-off';
+                    } else {
+                        // Standard SO: mark as gathered & send directly to delivery scheduling
+                        $packingData['status'] = 'gathered';
+                        $packingData['gathered_at'] = now()->toDateTimeString();
+                        $packingData['gathered_by'] = auth()->user()->name;
+                        
+                        $isPickup = in_array($order->delivery_method, ['pickup']) || in_array($order->shipping_method, ['pickup']);
+                        $newStatus = $isPickup ? 'ready_for_pickup' : 'ready_for_delivery';
+                        
+                        $order->update([
+                            'status' => $newStatus,
+                            'packing_data' => json_encode($packingData)
+                        ]);
+                        
+                        $action = 'Order packing completed';
+                        $description = 'SO ' . $order->so_number . ' marked as packed and sent directly to delivery scheduling';
+                    }
 
                     // Log activity
                     \App\Models\ActivityLog::create([
                         'user_id' => auth()->id(),
-                        'action' => 'Order marked as ready for pickup',
-                        'description' => 'SO ' . $order->so_number . ' marked as ready for pickup/drop-off',
+                        'action' => $action,
+                        'description' => $description,
                         'reference_type' => 'SalesOrder',
                         'reference_id' => $order->id,
                         'details' => json_encode([
@@ -1516,7 +1787,7 @@ class LogisticController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => $updatedCount . ' order(s) marked as ready for pickup/drop-off',
+                'message' => $updatedCount . ' order(s) processed successfully',
                 'updated_count' => $updatedCount
             ]);
 
@@ -1525,6 +1796,8 @@ class LogisticController extends Controller
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
+
+
 
     public function markPackedOrdersAsGathered(Request $request)
     {
@@ -1546,10 +1819,15 @@ class LogisticController extends Controller
             $packingData['gathered_at'] = now()->toDateTimeString();
             $packingData['gathered_by'] = auth()->user()->name;
 
-            // Packing complete: move order to Delivery Scheduling
-            $isPickup = in_array($order->delivery_method, ['pickup']) || in_array($order->shipping_method, ['pickup']);
-            $newStatus = $isPickup ? 'ready_for_pickup' : 'ready_for_delivery';
-            $targetQueue = 'Delivery Scheduling';
+            // Packing complete: move order to Delivery Scheduling or complete if ecom direct
+            if ($order->type === 'ecom_direct') {
+                $newStatus = 'completed';
+                $targetQueue = 'Completed (E-Commerce)';
+            } else {
+                $isPickup = in_array($order->delivery_method, ['pickup']) || in_array($order->shipping_method, ['pickup']);
+                $newStatus = $isPickup ? 'ready_for_pickup' : 'ready_for_delivery';
+                $targetQueue = 'Delivery Scheduling';
+            }
 
             $order->update([
                 'status' => $newStatus,

@@ -67,10 +67,11 @@
                     </div>
                     @if($order)
                     <div class="document-title">SALES ORDER <span class="text-danger">#{{ $order->so_number }}</span></div>
-                    @php
+                     @php
                         $typeDisplay = str_replace('_', ' ', $order->type);
                         if ($order->type == 'calculator_pos') $typeDisplay = 'direct POS';
                         if ($order->type == 'ecom_direct') $typeDisplay = 'ECOM POS';
+                        if ($order->type == 'paid') $typeDisplay = 'paid transac';
                     @endphp
                     <div class="text-center text-uppercase fw-bold {{ $order->type === 'paid' ? 'text-success' : 'text-primary' }}">{{ $typeDisplay }}</div>
                     @else
@@ -230,7 +231,14 @@
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
-                            <td colspan="6" class="text-end text-uppercase"><strong>Discount:</strong></td>
+                            <td colspan="6" class="text-end text-uppercase">
+                                <strong>
+                                    Discount
+                                    @if(($order->discount_percentage ?? 0) > 0)
+                                        ({{ (float)$order->discount_percentage }}%)
+                                    @endif:
+                                </strong>
+                            </td>
                             <td class="text-end fw-bold text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
                         </tr>
                         @endif
@@ -287,7 +295,14 @@
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
-                            <td class="text-end"><strong>Discount:</strong></td>
+                            <td class="text-end">
+                                <strong>
+                                    Discount
+                                    @if(($order->discount_percentage ?? 0) > 0)
+                                        ({{ (float)$order->discount_percentage }}%)
+                                    @endif:
+                                </strong>
+                            </td>
                             <td class="text-end text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
                         </tr>
                         @endif

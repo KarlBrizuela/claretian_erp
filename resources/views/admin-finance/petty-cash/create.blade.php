@@ -104,6 +104,13 @@
                             @enderror
                         </div>
                         <div class="form-info-item">
+                            <label>Voucher Type:</label>
+                            <select class="form-control" name="type" required>
+                                <option value="fund" {{ old('type') === 'fund' ? 'selected' : '' }}>Petty Cash for Fund</option>
+                                <option value="freight" {{ old('type') === 'freight' ? 'selected' : '' }}>Petty Cash for Freight</option>
+                            </select>
+                        </div>
+                        <div class="form-info-item">
                             <label>Pay To:</label>
                             <input type="text" class="form-control @error('pay_to') is-invalid @enderror" name="pay_to" value="{{ old('pay_to') }}" required>
                         </div>

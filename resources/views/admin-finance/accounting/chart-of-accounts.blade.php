@@ -59,12 +59,14 @@
             <div class="col-12">
                 @if($tab === 'assets')
                     @include('admin-finance.accounting.chart-of-accounts.assets')
-                @elseif($tab === 'liabilities')
+                {{-- @elseif($tab === 'liabilities')
                     @include('admin-finance.accounting.chart-of-accounts.liabilities')
                 @elseif($tab === 'equity')
-                    @include('admin-finance.accounting.chart-of-accounts.equity')
+                    @include('admin-finance.accounting.chart-of-accounts.equity') --}}
                 @elseif($tab === 'income')
                     @include('admin-finance.accounting.chart-of-accounts.income')
+                @elseif($tab === 'expenses')
+                    @include('admin-finance.accounting.chart-of-accounts.expenses')
                 @endif
             </div>
         </div>
@@ -197,6 +199,180 @@
         </div>
     </div>
 
+    <!-- Supplies Expense Modal -->
+    <div class="modal fade" id="suppliesExpenseModal" tabindex="-1" aria-labelledby="suppliesExpenseModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header bg-light border-0 py-3">
+                    <h5 class="modal-title fw-bold text-dark" id="suppliesExpenseModalLabel"><i class="las la-archive text-danger me-2 fs-20"></i>Office Supplies Expenses Breakdown</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light text-muted small text-uppercase">
+                                <tr>
+                                    <th>Item Name</th>
+                                    <th>Item Price</th>
+                                    <th>Stock Qty</th>
+                                    <th class="text-end">Total Valuation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($officeSuppliesList as $supply)
+                                <tr>
+                                    <td><span class="fw-bold text-dark">{{ $supply->item_name }}</span></td>
+                                    <td>₱{{ number_format($supply->item_price, 2) }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ $supply->items_stock }} {{ $supply->unit ?? 'pcs' }}</span></td>
+                                    <td class="text-end fw-bold text-danger">₱{{ number_format($supply->item_price * $supply->items_stock, 2) }}</td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No office supply items recorded.</td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fixed Assets Expense Modal -->
+    <div class="modal fade" id="fixedAssetsExpenseModal" tabindex="-1" aria-labelledby="fixedAssetsExpenseModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header bg-light border-0 py-3">
+                    <h5 class="modal-title fw-bold text-dark" id="fixedAssetsExpenseModalLabel"><i class="las la-tools text-danger me-2 fs-20"></i>Fixed Assets Expense Breakdown</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light text-muted small text-uppercase">
+                                <tr>
+                                    <th>Asset Code</th>
+                                    <th>Machine / Asset Name</th>
+                                    <th>Category</th>
+                                    <th>Purchase Date</th>
+                                    <th class="text-end">Purchase Price</th>
+                                    <th class="text-end">Current Book Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($fixedAssetsRecordsList ?? [] as $ast)
+                                <tr>
+                                    <td><span class="fw-bold font-monospace text-dark">{{ $ast->asset_code }}</span></td>
+                                    <td>
+                                        <span class="fw-bold text-dark d-block">{{ $ast->name }}</span>
+                                        <span class="text-muted small">{{ $ast->location ?: 'Main Production Facility' }}</span>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border">{{ $ast->category }}</span></td>
+                                    <td class="small">{{ $ast->purchase_date ? $ast->purchase_date->format('M d, Y') : 'N/A' }}</td>
+                                    <td class="text-end fw-bold text-dark">₱{{ number_format($ast->purchase_price, 2) }}</td>
+                                    <td class="text-end fw-bold text-danger">₱{{ number_format($ast->current_value, 2) }}</td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No fixed asset records logged.</td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Operational Expenses Modal -->
+    <div class="modal fade" id="operationalExpensesModal" tabindex="-1" aria-labelledby="operationalExpensesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header bg-light border-0 py-3">
+                    <h5 class="modal-title fw-bold text-dark" id="operationalExpensesModalLabel"><i class="las la-file-invoice-dollar text-danger me-2 fs-20"></i>Operational Expenses Breakdown</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light text-muted small text-uppercase">
+                                <tr>
+                                    <th>Title / Item</th>
+                                    <th>Department</th>
+                                    <th>Expense Date</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($expensesRecordsList as $exp)
+                                <tr>
+                                    <td><span class="fw-bold text-dark">{{ $exp->expense_title ?? ($exp->title ?? 'Operational Expense') }}</span></td>
+                                    <td><span class="badge bg-light text-dark border">{{ $exp->department->name ?? 'General' }}</span></td>
+                                    <td>{{ date('M d, Y', strtotime($exp->expense_date ?? $exp->created_at)) }}</td>
+                                    <td class="text-end fw-bold text-danger">₱{{ number_format($exp->amount, 2) }}</td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No operational expenses recorded.</td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bank Accounts Modal -->
+    <div class="modal fade" id="bankAccountsModal" tabindex="-1" aria-labelledby="bankAccountsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header bg-light border-0 py-3">
+                    <h5 class="modal-title fw-bold text-dark" id="bankAccountsModalLabel"><i class="las la-university text-primary me-2 fs-20"></i>Bank Accounts Ledger</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light text-muted small text-uppercase">
+                                <tr>
+                                    <th>Account Code</th>
+                                    <th>Bank & Account Name</th>
+                                    <th>Account Number</th>
+                                    <th>Type</th>
+                                    <th class="text-end">Current Balance</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($companyBankAccounts as $acct)
+                                <tr>
+                                    <td><span class="fw-bold text-dark">{{ $acct->account_code }}</span></td>
+                                    <td>
+                                        <span class="fw-bold text-dark">{{ $acct->bank_name }}</span>
+                                        <small class="text-muted d-block" style="font-size: 0.75rem;">{{ $acct->account_name }}</small>
+                                    </td>
+                                    <td><span class="text-muted small fw-medium">{{ $acct->account_number }}</span></td>
+                                    <td><span class="badge bg-light text-dark border">{{ $acct->account_type }}</span></td>
+                                    <td class="text-end fw-bold text-dark">₱{{ number_format($acct->current_balance, 2) }}</td>
+                                    <td><span class="badge bg-success text-white">Active</span></td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No bank accounts registered in the database.</td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Receivables Modal -->
     <div class="modal fade" id="receivablesModal" tabindex="-1" aria-labelledby="receivablesModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -226,8 +402,12 @@
                                     <td><span class="badge bg-light text-dark border">{{ $soa->type ?? 'Invoice' }}</span></td>
                                     <td>{{ $soa->created_at ? $soa->created_at->format('M d, Y') : 'N/A' }}</td>
                                     <td>
-                                        <span class="badge {{ $soa->status === 'Paid' ? 'bg-success text-white' : 'bg-danger text-white' }}">
-                                            {{ ucfirst($soa->status) }}
+                                        @php
+                                            $st = strtolower($soa->status ?? '');
+                                            $isPaid = ($st === 'paid');
+                                        @endphp
+                                        <span class="badge {{ $isPaid ? 'bg-success text-white' : 'bg-danger text-white' }}">
+                                            {{ $isPaid ? 'Paid' : 'Unpaid' }}
                                         </span>
                                     </td>
                                     <td class="text-end fw-bold text-dark">₱{{ number_format($soa->total_amount, 2) }}</td>
@@ -344,8 +524,13 @@
 
     @push('scripts')
     <script>
-        function showGenericModal(title, description) {
+        function showGenericModal(title, description, balance = 0) {
             document.getElementById('genericModalTitle').innerText = title + ' Ledger';
+            const numBalance = parseFloat(balance || 0);
+            const formattedBalance = numBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const badgeClass = numBalance > 0 ? 'bg-soft-success text-success' : 'bg-light text-muted';
+            const infoText = numBalance > 0 ? `Current Ledger Balance: ₱${formattedBalance}` : `Balance: ₱0.00 (No logged transactions)`;
+            
             document.getElementById('genericModalBody').innerHTML = `
                 <div class="text-center py-4">
                     <div class="rounded-circle d-flex align-items-center justify-content-center bg-light mx-auto mb-3" style="width: 60px; height: 60px; color: #ff0000;">
@@ -353,8 +538,8 @@
                     </div>
                     <h6 class="fw-bold text-dark">${title}</h6>
                     <p class="text-muted small px-3 mb-4">${description}</p>
-                    <div class="alert bg-soft-success text-success border-0 small d-inline-block px-3 py-2 rounded-pill">
-                        <i class="las la-info-circle me-1"></i> Balance: ₱0.00 (No logged transactions)
+                    <div class="alert ${badgeClass} border-0 small d-inline-block px-3 py-2 rounded-pill fw-bold">
+                        <i class="las la-info-circle me-1"></i> ${infoText}
                     </div>
                 </div>
             `;
