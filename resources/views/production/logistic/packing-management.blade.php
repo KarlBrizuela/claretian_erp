@@ -42,6 +42,11 @@
                                 <i class="fas fa-truck" style="margin-right: 0.5rem;"></i>Ready for Pickup/Drop-off <span class="badge bg-success" style="margin-left: 0.5rem;">{{ count($readyForPickupOrders) }}</span>
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="complimentary-tab" data-bs-toggle="tab" data-bs-target="#complimentary-content" type="button" role="tab" aria-controls="complimentary-content" aria-selected="false" style="font-weight: 600; color: #666;">
+                                <i class="fas fa-gift" style="margin-right: 0.5rem; color: #6f42c1;"></i>Complimentary <span class="badge" style="margin-left: 0.5rem; background-color: #6f42c1; color: #fff;">{{ $complimentaryPackingOrders->count() }}</span>
+                            </button>
+                        </li>
                     </ul>
 
                     <!-- Tab Contents -->
@@ -459,6 +464,56 @@
                                         <tr>
                                             <td colspan="8" class="text-center" style="padding: 2rem;">
                                                 <p style="color: #999;">No orders ready for pickup yet</p>
+                                            </td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Complimentary Tab -->
+                        <div class="tab-pane fade" id="complimentary-content" role="tabpanel" aria-labelledby="complimentary-tab">
+                            <div class="table-responsive">
+                                <table id="complimentaryPackingTable" class="display" style="width: 100%">
+                                    <thead>
+                                        <tr>
+                                            <th>SO Number</th>
+                                            <th>Recipient / Customer</th>
+                                            <th>Date</th>
+                                            <th>Total Qty</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($complimentaryPackingOrders as $order)
+                                        @php
+                                            $totalQty = $order->items->sum('quantity');
+                                            $pData = json_decode($order->packing_data ?? '{}', true) ?: [];
+                                            $pStatus = $pData['status'] ?? 'ready';
+                                        @endphp
+                                        <tr>
+                                            <td><strong>{{ $order->so_number }}</strong></td>
+                                            <td>{{ $order->customer->customer_name ?? 'Recipient' }}</td>
+                                            <td>{{ $order->created_at->format('Y-m-d') }}</td>
+                                            <td>{{ $totalQty }} pcs</td>
+                                            <td>
+                                                <span class="badge" style="background-color: #6f42c1; color: #fff;">Complimentary (Ready to Pack)</span>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                        onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                        title="Mark as Packed (Send to Delivery Scheduling)"
+                                                        style="background: #28a745; border: none; padding: 0.4rem 0.8rem; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 500;">
+                                                    <i class="fas fa-check-circle me-1" style="font-size: 0.9rem;"></i> Mark as Packed
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center" style="padding: 2rem;">
+                                                <p style="color: #999;">No complimentary orders ready for packing.</p>
                                             </td>
                                         </tr>
                                         @endforelse
@@ -913,8 +968,33 @@
 
         window.markOrderAsPackedAction = function(orderId, soNumber) {
             if (!orderId) return;
-            if (confirm(`Mark all items in ${soNumber} as packed?`)) {
-                markOrderAsPacked(orderId, soNumber);
+            if (confirm(`Mark ${soNumber} as packed and send directly to Delivery Scheduling?`)) {
+                fetch('/production/logistic/packing/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        packing_status: 'completed',
+                        boxes_count: 1,
+                        items: []
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`${soNumber} marked as packed and moved directly to Delivery Scheduling!`);
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data.message || 'Failed to mark as packed'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error marking order as packed: ' + error.message);
+                });
             }
         };
 
@@ -980,6 +1060,12 @@
             });
 
             $('#readyForPickupTable').DataTable({
+                order: [[1, 'desc']],
+                pageLength: 25,
+                responsive: true
+            });
+
+            $('#complimentaryPackingTable').DataTable({
                 order: [[1, 'desc']],
                 pageLength: 25,
                 responsive: true

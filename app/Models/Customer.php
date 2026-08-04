@@ -96,17 +96,21 @@ class Customer extends Model
 
     public function getBalanceAttribute()
     {
-        $openingBalance = $this->opening_balance ?? 0;
-        $unpaidOrders = $this->salesOrders()
+        $openingBalance = (float)($this->opening_balance ?? 0);
+        $activeOrders = $this->salesOrders()
             ->where('payment_status', '!=', 'paid')
             ->where(function($q) {
                 $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', '');
             })
-            ->whereNotIn('type', ['paid', 'calculator_pos', 'ecom_direct'])
+            ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
             ->where('status', '!=', 'cancelled')
-            ->sum('total_amount');
+            ->get();
         
-        return $openingBalance + $unpaidOrders;
+        $unpaidBalance = $activeOrders->sum(function($order) {
+            return $order->remaining_balance;
+        });
+
+        return $openingBalance + $unpaidBalance;
     }
 
     public function getIsBadClientAttribute()

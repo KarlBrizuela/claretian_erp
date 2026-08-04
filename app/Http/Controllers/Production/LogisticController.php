@@ -58,10 +58,10 @@ class LogisticController extends Controller
 
     public function pickListList()
     {
-        // Get active pick lists (not completed) - EXCLUDING e-commerce direct
+        // Get active pick lists (not completed) - EXCLUDING e-commerce direct and complimentary
         $pickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
             ->whereHas('salesOrder', function($query) {
-                $query->where('type', '!=', 'ecom_direct');
+                $query->whereNotIn('type', ['ecom_direct', 'complimentary']);
             })
             ->where('status', '!=', 'completed')
             ->latest()
@@ -71,6 +71,15 @@ class LogisticController extends Controller
         $ecomPickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
             ->whereHas('salesOrder', function($query) {
                 $query->where('type', 'ecom_direct');
+            })
+            ->where('status', '!=', 'completed')
+            ->latest()
+            ->get();
+
+        // Get complimentary pick lists (type='complimentary')
+        $complimentaryPickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
+            ->whereHas('salesOrder', function($query) {
+                $query->where('type', 'complimentary');
             })
             ->where('status', '!=', 'completed')
             ->latest()
@@ -109,6 +118,7 @@ class LogisticController extends Controller
             'sidebar' => 'production',
             'pickLists' => $pickLists,
             'ecomByPlatform' => $ecomByPlatform,
+            'complimentaryPickLists' => $complimentaryPickLists,
             'pendingOrders' => $pendingOrders
         ]);
     }
@@ -164,6 +174,14 @@ class LogisticController extends Controller
             if ($order->type === 'ecom_direct') {
                 $newStatus = 'ready_for_delivery';
                 $targetQueue = 'Packing Management';
+            } elseif ($order->type === 'complimentary') {
+                $newStatus = 'ready_for_packing';
+                $targetQueue = 'Packing Management';
+                try {
+                    app(\App\Services\AccountingService::class)->postComplimentaryEntry($order);
+                } catch (\Exception $e) {
+                    \Log::error('Error auto-posting complimentary entry: ' . $e->getMessage());
+                }
             } else {
                 $newStatus = $isConsignment ? 'pending_dr_prep' : 'pending_si_prep';
                 $targetQueue = $isConsignment ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
@@ -441,9 +459,15 @@ class LogisticController extends Controller
 
     public function showPurchaseOrder(Request $request, $id)
     {
-        $po = \App\Models\PurchaseOrder::with('supplier', 'items.product', 'preparedBy')->findOrFail($id);
+        $po = \App\Models\PurchaseOrder::with('supplier', 'items.product', 'preparedBy')->find($id);
+        if (!$po) {
+            $po = \App\Models\PurchaseOrder::with('supplier', 'items.product', 'preparedBy')->where('po_number', $id)->first();
+        }
+        if (!$po) {
+            abort(404, 'Purchase Order not found');
+        }
 
-        if ($request->ajax()) {
+        if ($request->ajax() || $request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
             return view('production.logistic.partials.purchase-order-modal', compact('po'));
         }
 
@@ -923,14 +947,14 @@ class LogisticController extends Controller
         if ($requestedType === 'AR') {
             $documentType = 'ACKNOWLEDGEMENT RECEIPT';
         } elseif ($requestedType === 'CR') {
-            $documentType = 'CONSIGNMENT RECEIPT';
+            $documentType = 'CONSIGNMENT DELIVERY RECEIPT';
         } elseif ($requestedType === 'DR') {
             $documentType = 'DELIVERY RECEIPT';
         } else {
             // Logic to determine form type and title
             $documentType = 'DELIVERY RECEIPT';
             if (str_contains($order->type, 'consignment')) {
-                $documentType = 'CONSIGNMENT RECEIPT';
+                $documentType = 'CONSIGNMENT DELIVERY RECEIPT';
             } elseif ($order->si_prepared_at) {
                 $documentType = 'SALES INVOICE';
             } elseif ($order->ar_prepared_at) {
@@ -1459,10 +1483,24 @@ class LogisticController extends Controller
 
     public function packingManagement(Request $request)
     {
-        // Get orders ready for packing - EXCLUDING ecom_direct
+        // Get orders ready for packing - EXCLUDING ecom_direct and complimentary
         $packingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
-            ->where('status', 'ready_for_delivery')
-            ->where('type', '!=', 'ecom_direct')
+            ->whereIn('status', ['ready_for_delivery', 'ready_for_packing', 'pending_ar_prep'])
+            ->whereNotIn('type', ['ecom_direct', 'complimentary'])
+            ->where(function($query) {
+                $query->whereNull('packing_data')
+                      ->orWhere(function($innerQ) {
+                          $innerQ->where('packing_data->status', '<>', 'ready_for_pickup')
+                                  ->where('packing_data->status', '<>', 'gathered');
+                      });
+            })
+            ->orderByRaw('COALESCE(signed_at, created_at) DESC')
+            ->get();
+
+        // Get complimentary orders ready for packing
+        $complimentaryPackingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+            ->whereIn('status', ['ready_for_delivery', 'ready_for_packing', 'pending_ar_prep'])
+            ->where('type', 'complimentary')
             ->where(function($query) {
                 $query->whereNull('packing_data')
                       ->orWhere(function($innerQ) {
@@ -1531,6 +1569,7 @@ class LogisticController extends Controller
 
         return view('production.logistic.packing-management', [
             'packingOrders' => $packingOrders,
+            'complimentaryPackingOrders' => $complimentaryPackingOrders,
             'ecomByPlatform' => $ecomByPlatform,
             'readyForPickupOrders' => $readyForPickupOrders,
             'preloadOrder' => $preloadOrder,
@@ -1602,14 +1641,27 @@ class LogisticController extends Controller
             ];
 
             // Add item-level packing data
-            foreach ($packingItems as $item) {
-                $itemKey = 'item_' . $item['index'];
-                $packingData[$itemKey] = [
-                    'packed_qty' => $item['packed_qty'],
-                    'status' => $item['status'],
-                    'notes' => $item['notes'],
-                    'packed_date' => $item['packed_date'],
-                ];
+            if (!empty($packingItems)) {
+                foreach ($packingItems as $item) {
+                    $itemKey = 'item_' . $item['index'];
+                    $packingData[$itemKey] = [
+                        'packed_qty' => $item['packed_qty'],
+                        'status' => $item['status'],
+                        'notes' => $item['notes'],
+                        'packed_date' => $item['packed_date'],
+                    ];
+                }
+            } else {
+                $order->load('items');
+                foreach ($order->items as $idx => $oItem) {
+                    $itemKey = 'item_' . $idx;
+                    $packingData[$itemKey] = [
+                        'packed_qty' => $oItem->quantity,
+                        'status' => 'Packed',
+                        'notes' => 'Quick packed',
+                        'packed_date' => now()->toDateString(),
+                    ];
+                }
             }
 
             // Handle photo attachments

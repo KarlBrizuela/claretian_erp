@@ -114,6 +114,37 @@
                                 <label class="form-label fw-bold">Terms:</label>
                                 <input type="text" class="form-control" value="{{ $order->terms }}" readonly>
                             </div>
+                            @php
+                                $isComp = $order->type === 'complimentary';
+                                $paidAmt = (float) $order->total_paid_amount;
+                                $remBal = $isComp ? 0 : (float) $order->remaining_balance;
+                                $pmStatus = $order->computed_payment_status;
+                                $pmBadgeColor = $pmStatus === 'paid' ? 'success' : ($pmStatus === 'partially_paid' ? 'warning' : 'danger');
+                                $pmLabel = $pmStatus === 'partially_paid' ? 'PARTIALLY PAID' : strtoupper($pmStatus);
+                            @endphp
+                            <div class="mb-2 p-2 rounded bg-white border">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold">Payment Status:</span>
+                                    @if($isComp)
+                                        <span class="badge fs-12 px-2 py-1" style="background-color: #6f42c1; color: #fff;">Complimentary / Donation</span>
+                                    @else
+                                        <span class="badge bg-{{ $pmBadgeColor }} fs-12 px-2 py-1">{{ $pmLabel }}</span>
+                                    @endif
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small text-muted">Already Paid:</span>
+                                    <span class="fw-bold text-success">{{ $isComp ? 'N/A' : '₱' . number_format($paidAmt, 2) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-muted">Remaining Balance:</span>
+                                    <span class="fw-bold {{ $isComp ? 'text-success' : 'text-danger' }}">{{ $isComp ? '₱0.00 (No Charge)' : '₱' . number_format($remBal, 2) }}</span>
+                                </div>
+                                @if(!$isComp && $remBal > 0 && $order->customer_id)
+                                    <button type="button" class="btn btn-sm btn-success w-100 open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $order->total_amount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
+                                        <i class="las la-coins me-1"></i> Record Payment / Installment
+                                    </button>
+                                @endif
+                            </div>
                         </div>
                     </div>
 
@@ -255,4 +286,265 @@
             </form>
         </div>
     </div>
+
+    <!-- Record Payment Modal -->
+    <div class="modal fade" id="recordPaymentModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title text-white"><i class="las la-money-bill-wave me-2"></i>Payment History & Record Installment</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="recordPaymentForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="paySoId">
+                        <input type="hidden" id="payCustomerId">
+                        
+                        <div class="alert alert-light border mb-3">
+                            <div class="row g-2">
+                                <div class="col-6 col-md-3 border-end">
+                                    <span class="text-muted small d-block">Transaction #:</span>
+                                    <strong id="paySoNumber" class="text-dark">SO-0000</strong>
+                                </div>
+                                <div class="col-6 col-md-3 border-end">
+                                    <span class="text-muted small d-block">Grand Total:</span>
+                                    <strong id="payTotalAmount" class="text-dark">₱0.00</strong>
+                                </div>
+                                <div class="col-6 col-md-3 border-end">
+                                    <span class="text-muted small d-block">Already Paid:</span>
+                                    <span id="payAlreadyPaid" class="text-success fw-bold">₱0.00</span>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <span class="text-muted small d-block">Remaining:</span>
+                                    <strong id="payRemainingBalance" class="text-danger fs-16">₱0.00</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment History Breakdown Table -->
+                        <div class="card mb-3 border">
+                            <div class="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center">
+                                <span class="fw-bold small text-dark"><i class="las la-history me-1 text-primary"></i> Previous Installments Log</span>
+                                <span class="badge bg-secondary" id="payHistoryBadge">0 payments</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-sm table-striped table-bordered mb-0 align-middle" style="font-size: 11px;">
+                                        <thead class="bg-light sticky-top">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>Method</th>
+                                                <th>Ref # / Check #</th>
+                                                <th>Notes</th>
+                                                <th>Proof</th>
+                                                <th>Recorded By</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="payHistoryTableBody">
+                                            <tr><td colspan="7" class="text-center py-2 text-muted"><i class="fas fa-spinner fa-spin me-1"></i> Loading payment history...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- New Installment Entry Form -->
+                        <div id="newPaymentFormFields">
+                            <h6 class="fw-bold text-dark border-bottom pb-1 mb-3"><i class="las la-plus-circle me-1 text-success"></i> Add New Installment Payment</h6>
+
+                            <div class="row g-2">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Payment Amount (₱) <span class="text-danger">*</span></label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">₱</span>
+                                        <input type="number" step="0.01" min="0.01" id="payAmountInput" class="form-control fw-bold fs-15 text-primary" required placeholder="0.00">
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Payment Method <span class="text-danger">*</span></label>
+                                    <select id="payMethodSelect" class="form-select form-select-sm" required>
+                                        <option value="cash">Cash</option>
+                                        <option value="gcash">GCash</option>
+                                        <option value="maya">Maya</option>
+                                        <option value="bank_transfer">Bank Transfer</option>
+                                        <option value="check">Check</option>
+                                        <option value="card">Credit / Debit Card</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Reference / Check # <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <input type="text" id="payRefInput" class="form-control form-control-sm" placeholder="e.g. Ref #123456 or Check #">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Notes / Remarks <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <input type="text" id="payNotesInput" class="form-control form-control-sm" placeholder="e.g. 1st installment payment">
+                                </div>
+                                <div class="col-md-12 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Proof of Payment <span class="text-muted fw-normal">(Optional - Image/PDF)</span></label>
+                                    <input type="file" id="payProofInput" class="form-control form-control-sm" accept="image/*,.pdf">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="fullyPaidNotice" class="alert alert-success d-none text-center py-2 mb-0">
+                            <i class="las la-check-circle me-1 fs-16"></i> This order is fully paid. No further payments required.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-success btn-sm px-4 fw-bold" id="submitPaymentBtn">
+                            <i class="las la-check-circle me-1"></i> Submit Payment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        async function fetchPaymentHistory(customerId, soId) {
+            const tableBody = document.getElementById('payHistoryTableBody');
+            const badge = document.getElementById('payHistoryBadge');
+
+            if (!tableBody) return;
+
+            tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-2 text-muted"><i class="fas fa-spinner fa-spin me-1"></i> Loading history...</td></tr>';
+            if (badge) badge.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`/marketing/customers/${customerId}/transactions/${soId}/payments`);
+                const data = await response.json();
+
+                if (!data.payments || data.payments.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-2 text-muted">No previous installments recorded.</td></tr>';
+                    if (badge) badge.textContent = '0 payments';
+                } else {
+                    if (badge) badge.textContent = data.payments.length + ' payment(s)';
+                    let rows = '';
+                    data.payments.forEach(p => {
+                        const proofTag = p.has_proof ? `<a href="${p.proof_url}" target="_blank" class="badge badge-xs bg-light text-primary border"><i class="las la-paperclip me-1"></i>View Proof</a>` : '<span class="text-muted small">None</span>';
+                        rows += `<tr>
+                            <td class="fw-bold">${p.date}</td>
+                            <td class="text-success fw-bold">₱${p.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td><span class="badge bg-light text-dark border">${p.method}</span></td>
+                            <td>${p.reference_number}</td>
+                            <td>${p.notes}</td>
+                            <td>${proofTag}</td>
+                            <td><small class="text-muted">${p.recorded_by}</small></td>
+                        </tr>`;
+                    });
+                    tableBody.innerHTML = rows;
+                }
+            } catch (error) {
+                console.error('Error loading payment history:', error);
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-2 text-danger">Failed to load payment history.</td></tr>';
+                if (badge) badge.textContent = 'Error';
+            }
+        }
+
+        document.body.addEventListener('click', function(e) {
+            const payBtn = e.target.closest('.open-pay-modal-btn');
+            if (payBtn) {
+                const soId = payBtn.dataset.soId;
+                const customerId = payBtn.dataset.customerId;
+                const soNumber = payBtn.dataset.soNumber;
+                const totalAmount = parseFloat(payBtn.dataset.total) || 0;
+                const paidAmount = parseFloat(payBtn.dataset.paid) || 0;
+                const remainingBalance = parseFloat(payBtn.dataset.remaining) || 0;
+
+                document.getElementById('paySoId').value = soId;
+                document.getElementById('payCustomerId').value = customerId;
+                document.getElementById('paySoNumber').textContent = soNumber;
+                document.getElementById('payTotalAmount').textContent = '₱' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payAlreadyPaid').textContent = '₱' + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payRemainingBalance').textContent = '₱' + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
+                
+                const formFields = document.getElementById('newPaymentFormFields');
+                const submitBtn = document.getElementById('submitPaymentBtn');
+                const notice = document.getElementById('fullyPaidNotice');
+
+                if (remainingBalance <= 0) {
+                    if (formFields) formFields.classList.add('d-none');
+                    if (submitBtn) submitBtn.classList.add('d-none');
+                    if (notice) notice.classList.remove('d-none');
+                } else {
+                    if (formFields) formFields.classList.remove('d-none');
+                    if (submitBtn) submitBtn.classList.remove('d-none');
+                    if (notice) notice.classList.add('d-none');
+
+                    const payAmountInput = document.getElementById('payAmountInput');
+                    payAmountInput.value = remainingBalance.toFixed(2);
+                    payAmountInput.max = remainingBalance;
+                    document.getElementById('payRefInput').value = '';
+                    document.getElementById('payNotesInput').value = '';
+                    const proofInput = document.getElementById('payProofInput');
+                    if (proofInput) proofInput.value = '';
+                }
+
+                // Fetch payment history breakdown
+                fetchPaymentHistory(customerId, soId);
+
+                const payModalElement = document.getElementById('recordPaymentModal');
+                const payModal = bootstrap.Modal.getInstance(payModalElement) || new bootstrap.Modal(payModalElement);
+                payModal.show();
+            }
+        });
+
+        document.getElementById('recordPaymentForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const soId = document.getElementById('paySoId').value;
+            const customerId = document.getElementById('payCustomerId').value;
+            const amount = parseFloat(document.getElementById('payAmountInput').value);
+            const paymentMethod = document.getElementById('payMethodSelect').value;
+            const referenceNumber = document.getElementById('payRefInput').value;
+            const notes = document.getElementById('payNotesInput').value;
+            const proofInput = document.getElementById('payProofInput');
+
+            if (!soId || !customerId) return;
+
+            const submitBtn = document.getElementById('submitPaymentBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Submitting...';
+
+            const formData = new FormData();
+            formData.append('amount', amount);
+            formData.append('payment_method', paymentMethod);
+            if (referenceNumber) formData.append('reference_number', referenceNumber);
+            if (notes) formData.append('notes', notes);
+            if (proofInput && proofInput.files[0]) {
+                formData.append('proof_of_payment', proofInput.files[0]);
+            }
+
+            try {
+                const response = await fetch(`/marketing/customers/${customerId}/transactions/${soId}/pay`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Payment recorded successfully!');
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Error recording payment.');
+                }
+            } catch (error) {
+                console.error('Error submitting payment:', error);
+                alert('An error occurred while submitting payment.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="las la-check-circle me-1"></i> Submit Payment';
+            }
+        });
+    });
+    </script>
+    @endpush
 </x-app-layout>

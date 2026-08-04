@@ -211,11 +211,21 @@
                         <div class="card">
                             <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between flex-wrap gap-3">
                                 <div class="d-flex align-items-center flex-wrap gap-3">
-                                    <h4 class="fs-20 mb-0 text-black">Master Registry</h4>
+                                    
                                     <ul class="nav nav-tabs card-header-tabs border-0" role="tablist" style="margin-bottom: -15px;">
                                         <li class="nav-item" role="presentation">
                                             <button class="nav-link active font-w600" id="registry-books-tab" data-bs-toggle="tab" data-bs-target="#registry-books-content" type="button" role="tab" aria-controls="registry-books-content" aria-selected="true">
-                                                <i class="las la-book me-1"></i>Books
+                                                <i class="las la-book me-1"></i>Books (Main Warehouse)
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link font-w600" id="registry-allsites-tab" data-bs-toggle="tab" data-bs-target="#registry-allsites-content" type="button" role="tab" aria-controls="registry-allsites-content" aria-selected="false">
+                                                <i class="las la-warehouse me-1"></i>Master Registry
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link font-w600" id="registry-consignment-tab" data-bs-toggle="tab" data-bs-target="#registry-consignment-content" type="button" role="tab" aria-controls="registry-consignment-content" aria-selected="false">
+                                                <i class="las la-truck-loading me-1"></i>Consignment Inventory
                                             </button>
                                         </li>
                                         <li class="nav-item" role="presentation">
@@ -332,6 +342,129 @@
                                             </div>
                                             <nav>
                                                 {{ $books->appends(['search' => request('search')])->links() }}
+                                            </nav>
+                                        </div>
+                                    </div>                                     <!-- All Sites Breakdown Tab Pane -->
+                                     <div class="tab-pane fade" id="registry-allsites-content" role="tabpanel" aria-labelledby="registry-allsites-tab">
+                                         <div class="table-responsive">
+                                             <table class="table table-bordered table-responsive-md text-black align-middle">
+                                                 <thead class="bg-light">
+                                                     <tr>
+                                                         <th style="width: 140px;"><strong>BOOK ID / SKU</strong></th>
+                                                         <th style="min-width: 200px;"><strong>BOOK TITLE</strong></th>
+                                                         @foreach($sites as $site)
+                                                             <th class="text-center" style="min-width: 110px;">
+                                                                 <span class="fs-11 text-uppercase text-muted d-block" style="letter-spacing: 0.5px;">SITE</span>
+                                                                 <strong>{{ $site->name }}</strong>
+                                                             </th>
+                                                         @endforeach
+                                                         <th class="text-center bg-light" style="width: 130px;"><strong>TOTAL STOCK</strong></th>
+                                                     </tr>
+                                                 </thead>
+                                                 <tbody>
+                                                     @forelse($books as $book)
+                                                     @php
+                                                         $bookInventories = $book->inventory->keyBy('site_id');
+                                                         $totalSiteStock = $book->inventory->sum('quantity');
+                                                     @endphp
+                                                     <tr>
+                                                         <td><strong>#{{ $book->sku ?? $book->id }}</strong></td>
+                                                         <td class="fw-bold text-black">{{ $book->name }}</td>
+                                                         @foreach($sites as $site)
+                                                             @php
+                                                                 $siteQty = isset($bookInventories[$site->id]) ? (float)$bookInventories[$site->id]->quantity : 0;
+                                                             @endphp
+                                                             <td class="text-center">
+                                                                 @if($siteQty > 0)
+                                                                     <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
+                                                                         {{ number_format($siteQty) }}
+                                                                     </span>
+                                                                 @else
+                                                                     <span class="text-muted small" style="opacity: 0.4;">0</span>
+                                                                 @endif
+                                                             </td>
+                                                         @endforeach
+                                                         <td class="text-center bg-light">
+                                                             <span class="badge {{ $totalSiteStock > 0 ? 'bg-success' : 'bg-danger' }} fs-14 fw-bold px-3 py-2">
+                                                                 {{ number_format($totalSiteStock) }}
+                                                             </span>
+                                                         </td>
+                                                     </tr>
+                                                     @empty
+                                                     <tr>
+                                                         <td colspan="{{ count($sites) + 3 }}" class="text-center py-4 text-muted">No books found in registry.</td>
+                                                     </tr>
+                                                     @endforelse
+                                                 </tbody>
+                                             </table>
+                                         </div>
+                                         <div class="d-flex justify-content-between align-items-center mt-4">
+                                             <div class="pagination-info">
+                                                 Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
+                                             </div>
+                                             <nav>
+                                                 {{ $books->appends(['search' => request('search')])->links() }}
+                                             </nav>
+                                         </div>
+                                     </div>
+
+                                    <!-- Consignment Inventory Tab Pane -->
+                                    <div class="tab-pane fade" id="registry-consignment-content" role="tabpanel" aria-labelledby="registry-consignment-tab">
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-responsive-md text-black align-middle">
+                                                <thead class="bg-light">
+                                                    <tr>
+                                                        <th style="width: 60px;" class="text-center"><strong>#</strong></th>
+                                                        <th style="width: 200px;"><strong>AREA SALES STAFF</strong></th>
+                                                        <th style="width: 150px;"><strong>BOOK ID / SKU</strong></th>
+                                                        <th><strong>BOOK TITLE</strong></th>
+                                                        <th class="text-center" style="width: 130px;"><strong>QTY</strong></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($consignmentStaff as $staffId => $data)
+                                                        @php $bookCount = $data->books->count(); $rowIdx = 0; @endphp
+                                                        @foreach($data->books as $bookData)
+                                                        @php $rowIdx++; @endphp
+                                                        <tr>
+                                                            @if($rowIdx === 1)
+                                                            <td class="text-center text-muted align-middle" rowspan="{{ $bookCount + 1 }}">
+                                                                <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #1a5276;">
+                                                                    <i class="las la-user fs-16"></i>
+                                                                </div>
+                                                            </td>
+                                                            <td class="fw-bold text-black align-middle" rowspan="{{ $bookCount + 1 }}">
+                                                                {{ $data->staff->name ?? 'Unknown Staff' }}
+                                                                <div class="mt-1">
+                                                                    <span class="badge bg-primary px-2 py-1 fs-11">{{ $data->orders_count }} {{ Str::plural('Order', $data->orders_count) }}</span>
+                                                                </div>
+                                                            </td>
+                                                            @endif
+                                                            <td><strong>#{{ $bookData['book']->sku ?? $bookData['book']->id }}</strong></td>
+                                                            <td class="fw-bold text-black">{{ $bookData['book']->name }}</td>
+                                                            <td class="text-center">
+                                                                <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
+                                                                    {{ number_format($bookData['total_qty']) }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        @endforeach
+                                                        {{-- Subtotal row --}}
+                                                        <tr class="bg-light">
+                                                            <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
+                                                            <td class="text-center">
+                                                                <span class="badge bg-success fs-14 fw-bold px-3 py-2">
+                                                                    {{ number_format($data->total_items) }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    @empty
+                                                    <tr>
+                                                        <td colspan="5" class="text-center py-4 text-muted">No consignment orders found.</td>
+                                                    </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
 
@@ -3229,6 +3362,18 @@
 
                 modalEl.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tabBtn => {
                     tabBtn.addEventListener('shown.bs.tab', initAllTabs);
+                });
+            });
+
+            document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function(e) {
+                    const titleEl = document.getElementById('registryHeaderTitle');
+                    if (!titleEl) return;
+                    const titleMap = {
+                        'registry-allsites-tab': 'All Sites Breakdown',
+                        'registry-consignment-tab': 'Consignment Inventory',
+                    };
+                    titleEl.textContent = titleMap[e.target.id] || 'Master Registry';
                 });
             });
         });

@@ -35,7 +35,7 @@
                             <i class="las la-truck-loading fs-24 text-primary"></i>
                         </div>
                         <div>
-                            <h4 class="fs-20 mb-0 text-black fw-bold">Consignment Receipt Management</h4>
+                            <h4 class="fs-20 mb-0 text-black fw-bold">Consignment Delivery Receipt Management</h4>
                             <small class="text-muted">Workflow: Create SO &rarr; Approvals &rarr; Picklist &rarr; Delivery Receipt (AR / CR / SI Link)</small>
                         </div>
                     </div>

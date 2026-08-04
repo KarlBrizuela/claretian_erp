@@ -21,6 +21,10 @@ class AccountingService
      */
     public function postSalesOrderEntry(SalesOrder $order)
     {
+        if ($order->type === 'complimentary') {
+            return $this->postComplimentaryEntry($order);
+        }
+
         return DB::transaction(function () use ($order) {
             $activeInvoice = null;
             if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
@@ -718,6 +722,89 @@ class AccountingService
                     'debit' => 0,
                     'credit' => $paymentAmount,
                     'memo' => "AR collection for SO #" . $salesOrder->so_number,
+                ]);
+            }
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Post a journal entry for a Complimentary Sales Order
+     * 
+     * Target Flow:
+     * DR Complimentary & Donation Expense (Expense Account 5100)
+     * CR Inventory - Books (Asset Account 1300)
+     */
+    public function postComplimentaryEntry(SalesOrder $order)
+    {
+        return DB::transaction(function () use ($order) {
+            // Find or create Complimentary Expense Account
+            $expenseAccount = ChartOfAccount::where('code', '5100')
+                ->orWhere('name', 'like', '%Complimentary%')
+                ->orWhere('name', 'like', '%Donation%')
+                ->orWhere('name', 'like', '%Promotions%')
+                ->first();
+            if (!$expenseAccount) {
+                $expenseAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '5100'],
+                    ['name' => 'Complimentary & Donation Expense', 'type' => 'Expense', 'category' => 'Operating Expense']
+                );
+            }
+
+            // Find or create Inventory Account
+            $inventoryAccount = ChartOfAccount::where('code', '1300')
+                ->orWhere('name', 'like', '%Inventory%')
+                ->first();
+            if (!$inventoryAccount) {
+                $inventoryAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1300'],
+                    ['name' => 'Inventory - Books', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
+
+            // Calculate total valuation based on item cost or unit price
+            $totalValuation = 0;
+            $items = $order->items()->with('book')->get();
+            foreach ($items as $item) {
+                $cost = ($item->book && $item->book->cost > 0) ? $item->book->cost : ($item->unit_price > 0 ? $item->unit_price : 0);
+                $totalValuation += ($cost * $item->quantity);
+            }
+
+            if ($totalValuation <= 0 && $order->total_amount > 0) {
+                $totalValuation = $order->total_amount;
+            }
+
+            // 1. Create Journal Entry Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('JV'),
+                'entry_type' => 'EXPENSE',
+                'date' => now(),
+                'reference' => $order->so_number,
+                'memo' => "Complimentary / Donation expense recognition for Order #" . $order->so_number,
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            if ($totalValuation > 0) {
+                // Line 1: DR Complimentary & Donation Expense
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $expenseAccount->id,
+                    'debit' => $totalValuation,
+                    'credit' => 0,
+                    'memo' => "Complimentary item expense for " . $order->so_number,
+                ]);
+
+                // Line 2: CR Inventory Reduction
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $inventoryAccount->id,
+                    'debit' => 0,
+                    'credit' => $totalValuation,
+                    'memo' => "Inventory reduction for complimentary order " . $order->so_number,
                 ]);
             }
 

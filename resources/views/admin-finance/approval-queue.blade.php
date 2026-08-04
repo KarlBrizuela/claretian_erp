@@ -720,7 +720,7 @@
                                     <td>{{ \Carbon\Carbon::parse($order->created_at)->timezone('Asia/Manila')->format('Y-m-d h:i A') }}</td>
                                     <td>Sales</td>
                                     <td>
-                                        @if($order->type === 'complimentary' && $order->status === 'picking')
+                                        @if($order->type === 'complimentary' && in_array($order->status, ['picking', 'pending_ar_prep']) && !$order->ar_prepared_at)
                                             <a href="{{ route('admin-finance.accounting.ar.prepare', $order->id) }}" class="btn btn-success btn-sm"><i class="las la-file-invoice"></i> Issue AR</a>
                                         @else
                                             <span class="badge badge-warning">Pending Approval</span>

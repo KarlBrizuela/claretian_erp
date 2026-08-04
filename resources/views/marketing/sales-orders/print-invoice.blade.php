@@ -28,9 +28,10 @@
         .invoice-box {
             background: #fff;
             max-width: 8.5in;
-            min-height: {{ $format === 'half' ? '5.5in' : 'auto' }};
+            width: 100%;
+            min-height: 7in;
             margin: 0 auto;
-            padding: {{ $format === 'half' ? '0.15in 0.25in' : '0.35in 0.45in' }};
+            padding: 0.25in 0.35in;
             border: {{ $hideActions ? 'none' : '1px solid #ccc' }};
             box-shadow: {{ $hideActions ? 'none' : '0 4px 15px rgba(0, 0, 0, 0.1)' }};
             display: flex;
@@ -336,21 +337,19 @@
             .invoice-box {
                 border: none;
                 box-shadow: none;
-                padding: {{ $format === 'half' ? '0.15in 0.25in' : '0' }};
-                width: 100%;
-                max-width: 100%;
-                @if($format === 'half')
-                height: 5.5in;
-                min-height: 5.5in;
-                justify-content: flex-start;
-                @endif
+                padding: 0.15in 0.25in;
+                width: 8.5in;
+                max-width: 8.5in;
+                height: 7in;
+                min-height: 7in;
+                justify-content: space-between;
             }
             .actions-bar {
                 display: none !important;
             }
             @page {
-                size: {{ $format === 'half' ? '8.5in 5.5in' : 'letter portrait' }};
-                margin: {{ $format === 'half' ? '0' : '0.4in' }};
+                size: 8.5in 7in;
+                margin: 0;
             }
         }
         body.preprinted-mode .header-logo-details,
@@ -431,12 +430,17 @@
 
         $isCash = in_array($order->payment_method, ['cash', 'gcash', 'paymaya', 'card', 'bank', 'check']) 
                   || in_array($order->type, ['calculator_pos', 'ecom_direct', 'paid']);
-        $custName = $order->customer?->customer_name ?: 'Cash Customer';
-        $custAddress = $order->billing_address ?: ($order->shipping_address ?: ($order->customer?->billing_address ?? 'N/A'));
-        $custTin = $order->customer?->tin ?: 'N/A';
+        $custName = ($order->customer?->customer_name && $order->customer->customer_name !== 'N/A') ? $order->customer->customer_name : 'Cash Customer';
+        
+        $rawAddr = $order->billing_address ?: ($order->shipping_address ?: ($order->customer?->billing_address ?? ''));
+        $custAddress = ($rawAddr === 'N/A') ? '' : $rawAddr;
+        
+        $rawTin = $order->customer?->tin ?? '';
+        $custTin = ($rawTin === 'N/A') ? '' : $rawTin;
+        
         $termsVal = $order->terms ?: ($order->payment_method ? strtoupper($order->payment_method) : 'CASH');
         $orderDate = $order->created_at ? $order->created_at->format('m/d/Y') : date('m/d/Y');
-        $dueDate = $order->due_date ? \Carbon\Carbon::parse($order->due_date)->format('m/d/Y') : '-';
+        $dueDate = ($order->due_date && $order->due_date !== 'N/A') ? \Carbon\Carbon::parse($order->due_date)->format('m/d/Y') : '';
         $wht = (float) ($order->withholding_tax_amount ?? 0);
         $siNoDisplay = $activeInvoice->si_number ?? $order->so_number;
     @endphp
@@ -507,7 +511,7 @@
                         <tr>
                             <td style="text-align: center; font-weight: bold;">{{ $qty }}</td>
                             <td style="font-weight: 600;">{{ $desc }}</td>
-                            <td style="text-align: center;">{{ $item->area ?? '-' }}</td>
+                            <td style="text-align: center;">{{ ($item->area && $item->area !== 'N/A' && $item->area !== '-') ? $item->area : '' }}</td>
                             <td style="text-align: right;">₱{{ number_format($price, 2) }}</td>
                             <td style="text-align: right; font-weight: bold;">₱{{ number_format($subtotal, 2) }}</td>
                         </tr>

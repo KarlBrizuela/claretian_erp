@@ -48,12 +48,12 @@
                                         <th style="width: 150px;">DEBIT</th>
                                         <th style="width: 150px;">CREDIT</th>
                                         <th>MEMO</th>
-                                        <th style="width: 200px;">NAME</th>
+                                        <!-- <th style="width: 200px;">NAME</th> -->
                                         <th style="width: 50px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="journalItemsBody">
-                                    @for($i = 0; $i < 2; $i++)
+                                    @for($i = 0; $i < 1; $i++)
                                     <tr class="journal-row">
                                         <td>
                                             <select name="items[{{ $i }}][account_id]" class="form-control select2-account">
@@ -72,6 +72,7 @@
                                         <td>
                                             <input type="text" name="items[{{ $i }}][memo]" class="form-control" placeholder="Memo">
                                         </td>
+                                        <!--
                                         <td>
                                             <select name="items[{{ $i }}][name]" class="form-control select2-name">
                                                 <option value="">Customer/Vendor</option>
@@ -80,6 +81,7 @@
                                                 @endforeach
                                             </select>
                                         </td>
+                                        -->
                                         <td class="text-center">
                                             <a href="javascript:void(0)" class="text-danger remove-row"><i class="las la-times-circle fs-20"></i></a>
                                         </td>
@@ -91,7 +93,7 @@
                                         <td class="text-end font-w600">Totals</td>
                                         <td class="text-end font-w600" id="totalDebit">0.00</td>
                                         <td class="text-end font-w600" id="totalCredit">0.00</td>
-                                        <td colspan="3"></td>
+                                        <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -299,6 +301,7 @@
                         <td>
                             <input type="text" name="items[${rowIdx}][memo]" class="form-control" placeholder="Memo">
                         </td>
+                        <!--
                         <td>
                             <select name="items[${rowIdx}][name]" class="form-control select2-name">
                                 <option value="">Customer/Vendor</option>
@@ -307,6 +310,7 @@
                                 @endforeach
                             </select>
                         </td>
+                        -->
                         <td class="text-center">
                             <a href="javascript:void(0)" class="text-danger remove-row"><i class="las la-times-circle fs-20"></i></a>
                         </td>

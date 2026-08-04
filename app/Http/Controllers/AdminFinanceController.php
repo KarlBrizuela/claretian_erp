@@ -799,11 +799,6 @@ class AdminFinanceController extends Controller
             $query->whereIn('status', ['pending_acct_approval', 'pending_si_approval', 'pending_dr_approval'])
                   ->where('type', '!=', 'ecom_direct');
         })
-        ->orWhere(function($q) {
-            $q->where('type', 'complimentary')
-              ->where('status', 'picking')
-              ->whereNull('ar_prepared_at');
-        })
         ->latest()
         ->get();
 
@@ -817,7 +812,7 @@ class AdminFinanceController extends Controller
         'amount' => '₱' . number_format($req->total_amount, 2),
         'description' => 'Sales Order for ' . ($req->customer->customer_name ?? 'Unknown Customer'),
         'department' => 'Sales',
-        'status' => ($req->type === 'complimentary' && $req->status === 'picking') ? 'Pending AR' : $req->status,
+        'status' => $req->status,
         'url' => route('admin-finance.sales-order.detail', $req->id),
         'attachment' => $req->attachment,
         'original' => $req
@@ -1272,9 +1267,10 @@ public function checkVoucher()
       ->latest()
       ->get();
 
-    // Ensure all signed/approved SalesOrders have a corresponding entry in $completedSIs
+    // Ensure all signed/approved SalesOrders have a corresponding entry in $completedSIs (excluding complimentary orders)
     $existingSiSoIds = $completedSIs->pluck('so_id')->filter()->toArray();
     $signedOrdersWithoutSI = \App\Models\SalesOrder::with('customer', 'preparedBy')
+      ->where('type', '!=', 'complimentary')
       ->where(function($q) {
           $q->whereNotNull('signed_by_af_manager')
             ->orWhereIn('status', ['ready_for_delivery', 'completed']);
@@ -1314,6 +1310,43 @@ public function checkVoucher()
       'ecomOrders' => $ecomOrders,
       'completedSIs' => $completedSIs
     ]);
+  }
+
+  public function complimentaryReceiptIndex(Request $request)
+  {
+    $request->merge(['tab' => 'complimentary']);
+    return $this->salesManagement($request);
+  }
+
+  public function prepareAR($id)
+  {
+    $order = \App\Models\SalesOrder::with(['customer', 'items.product', 'items.book', 'preparedBy'])->findOrFail($id);
+
+    return view('admin-finance.accounting.prepare-ar', [
+      'title' => 'Prepare Acknowledgement Receipt (Complimentary)',
+      'role' => 'Accounting Staff',
+      'sidebar' => 'admin-finance',
+      'order' => $order
+    ]);
+  }
+
+  public function storeAR(Request $request, $id)
+  {
+    $order = \App\Models\SalesOrder::findOrFail($id);
+
+    $now = now();
+    $order->update([
+      'status' => 'ready_for_packing',
+      'ar_prepared_by' => auth()->id(),
+      'ar_prepared_at' => $now,
+      'packing_data' => null,
+      'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'Acknowledgement Receipt (Complimentary) Issued by ' . auth()->user()->name
+    ]);
+
+    // Post expense journal entry (Complimentary & Donation Expense)
+    $this->accounting->postComplimentaryEntry($order);
+
+    return redirect()->route('admin-finance.accounting.complimentary-receipt')->with('success', 'Acknowledgement Receipt (Complimentary) for Order #' . $order->so_number . ' has been issued and sent to Packing.');
   }
 
   public function prepareSalesInvoice($id)
@@ -1941,10 +1974,9 @@ public function checkVoucher()
 
   public function billing()
   {
-      $unpaidOrders = \App\Models\SalesOrder::with('customer')
+      $unpaidOrders = \App\Models\SalesOrder::with(['customer', 'payments'])
           ->whereNull('statement_of_account_id')
-          ->where('payment_status', 'unpaid')
-          ->whereIn('status', ['completed', 'ready_for_delivery', 'verified'])
+          ->where('type', '!=', 'complimentary')
           ->latest()
           ->get();
 
@@ -3599,6 +3631,31 @@ public function checkVoucher()
         ->latest()
         ->get();
 
+        // 4. Complimentary Receipt Data
+        $complimentaryOrders = \App\Models\SalesOrder::where('type', 'complimentary')
+            ->with(['customer', 'preparedBy', 'items.product', 'items.book'])
+            ->latest()
+            ->get();
+
+        $complimentaryTotalValuation = 0;
+        foreach ($complimentaryOrders as $cOrd) {
+            foreach ($cOrd->items as $cItem) {
+                $cost = ($cItem->book && $cItem->book->cost > 0) ? $cItem->book->cost : ($cItem->unit_price > 0 ? $cItem->unit_price : 0);
+                $complimentaryTotalValuation += ($cost * $cItem->quantity);
+            }
+        }
+        if ($complimentaryTotalValuation <= 0 && $complimentaryOrders->count() > 0) {
+            $complimentaryTotalValuation = $complimentaryOrders->sum('total_amount');
+        }
+
+        $pendingComplimentaryOrders = $complimentaryOrders->filter(function($ord) {
+            return is_null($ord->ar_prepared_at) && in_array($ord->status, ['picking', 'pending_ar_prep']);
+        });
+
+        $issuedComplimentaryOrders = $complimentaryOrders->filter(function($ord) {
+            return !is_null($ord->ar_prepared_at);
+        });
+
         return view('admin-finance.accounting.sales-management', [
             'title' => 'Sales Management - ' . ucfirst($tab),
             'role' => $user ? $user->position : 'Staff',
@@ -3638,6 +3695,12 @@ public function checkVoucher()
             // Area sales
             'areaRepSales' => $areaRepSales,
             'areaOrders' => $areaOrders,
+
+            // Complimentary Receipts
+            'complimentaryOrders' => $complimentaryOrders,
+            'complimentaryTotalValuation' => $complimentaryTotalValuation,
+            'pendingComplimentaryOrders' => $pendingComplimentaryOrders,
+            'issuedComplimentaryOrders' => $issuedComplimentaryOrders,
         ]);
     }
 

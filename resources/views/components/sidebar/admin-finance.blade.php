@@ -61,6 +61,7 @@
 			@endif
 			@if($user->hasPermission('admin_finance.accounting.sales_invoice'))
 			<a href="{{ route('admin-finance.accounting.sales-invoice') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.sales-invoice') ? 'active' : '' }}">Sales Invoice</a>
+			<a href="{{ route('admin-finance.accounting.complimentary-receipt') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.complimentary-receipt*') || request()->query('tab') == 'complimentary' ? 'active' : '' }}">Complimentary Receipt</a>
 			@endif
 			@if($user->hasPermission('admin_finance.accounting.check_voucher'))
 			<a href="{{ route('admin-finance.check-voucher') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.check-voucher') ? 'active' : '' }}">Check Voucher</a>

@@ -40,9 +40,10 @@ class MarketingController extends Controller
                 break;
         }
 
-        // Filter helper query for valid sales orders (have proof of payment, or are ecom_direct, calculator_pos, or cash)
+        // Filter helper query for valid sales orders (have proof of payment, or are ecom_direct, calculator_pos, or cash, excluding complimentary)
         $salesFilter = function($q) {
-            $q->where(function($sub) {
+            $q->where('sales_orders.type', '!=', 'complimentary')
+              ->where(function($sub) {
                 $sub->whereNotNull('sales_orders.proof_of_payment')->where('sales_orders.proof_of_payment', '!=', '')
                    ->orWhere('sales_orders.type', 'ecom_direct')
                    ->orWhere('sales_orders.type', 'calculator_pos')

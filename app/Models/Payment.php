@@ -21,7 +21,8 @@ class Payment extends Model
         'collected_by', // Rider ID who collected
         'handed_over_by', // Cashier ID who received
         'verified_by', // Accounting who verified
-        'notes'
+        'notes',
+        'proof_of_payment'
     ];
 
     protected $casts = [

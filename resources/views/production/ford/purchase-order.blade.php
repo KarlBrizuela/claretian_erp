@@ -254,7 +254,7 @@
                                 <div class="signature-item text-right" style="width: 40%; text-align: right;">
                                     <div>Sincerely,</div>
                                     <div class="signature-line" style="border-top: 1px solid #000; margin-top: 40px; padding-top: 5px; text-align: center;">
-                                        <strong>SR. ANNA MARIA R. VIOJAN, RMI</strong><br>
+                                        <strong>FR. LOUIE GUADES III,CMF</strong><br>
                                         Director Treasurer
                                     </div>
                                 </div>

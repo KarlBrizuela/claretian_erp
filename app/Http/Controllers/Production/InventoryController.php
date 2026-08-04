@@ -81,9 +81,9 @@ class InventoryController extends Controller
             ->get();
 
         // Get all books
-        $allBooks = Book::all();
+        $allBooks = Book::with(['inventory.site'])->get();
         
-        $query = Book::where('is_book', true)->latest();
+        $query = Book::where('is_book', true)->with(['inventory.site'])->latest();
         if (!empty($search)) {
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
@@ -228,6 +228,40 @@ class InventoryController extends Controller
         }
         $bundles = $bundlesQuery->paginate(10, ['*'], 'bundles_page')->withQueryString();
 
+        // Fetch consignment inventory: group by area sales staff
+        $consignmentOrders = \App\Models\SalesOrder::with(['areaSalesStaff', 'items.book'])
+            ->whereIn('type', ['area_consignment', 'area_sales_consignment'])
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->whereNotNull('area_sales_staff_id')
+            ->get();
+
+        // Group by staff, then aggregate books per staff
+        $consignmentStaff = $consignmentOrders->groupBy('area_sales_staff_id')->map(function ($orders) {
+            $staff = $orders->first()->areaSalesStaff;
+            $bookMap = [];
+            foreach ($orders as $order) {
+                foreach ($order->items as $item) {
+                    if (!$item->book_id) continue;
+                    $key = $item->book_id;
+                    if (!isset($bookMap[$key])) {
+                        $bookMap[$key] = [
+                            'book' => $item->book,
+                            'total_qty' => 0,
+                            'order_count' => 0,
+                        ];
+                    }
+                    $bookMap[$key]['total_qty'] += (int) $item->quantity;
+                    $bookMap[$key]['order_count']++;
+                }
+            }
+            return (object) [
+                'staff' => $staff,
+                'orders_count' => $orders->count(),
+                'books' => collect($bookMap)->sortBy(fn($b) => $b['book']->name ?? ''),
+                'total_items' => collect($bookMap)->sum('total_qty'),
+            ];
+        })->sortBy(fn($s) => $s->staff->name ?? '');
+
         return view('production.inventory.overview', compact(
             'totalBooks', 
             'lowStock', 
@@ -246,7 +280,8 @@ class InventoryController extends Controller
             'isAccountingReviewer',
             'isLogisticsAssigner',
             'indices',
-            'bundles'
+            'bundles',
+            'consignmentStaff'
         ));
     }
 

@@ -565,15 +565,48 @@
                         </div>
                         @endif
                     </div>
+
+                    <!-- Search and Filtering Controls -->
+                    <div class="row g-2 mb-3 align-items-center">
+                        <div class="col-md-5">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light"><i class="las la-search"></i></span>
+                                <input type="text" id="historySearchInput" class="form-control form-control-sm" placeholder="Search SO or SI number...">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <select id="historyStatusFilter" class="form-select form-select-sm">
+                                <option value="">All Statuses (Paid & Unpaid)</option>
+                                <option value="paid">Paid</option>
+                                <option value="unpaid">Unpaid</option>
+                                <option value="completed">Completed Orders</option>
+                                <option value="overdue">Overdue</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <select id="historyPerPage" class="form-select form-select-sm d-inline-block w-auto">
+                                <option value="5">5 / page</option>
+                                <option value="10" selected>10 / page</option>
+                                <option value="25">25 / page</option>
+                                <option value="50">50 / page</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
-                        <table class="table table-bordered table-striped">
+                        <table class="table table-bordered table-striped align-middle">
                             <thead>
                                 <tr class="bg-light">
                                     <th>Date</th>
                                     <th>Transaction #</th>
-                                    <th>Amount</th>
+                                    <th>Total Amount</th>
+                                    <th>Paid Amount</th>
+                                    <th>Remaining</th>
                                     <th>Due Date</th>
-                                    <th>Status</th>
+                                    <th>Order Status</th>
+                                    <th>Payment Status</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="historyTableBody">
@@ -581,10 +614,136 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-between align-items-center mt-3" id="historyPaginationContainer">
+                        <div class="small text-muted" id="historyPaginationInfo">
+                            Showing 0 entries
+                        </div>
+                        <nav aria-label="Transaction pagination">
+                            <ul class="pagination pagination-sm mb-0" id="historyPaginationList">
+                                <!-- Populated by AJAX -->
+                            </ul>
+                        </nav>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Record Payment Modal -->
+    <div class="modal fade" id="recordPaymentModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title text-white"><i class="las la-money-bill-wave me-2"></i>Payment History & Record Installment</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="recordPaymentForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="paySoId">
+                        
+                        <div class="alert alert-light border mb-3">
+                            <div class="row g-2">
+                                <div class="col-6 col-md-3 border-end">
+                                    <span class="text-muted small d-block">Transaction #:</span>
+                                    <strong id="paySoNumber" class="text-dark">SO-0000</strong>
+                                </div>
+                                <div class="col-6 col-md-3 border-end">
+                                    <span class="text-muted small d-block">Grand Total:</span>
+                                    <strong id="payTotalAmount" class="text-dark">₱0.00</strong>
+                                </div>
+                                <div class="col-6 col-md-3 border-end">
+                                    <span class="text-muted small d-block">Already Paid:</span>
+                                    <span id="payAlreadyPaid" class="text-success fw-bold">₱0.00</span>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <span class="text-muted small d-block">Remaining:</span>
+                                    <strong id="payRemainingBalance" class="text-danger fs-16">₱0.00</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment History Breakdown Table -->
+                        <div class="card mb-3 border">
+                            <div class="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center">
+                                <span class="fw-bold small text-dark"><i class="las la-history me-1 text-primary"></i> Previous Installments Log</span>
+                                <span class="badge bg-secondary" id="payHistoryBadge">0 payments</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-sm table-striped table-bordered mb-0 align-middle" style="font-size: 11px;">
+                                        <thead class="bg-light sticky-top">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>Method</th>
+                                                <th>Ref # / Check #</th>
+                                                <th>Notes</th>
+                                                <th>Proof</th>
+                                                <th>Recorded By</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="payHistoryTableBody">
+                                            <tr><td colspan="7" class="text-center py-2 text-muted"><i class="fas fa-spinner fa-spin me-1"></i> Loading payment history...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- New Installment Entry Form -->
+                        <div id="newPaymentFormFields">
+                            <h6 class="fw-bold text-dark border-bottom pb-1 mb-3"><i class="las la-plus-circle me-1 text-success"></i> Add New Installment Payment</h6>
+
+                            <div class="row g-2">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Payment Amount (₱) <span class="text-danger">*</span></label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">₱</span>
+                                        <input type="number" step="0.01" min="0.01" id="payAmountInput" class="form-control fw-bold fs-15 text-primary" required placeholder="0.00">
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Payment Method <span class="text-danger">*</span></label>
+                                    <select id="payMethodSelect" class="form-select form-select-sm" required>
+                                        <option value="cash">Cash</option>
+                                        <option value="gcash">GCash</option>
+                                        <option value="maya">Maya</option>
+                                        <option value="bank_transfer">Bank Transfer</option>
+                                        <option value="check">Check</option>
+                                        <option value="card">Credit / Debit Card</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Reference / Check # <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <input type="text" id="payRefInput" class="form-control form-control-sm" placeholder="e.g. Ref #123456 or Check #">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Notes / Remarks <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <input type="text" id="payNotesInput" class="form-control form-control-sm" placeholder="e.g. 1st installment payment">
+                                </div>
+                                <div class="col-md-12 mb-2">
+                                    <label class="form-label fw-bold small text-dark">Proof of Payment <span class="text-muted fw-normal">(Optional - Image/PDF)</span></label>
+                                    <input type="file" id="payProofInput" class="form-control form-control-sm" accept="image/*,.pdf">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="fullyPaidNotice" class="alert alert-success d-none text-center py-2 mb-0">
+                            <i class="las la-check-circle me-1 fs-16"></i> This order is fully paid. No further payments required.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-success btn-sm px-4 fw-bold" id="submitPaymentBtn">
+                            <i class="las la-check-circle me-1"></i> Submit Payment
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -1351,62 +1510,330 @@
             }
         });
 
-        // View Transaction History
-        document.querySelectorAll('.view-history-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const customerId = this.dataset.customerId;
-                const historyModal = new bootstrap.Modal(document.getElementById('transactionHistoryModal'));
-                const tableBody = document.getElementById('historyTableBody');
+        // View Transaction History Logic with Filtering & Pagination
+        let currentHistoryCustomerId = null;
+        let currentHistoryPage = 1;
+        let historySearchTimeout = null;
+
+        async function fetchTransactionHistory(customerId, page = 1) {
+            currentHistoryCustomerId = customerId;
+            currentHistoryPage = page;
+
+            const tableBody = document.getElementById('historyTableBody');
+            const paginationList = document.getElementById('historyPaginationList');
+            const paginationInfo = document.getElementById('historyPaginationInfo');
+            
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading history...</td></tr>';
+
+            const search = document.getElementById('historySearchInput')?.value || '';
+            const status = document.getElementById('historyStatusFilter')?.value || '';
+            const perPage = document.getElementById('historyPerPage')?.value || 10;
+
+            const url = new URL(`/marketing/customers/${customerId}/history`, window.location.origin);
+            url.searchParams.append('page', page);
+            url.searchParams.append('per_page', perPage);
+            if (search) url.searchParams.append('search', search);
+            if (status) url.searchParams.append('status', status);
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                document.getElementById('historyCustomerName').textContent = data.customer_name;
+                document.getElementById('historyBalance').textContent = '₱' + data.balance.toLocaleString(undefined, {minimumFractionDigits: 2});
                 
-                tableBody.innerHTML = '<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
-                historyModal.show();
-
-                try {
-                    const response = await fetch(`/marketing/customers/${customerId}/history`);
-                    const data = await response.json();
-
-                    document.getElementById('historyCustomerName').textContent = data.customer_name;
-                    document.getElementById('historyBalance').textContent = '₱' + data.balance.toLocaleString(undefined, {minimumFractionDigits: 2});
-                    
-                    const statusBadge = document.getElementById('historyStatusBadge');
-                    if (data.is_bad_client) {
-                        statusBadge.innerHTML = '<span class="badge light badge-danger">Bad Client</span>';
-                    } else {
-                        statusBadge.innerHTML = '<span class="badge light badge-success">Good Client</span>';
-                    }
-
-                    if (document.getElementById('manualStatusOverride')) {
-                        document.getElementById('manualStatusOverride').value = data.manual_status || '';
-                    }
-
-                    let rows = '';
-                    if (data.history.length === 0) {
-                        rows = '<tr><td colspan="5" class="text-center">No transactions found.</td></tr>';
-                    } else {
-                        data.history.forEach(order => {
-                            const statusColor = order.payment_status === 'paid' ? 'success' : 'danger';
-                            const overdueTag = order.is_overdue ? '<br><span class="badge badge-xs light badge-danger">OVERDUE</span>' : '';
-                            
-                            rows += `
-                                <tr>
-                                    <td>${order.date}</td>
-                                    <td>${order.so_number}</td>
-                                    <td>₱${order.total_amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                    <td>${order.due_date}${overdueTag}</td>
-                                    <td><span class="badge badge-xs light badge-${statusColor}">${order.payment_status.toUpperCase()}</span></td>
-                                </tr>
-                            `;
-                        });
-                    }
-                    tableBody.innerHTML = rows;
-                    
-                    // Store current customer ID for override button
-                    document.getElementById('updateManualStatusBtn')?.setAttribute('data-customer-id', customerId);
-
-                } catch (error) {
-                    tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading history.</td></tr>';
+                const statusBadge = document.getElementById('historyStatusBadge');
+                if (data.is_bad_client) {
+                    statusBadge.innerHTML = '<span class="badge light badge-danger">Bad Client</span>';
+                } else {
+                    statusBadge.innerHTML = '<span class="badge light badge-success">Good Client</span>';
                 }
+
+                if (document.getElementById('manualStatusOverride')) {
+                    document.getElementById('manualStatusOverride').value = data.manual_status || '';
+                }
+
+                let rows = '';
+                if (!data.history || data.history.length === 0) {
+                    rows = '<tr><td colspan="9" class="text-center text-muted py-3">No transactions found.</td></tr>';
+                } else {
+                    data.history.forEach(order => {
+                        const paymentColor = order.payment_status === 'paid' ? 'success' : (order.payment_status === 'partially_paid' ? 'warning' : 'danger');
+                        const paymentLabel = order.payment_status === 'partially_paid' ? 'PARTIALLY PAID' : order.payment_status.toUpperCase();
+                        
+                        let orderBadgeColor = 'secondary';
+                        if (order.status === 'completed') orderBadgeColor = 'success';
+                        else if (order.status === 'ready_for_delivery') orderBadgeColor = 'primary';
+                        else if (order.status === 'cancelled') orderBadgeColor = 'dark';
+                        else if (order.status && order.status.includes('pending')) orderBadgeColor = 'warning';
+
+                        const overdueTag = order.is_overdue ? '<br><span class="badge badge-xs light badge-danger">OVERDUE</span>' : '';
+                        const siBadge = order.si_number ? `<br><span class="badge badge-xs light badge-info mt-1"><i class="las la-file-invoice me-1"></i>${order.si_number}</span>` : '';
+                        const proofTag = order.has_proof_of_payment ? `<br><a href="${order.proof_of_payment_url}" target="_blank" class="badge badge-xs bg-light text-primary border mt-1" title="View Proof of Payment"><i class="las la-paperclip me-1"></i>Proof Attached</a>` : '';
+                        
+                        let actionCol = '';
+                        if (order.remaining_balance > 0) {
+                            actionCol = `<button type="button" class="btn btn-xs btn-success open-pay-modal-btn shadow-sm" data-so-id="${order.id}" data-so-number="${order.so_number}" data-total="${order.total_amount}" data-paid="${order.paid_amount}" data-remaining="${order.remaining_balance}"><i class="las la-coins me-1"></i>Pay</button>`;
+                        } else {
+                            actionCol = `<button type="button" class="btn btn-xs btn-outline-success open-pay-modal-btn shadow-sm" data-so-id="${order.id}" data-so-number="${order.so_number}" data-total="${order.total_amount}" data-paid="${order.paid_amount}" data-remaining="${order.remaining_balance}"><i class="las la-history me-1"></i>History</button>`;
+                        }
+
+                        rows += `
+                            <tr>
+                                <td>${order.date}</td>
+                                <td>
+                                    <div class="fw-bold">${order.so_number}</div>
+                                    ${siBadge}
+                                </td>
+                                <td>₱${order.total_amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td class="text-success fw-bold">₱${order.paid_amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td class="text-danger fw-bold">₱${order.remaining_balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td>${order.due_date}${overdueTag}</td>
+                                <td><span class="badge badge-xs light badge-${orderBadgeColor}">${order.status_label.toUpperCase()}</span></td>
+                                <td>
+                                    <span class="badge badge-xs light badge-${paymentColor}">${paymentLabel}</span>
+                                    ${proofTag}
+                                </td>
+                                <td>${actionCol}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                tableBody.innerHTML = rows;
+
+                // Render Pagination
+                const pag = data.pagination;
+                if (pag && pag.total > 0) {
+                    paginationInfo.textContent = `Showing ${pag.from} to ${pag.to} of ${pag.total} transactions`;
+                    
+                    let pagHtml = '';
+                    // Previous button
+                    pagHtml += `<li class="page-item ${pag.current_page === 1 ? 'disabled' : ''}">
+                        <button type="button" class="page-link" data-page="${pag.current_page - 1}">Prev</button>
+                    </li>`;
+
+                    for (let i = 1; i <= pag.last_page; i++) {
+                        if (i === 1 || i === pag.last_page || (i >= pag.current_page - 2 && i <= pag.current_page + 2)) {
+                            pagHtml += `<li class="page-item ${i === pag.current_page ? 'active' : ''}">
+                                <button type="button" class="page-link" data-page="${i}">${i}</button>
+                            </li>`;
+                        } else if (i === pag.current_page - 3 || i === pag.current_page + 3) {
+                            pagHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                        }
+                    }
+
+                    // Next button
+                    pagHtml += `<li class="page-item ${pag.current_page === pag.last_page ? 'disabled' : ''}">
+                        <button type="button" class="page-link" data-page="${pag.current_page + 1}">Next</button>
+                    </li>`;
+
+                    paginationList.innerHTML = pagHtml;
+                } else {
+                    paginationInfo.textContent = 'Showing 0 transactions';
+                    paginationList.innerHTML = '';
+                }
+                
+                // Store current customer ID for override button
+                document.getElementById('updateManualStatusBtn')?.setAttribute('data-customer-id', customerId);
+
+            } catch (error) {
+                console.error('Error fetching history:', error);
+                tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-3">Error loading transaction history.</td></tr>';
+            }
+        }
+
+        async function fetchPaymentHistory(customerId, soId) {
+            const tableBody = document.getElementById('payHistoryTableBody');
+            const badge = document.getElementById('payHistoryBadge');
+
+            if (!tableBody) return;
+
+            tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-2 text-muted"><i class="fas fa-spinner fa-spin me-1"></i> Loading history...</td></tr>';
+            if (badge) badge.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`/marketing/customers/${customerId}/transactions/${soId}/payments`);
+                const data = await response.json();
+
+                if (!data.payments || data.payments.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-2 text-muted">No previous installments recorded.</td></tr>';
+                    if (badge) badge.textContent = '0 payments';
+                } else {
+                    if (badge) badge.textContent = data.payments.length + ' payment(s)';
+                    let rows = '';
+                    data.payments.forEach(p => {
+                        const proofTag = p.has_proof ? `<a href="${p.proof_url}" target="_blank" class="badge badge-xs bg-light text-primary border"><i class="las la-paperclip me-1"></i>View Proof</a>` : '<span class="text-muted small">None</span>';
+                        rows += `<tr>
+                            <td class="fw-bold">${p.date}</td>
+                            <td class="text-success fw-bold">₱${p.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td><span class="badge bg-light text-dark border">${p.method}</span></td>
+                            <td>${p.reference_number}</td>
+                            <td>${p.notes}</td>
+                            <td>${proofTag}</td>
+                            <td><small class="text-muted">${p.recorded_by}</small></td>
+                        </tr>`;
+                    });
+                    tableBody.innerHTML = rows;
+                }
+            } catch (error) {
+                console.error('Error loading payment history:', error);
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-2 text-danger">Failed to load payment history.</td></tr>';
+                if (badge) badge.textContent = 'Error';
+            }
+        }
+
+        // Open Pay Installment Sub-Modal
+        document.getElementById('historyTableBody')?.addEventListener('click', function(e) {
+            const payBtn = e.target.closest('.open-pay-modal-btn');
+            if (payBtn) {
+                const soId = payBtn.dataset.soId;
+                const soNumber = payBtn.dataset.soNumber;
+                const totalAmount = parseFloat(payBtn.dataset.total) || 0;
+                const paidAmount = parseFloat(payBtn.dataset.paid) || 0;
+                const remainingBalance = parseFloat(payBtn.dataset.remaining) || 0;
+
+                document.getElementById('paySoId').value = soId;
+                document.getElementById('paySoNumber').textContent = soNumber;
+                document.getElementById('payTotalAmount').textContent = '₱' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payAlreadyPaid').textContent = '₱' + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payRemainingBalance').textContent = '₱' + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
+                
+                const formFields = document.getElementById('newPaymentFormFields');
+                const submitBtn = document.getElementById('submitPaymentBtn');
+                const notice = document.getElementById('fullyPaidNotice');
+
+                if (remainingBalance <= 0) {
+                    if (formFields) formFields.classList.add('d-none');
+                    if (submitBtn) submitBtn.classList.add('d-none');
+                    if (notice) notice.classList.remove('d-none');
+                } else {
+                    if (formFields) formFields.classList.remove('d-none');
+                    if (submitBtn) submitBtn.classList.remove('d-none');
+                    if (notice) notice.classList.add('d-none');
+
+                    const payAmountInput = document.getElementById('payAmountInput');
+                    payAmountInput.value = remainingBalance.toFixed(2);
+                    payAmountInput.max = remainingBalance;
+                    document.getElementById('payRefInput').value = '';
+                    document.getElementById('payNotesInput').value = '';
+                    const proofInput = document.getElementById('payProofInput');
+                    if (proofInput) proofInput.value = '';
+                }
+
+                // Load payment history table via API
+                fetchPaymentHistory(currentHistoryCustomerId, soId);
+
+                const payModalElement = document.getElementById('recordPaymentModal');
+                const payModal = bootstrap.Modal.getInstance(payModalElement) || new bootstrap.Modal(payModalElement);
+                payModal.show();
+            }
+        });
+
+        // Submit Payment Form
+        document.getElementById('recordPaymentForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const soId = document.getElementById('paySoId').value;
+            const amount = parseFloat(document.getElementById('payAmountInput').value);
+            const paymentMethod = document.getElementById('payMethodSelect').value;
+            const referenceNumber = document.getElementById('payRefInput').value;
+            const notes = document.getElementById('payNotesInput').value;
+            const proofInput = document.getElementById('payProofInput');
+
+            if (!soId || !currentHistoryCustomerId) return;
+
+            const submitBtn = document.getElementById('submitPaymentBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Submitting...';
+
+            const formData = new FormData();
+            formData.append('amount', amount);
+            formData.append('payment_method', paymentMethod);
+            if (referenceNumber) formData.append('reference_number', referenceNumber);
+            if (notes) formData.append('notes', notes);
+            if (proofInput && proofInput.files[0]) {
+                formData.append('proof_of_payment', proofInput.files[0]);
+            }
+
+            try {
+                const response = await fetch(`/marketing/customers/${currentHistoryCustomerId}/transactions/${soId}/pay`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const payModalElement = document.getElementById('recordPaymentModal');
+                    const payModal = bootstrap.Modal.getInstance(payModalElement);
+                    if (payModal) payModal.hide();
+
+                    // Refresh history & customer list balance
+                    fetchTransactionHistory(currentHistoryCustomerId, currentHistoryPage);
+                } else {
+                    alert(data.message || 'Error recording payment.');
+                }
+            } catch (error) {
+                console.error('Error submitting payment:', error);
+                alert('An error occurred while submitting payment.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="las la-check-circle me-1"></i> Submit Payment';
+            }
+        });
+
+        // View Transaction History Button Click
+        document.querySelectorAll('.view-history-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const customerId = this.dataset.customerId;
+                const historyModalElement = document.getElementById('transactionHistoryModal');
+                const historyModal = bootstrap.Modal.getInstance(historyModalElement) || new bootstrap.Modal(historyModalElement);
+                
+                // Reset search and filters
+                if (document.getElementById('historySearchInput')) document.getElementById('historySearchInput').value = '';
+                if (document.getElementById('historyStatusFilter')) document.getElementById('historyStatusFilter').value = '';
+                if (document.getElementById('historyPerPage')) document.getElementById('historyPerPage').value = '10';
+
+                historyModal.show();
+                fetchTransactionHistory(customerId, 1);
             });
+        });
+
+        // Filter / Search event listeners
+        document.getElementById('historySearchInput')?.addEventListener('input', function() {
+            clearTimeout(historySearchTimeout);
+            historySearchTimeout = setTimeout(() => {
+                if (currentHistoryCustomerId) {
+                    fetchTransactionHistory(currentHistoryCustomerId, 1);
+                }
+            }, 300);
+        });
+
+        document.getElementById('historyStatusFilter')?.addEventListener('change', function() {
+            if (currentHistoryCustomerId) {
+                fetchTransactionHistory(currentHistoryCustomerId, 1);
+            }
+        });
+
+        document.getElementById('historyPerPage')?.addEventListener('change', function() {
+            if (currentHistoryCustomerId) {
+                fetchTransactionHistory(currentHistoryCustomerId, 1);
+            }
+        });
+
+        // Pagination click listener
+        document.getElementById('historyPaginationList')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            const pageBtn = e.target.closest('.page-link');
+            if (pageBtn && !pageBtn.parentElement.classList.contains('disabled') && !pageBtn.parentElement.classList.contains('active')) {
+                const targetPage = parseInt(pageBtn.dataset.page);
+                if (targetPage && currentHistoryCustomerId) {
+                    fetchTransactionHistory(currentHistoryCustomerId, targetPage);
+                }
+            }
         });
 
         // Update Manual Status from History Modal

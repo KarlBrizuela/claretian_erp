@@ -201,6 +201,7 @@
         <div class="modern-nav-submenu">
             <a href="{{ route('accounting.journal.index') }}" class="modern-nav-subitem">General Journal</a>
             <a href="{{ route('admin-finance.accounting.sales-invoice') }}" class="modern-nav-subitem">Sales Invoice</a>
+            <a href="{{ route('admin-finance.accounting.complimentary-receipt') }}" class="modern-nav-subitem">Complimentary Receipt</a>
             <a href="{{ route('admin-finance.check-voucher') }}" class="modern-nav-subitem">Check Voucher</a>
             <a href="{{ route('admin-finance.petty-cash.index', ['sidebar' => 'unified']) }}" class="modern-nav-subitem">Petty Cash Voucher</a>
             <a href="{{ route('admin-finance.freight-voucher.index', ['sidebar' => 'unified']) }}" class="modern-nav-subitem">Freight Voucher</a>

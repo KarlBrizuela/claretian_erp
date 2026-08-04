@@ -454,9 +454,10 @@ class ProductionController extends Controller
         $today = date('Y-m-d');
         $thisMonth = date('Y-m');
 
-        // Core sales order check helper (paid / proof of payment / ecom_direct / POS / cash)
+        // Core sales order check helper (paid / proof of payment / ecom_direct / POS / cash, excluding complimentary)
         $salesFilter = function($q) {
-            $q->where(function($sub) {
+            $q->where('type', '!=', 'complimentary')
+              ->where(function($sub) {
                 $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', '')
                    ->orWhere('type', 'ecom_direct')
                    ->orWhere('type', 'calculator_pos')

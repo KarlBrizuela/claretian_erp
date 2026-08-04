@@ -81,22 +81,57 @@
 
     <div class="container-fluid">
         <!-- Top Title & Overview Header -->
-        <div class="row mb-4">
+        <div class="row mb-3">
             <div class="col-12">
                 <div class="coa-header-card d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                     <div>
-                        <h4 class="fs-24 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Sales Ledger - 
+                        <h4 class="fs-24 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Sales & Receipts Ledger - 
                             @if($tab === 'bookstore') Bookstore 
                             @elseif($tab === 'areasales') Area Sales 
                             @elseif($tab === 'ecom') E-Commerce 
                             @elseif($tab === 'wholesale') Wholesale 
+                            @elseif($tab === 'complimentary') Complimentary Receipt 
                             @else {{ ucfirst($tab) }} @endif
                         </h4>
-                        <p class="text-muted small mb-0">CCFI Sales Management ledger containing {{ ucfirst($tab) }} sales accounts, performance tracking, and payment gateways.</p>
+                        <p class="text-muted small mb-0">CCFI Sales Management ledger containing {{ ucfirst($tab) }} accounts, receipts tracking, and performance logs.</p>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Navigation Tabs Bar -->
+        @if($tab !== 'complimentary')
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+                    <div class="card-body p-2">
+                        <ul class="nav nav-pills nav-fill gap-2">
+                            <li class="nav-item">
+                                <a class="nav-link py-2 fw-bold {{ $tab === 'bookstore' ? 'active bg-danger text-white' : 'text-dark' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'bookstore']) }}">
+                                    <i class="las la-store me-1"></i> Bookstore
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2 fw-bold {{ $tab === 'areasales' ? 'active bg-danger text-white' : 'text-dark' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'areasales']) }}">
+                                    <i class="las la-map-marked-alt me-1"></i> Area Sales
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2 fw-bold {{ $tab === 'ecom' ? 'active bg-danger text-white' : 'text-dark' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'ecom']) }}">
+                                    <i class="las la-shopping-cart me-1"></i> E-Commerce
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2 fw-bold {{ $tab === 'wholesale' ? 'active bg-danger text-white' : 'text-dark' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'wholesale']) }}">
+                                    <i class="las la-boxes me-1"></i> Wholesale
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
 
         <!-- Render the selected component only -->
         <div class="row">
@@ -109,6 +144,8 @@
                     @include('admin-finance.accounting.sales-management.ecom')
                 @elseif($tab === 'wholesale')
                     @include('admin-finance.accounting.sales-management.wholesale')
+                @elseif($tab === 'complimentary')
+                    @include('admin-finance.accounting.sales-management.complimentary')
                 @endif
             </div>
         </div>

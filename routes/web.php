@@ -244,6 +244,8 @@ Route::middleware(['auth'])->group(function () {
     ]);
     Route::get('/marketing/customers/{customer}/history', [CustomerController::class, 'getTransactionHistory'])->name('marketing.customers.history');
     Route::post('/marketing/customers/{customer}/manual-status', [CustomerController::class, 'updateManualStatus'])->name('marketing.customers.update-status');
+    Route::post('/marketing/customers/{customer}/transactions/{salesOrder}/pay', [CustomerController::class, 'recordPayment'])->name('marketing.customers.record-payment');
+    Route::get('/marketing/customers/{customer}/transactions/{salesOrder}/payments', [CustomerController::class, 'getPaymentHistory'])->name('marketing.customers.payment-history');
 
     Route::resource('marketing/companies', CompanyController::class)->names([
         'index' => 'marketing.companies',
@@ -436,6 +438,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/sales-invoice/bulk-finalize', [App\Http\Controllers\AdminFinanceController::class, 'bulkFinalizeInvoices'])->name('admin-finance.accounting.sales-invoice.bulk-finalize');
       Route::get('/sales-invoice/bulk-print', [App\Http\Controllers\AdminFinanceController::class, 'bulkPrintSalesInvoice'])->name('admin-finance.accounting.sales-invoice.bulk-print');
       Route::get('/sales-invoice/{id}/print', [App\Http\Controllers\AdminFinanceController::class, 'printSalesInvoice'])->name('admin-finance.accounting.sales-invoice.print');
+      Route::get('/complimentary-receipt', [App\Http\Controllers\AdminFinanceController::class, 'complimentaryReceiptIndex'])->name('admin-finance.accounting.complimentary-receipt');
       Route::get('/acknowledgement-receipt/{id}/prepare', [App\Http\Controllers\AdminFinanceController::class, 'prepareAR'])->name('admin-finance.accounting.ar.prepare');
       Route::post('/acknowledgement-receipt/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeAR'])->name('admin-finance.accounting.ar.store');
       Route::get('/check-voucher', [App\Http\Controllers\AdminFinanceController::class, 'checkVoucherIndex'])->name('admin-finance.check-voucher');

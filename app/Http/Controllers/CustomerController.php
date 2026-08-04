@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\SalesOrder;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 
 class CustomerController extends Controller
@@ -240,28 +242,170 @@ class CustomerController extends Controller
     /**
      * Get transaction history for a customer
      */
-    public function getTransactionHistory(Customer $customer)
+    public function getTransactionHistory(Request $request, Customer $customer)
     {
-        $history = $customer->salesOrders()
-            ->latest()
-            ->get()
-            ->map(function($order) {
-                return [
-                    'so_number' => $order->so_number,
-                    'date' => $order->created_at->format('Y-m-d'),
-                    'total_amount' => (float)$order->total_amount,
-                    'payment_status' => $order->payment_status,
-                    'status' => $order->status,
-                    'due_date' => $order->due_date->format('Y-m-d'),
-                    'is_overdue' => $order->payment_status === 'unpaid' && $order->due_date->isPast(),
-                ];
-            });
+        $allOrders = $customer->salesOrders()->with(['invoice', 'payments'])->latest()->get();
+
+        // Status Filter
+        if ($request->filled('status')) {
+            $statusFilter = strtolower($request->status);
+            $allOrders = $allOrders->filter(function($order) use ($statusFilter) {
+                $effectiveStatus = $order->computed_payment_status;
+
+                if ($statusFilter === 'paid') {
+                    return $effectiveStatus === 'paid';
+                } elseif ($statusFilter === 'unpaid') {
+                    return $effectiveStatus === 'unpaid';
+                } elseif ($statusFilter === 'partially_paid') {
+                    return $effectiveStatus === 'partially_paid';
+                } elseif ($statusFilter === 'completed') {
+                    return $order->status === 'completed';
+                } elseif ($statusFilter === 'overdue') {
+                    return $effectiveStatus !== 'paid' && $order->due_date && $order->due_date->isPast();
+                } elseif ($statusFilter === 'cancelled') {
+                    return $order->status === 'cancelled';
+                }
+                return true;
+            })->values();
+        }
+
+        // Search Filter (SO Number, Ref Number, or SI Number)
+        if ($request->filled('search')) {
+            $searchTerm = strtolower(trim($request->search));
+            $allOrders = $allOrders->filter(function($order) use ($searchTerm) {
+                $soMatch = str_contains(strtolower($order->so_number ?? ''), $searchTerm);
+                $refMatch = str_contains(strtolower($order->ref_number ?? ''), $searchTerm);
+                $siMatch = $order->invoice && str_contains(strtolower($order->invoice->si_number ?? ''), $searchTerm);
+                return $soMatch || $refMatch || $siMatch;
+            })->values();
+        }
+
+        $perPage = max(1, (int) $request->get('per_page', 10));
+        $page = max(1, (int) $request->get('page', 1));
+
+        $total = $allOrders->count();
+        $sliced = $allOrders->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $history = $sliced->map(function($order) {
+            $totalAmount = (float)($order->total_amount ?? 0);
+            $paidAmount = (float)$order->total_paid_amount;
+            $remainingBalance = (float)$order->remaining_balance;
+            $effectivePaymentStatus = $order->computed_payment_status;
+            $isPaid = $effectivePaymentStatus === 'paid';
+            $hasProof = !empty($order->proof_of_payment);
+            $isOverdue = !$isPaid && $order->due_date && $order->due_date->isPast();
+
+            return [
+                'id' => $order->id,
+                'so_number' => $order->so_number,
+                'si_number' => $order->invoice ? $order->invoice->si_number : null,
+                'date' => $order->created_at ? $order->created_at->format('Y-m-d') : 'N/A',
+                'total_amount' => $totalAmount,
+                'paid_amount' => $paidAmount,
+                'remaining_balance' => $remainingBalance,
+                'payment_status' => $effectivePaymentStatus,
+                'raw_payment_status' => $order->payment_status ?? 'unpaid',
+                'has_proof_of_payment' => $hasProof,
+                'proof_of_payment_url' => $hasProof ? asset('storage/' . $order->proof_of_payment) : null,
+                'status' => $order->status ?? 'pending',
+                'status_label' => ucfirst(str_replace('_', ' ', $order->status ?? 'pending')),
+                'due_date' => $order->due_date ? $order->due_date->format('Y-m-d') : 'N/A',
+                'is_overdue' => $isOverdue,
+            ];
+        });
+
+        $lastPage = max(1, (int) ceil($total / $perPage));
 
         return response()->json([
             'customer_name' => $customer->customer_name,
             'balance' => (float)$customer->balance,
             'is_bad_client' => $customer->is_bad_client,
-            'history' => $history
+            'manual_status' => $customer->manual_status,
+            'history' => $history,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'last_page' => $lastPage,
+                'from' => $total > 0 ? (($page - 1) * $perPage) + 1 : 0,
+                'to' => min($page * $perPage, $total),
+            ]
+        ]);
+    }
+
+    /**
+     * Record a partial or full payment for a customer sales order
+     */
+    public function recordPayment(Request $request, Customer $customer, SalesOrder $salesOrder)
+    {
+        $remainingBalance = (float) $salesOrder->remaining_balance;
+
+        if ($remainingBalance <= 0) {
+            return response()->json(['message' => 'This order is already fully paid.'], 422);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01|max:' . $remainingBalance,
+            'payment_method' => 'required|string|in:cash,gcash,maya,bank_transfer,check,card',
+            'reference_number' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:255',
+            'proof_of_payment' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:5120',
+        ]);
+
+        $amountPaid = (float) $validated['amount'];
+
+        $proofPath = null;
+        if ($request->hasFile('proof_of_payment')) {
+            $proofPath = $request->file('proof_of_payment')->store('proof_of_payments', 'public');
+        }
+
+        // Create Payment record
+        Payment::create([
+            'customer_id' => $customer->customer_id,
+            'sales_order_id' => $salesOrder->id,
+            'amount' => $amountPaid,
+            'payment_method' => $validated['payment_method'],
+            'payment_date' => now()->toDateString(),
+            'status' => 'verified',
+            'reference_number' => $validated['reference_number'] ?? null,
+            'verified_by' => auth()->id(),
+            'notes' => $validated['notes'] ?? ("Installment payment for " . $salesOrder->so_number),
+            'proof_of_payment' => $proofPath,
+        ]);
+
+        // Update sales order proof_of_payment if not set
+        if ($proofPath && empty($salesOrder->proof_of_payment)) {
+            $salesOrder->update(['proof_of_payment' => $proofPath]);
+        }
+
+        // Recalculate remaining balance
+        $salesOrder->unsetRelation('payments');
+        $newRemaining = (float) $salesOrder->remaining_balance;
+
+        if ($newRemaining <= 0) {
+            $salesOrder->update(['payment_status' => 'paid']);
+        } else {
+            $salesOrder->update(['payment_status' => 'partially_paid']);
+        }
+
+        // Log Activity
+        if (class_exists('\App\Models\ActivityLog')) {
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id() ?: 1,
+                'action' => 'Payment Recorded',
+                'description' => "Recorded payment of ₱" . number_format($amountPaid, 2) . " for SO {$salesOrder->so_number} (Customer: {$customer->customer_name}). Remaining balance: ₱" . number_format($newRemaining, 2),
+                'affected_model' => 'SalesOrder',
+                'affected_model_id' => $salesOrder->id,
+                'ip_address' => $request->ip(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Payment recorded successfully!',
+            'paid_amount' => $amountPaid,
+            'remaining_balance' => $newRemaining,
+            'new_payment_status' => $salesOrder->fresh()->computed_payment_status,
+            'new_customer_balance' => (float) $customer->fresh()->balance,
         ]);
     }
 
@@ -283,5 +427,37 @@ class CustomerController extends Controller
         $customer->update(['manual_status' => $validated['manual_status']]);
 
         return response()->json(['message' => 'Customer status updated successfully']);
+    }
+
+    /**
+     * Get payment history breakdown for a customer sales order
+     */
+    public function getPaymentHistory(Customer $customer, SalesOrder $salesOrder)
+    {
+        $payments = $salesOrder->payments()->with('verifiedBy')->latest()->get();
+
+        $formattedPayments = $payments->map(function($payment) {
+            $hasProof = !empty($payment->proof_of_payment);
+            return [
+                'id' => $payment->id,
+                'date' => $payment->payment_date ? $payment->payment_date->format('M d, Y') : ($payment->created_at ? $payment->created_at->format('M d, Y') : 'N/A'),
+                'amount' => (float) $payment->amount,
+                'method' => ucfirst(str_replace('_', ' ', $payment->payment_method ?? 'cash')),
+                'reference_number' => $payment->reference_number ?: 'N/A',
+                'notes' => $payment->notes ?: 'N/A',
+                'has_proof' => $hasProof,
+                'proof_url' => $hasProof ? asset('storage/' . $payment->proof_of_payment) : null,
+                'recorded_by' => $payment->verifiedBy->name ?? 'System',
+            ];
+        });
+
+        return response()->json([
+            'so_number' => $salesOrder->so_number,
+            'total_amount' => (float) $salesOrder->total_amount,
+            'total_paid' => (float) $salesOrder->total_paid_amount,
+            'remaining_balance' => (float) $salesOrder->remaining_balance,
+            'payment_status' => $salesOrder->computed_payment_status,
+            'payments' => $formattedPayments,
+        ]);
     }
 }

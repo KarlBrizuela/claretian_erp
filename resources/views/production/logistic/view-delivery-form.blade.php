@@ -80,11 +80,11 @@
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Address:</td>
-                                <td class="text-black">{{ $order->shipping_address ?? $order->customer->shipping_address ?? $order->customer->billing_address ?? 'N/A' }}</td>
+                                <td class="text-black">{{ ($addr = $order->shipping_address ?? $order->customer?->shipping_address ?? $order->customer?->billing_address) && $addr !== 'N/A' ? $addr : '' }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Contact:</td>
-                                <td class="text-black">{{ $order->customer->phone ?? 'N/A' }}</td>
+                                <td class="text-black">{{ ($phone = $order->customer?->phone) && $phone !== 'N/A' ? $phone : '' }}</td>
                             </tr>
                         </table>
                     </div>

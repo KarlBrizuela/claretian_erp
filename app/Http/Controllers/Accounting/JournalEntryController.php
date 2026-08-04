@@ -57,7 +57,27 @@ class JournalEntryController extends Controller
 
     public function create()
     {
-        $accounts = ChartOfAccount::where('is_active', true)->orderBy('code')->get();
+        $accounts = ChartOfAccount::orderBy('code')->get();
+        $bankAccounts = \App\Models\CompanyBankAccount::orderBy('bank_name')->get();
+        
+        foreach ($bankAccounts as $bank) {
+            $code = $bank->account_code ?: ('BANK-' . $bank->id);
+            $name = 'Bank: ' . $bank->bank_name . ' (' . $bank->account_number . ' - ' . $bank->account_name . ')';
+            
+            $exists = $accounts->first(function($acc) use ($code) {
+                return $acc->code == $code;
+            });
+            
+            if (!$exists) {
+                $accounts->push(new ChartOfAccount([
+                    'id' => $bank->id,
+                    'code' => $code,
+                    'name' => $name,
+                    'type' => 'Asset',
+                    'category' => 'Cash & Bank'
+                ]));
+            }
+        }
         
         // Generate next Entry No (JV-YEAR-SEQ)
         $year = now()->year;
@@ -92,8 +112,8 @@ class JournalEntryController extends Controller
             'date' => 'required|date',
             'reference' => 'nullable|string',
             'memo' => 'nullable|string',
-            'items' => 'required|array|min:2',
-            'items.*.account_id' => 'required|exists:chart_of_accounts,id',
+            'items' => 'required|array|min:1',
+            'items.*.account_id' => 'required',
             'items.*.debit' => 'nullable|numeric|min:0',
             'items.*.credit' => 'nullable|numeric|min:0',
             'items.*.memo' => 'nullable|string',

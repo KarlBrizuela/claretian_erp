@@ -24,6 +24,11 @@
                                 E-Commerce Direct <span class="badge bg-info ms-2">{{ $ecomByPlatform['lazada']->count() + $ecomByPlatform['shopee']->count() + $ecomByPlatform['tiktok']->count() }}</span>
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="complimentary-tab" data-bs-toggle="tab" data-bs-target="#complimentary-pick-lists" type="button" role="tab" aria-controls="complimentary-pick-lists" aria-selected="false">
+                                Complimentary <span class="badge ms-2" style="background-color: #6f42c1; color: #fff;">{{ $complimentaryPickLists->count() }}</span>
+                            </button>
+                        </li>
                     </ul>
 
                     <!-- Tab Content -->
@@ -304,6 +309,68 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Complimentary Pick Lists Tab -->
+                        <div class="tab-pane fade" id="complimentary-pick-lists" role="tabpanel" aria-labelledby="complimentary-tab">
+                            <div class="table-responsive">
+                                <table id="complimentaryPickListsTable" class="display" style="width: 100%">
+                                    <thead>
+                                        <tr>
+                                            <th>Pick List Number</th>
+                                            <th>Sales Order</th>
+                                            <th>Recipient / Customer</th>
+                                            <th>Date Created</th>
+                                            <th>Total Items</th>
+                                            <th>Items Picked</th>
+                                            <th>Status</th>
+                                            <th>Prepared By</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($complimentaryPickLists as $pickList)
+                                        <tr>
+                                            <td><strong>{{ $pickList->pick_list_number }}</strong></td>
+                                            <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                            <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
+                                            <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
+                                            <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
+                                            <td>{{ $pickList->pickListItems->sum('picked_qty') }}</td>
+                                            <td>
+                                                @if($pickList->status === 'draft')
+                                                    <span class="badge bg-secondary">Draft</span>
+                                                @elseif($pickList->status === 'in_progress')
+                                                    <span class="badge" style="background-color: #6f42c1; color: #fff;">Picking (Complimentary)</span>
+                                                @elseif($pickList->status === 'completed')
+                                                    <span class="badge bg-success">Completed</span>
+                                                @endif
+                                            </td>
+                                            <td>{{ $pickList->preparedByUser->name ?? 'System' }}</td>
+                                            <td>
+                                                <div class="workflow-actions">
+                                                    <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
+                                                        <i class="las la-eye"></i>
+                                                    </a>
+                                                    <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered and send to Acknowledgement Receipt preparation?');">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
+                                                            <i class="las la-check"></i>
+                                                        </button>
+                                                    </form>
+                                                    <a href="javascript:void(0);" class="btn btn-info shadow btn-xs sharp" title="Print" onclick="window.print();">
+                                                        <i class="las la-print"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="9" class="text-center py-4 text-muted">No active complimentary pick lists.</td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -318,17 +385,17 @@
             font-size: 13px;
         }
         
-        #pickListsTable, #lazadaTable, #shopeeTable, #tiktokTable {
+        #pickListsTable, #lazadaTable, #shopeeTable, #tiktokTable, #complimentaryPickListsTable {
             font-size: 13px;
         }
         
-        #pickListsTable thead th, #lazadaTable thead th, #shopeeTable thead th, #tiktokTable thead th {
+        #pickListsTable thead th, #lazadaTable thead th, #shopeeTable thead th, #tiktokTable thead th, #complimentaryPickListsTable thead th {
             padding: 8px 10px;
             font-weight: 600;
             font-size: 13px;
         }
         
-        #pickListsTable tbody td, #lazadaTable tbody td, #shopeeTable tbody td, #tiktokTable tbody td {
+        #pickListsTable tbody td, #lazadaTable tbody td, #shopeeTable tbody td, #tiktokTable tbody td, #complimentaryPickListsTable tbody td {
             padding: 6px 10px;
             vertical-align: middle;
         }
@@ -438,6 +505,14 @@
                     lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
                 });
                 console.log('TikTok table initialized:', tiktokTable);
+
+                // Initialize Complimentary table
+                const complimentaryTable = $('#complimentaryPickListsTable').DataTable({
+                    order: [[3, 'desc']],
+                    pageLength: 25,
+                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
+                });
+                console.log('Complimentary table initialized:', complimentaryTable);
 
             } catch (error) {
                 console.error('Error initializing DataTables:', error);

@@ -393,6 +393,7 @@
                                             <tr class="hover-row">
                                                 <td>
                                                     <a href="javascript:void(0);" 
+                                                       onclick="viewPoDetails('{{ $po->id }}'); return false;"
                                                        class="fw-bold text-danger view-po-details text-decoration-underline" 
                                                        data-id="{{ $po->id }}"
                                                        title="Click to view Purchase Order details">
@@ -440,6 +441,7 @@
                                                 <td>
                                                     @if($rr->purchaseOrder)
                                                         <a href="javascript:void(0);" 
+                                                           onclick="viewPoDetails('{{ $rr->purchase_order_id }}'); return false;"
                                                            class="badge bg-danger-subtle text-danger border border-danger-subtle view-po-details" 
                                                            data-id="{{ $rr->purchase_order_id }}" 
                                                            title="Click to view Purchase Order details"
@@ -1029,6 +1031,33 @@
     </div>
     @endforeach
 
+    <!-- MODAL: VIEW PURCHASE ORDER DETAILS -->
+    <div class="modal fade" id="poDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header bg-danger text-white py-3">
+                    <h5 class="modal-title fw-bold text-white fs-16 mb-0 d-flex align-items-center">
+                        <i class="las la-file-invoice me-2 fs-20"></i>Purchase Order Details
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" id="poModalBody" style="max-height: 80vh; overflow-y: auto;">
+                    <div class="text-center p-5">
+                        <div class="spinner-border text-danger" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-4 justify-content-between">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger px-4 fw-bold shadow-sm d-flex align-items-center gap-1" onclick="printPoModalContent('poModalBody')">
+                        <i class="las la-print fs-18 me-1"></i> Print PO
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @push('scripts')
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
@@ -1045,26 +1074,56 @@
             $(document).on('click', '.view-po-details', function(e) {
                 e.preventDefault();
                 const poId = $(this).data('id');
-                if (!poId) return;
-
-                const modalElement = document.getElementById('poDetailsModal');
-                const modal = new bootstrap.Modal(modalElement);
-                
-                $('#poModalBody').html('<div class="text-center p-5"><div class="spinner-border text-danger" role="status"><span class="visually-hidden">Loading...</span></div></div>');
-                modal.show();
-
-                $.ajax({
-                    url: `/production/logistic/purchase-order/${poId}`,
-                    method: 'GET',
-                    success: function(response) {
-                        $('#poModalBody').html(response);
-                    },
-                    error: function() {
-                        $('#poModalBody').html('<div class="alert alert-danger">Failed to load Purchase Order details.</div>');
-                    }
-                });
+                if (poId) {
+                    viewPoDetails(poId);
+                }
             });
         });
+
+        window.viewPoDetails = function(poId) {
+            if (!poId) return;
+
+            const modalElement = document.getElementById('poDetailsModal');
+            if (!modalElement) {
+                console.error('poDetailsModal element not found');
+                return;
+            }
+
+            let modal = bootstrap.Modal.getInstance(modalElement);
+            if (!modal) {
+                modal = new bootstrap.Modal(modalElement);
+            }
+
+            const modalBody = document.getElementById('poModalBody');
+            if (modalBody) {
+                modalBody.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-danger" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted font-w600">Loading Purchase Order details...</p></div>';
+            }
+
+            modal.show();
+
+            fetch('/production/logistic/purchase-order/' + poId, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html'
+                }
+            })
+            .then(function(res) {
+                if (!res.ok) throw new Error('HTTP status ' + res.status);
+                return res.text();
+            })
+            .then(function(html) {
+                if (modalBody) {
+                    modalBody.innerHTML = html;
+                }
+            })
+            .catch(function(err) {
+                console.error('Error fetching PO:', err);
+                if (modalBody) {
+                    modalBody.innerHTML = '<div class="alert alert-danger m-3"><i class="las la-exclamation-circle me-2"></i>Failed to load Purchase Order details. Please try again.</div>';
+                }
+            });
+        };
 
         function printPoModalContent(divId) {
             const content = document.getElementById(divId).innerHTML;

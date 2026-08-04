@@ -245,8 +245,8 @@
                                 <td><input type="text" name="items[0][service]" class="form-control form-control-sm border" value="Order #{{ $order->so_number }}"></td>
                                 <td><input type="text" name="items[0][description]" class="form-control form-control-sm border" value="Sales Order Reference"></td>
                                 <td><input type="text" name="items[0][qty]" class="form-control form-control-sm border item-qty" value="1"></td>
-                                <td><input type="number" name="items[0][price]" class="form-control form-control-sm border text-end unit-price" value="{{ $order->final_total }}"></td>
-                                <td align="right" class="fw-bold row-amount">₱ {{ number_format($order->final_total, 2) }}</td>
+                                <td><input type="number" name="items[0][price]" class="form-control form-control-sm border text-end unit-price" value="{{ $order->remaining_balance }}"></td>
+                                <td align="right" class="fw-bold row-amount">₱ {{ number_format($order->remaining_balance, 2) }}</td>
                                 <td></td>
                             </tr>
                             @elseif($mode == 'manual')

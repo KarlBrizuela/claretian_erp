@@ -179,7 +179,15 @@
                                                                 <td>{{ $order->so_number }}</td>
                                                                 <td>{{ $order->customer->customer_name ?? $order->customer->company_name ?? 'Unknown' }}</td>
                                                                 <td>{{ Carbon\Carbon::parse($order->created_at)->format('M d, Y') }}</td>
-                                                                <td class="fw-bold">₱ {{ number_format($order->final_total, 2) }}</td>
+                                                                <td class="fw-bold">
+                                                                    @if($order->remaining_balance <= 0)
+                                                                        <span class="text-success">₱ 0.00</span> <span class="badge bg-success text-white ms-1" style="font-size: 0.7rem;">Paid</span>
+                                                                    @elseif($order->total_paid_amount > 0)
+                                                                        <span class="text-dark">₱ {{ number_format($order->remaining_balance, 2) }}</span> <small class="text-muted d-block" style="font-size: 0.75rem;">(Paid: ₱{{ number_format($order->total_paid_amount, 2) }})</small>
+                                                                    @else
+                                                                        ₱ {{ number_format($order->remaining_balance, 2) }}
+                                                                    @endif
+                                                                </td>
                                                                 <td class="text-center">
                                                                     <div class="d-flex justify-content-center">
                                                                         <a href="{{ route('admin-finance.credit-collection.billing.create', ['id' => $order->id]) }}" class="btn btn-primary btn-sm shadow" title="Prepare Statement"><i class="las la-file-invoice me-1"></i> Prepare SOA</a>

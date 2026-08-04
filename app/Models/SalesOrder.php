@@ -157,6 +157,62 @@ class SalesOrder extends Model
         return $this->hasMany(SalesInvoice::class, 'so_id');
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class, 'sales_order_id');
+    }
+
+    /**
+     * Get total amount paid for this order
+     */
+    public function getTotalPaidAmountAttribute()
+    {
+        $paidFromDb = (float) $this->payments()->sum('amount');
+
+        if ($paidFromDb > 0) {
+            return $paidFromDb;
+        }
+
+        $isPosOrEcom = in_array($this->type, ['calculator_pos', 'ecom_direct']);
+        if ($this->payment_status === 'paid' || $isPosOrEcom) {
+            return (float) $this->total_amount;
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Get remaining balance for this order
+     */
+    public function getRemainingBalanceAttribute()
+    {
+        if ($this->type === 'complimentary') {
+            return 0.0;
+        }
+        $total = (float)($this->total_amount && (float)$this->total_amount > 0 ? $this->total_amount : $this->final_total);
+        return max(0, $total - $this->total_paid_amount);
+    }
+
+    /**
+     * Get computed payment status ('paid', 'partially_paid', 'unpaid', 'complimentary')
+     */
+    public function getComputedPaymentStatusAttribute()
+    {
+        if ($this->type === 'complimentary') {
+            return 'complimentary';
+        }
+        $paid = $this->total_paid_amount;
+        $total = (float)$this->total_amount;
+
+        if ($paid >= $total && $total > 0) {
+            return 'paid';
+        }
+        if ($paid > 0 && $paid < $total) {
+            return 'partially_paid';
+        }
+        return $this->payment_status === 'partially_paid' ? 'partially_paid' : 'unpaid';
+    }
+
     /**
      * Get all activity logs related to this sales order
      */
