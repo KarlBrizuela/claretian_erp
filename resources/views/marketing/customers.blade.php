@@ -1465,7 +1465,17 @@
                 website: document.getElementById('website')?.value || null,
                 other_contact: document.getElementById('otherContact')?.value || null,
                 billing_address: billingAddressVal,
+                billing_address_line1: document.getElementById('billAddr1')?.value || null,
+                billing_address_line2: document.getElementById('billAddr2')?.value || null,
+                billing_city: document.getElementById('billCity')?.value || null,
+                billing_province: document.getElementById('billProvince')?.value || null,
+                billing_country: document.getElementById('billCountry')?.value || 'Philippines',
                 shipping_address: shippingAddressVal,
+                shipping_address_line1: document.getElementById('shipAddr1')?.value || null,
+                shipping_address_line2: document.getElementById('shipAddr2')?.value || null,
+                shipping_city: document.getElementById('shipCity')?.value || null,
+                shipping_province: document.getElementById('shipProvince')?.value || null,
+                shipping_country: document.getElementById('shipCountry')?.value || 'Philippines',
                 is_default_shipping: document.getElementById('defaultShipping')?.checked ? 1 : 0,
                 account_number: document.getElementById('accountNo')?.value || null,
                 payment_terms: document.getElementById('paymentTerms')?.value || null,
@@ -1615,20 +1625,20 @@
                         return { line1: parts[0] || '', line2: '', city: '', province: '', country: 'Philippines' };
                     };
 
-                    // Populate Form-Style Address Fields using smart parser
+                    // Populate Form-Style Address Fields using direct DB columns with smart parser fallback
                     const parsedBill = parseAddressString(customer.billing_address);
-                    document.getElementById('editBillAddr1').value = parsedBill.line1;
-                    document.getElementById('editBillAddr2').value = parsedBill.line2;
-                    document.getElementById('editBillCity').value = parsedBill.city;
-                    document.getElementById('editBillProvince').value = parsedBill.province;
-                    document.getElementById('editBillCountry').value = parsedBill.country;
+                    document.getElementById('editBillAddr1').value = customer.billing_address_line1 || parsedBill.line1;
+                    document.getElementById('editBillAddr2').value = customer.billing_address_line2 || parsedBill.line2;
+                    document.getElementById('editBillCity').value = customer.billing_city || parsedBill.city;
+                    document.getElementById('editBillProvince').value = customer.billing_province || parsedBill.province;
+                    document.getElementById('editBillCountry').value = customer.billing_country || parsedBill.country;
 
                     const parsedShip = parseAddressString(customer.shipping_address);
-                    document.getElementById('editShipAddr1').value = parsedShip.line1;
-                    document.getElementById('editShipAddr2').value = parsedShip.line2;
-                    document.getElementById('editShipCity').value = parsedShip.city;
-                    document.getElementById('editShipProvince').value = parsedShip.province;
-                    document.getElementById('editShipCountry').value = parsedShip.country;
+                    document.getElementById('editShipAddr1').value = customer.shipping_address_line1 || parsedShip.line1;
+                    document.getElementById('editShipAddr2').value = customer.shipping_address_line2 || parsedShip.line2;
+                    document.getElementById('editShipCity').value = customer.shipping_city || parsedShip.city;
+                    document.getElementById('editShipProvince').value = customer.shipping_province || parsedShip.province;
+                    document.getElementById('editShipCountry').value = customer.shipping_country || parsedShip.country;
 
                     document.getElementById('editDefaultShipping').checked = customer.is_default_shipping == 1;
                     document.getElementById('editAccountNo').value = customer.account_number || '';
@@ -1730,7 +1740,17 @@
                 website: document.getElementById('editWebsite')?.value || null,
                 other_contact: document.getElementById('editOtherContact')?.value || null,
                 billing_address: editBillingAddressVal,
+                billing_address_line1: document.getElementById('editBillAddr1')?.value || null,
+                billing_address_line2: document.getElementById('editBillAddr2')?.value || null,
+                billing_city: document.getElementById('editBillCity')?.value || null,
+                billing_province: document.getElementById('editBillProvince')?.value || null,
+                billing_country: document.getElementById('editBillCountry')?.value || 'Philippines',
                 shipping_address: editShippingAddressVal,
+                shipping_address_line1: document.getElementById('editShipAddr1')?.value || null,
+                shipping_address_line2: document.getElementById('editShipAddr2')?.value || null,
+                shipping_city: document.getElementById('editShipCity')?.value || null,
+                shipping_province: document.getElementById('editShipProvince')?.value || null,
+                shipping_country: document.getElementById('editShipCountry')?.value || 'Philippines',
                 is_default_shipping: document.getElementById('editDefaultShipping')?.checked ? 1 : 0,
                 account_number: document.getElementById('editAccountNo')?.value || null,
                 payment_terms: document.getElementById('editPaymentTerms')?.value || null,

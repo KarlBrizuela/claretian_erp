@@ -283,13 +283,66 @@
             }
         }
 
-        /* Single page layout for printing */
-        .single-page-invoice {
-            page-break-after: avoid;
+        body.preprinted-mode .invoice-container {
+            padding-top: 0.95in !important;
+        }
+
+        body.preprinted-mode .detail-section {
+            background: transparent !important;
+            border: none !important;
+        }
+
+        /* Adjust right column (Date, Terms, Due Date) vertical alignment on pre-printed form */
+        body.preprinted-mode .info-grid tr td:nth-child(3),
+        body.preprinted-mode .info-grid tr td:nth-child(4) {
+            padding-top: 18px !important;
+        }
+
+        /* Expand hidden table header height so line items start below the pre-printed table header */
+        body.preprinted-mode .items-table thead tr {
+            height: 68px !important;
+        }
+
+        /* Signatories alignment */
+        body.preprinted-mode .signature-line {
+            border-color: transparent !important;
+            margin-top: 26px !important;
+        }
+
+        body.preprinted-mode .invoice-header,
+        body.preprinted-mode .invoice-title,
+        body.preprinted-mode .invoice-number,
+        body.preprinted-mode .detail-section h5,
+        body.preprinted-mode .detail-item label,
+        body.preprinted-mode .items-table thead,
+        body.preprinted-mode .tax-notice,
+        body.preprinted-mode .signature-block h6,
+        body.preprinted-mode .signature-block small {
+            visibility: hidden !important;
+        }
+
+        body.preprinted-mode .items-table th,
+        body.preprinted-mode .items-table td,
+        body.preprinted-mode .signature-section {
+            border-color: transparent !important;
         }
     </style>
 </head>
 <body>
+    <div class="actions-bar no-print p-3 bg-white mb-3 d-flex justify-content-between align-items-center shadow-sm rounded">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
+            <i class="las la-arrow-left me-1"></i> Back
+        </a>
+        <div class="d-flex align-items-center gap-3">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="preprintedToggle" onchange="document.body.classList.toggle('preprinted-mode', this.checked)">
+                <label class="form-check-label fw-bold small text-dark" for="preprintedToggle">Overlay on Pre-printed Paper Form</label>
+            </div>
+            <button onclick="window.print()" class="btn btn-danger btn-sm px-4 shadow-sm" style="background:#ff0000; border: none;">
+                <i class="las la-print me-1"></i> Print Sales Invoice
+            </button>
+        </div>
+    </div>
     <div class="invoice-container single-page-invoice">
         <!-- Header -->
         <div class="invoice-header">

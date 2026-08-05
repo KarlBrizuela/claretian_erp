@@ -81,7 +81,17 @@ class CustomerController extends Controller
             'website' => 'nullable|string',
             'other_contact' => 'nullable|string',
             'billing_address' => 'nullable|string',
+            'billing_address_line1' => 'nullable|string|max:255',
+            'billing_address_line2' => 'nullable|string|max:255',
+            'billing_city' => 'nullable|string|max:100',
+            'billing_province' => 'nullable|string|max:100',
+            'billing_country' => 'nullable|string|max:100',
             'shipping_address' => 'required|string',
+            'shipping_address_line1' => 'nullable|string|max:255',
+            'shipping_address_line2' => 'nullable|string|max:255',
+            'shipping_city' => 'nullable|string|max:100',
+            'shipping_province' => 'nullable|string|max:100',
+            'shipping_country' => 'nullable|string|max:100',
             'is_default_shipping' => 'nullable|boolean',
             'payment_terms' => 'nullable|in:Net 15,Net 30,Net 60,Due on receipt',
             'preferred_delivery_method' => 'nullable|in:Lazada,Shopee,Main Warehouse',
@@ -98,6 +108,40 @@ class CustomerController extends Controller
             'custom_customer_field' => 'nullable|string',
             'is_inactive' => 'nullable|boolean',
         ]);
+
+        // Smart fill individual address components if passed or parsed
+        $parseAddr = function($addrStr) {
+            if (!$addrStr || $addrStr === 'N/A') return ['', '', '', '', 'Philippines'];
+            if (str_contains($addrStr, '|')) {
+                $p = array_map('trim', explode('|', $addrStr));
+                return [$p[0] ?? '', $p[1] ?? '', $p[2] ?? '', $p[3] ?? '', $p[4] ?? 'Philippines'];
+            }
+            $parts = array_values(array_filter(array_map('trim', explode(',', $addrStr))));
+            $len = count($parts);
+            if ($len >= 5) return [$parts[0], $parts[1], $parts[2], $parts[3], $parts[4]];
+            elseif ($len == 4) return [$parts[0], '', $parts[1], $parts[2], $parts[3]];
+            elseif ($len == 3) return [$parts[0], '', $parts[1], '', $parts[2]];
+            elseif ($len == 2) return [$parts[0], '', $parts[1], '', 'Philippines'];
+            return [$parts[0] ?? '', '', '', '', 'Philippines'];
+        };
+
+        if (empty($validated['billing_city']) && !empty($validated['billing_address'])) {
+            list($b1, $b2, $bCity, $bProv, $bCoun) = $parseAddr($validated['billing_address']);
+            $validated['billing_address_line1'] = $validated['billing_address_line1'] ?? ($b1 ?: null);
+            $validated['billing_address_line2'] = $validated['billing_address_line2'] ?? ($b2 ?: null);
+            $validated['billing_city']          = $validated['billing_city'] ?? ($bCity ?: null);
+            $validated['billing_province']      = $validated['billing_province'] ?? ($bProv ?: null);
+            $validated['billing_country']       = $validated['billing_country'] ?? ($bCoun ?: 'Philippines');
+        }
+
+        if (empty($validated['shipping_city']) && !empty($validated['shipping_address'])) {
+            list($s1, $s2, $sCity, $sProv, $sCoun) = $parseAddr($validated['shipping_address']);
+            $validated['shipping_address_line1'] = $validated['shipping_address_line1'] ?? ($s1 ?: null);
+            $validated['shipping_address_line2'] = $validated['shipping_address_line2'] ?? ($s2 ?: null);
+            $validated['shipping_city']          = $validated['shipping_city'] ?? ($sCity ?: null);
+            $validated['shipping_province']      = $validated['shipping_province'] ?? ($sProv ?: null);
+            $validated['shipping_country']       = $validated['shipping_country'] ?? ($sCoun ?: 'Philippines');
+        }
 
         // Provide defaults for mandatory DB fields missing in quick registration
         if (empty($validated['company_name'])) {
@@ -194,7 +238,17 @@ class CustomerController extends Controller
             'website' => 'nullable|string',
             'other_contact' => 'nullable|string',
             'billing_address' => 'nullable|string',
+            'billing_address_line1' => 'nullable|string|max:255',
+            'billing_address_line2' => 'nullable|string|max:255',
+            'billing_city' => 'nullable|string|max:100',
+            'billing_province' => 'nullable|string|max:100',
+            'billing_country' => 'nullable|string|max:100',
             'shipping_address' => 'required|string',
+            'shipping_address_line1' => 'nullable|string|max:255',
+            'shipping_address_line2' => 'nullable|string|max:255',
+            'shipping_city' => 'nullable|string|max:100',
+            'shipping_province' => 'nullable|string|max:100',
+            'shipping_country' => 'nullable|string|max:100',
             'is_default_shipping' => 'nullable|boolean',
             'payment_terms' => 'nullable|in:Net 15,Net 30,Net 60,Due on receipt',
             'preferred_delivery_method' => 'nullable|in:Lazada,Shopee,Main Warehouse',
@@ -212,6 +266,38 @@ class CustomerController extends Controller
             'is_inactive' => 'nullable|boolean',
         ]);
 
+        $parseAddr = function($addrStr) {
+            if (!$addrStr || $addrStr === 'N/A') return ['', '', '', '', 'Philippines'];
+            if (str_contains($addrStr, '|')) {
+                $p = array_map('trim', explode('|', $addrStr));
+                return [$p[0] ?? '', $p[1] ?? '', $p[2] ?? '', $p[3] ?? '', $p[4] ?? 'Philippines'];
+            }
+            $parts = array_values(array_filter(array_map('trim', explode(',', $addrStr))));
+            $len = count($parts);
+            if ($len >= 5) return [$parts[0], $parts[1], $parts[2], $parts[3], $parts[4]];
+            elseif ($len == 4) return [$parts[0], '', $parts[1], $parts[2], $parts[3]];
+            elseif ($len == 3) return [$parts[0], '', $parts[1], '', $parts[2]];
+            elseif ($len == 2) return [$parts[0], '', $parts[1], '', 'Philippines'];
+            return [$parts[0] ?? '', '', '', '', 'Philippines'];
+        };
+
+        if (empty($validated['billing_city']) && !empty($validated['billing_address'])) {
+            list($b1, $b2, $bCity, $bProv, $bCoun) = $parseAddr($validated['billing_address']);
+            $validated['billing_address_line1'] = $validated['billing_address_line1'] ?? ($b1 ?: null);
+            $validated['billing_address_line2'] = $validated['billing_address_line2'] ?? ($b2 ?: null);
+            $validated['billing_city']          = $validated['billing_city'] ?? ($bCity ?: null);
+            $validated['billing_province']      = $validated['billing_province'] ?? ($bProv ?: null);
+            $validated['billing_country']       = $validated['billing_country'] ?? ($bCoun ?: 'Philippines');
+        }
+
+        if (empty($validated['shipping_city']) && !empty($validated['shipping_address'])) {
+            list($s1, $s2, $sCity, $sProv, $sCoun) = $parseAddr($validated['shipping_address']);
+            $validated['shipping_address_line1'] = $validated['shipping_address_line1'] ?? ($s1 ?: null);
+            $validated['shipping_address_line2'] = $validated['shipping_address_line2'] ?? ($s2 ?: null);
+            $validated['shipping_city']          = $validated['shipping_city'] ?? ($sCity ?: null);
+            $validated['shipping_province']      = $validated['shipping_province'] ?? ($sProv ?: null);
+            $validated['shipping_country']       = $validated['shipping_country'] ?? ($sCoun ?: 'Philippines');
+        }
 
         $validated['opening_balance'] = $validated['opening_balance'] ?? 0;
         $validated['credit_limit'] = $validated['credit_limit'] ?? 0;
@@ -535,8 +621,20 @@ class CustomerController extends Controller
         };
 
         foreach ($customers as $c) {
-            list($b1, $b2, $bCity, $bProv, $bCoun) = $parseAddr($c->billing_address ?? '');
-            list($s1, $s2, $sCity, $sProv, $sCoun) = $parseAddr($c->shipping_address ?? '');
+            list($pb1, $pb2, $pbCity, $pbProv, $pbCoun) = $parseAddr($c->billing_address ?? '');
+            list($ps1, $ps2, $psCity, $psProv, $psCoun) = $parseAddr($c->shipping_address ?? '');
+
+            $b1 = $c->billing_address_line1 ?: $pb1;
+            $b2 = $c->billing_address_line2 ?: $pb2;
+            $bCity = $c->billing_city ?: $pbCity;
+            $bProv = $c->billing_province ?: $pbProv;
+            $bCoun = $c->billing_country ?: $pbCoun;
+
+            $s1 = $c->shipping_address_line1 ?: $ps1;
+            $s2 = $c->shipping_address_line2 ?: $ps2;
+            $sCity = $c->shipping_city ?: $psCity;
+            $sProv = $c->shipping_province ?: $psProv;
+            $sCoun = $c->shipping_country ?: $psCoun;
 
             $data = [
                 $c->customer_name ?? '',
@@ -826,38 +924,40 @@ class CustomerController extends Controller
                 $bLine1 = $getVal($row, ['billingaddressline1', 'billingline1', 'billaddress1', 'billline1'], 'S', 18);
                 $bLine2 = $getVal($row, ['billingaddressline2', 'billingline2', 'billaddress2', 'billline2'], 'T', 19);
                 $bCity  = $getVal($row, ['billingtowncity', 'billingcity', 'billcity', 'towncity'], 'U', 20);
-                $bCountry = $getVal($row, ['billingcountry', 'billcountry'], 'V', 21);
+                $bProv  = $getVal($row, ['billingprovinceregion', 'billingprovince', 'billprovince', 'provinceregion'], 'V', 21);
+                $bCountry = $getVal($row, ['billingcountry', 'billcountry'], 'W', 22) ?: 'Philippines';
 
-                $bFullForm = implode(', ', array_filter([$bLine1, $bLine2, $bCity, $bCountry]));
+                $bFullForm = implode(', ', array_filter([$bLine1, $bLine2, $bCity, $bProv, $bCountry]));
                 $billingAddress = $bFullForm ?: ($getVal($row, ['invoicebillingaddress', 'billingaddress', 'invoiceaddress', 'billing'], 'S', 18) ?: 'N/A');
 
-                $sLine1 = $getVal($row, ['shippingaddressline1', 'shippingline1', 'shipaddress1', 'shipline1'], 'W', 22);
-                $sLine2 = $getVal($row, ['shippingaddressline2', 'shippingline2', 'shipaddress2', 'shipline2'], 'X', 23);
-                $sCity  = $getVal($row, ['shippingtowncity', 'shippingcity', 'shipcity'], 'Y', 24);
-                $sCountry = $getVal($row, ['shippingcountry', 'shipcountry'], 'Z', 25);
+                $sLine1 = $getVal($row, ['shippingaddressline1', 'shippingline1', 'shipaddress1', 'shipline1'], 'X', 23);
+                $sLine2 = $getVal($row, ['shippingaddressline2', 'shippingline2', 'shipaddress2', 'shipline2'], 'Y', 24);
+                $sCity  = $getVal($row, ['shippingtowncity', 'shippingcity', 'shipcity'], 'Z', 25);
+                $sProv  = $getVal($row, ['shippingprovinceregion', 'shippingprovince', 'shipprovince'], 'AA', 26);
+                $sCountry = $getVal($row, ['shippingcountry', 'shipcountry'], 'AB', 27) ?: 'Philippines';
 
-                $sFullForm = implode(', ', array_filter([$sLine1, $sLine2, $sCity, $sCountry]));
+                $sFullForm = implode(', ', array_filter([$sLine1, $sLine2, $sCity, $sProv, $sCountry]));
                 $shippingAddress = $sFullForm ?: ($getVal($row, ['shippingaddress', 'shipto', 'shipping'], 'T', 19) ?: ($billingAddress !== 'N/A' ? $billingAddress : 'N/A'));
 
-                $paymentTerms = $getVal($row, ['paymentterms', 'terms'], 'AA', 26) ?: 'Net 15';
-                $preferredDelivery = $getVal($row, ['preferreddeliverymethod', 'deliverymethod', 'delivery'], 'AB', 27) ?: 'Main Warehouse';
-                $preferredPayment = $getVal($row, ['preferredpaymentmethod', 'paymentmethod'], 'AC', 28) ?: 'check';
+                $paymentTerms = $getVal($row, ['paymentterms', 'terms'], 'AC', 28) ?: 'Net 15';
+                $preferredDelivery = $getVal($row, ['preferreddeliverymethod', 'deliverymethod', 'delivery'], 'AD', 29) ?: 'Main Warehouse';
+                $preferredPayment = $getVal($row, ['preferredpaymentmethod', 'paymentmethod'], 'AE', 30) ?: 'check';
 
-                $creditLimitStr = $getVal($row, ['creditlimit'], 'AD', 29);
+                $creditLimitStr = $getVal($row, ['creditlimit'], 'AF', 31);
                 $creditLimit = is_numeric($creditLimitStr) ? (float)$creditLimitStr : 0.0;
 
-                $priceLevel = strtolower($getVal($row, ['pricelevel'], 'AE', 30)) ?: 'standard';
-                $cardNumberLast4 = $getVal($row, ['cardnumberlast4'], 'AF', 31);
-                $cardExpMonth = $getVal($row, ['cardexpmonth'], 'AG', 32);
-                $cardExpYear = $getVal($row, ['cardexpyear'], 'AH', 33);
-                $cardName = $getVal($row, ['cardname'], 'AI', 34);
-                $cardBillingAddr = $getVal($row, ['cardbillingaddress'], 'AJ', 35);
-                $cardZip = $getVal($row, ['cardzip'], 'AK', 36);
-                $custType = $getVal($row, ['customertype', 'type'], 'AL', 37) ?: 'TEAM A';
-                $rep = $getVal($row, ['rep'], 'AM', 38) ?: 'CLE';
-                $class = $getVal($row, ['class'], 'AN', 39) ?: 'LAG';
-                $contactPerson = $getVal($row, ['contactperson'], 'AO', 40);
-                $customCustField = $getVal($row, ['customcustomerfield', 'customfield'], 'AP', 41);
+                $priceLevel = strtolower($getVal($row, ['pricelevel'], 'AG', 32)) ?: 'standard';
+                $cardNumberLast4 = $getVal($row, ['cardnumberlast4'], 'AH', 33);
+                $cardExpMonth = $getVal($row, ['cardexpmonth'], 'AI', 34);
+                $cardExpYear = $getVal($row, ['cardexpyear'], 'AJ', 35);
+                $cardName = $getVal($row, ['cardname'], 'AK', 36);
+                $cardBillingAddr = $getVal($row, ['cardbillingaddress'], 'AL', 37);
+                $cardZip = $getVal($row, ['cardzip'], 'AM', 38);
+                $custType = $getVal($row, ['customertype', 'type'], 'AN', 39) ?: 'TEAM A';
+                $rep = $getVal($row, ['rep'], 'AO', 40) ?: 'CLE';
+                $class = $getVal($row, ['class'], 'AP', 41) ?: 'LAG';
+                $contactPerson = $getVal($row, ['contactperson'], 'AQ', 42);
+                $customCustField = $getVal($row, ['customcustomerfield', 'customfield'], 'AR', 43);
 
                 $accountNo = 'CUST-' . strtoupper(uniqid());
 
@@ -883,7 +983,17 @@ class CustomerController extends Controller
                         'website' => $website ?: null,
                         'other_contact' => $otherContact ?: null,
                         'billing_address' => $billingAddress,
+                        'billing_address_line1' => $bLine1 ?: null,
+                        'billing_address_line2' => $bLine2 ?: null,
+                        'billing_city' => $bCity ?: null,
+                        'billing_province' => $bProv ?: null,
+                        'billing_country' => $bCountry ?: 'Philippines',
                         'shipping_address' => $shippingAddress,
+                        'shipping_address_line1' => $sLine1 ?: null,
+                        'shipping_address_line2' => $sLine2 ?: null,
+                        'shipping_city' => $sCity ?: null,
+                        'shipping_province' => $sProv ?: null,
+                        'shipping_country' => $sCountry ?: 'Philippines',
                         'is_default_shipping' => 1,
                         'payment_terms' => in_array($paymentTerms, ['Net 15', 'Net 30', 'Net 60', 'Due on receipt']) ? $paymentTerms : 'Net 15',
                         'preferred_delivery_method' => in_array($preferredDelivery, ['Lazada', 'Shopee', 'Main Warehouse']) ? $preferredDelivery : 'Main Warehouse',

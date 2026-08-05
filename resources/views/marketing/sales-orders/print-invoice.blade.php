@@ -334,14 +334,14 @@
         }
 
         /* Adjust right column (Date, Terms, Due Date) vertical alignment on pre-printed form */
-        body.preprinted-mode .info-grid tr:first-child td:nth-child(3),
-        body.preprinted-mode .info-grid tr:first-child td:nth-child(4) {
-            padding-top: 22px !important;
+        body.preprinted-mode .info-grid tr td:nth-child(3),
+        body.preprinted-mode .info-grid tr td:nth-child(4) {
+            padding-top: 18px !important;
         }
 
         /* Expand hidden table header height so line items start below the pre-printed table header */
         body.preprinted-mode .items-table thead tr {
-            height: 44px !important;
+            height: 68px !important;
         }
 
         body.preprinted-mode .items-table {
@@ -351,7 +351,7 @@
 
         /* Checkbox ✓ and Total Sales alignment */
         body.preprinted-mode .payment-sales-row {
-            margin-top: 10px !important;
+            margin-top: 18px !important;
             margin-bottom: 5px !important;
         }
 
@@ -369,7 +369,7 @@
 
         body.preprinted-mode .sig-line {
             border-color: transparent !important;
-            margin-top: 14px !important;
+            margin-top: 26px !important;
             font-size: 9pt !important;
             font-weight: bold !important;
         }
