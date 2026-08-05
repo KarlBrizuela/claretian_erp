@@ -329,6 +329,10 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
 
+        body.preprinted-mode .invoice-box {
+            padding-top: 0.85in !important;
+        }
+
         @media print {
             body {
                 background: #fff;
@@ -344,11 +348,14 @@
                 min-height: 7in;
                 justify-content: space-between;
             }
+            body.preprinted-mode .invoice-box {
+                padding-top: 0.85in !important;
+            }
             .actions-bar {
                 display: none !important;
             }
             @page {
-                size: 8.5in 7in;
+                size: portrait;
                 margin: 0;
             }
         }

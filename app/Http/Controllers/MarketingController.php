@@ -1635,10 +1635,122 @@ class MarketingController extends Controller
         ]);
     }
 
+    public function getUnifiedProducts()
+    {
+        $books = \App\Models\Book::where('is_active', true)
+            ->withSum('inventory as stock', 'quantity')
+            ->orderBy('name')
+            ->get()
+            ->map(function($b) {
+                return (object)[
+                    'id' => 'book_' . $b->id,
+                    'type' => 'book',
+                    'real_id' => $b->id,
+                    'book_id' => $b->id,
+                    'name' => $b->name,
+                    'category' => 'Books',
+                    'display_name' => '[Book] ' . $b->name,
+                    'price' => (float) $b->price,
+                    'isbn' => $b->isbn ?? $b->barcode ?? $b->sku ?? '',
+                    'stock' => (int) ($b->stock ?? 0),
+                    'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg'),
+                ];
+            });
+
+        $indices = \App\Models\BookIndex::with('book')
+            ->get()
+            ->map(function($idx) {
+                $bookName = $idx->book ? $idx->book->name : 'Book Index';
+                $fullName = $bookName . ' (' . $idx->index_value . ')';
+                $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+                $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
+                return (object)[
+                    'id' => 'index_' . $idx->id,
+                    'type' => 'index',
+                    'real_id' => $idx->id,
+                    'book_id' => $idx->book_id,
+                    'name' => $fullName,
+                    'category' => 'Book Indices',
+                    'display_name' => '[Index] ' . $fullName,
+                    'price' => $price,
+                    'isbn' => $idx->book?->isbn ?? '',
+                    'stock' => (int) ($idx->stock ?? 0),
+                    'image' => $img,
+                ];
+            });
+
+        $bundles = \App\Models\BookBundle::where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(function($bun) {
+                return (object)[
+                    'id' => 'bundle_' . $bun->id,
+                    'type' => 'bundle',
+                    'real_id' => $bun->id,
+                    'book_id' => null,
+                    'name' => $bun->name,
+                    'category' => 'Book Bundles',
+                    'display_name' => '[Bundle] ' . $bun->name,
+                    'price' => (float) $bun->price,
+                    'isbn' => $bun->sku ?? '',
+                    'stock' => (int) ($bun->stock ?? 0),
+                    'image' => asset('images/no-book-cover.svg'),
+                ];
+            });
+
+        return $books->concat($indices)->concat($bundles);
+    }
+
+    public function resolveItemTarget($pid)
+    {
+        $pidStr = (string) $pid;
+        if (str_starts_with($pidStr, 'bundle_')) {
+            $id = (int) str_replace('bundle_', '', $pidStr);
+            $bundle = \App\Models\BookBundle::find($id);
+            return [
+                'type' => 'bundle',
+                'name' => $bundle?->name ?? "Bundle #{$id}",
+                'book_id' => null,
+                'bundle_id' => $id,
+                'book_index_id' => null,
+                'stock' => (int) ($bundle?->stock ?? 0),
+                'source_price' => (float) ($bundle?->price ?? 0),
+                'exists' => (bool) $bundle,
+            ];
+        } elseif (str_starts_with($pidStr, 'index_')) {
+            $id = (int) str_replace('index_', '', $pidStr);
+            $index = \App\Models\BookIndex::with('book')->find($id);
+            $name = $index ? (($index->book?->name ?? 'Book') . ' (' . $index->index_value . ')') : "Index #{$id}";
+            return [
+                'type' => 'index',
+                'name' => $name,
+                'book_id' => $index?->book_id,
+                'bundle_id' => null,
+                'book_index_id' => $id,
+                'stock' => (int) ($index?->stock ?? 0),
+                'source_price' => (float) ($index?->price ?: ($index?->book?->source_price ?? 0)),
+                'exists' => (bool) $index,
+            ];
+        } else {
+            $id = (int) str_replace('book_', '', $pidStr);
+            $book = \App\Models\Book::withSum('inventory as stock', 'quantity')->find($id);
+            return [
+                'type' => 'book',
+                'name' => $book?->name ?? "Book #{$id}",
+                'book_id' => $id,
+                'bundle_id' => null,
+                'book_index_id' => null,
+                'stock' => (int) ($book?->stock ?? 0),
+                'source_price' => (float) ($book?->source_price ?? 0),
+                'exists' => (bool) $book,
+            ];
+        }
+    }
+
     public function createSalesOrder()
     {
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
-        $products = \App\Models\Book::where('is_active', true)->get();
+        $products = $this->getUnifiedProducts();
         $areaSalesStaff = \App\Models\User::where('department', 'Area Sales')->get();
 
         return view('marketing.sales-orders.create', [
@@ -1677,16 +1789,16 @@ class MarketingController extends Controller
         foreach ($request->items ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $qty = (int) ($item['quantity'] ?? 0);
-            $book = \App\Models\Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
-            $bookName = $book ? $book->name : "Product #{$item['product_id']}";
-            $availableStock = $book ? (int) $book->stock : 0;
+            $target = $this->resolveItemTarget($item['product_id']);
+            $productName = $target['name'];
+            $availableStock = $target['stock'];
 
             if ($qty <= 0) {
-                $itemErrors[] = "<strong>{$bookName}</strong>: Quantity must be at least 1.";
+                $itemErrors[] = "<strong>{$productName}</strong>: Quantity must be at least 1.";
             } elseif ($action === 'submit' && $availableStock <= 0) {
-                $itemErrors[] = "<strong>{$bookName}</strong>: Item is out of stock (Stock: 0).";
+                $itemErrors[] = "<strong>{$productName}</strong>: Item is out of stock (Stock: 0).";
             } elseif ($action === 'submit' && $availableStock < $qty) {
-                $itemErrors[] = "<strong>{$bookName}</strong>: Insufficient stock (Available: {$availableStock} pcs, Requested: {$qty} pcs).";
+                $itemErrors[] = "<strong>{$productName}</strong>: Insufficient stock (Available: {$availableStock} pcs, Requested: {$qty} pcs).";
             }
         }
 
@@ -1764,10 +1876,9 @@ class MarketingController extends Controller
             }
 
             foreach (array_values($aggregatedItems) as $item) {
-                // Skip items where the book doesn't exist — prevents "Unknown Item" in views
-                $book = \App\Models\Book::find($item['product_id']);
-                if (!$book) {
-                    \Log::warning('storeSalesOrder: skipping item with non-existent book_id=' . $item['product_id']);
+                $target = $this->resolveItemTarget($item['product_id']);
+                if (!$target['exists']) {
+                    \Log::warning('storeSalesOrder: skipping item with non-existent product_id=' . $item['product_id']);
                     continue;
                 }
 
@@ -1776,13 +1887,15 @@ class MarketingController extends Controller
 
                 \App\Models\SalesOrderItem::create([
                     'sales_order_id' => $so->id,
-                    'book_id' => $item['product_id'],
+                    'book_id' => $target['book_id'],
+                    'bundle_id' => $target['bundle_id'],
+                    'book_index_id' => $target['book_index_id'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'subtotal' => $subtotal,
                     'unit' => $item['unit'] ?? 'pcs',
                     'area' => $item['area'] ?? null,
-                    'source_price_at_sale' => $book->source_price ?? 0,
+                    'source_price_at_sale' => $target['source_price'],
                 ]);
             }
         }
@@ -1890,9 +2003,9 @@ class MarketingController extends Controller
 
     public function editSalesOrder($id)
     {
-        $order = \App\Models\SalesOrder::with('items.book')->findOrFail($id);
+        $order = \App\Models\SalesOrder::with(['items.book', 'items.bookIndex.book', 'items.bundle'])->findOrFail($id);
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
-        $products = \App\Models\Book::where('is_active', true)->get();
+        $products = $this->getUnifiedProducts();
         $areaSalesStaff = \App\Models\User::where('department', 'Area Sales')->get();
 
         return view('marketing.sales-orders.create', [
@@ -1974,16 +2087,16 @@ class MarketingController extends Controller
         foreach ($request->items ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $qty = (int) ($item['quantity'] ?? 0);
-            $book = \App\Models\Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
-            $bookName = $book ? $book->name : "Product #{$item['product_id']}";
-            $availableStock = $book ? (int) $book->stock : 0;
+            $target = $this->resolveItemTarget($item['product_id']);
+            $productName = $target['name'];
+            $availableStock = $target['stock'];
 
             if ($qty <= 0) {
-                $itemErrors[] = "<strong>{$bookName}</strong>: Quantity must be at least 1.";
+                $itemErrors[] = "<strong>{$productName}</strong>: Quantity must be at least 1.";
             } elseif ($availableStock <= 0) {
-                $itemErrors[] = "<strong>{$bookName}</strong>: Item is out of stock (Stock: 0).";
+                $itemErrors[] = "<strong>{$productName}</strong>: Item is out of stock (Stock: 0).";
             } elseif ($availableStock < $qty) {
-                $itemErrors[] = "<strong>{$bookName}</strong>: Insufficient stock (Available: {$availableStock} pcs, Requested: {$qty} pcs).";
+                $itemErrors[] = "<strong>{$productName}</strong>: Insufficient stock (Available: {$availableStock} pcs, Requested: {$qty} pcs).";
             }
         }
 
@@ -2038,10 +2151,9 @@ class MarketingController extends Controller
             }
 
             foreach (array_values($aggregatedItems) as $item) {
-                // Skip items where the book doesn't exist — prevents "Unknown Item" in views
-                $book = \App\Models\Book::find($item['product_id']);
-                if (!$book) {
-                    \Log::warning('updateSalesOrder: skipping item with non-existent book_id=' . $item['product_id']);
+                $target = $this->resolveItemTarget($item['product_id']);
+                if (!$target['exists']) {
+                    \Log::warning('updateSalesOrder: skipping item with non-existent product_id=' . $item['product_id']);
                     continue;
                 }
 
@@ -2050,13 +2162,15 @@ class MarketingController extends Controller
 
                 \App\Models\SalesOrderItem::create([
                     'sales_order_id' => $so->id,
-                    'book_id' => $item['product_id'],
+                    'book_id' => $target['book_id'],
+                    'bundle_id' => $target['bundle_id'],
+                    'book_index_id' => $target['book_index_id'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'subtotal' => $subtotal,
                     'unit' => $item['unit'] ?? 'pcs',
                     'area' => $item['area'] ?? null,
-                    'source_price_at_sale' => $book->source_price ?? 0,
+                    'source_price_at_sale' => $target['source_price'],
                 ]);
             }
         }

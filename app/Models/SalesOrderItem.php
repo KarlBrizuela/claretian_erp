@@ -11,6 +11,7 @@ class SalesOrderItem extends Model
         'sales_order_id',
         'book_id',
         'bundle_id',
+        'book_index_id',
         'quantity',
         'price',
         'subtotal',
@@ -34,7 +35,12 @@ class SalesOrderItem extends Model
 
     public function bundle()
     {
-        return $this->belongsTo(BookBundle::class);
+        return $this->belongsTo(BookBundle::class, 'bundle_id');
+    }
+
+    public function bookIndex()
+    {
+        return $this->belongsTo(BookIndex::class, 'book_index_id');
     }
 
     /**

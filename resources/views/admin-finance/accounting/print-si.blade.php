@@ -279,7 +279,7 @@
 
             @page {
                 margin: 0.3in;
-                size: A4;
+                size: portrait;
             }
         }
 

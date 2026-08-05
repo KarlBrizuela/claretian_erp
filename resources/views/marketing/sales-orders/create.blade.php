@@ -271,18 +271,20 @@
     <select id="productSource" class="d-none">
         <option value="" disabled selected>Select Product...</option>
         @foreach($products as $product)
-                @php
-                    $imgUrl = $product->image ? asset('storage/' . $product->image) : asset('images/no-book-cover.svg');
-                    $optionContent = '<div class="d-flex align-items-center gap-2"><img src="'.$imgUrl.'" style="width:24px; height:24px; object-fit:cover; border-radius:3px; border:1px solid #ddd;"> <span style="font-size:0.85rem;">'.e($product->name).' (Stock: '.($product->stock ?? 0).')</span></div>';
-                @endphp
-                <option value="{{ $product->id }}" 
-                    data-price="{{ $product->price }}" 
-                    data-isbn="{{ $product->isbn ?? $product->barcode ?? $product->sku ?? '' }}"
-                    data-stock="{{ $product->stock ?? 0 }}"
-                    data-image="{{ $imgUrl }}"
-                    data-content="{{ $optionContent }}">
-                    {{ $product->name }} (Stock: {{ $product->stock ?? 0 }})
-                </option>
+            @php
+                $imgUrl = $product->image ?? asset('images/no-book-cover.svg');
+                $dispName = $product->display_name ?? $product->name;
+                $stockVal = $product->stock ?? 0;
+                $htmlContent = '<div class="d-flex align-items-center gap-2"><img src="'.$imgUrl.'" style="width:26px; height:26px; object-fit:cover; border-radius:4px; border:1px solid #ccc; flex-shrink:0;"> <span style="font-size:0.85rem; font-weight:500; flex:1;">'.e($dispName).'</span> <span class="badge bg-light text-dark border ms-auto" style="font-size:0.75rem; font-weight:normal;">Stock: '.$stockVal.'</span></div>';
+            @endphp
+            <option value="{{ $product->id }}" 
+                data-price="{{ $product->price }}" 
+                data-isbn="{{ $product->isbn ?? '' }}"
+                data-stock="{{ $stockVal }}"
+                data-image="{{ $imgUrl }}"
+                data-content="{!! htmlspecialchars($htmlContent, ENT_QUOTES, 'UTF-8') !!}">
+                {{ $dispName }} (Stock: {{ $stockVal }})
+            </option>
         @endforeach
     </select>
 
@@ -681,7 +683,7 @@
 
                 const qtyVal = data ? data.quantity : 1;
                 const unitVal = data ? (data.unit || 'pcs') : 'pcs';
-                const productId = data ? (data.book_id || data.product_id) : '';
+                const productId = data ? (data.book_index_id ? ('index_' + data.book_index_id) : (data.bundle_id ? ('bundle_' + data.bundle_id) : ('book_' + (data.book_id || data.product_id)))) : '';
                 const isbnVal = data ? (data.isbn || '') : '';
                 const priceVal = data ? parseFloat(data.price) : '';
                 const subtotalVal = data ? (data.quantity * data.price) : 0;

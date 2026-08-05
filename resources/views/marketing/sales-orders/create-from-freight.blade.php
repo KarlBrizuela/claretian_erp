@@ -157,7 +157,7 @@
                 <option value="{{ $product->id }}" 
                         data-price="{{ $product->price }}" 
                         data-isbn="{{ $product->isbn ?? '' }}">
-                    {{ $product->name }}
+                    {{ $product->display_name ?? $product->name }}
                 </option>
             @endforeach
         @endif
