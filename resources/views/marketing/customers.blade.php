@@ -480,25 +480,34 @@
                                         <div class="col-md-6">
                                             <div class="form-row-custom">
                                                 <label>CUSTOMER TYPE</label>
-                                                <select class="form-select form-select-sm" id="custType">
-                                                    <option>TEAM A</option>
-                                                    <option>TEAM B</option>
-                                                    <option>TEAM C</option>
-                                                </select>
+                                                <div class="d-flex align-items-center gap-1 flex-1">
+                                                    <select class="form-select form-select-sm" id="custType">
+                                                        <option value="TEAM A">TEAM A</option>
+                                                        <option value="TEAM B">TEAM B</option>
+                                                        <option value="TEAM C">TEAM C</option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 text-nowrap" onclick="addNewDropdownOption('custType', 'Customer Type')" title="Add New Customer Type"><i class="fas fa-plus"></i></button>
+                                                </div>
                                             </div>
                                             <div class="form-row-custom">
                                                 <label>REP</label>
-                                                <select class="form-select form-select-sm" id="custRep">
-                                                    <option>CLE</option>
-                                                    <option>MKT</option>
-                                                </select>
+                                                <div class="d-flex align-items-center gap-1 flex-1">
+                                                    <select class="form-select form-select-sm" id="custRep">
+                                                        <option value="CLE">CLE</option>
+                                                        <option value="MKT">MKT</option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 text-nowrap" onclick="addNewDropdownOption('custRep', 'Rep')" title="Add New Rep"><i class="fas fa-plus"></i></button>
+                                                </div>
                                             </div>
                                             <div class="form-row-custom">
                                                 <label>CLASS</label>
-                                                <select class="form-select form-select-sm" id="custClass">
-                                                    <option>LAG</option>
-                                                    <option>MNL</option>
-                                                </select>
+                                                <div class="d-flex align-items-center gap-1 flex-1">
+                                                    <select class="form-select form-select-sm" id="custClass">
+                                                        <option value="LAG">LAG</option>
+                                                        <option value="MNL">MNL</option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 text-nowrap" onclick="addNewDropdownOption('custClass', 'Class')" title="Add New Class"><i class="fas fa-plus"></i></button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
@@ -1015,24 +1024,34 @@
                                         <div class="col-md-6">
                                             <div class="form-row-custom">
                                                 <label>CUSTOMER TYPE</label>
-                                                <select class="form-select form-select-sm" id="editCustType">
-                                                    <option>TEAM A</option>
-                                                    <option>TEAM B</option>
-                                                </select>
+                                                <div class="d-flex align-items-center gap-1 flex-1">
+                                                    <select class="form-select form-select-sm" id="editCustType">
+                                                        <option value="TEAM A">TEAM A</option>
+                                                        <option value="TEAM B">TEAM B</option>
+                                                        <option value="TEAM C">TEAM C</option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 text-nowrap" onclick="addNewDropdownOption('editCustType', 'Customer Type')" title="Add New Customer Type"><i class="fas fa-plus"></i></button>
+                                                </div>
                                             </div>
                                             <div class="form-row-custom">
                                                 <label>REP</label>
-                                                <select class="form-select form-select-sm" id="editCustRep">
-                                                    <option>CLE</option>
-                                                    <option>MKT</option>
-                                                </select>
+                                                <div class="d-flex align-items-center gap-1 flex-1">
+                                                    <select class="form-select form-select-sm" id="editCustRep">
+                                                        <option value="CLE">CLE</option>
+                                                        <option value="MKT">MKT</option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 text-nowrap" onclick="addNewDropdownOption('editCustRep', 'Rep')" title="Add New Rep"><i class="fas fa-plus"></i></button>
+                                                </div>
                                             </div>
                                             <div class="form-row-custom">
                                                 <label>CLASS</label>
-                                                <select class="form-select form-select-sm" id="editCustClass">
-                                                    <option>LAG</option>
-                                                    <option>MNL</option>
-                                                </select>
+                                                <div class="d-flex align-items-center gap-1 flex-1">
+                                                    <select class="form-select form-select-sm" id="editCustClass">
+                                                        <option value="LAG">LAG</option>
+                                                        <option value="MNL">MNL</option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 text-nowrap" onclick="addNewDropdownOption('editCustClass', 'Class')" title="Add New Class"><i class="fas fa-plus"></i></button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
@@ -1178,6 +1197,47 @@
 
     @push('scripts')
     <script>
+        window.addNewDropdownOption = function(selectId, labelName) {
+            const val = prompt('Enter new ' + labelName + ' name:');
+            if (val && val.trim()) {
+                const cleanVal = val.trim();
+                const select = document.getElementById(selectId);
+                if (select) {
+                    let exists = false;
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value.toLowerCase() === cleanVal.toLowerCase()) {
+                            select.selectedIndex = i;
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        const opt = new Option(cleanVal, cleanVal, true, true);
+                        select.add(opt);
+                    }
+                }
+            }
+        };
+
+        window.setSelectOrAddOption = function(selectId, value, defaultVal) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            const targetVal = value || defaultVal || '';
+            if (!targetVal) return;
+            let found = false;
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value.toLowerCase() === targetVal.toLowerCase()) {
+                    select.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                const newOpt = new Option(targetVal, targetVal, true, true);
+                select.add(newOpt);
+            }
+        };
+
         // Authorization check
         const userPosition = '{{ auth()->user()->position ?? "" }}';
         const canEditCustomers = {{ auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers') ? 'true' : 'false' }};
@@ -1377,10 +1437,9 @@
                     document.getElementById('editCcExpYear').value = customer.card_exp_year || '';
                     document.getElementById('editCcName').value = customer.card_name || '';
                     document.getElementById('editCcAddress').value = customer.card_billing_address || '';
-                    document.getElementById('editCcZip').value = customer.card_zip || '';
-                    document.getElementById('editCustType').value = customer.customer_type || 'TEAM A';
-                    document.getElementById('editCustRep').value = customer.rep || 'CLE';
-                    document.getElementById('editCustClass').value = customer.class || 'LAG';
+                    setSelectOrAddOption('editCustType', customer.customer_type, 'TEAM A');
+                    setSelectOrAddOption('editCustRep', customer.rep, 'CLE');
+                    setSelectOrAddOption('editCustClass', customer.class, 'LAG');
                     document.getElementById('editCustomContactPerson').value = customer.custom_contact_person || '';
                     document.getElementById('editCustomCustField').value = customer.custom_customer_field || '';
                     document.getElementById('editCustomerInactive').checked = customer.is_inactive == 1;

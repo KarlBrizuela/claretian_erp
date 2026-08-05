@@ -330,7 +330,48 @@
         }
 
         body.preprinted-mode .invoice-box {
-            padding-top: 0.85in !important;
+            padding-top: 0.95in !important;
+        }
+
+        /* Adjust right column (Date, Terms, Due Date) vertical alignment on pre-printed form */
+        body.preprinted-mode .info-grid tr:first-child td:nth-child(3),
+        body.preprinted-mode .info-grid tr:first-child td:nth-child(4) {
+            padding-top: 22px !important;
+        }
+
+        /* Expand hidden table header height so line items start below the pre-printed table header */
+        body.preprinted-mode .items-table thead tr {
+            height: 44px !important;
+        }
+
+        body.preprinted-mode .items-table {
+            min-height: 2.6in !important;
+            margin-bottom: 5px !important;
+        }
+
+        /* Checkbox ✓ and Total Sales alignment */
+        body.preprinted-mode .payment-sales-row {
+            margin-top: 10px !important;
+            margin-bottom: 5px !important;
+        }
+
+        body.preprinted-mode .cb-box {
+            border-color: transparent !important;
+            font-size: 13pt !important;
+            line-height: 12px !important;
+        }
+
+        /* Signatories alignment */
+        body.preprinted-mode .signatories-row {
+            margin-top: 24px !important;
+            padding-top: 5px !important;
+        }
+
+        body.preprinted-mode .sig-line {
+            border-color: transparent !important;
+            margin-top: 14px !important;
+            font-size: 9pt !important;
+            font-weight: bold !important;
         }
 
         @media print {
@@ -349,7 +390,7 @@
                 justify-content: space-between;
             }
             body.preprinted-mode .invoice-box {
-                padding-top: 0.85in !important;
+                padding-top: 0.95in !important;
             }
             .actions-bar {
                 display: none !important;
