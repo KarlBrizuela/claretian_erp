@@ -198,20 +198,62 @@
                     </thead>
                     <tbody>
                         @foreach($itemsToRender as $item)
-                        @php $itemName = $item->book?->name ?? ($item->product_name ?? null); @endphp
-                        @if($itemName)
+                        @php
+                            $displayTitle = null;
+                            $displayImage = asset('images/no-book-cover.svg');
+                            $displayIsbn = $item->isbn ?? '-';
+                            $isIndex = false;
+                            $isBundle = false;
+                            $indexVal = '';
+
+                            if ($item->bookIndex) {
+                                $isIndex = true;
+                                $indexVal = $item->bookIndex->index_value;
+                                $parentBook = $item->bookIndex->book;
+                                $displayTitle = $parentBook ? $parentBook->name : 'Book Index Item';
+                                $displayIsbn = $parentBook?->isbn ?? $displayIsbn;
+                                if ($parentBook && $parentBook->image) {
+                                    $displayImage = asset('storage/' . $parentBook->image);
+                                }
+                            } elseif ($item->bundle) {
+                                $isBundle = true;
+                                $displayTitle = $item->bundle->name;
+                                $displayIsbn = $item->bundle->sku ?? $displayIsbn;
+                            } elseif ($item->book) {
+                                $displayTitle = $item->book->name;
+                                $displayIsbn = $item->book->isbn ?? $displayIsbn;
+                                if ($item->book->image) {
+                                    $displayImage = asset('storage/' . $item->book->image);
+                                }
+                            } else {
+                                $displayTitle = $item->product_name ?? null;
+                            }
+                        @endphp
+                        @if($displayTitle)
                         <tr>
                             <td class="text-center">{{ (float)$item->quantity }}</td>
-                            <td class="text-center text-uppercase">{{ $item->book?->unit ?? 'pcs' }}</td>
+                            <td class="text-center text-uppercase">{{ $item->unit ?? $item->book?->unit ?? 'pcs' }}</td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
-                                    <img src="{{ $item->book && $item->book->image ? asset('storage/' . $item->book->image) : asset('images/no-book-cover.svg') }}" 
+                                    <img src="{{ $displayImage }}" 
                                          style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
                                          alt="Product Cover">
-                                    <div class="fw-bold">{{ $itemName }}</div>
+                                    <div>
+                                        <div class="fw-bold">
+                                            @if($isIndex)
+                                                <span class="badge bg-warning text-dark me-1" style="font-size: 0.7rem;">INDEX ({{ $indexVal }})</span>
+                                            @elseif($isBundle)
+                                                <span class="badge text-white me-1" style="font-size: 0.7rem; background-color: #6f42c1;">BUNDLE</span>
+                                            @endif
+                                            {{ $displayTitle }}
+                                        </div>
+                                        @if($isIndex)
+                                            <div class="small text-muted">Index Variant: {{ $indexVal }}</div>
+                                        @endif
+                                    </div>
                                 </div>
                             </td>
-                            <td>{{ $item->isbn ?? '-' }}</td>
+                            <td>{{ $displayIsbn }}</td>
                             <td>{{ $item->area ?? '-' }}</td>
                             <td class="text-end">₱{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
                             <td class="text-end fw-bold">₱{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>

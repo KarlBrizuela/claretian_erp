@@ -510,7 +510,13 @@
                 <tbody>
                     @forelse($itemsToPrint as $item)
                         @php
-                            $desc = $item->book?->name ?? ($item->product_name ?? 'Product Item');
+                            if ($item->bookIndex) {
+                                $desc = '[INDEX ' . $item->bookIndex->index_value . '] ' . ($item->bookIndex->book?->name ?? 'Book Index Item');
+                            } elseif ($item->bundle) {
+                                $desc = '[BUNDLE] ' . $item->bundle->name;
+                            } else {
+                                $desc = $item->book?->name ?? ($item->product_name ?? 'Product Item');
+                            }
                             $qty = (float) $item->quantity;
                             $price = (float) ($item->unit_price ?? $item->price);
                             $subtotal = (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));

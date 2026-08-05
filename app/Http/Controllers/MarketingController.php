@@ -1585,11 +1585,11 @@ class MarketingController extends Controller
     {
         $order = null;
         if ($id) {
-            $order = \App\Models\SalesOrder::with('customer', 'items.book', 'preparedBy', 'areaSalesStaff')->findOrFail($id);
+            $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex.book', 'items.bundle', 'preparedBy', 'areaSalesStaff'])->findOrFail($id);
 
             // Recalculate total_amount to ensure database is in sync with line items and charges
             $itemsSubtotal = $order->items->filter(function($item) {
-                return $item->book || $item->bundle;
+                return $item->book || $item->bookIndex || $item->bundle;
             })->sum(function($item) {
                 return ($item->subtotal > 0) ? (float)$item->subtotal : ((float)$item->quantity * (float)$item->price);
             });
