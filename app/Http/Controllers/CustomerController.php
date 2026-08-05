@@ -460,4 +460,479 @@ class CustomerController extends Controller
             'payments' => $formattedPayments,
         ]);
     }
+
+    /**
+     * Export Customer Excel Template for Import
+     */
+    public function exportExcel()
+    {
+        return $this->downloadTemplate();
+    }
+
+    /**
+     * Download blank Excel template for customer import
+     */
+    public function downloadTemplate()
+    {
+        return $this->buildCustomerSpreadsheet(collect([]), 'Customer_Import_Template.xlsx');
+    }
+
+    private function buildCustomerSpreadsheet($customers, $filename)
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Customers');
+
+        $headers = [
+            'Customer Name*', 'Company Name', 'Opening Balance', 'As Of Date (YYYY-MM-DD)', 'Currency (PHP/USD)',
+            'Title', 'First Name', 'Middle Initial', 'Last Name', 'Job Title',
+            'Main Phone', 'Work Phone', 'Mobile*', 'Fax', 'Main Email', 'CC Email', 'Website', 'Other Contact',
+            'Billing Address Line 1', 'Billing Address Line 2', 'Billing Town/City', 'Billing Province/Region', 'Billing Country',
+            'Shipping Address Line 1*', 'Shipping Address Line 2', 'Shipping Town/City*', 'Shipping Province/Region', 'Shipping Country',
+            'Payment Terms', 'Preferred Delivery Method', 'Preferred Payment Method',
+            'Credit Limit', 'Price Level', 'Card Number Last 4', 'Card Exp Month', 'Card Exp Year', 'Card Name',
+            'Card Billing Address', 'Card Zip', 'Customer Type', 'Rep', 'Class', 'Contact Person', 'Custom Customer Field'
+        ];
+
+        // Format header row
+        foreach ($headers as $index => $header) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
+            $cell = $colLetter . '1';
+            $sheet->setCellValue($cell, $header);
+        }
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'C00000']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
+        ];
+        $sheet->getStyle('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers)) . '1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        // Fill data rows
+        $rowNum = 2;
+        $parseAddr = function($addrStr) {
+            if (!$addrStr || $addrStr === 'N/A') {
+                return ['', '', '', '', 'Philippines'];
+            }
+            if (str_contains($addrStr, '|')) {
+                $p = array_map('trim', explode('|', $addrStr));
+                return [$p[0] ?? '', $p[1] ?? '', $p[2] ?? '', $p[3] ?? '', $p[4] ?? 'Philippines'];
+            }
+            $parts = array_values(array_filter(array_map('trim', explode(',', $addrStr))));
+            $len = count($parts);
+            if ($len >= 5) {
+                return [$parts[0], $parts[1], $parts[2], $parts[3], $parts[4]];
+            } elseif ($len == 4) {
+                return [$parts[0], '', $parts[1], $parts[2], $parts[3]];
+            } elseif ($len == 3) {
+                return [$parts[0], '', $parts[1], '', $parts[2]];
+            } elseif ($len == 2) {
+                return [$parts[0], '', $parts[1], '', 'Philippines'];
+            }
+            return [$parts[0] ?? '', '', '', '', 'Philippines'];
+        };
+
+        foreach ($customers as $c) {
+            list($b1, $b2, $bCity, $bProv, $bCoun) = $parseAddr($c->billing_address ?? '');
+            list($s1, $s2, $sCity, $sProv, $sCoun) = $parseAddr($c->shipping_address ?? '');
+
+            $data = [
+                $c->customer_name ?? '',
+                $c->company_name ?? '',
+                (float) ($c->opening_balance ?? 0),
+                $c->opening_balance_date ? date('Y-m-d', strtotime($c->opening_balance_date)) : '',
+                $c->currency_code ?? 'PHP',
+                $c->title ?? '',
+                $c->first_name ?? '',
+                $c->middle_initial ?? '',
+                $c->last_name ?? '',
+                $c->job_title ?? '',
+                $c->main_phone ?? '',
+                $c->work_phone ?? '',
+                $c->mobile ?? '',
+                $c->fax ?? '',
+                $c->main_email ?? '',
+                $c->cc_email ?? '',
+                $c->website ?? '',
+                $c->other_contact ?? '',
+                $b1,
+                $b2,
+                $bCity,
+                $bProv,
+                $bCoun,
+                $s1,
+                $s2,
+                $sCity,
+                $sProv,
+                $sCoun,
+                $c->payment_terms ?? '',
+                $c->preferred_delivery_method ?? '',
+                $c->preferred_payment_method ?? '',
+                (float) ($c->credit_limit ?? 0),
+                $c->price_level ?? '',
+                $c->card_number_last4 ?? '',
+                $c->card_exp_month ?? '',
+                $c->card_exp_year ?? '',
+                $c->card_name ?? '',
+                $c->card_billing_address ?? '',
+                $c->card_zip ?? '',
+                $c->customer_type ?? '',
+                $c->rep ?? '',
+                $c->class ?? '',
+                $c->custom_contact_person ?? '',
+                $c->custom_customer_field ?? ''
+            ];
+
+            foreach ($data as $colIndex => $val) {
+                $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+                $sheet->setCellValue($colLetter . $rowNum, $val);
+            }
+            $rowNum++;
+        }
+
+        // Add Data Validation Dropdowns for columns (rows 2 to 250)
+        $existingTypes = Customer::whereNotNull('customer_type')->where('customer_type', '!=', '')->distinct()->pluck('customer_type')->toArray();
+        $typesList = array_values(array_unique(array_merge(['TEAM A', 'TEAM B', 'TEAM C'], $existingTypes)));
+
+        $existingReps = Customer::whereNotNull('rep')->where('rep', '!=', '')->distinct()->pluck('rep')->toArray();
+        $repsList = array_values(array_unique(array_merge(['CLE', 'MKT'], $existingReps)));
+
+        $existingClasses = Customer::whereNotNull('class')->where('class', '!=', '')->distinct()->pluck('class')->toArray();
+        $classesList = array_values(array_unique(array_merge(['LAG', 'MNL'], $existingClasses)));
+
+        $addDropdownValidation = function($sheet, $colLetter, array $options, $maxRow = 250) {
+            if (empty($options)) return;
+            $formula = '"' . implode(',', $options) . '"';
+            for ($r = 2; $r <= $maxRow; $r++) {
+                $validation = $sheet->getCell($colLetter . $r)->getDataValidation();
+                $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+                $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_INFORMATION);
+                $validation->setAllowBlank(true);
+                $validation->setShowInputMessage(true);
+                $validation->setShowErrorMessage(true);
+                $validation->setShowDropDown(true);
+                $validation->setErrorTitle('Select Option');
+                $validation->setError('Please select a valid option from the dropdown list.');
+                $validation->setFormula1($formula);
+            }
+        };
+
+        // E = Currency, AC = Terms, AD = Delivery Method, AE = Payment Method, AG = Price Level, AN = Type, AO = Rep, AP = Class
+        $addDropdownValidation($sheet, 'E', ['PHP', 'USD']);
+        $addDropdownValidation($sheet, 'AC', ['Net 15', 'Net 30', 'Net 60', 'Due on receipt']);
+        $addDropdownValidation($sheet, 'AD', ['Main Warehouse', 'Lazada', 'Shopee']);
+        $addDropdownValidation($sheet, 'AE', ['check', 'cash']);
+        $addDropdownValidation($sheet, 'AG', ['standard', 'wholesale']);
+        $addDropdownValidation($sheet, 'AN', $typesList);
+        $addDropdownValidation($sheet, 'AO', $repsList);
+        $addDropdownValidation($sheet, 'AP', $classesList);
+
+        // Auto-fit column widths
+        foreach (range(1, count($headers)) as $colIndex) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->stream(function () use ($writer) {
+            $writer->save('php://output');
+        }, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * Import multiple customers from Excel / CSV
+     */
+    public function importExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|max:10240', // Max 10MB
+        ]);
+
+        $file = $request->file('file');
+        $extension = strtolower($file->getClientOriginalExtension());
+        if (!in_array($extension, ['xlsx', 'xls', 'csv', 'txt'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid file format. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file.'
+            ], 422);
+        }
+        
+        try {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $sheet = $spreadsheet->getActiveSheet();
+            
+            // Get raw array with cell reference keys ('A', 'B'...)
+            $rows = $sheet->toArray(null, true, false, true);
+
+            if (empty($rows)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The uploaded file is empty.'
+                ], 422);
+            }
+
+            // Remove leading completely empty rows
+            foreach ($rows as $rKey => $rowCells) {
+                $hasVal = false;
+                foreach ($rowCells as $v) {
+                    if ($v !== null && trim((string)$v) !== '') {
+                        $hasVal = true;
+                        break;
+                    }
+                }
+                if (!$hasVal) {
+                    unset($rows[$rKey]);
+                } else {
+                    break;
+                }
+            }
+
+            if (empty($rows)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The uploaded file contains no data.'
+                ], 422);
+            }
+
+            // Inspect the first non-empty row to determine if it is a Header row
+            $firstRowKey = array_key_first($rows);
+            $firstRowCells = $rows[$firstRowKey];
+            
+            $headerMap = [];
+            $isHeaderRow = false;
+
+            foreach ($firstRowCells as $colKey => $cellText) {
+                if ($cellText !== null && trim((string)$cellText) !== '') {
+                    $cleanVal = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', (string)$cellText));
+                    if (in_array($cleanVal, ['customername', 'customername', 'customer', 'companyname', 'company', 'openingbalance', 'mobile', 'shippingaddress', 'currency'])) {
+                        $isHeaderRow = true;
+                    }
+                    $headerMap[$cleanVal] = $colKey;
+                }
+            }
+
+            // If first row is indeed a header row, remove it from data rows
+            if ($isHeaderRow) {
+                unset($rows[$firstRowKey]);
+            }
+
+            if (empty($rows)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The uploaded file only contains header text. Please fill out customer data rows under the header before importing.'
+                ], 422);
+            }
+
+            $importedCount = 0;
+            $skippedCount = 0;
+            $errors = [];
+
+            // Helper to fetch cell value by header keyword, column letter, or numeric index
+            $getVal = function($row, array $headerKeywords, $letterKey, $numericIdx) use ($headerMap, $isHeaderRow) {
+                if ($isHeaderRow) {
+                    foreach ($headerKeywords as $kw) {
+                        if (isset($headerMap[$kw])) {
+                            $key = $headerMap[$kw];
+                            if (isset($row[$key]) && trim((string)$row[$key]) !== '') {
+                                return trim((string)$row[$key]);
+                            }
+                        }
+                    }
+                }
+                if (isset($row[$letterKey]) && trim((string)$row[$letterKey]) !== '') {
+                    return trim((string)$row[$letterKey]);
+                }
+                // Fallback to numeric key
+                $values = array_values($row);
+                if (isset($values[$numericIdx]) && trim((string)$values[$numericIdx]) !== '') {
+                    return trim((string)$values[$numericIdx]);
+                }
+                return '';
+            };
+
+            $rowCounter = $isHeaderRow ? 1 : 0;
+
+            foreach ($rows as $rowIndex => $row) {
+                $rowCounter++;
+
+                $custName = $getVal($row, ['customername', 'name', 'customer'], 'A', 0);
+
+                if (empty($custName)) {
+                    // Check if entire row is empty
+                    $hasContent = false;
+                    foreach ($row as $val) {
+                        if ($val !== null && trim((string)$val) !== '') {
+                            $hasContent = true;
+                            break;
+                        }
+                    }
+                    if (!$hasContent) {
+                        continue; // Silently skip completely blank rows
+                    }
+
+                    $skippedCount++;
+                    $errors[] = "Row #{$rowCounter}: Customer Name is missing or empty.";
+                    continue;
+                }
+
+                $companyName = $getVal($row, ['companyname', 'company'], 'B', 1) ?: 'Individual';
+                $openingBalStr = $getVal($row, ['openingbalance', 'balance'], 'C', 2);
+                $openingBal = is_numeric($openingBalStr) ? (float)$openingBalStr : 0.0;
+
+                $asOfDateRaw = $getVal($row, ['asofdateyyyymmdd', 'asofdate', 'asof', 'date'], 'D', 3);
+                $asOfDate = null;
+                if (!empty($asOfDateRaw)) {
+                    if (is_numeric($asOfDateRaw)) {
+                        try {
+                            $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$asOfDateRaw);
+                            $asOfDate = $dt->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            $asOfDate = null;
+                        }
+                    } else {
+                        $timestamp = strtotime($asOfDateRaw);
+                        if ($timestamp !== false) {
+                            $asOfDate = date('Y-m-d', $timestamp);
+                        }
+                    }
+                }
+
+                $currencyCode = strtoupper($getVal($row, ['currency', 'currencycode'], 'E', 4)) ?: 'PHP';
+                if (!in_array($currencyCode, ['PHP', 'USD'])) {
+                    $currencyCode = str_contains($currencyCode, 'USD') ? 'USD' : 'PHP';
+                }
+
+                $title = $getVal($row, ['title'], 'F', 5);
+                $firstName = $getVal($row, ['firstname', 'first'], 'G', 6);
+                $middleInitial = $getVal($row, ['middleinitial', 'mi', 'middle'], 'H', 7);
+                $lastName = $getVal($row, ['lastname', 'last'], 'I', 8);
+                $jobTitle = $getVal($row, ['jobtitle', 'job'], 'J', 9);
+                $mainPhone = $getVal($row, ['mainphone', 'phone'], 'K', 10);
+                $workPhone = $getVal($row, ['workphone'], 'L', 11);
+                $mobile = $getVal($row, ['mobile', 'mobilephone', 'cellphone'], 'M', 12) ?: 'N/A';
+                $fax = $getVal($row, ['fax'], 'N', 13);
+                $mainEmail = $getVal($row, ['mainemail', 'email'], 'O', 14);
+                $ccEmail = $getVal($row, ['ccemail'], 'P', 15);
+                $website = $getVal($row, ['website', 'site'], 'Q', 16);
+                $otherContact = $getVal($row, ['othercontact'], 'R', 17);
+                // Read Form-Style Address Fields
+                $bLine1 = $getVal($row, ['billingaddressline1', 'billingline1', 'billaddress1', 'billline1'], 'S', 18);
+                $bLine2 = $getVal($row, ['billingaddressline2', 'billingline2', 'billaddress2', 'billline2'], 'T', 19);
+                $bCity  = $getVal($row, ['billingtowncity', 'billingcity', 'billcity', 'towncity'], 'U', 20);
+                $bCountry = $getVal($row, ['billingcountry', 'billcountry'], 'V', 21);
+
+                $bFullForm = implode(', ', array_filter([$bLine1, $bLine2, $bCity, $bCountry]));
+                $billingAddress = $bFullForm ?: ($getVal($row, ['invoicebillingaddress', 'billingaddress', 'invoiceaddress', 'billing'], 'S', 18) ?: 'N/A');
+
+                $sLine1 = $getVal($row, ['shippingaddressline1', 'shippingline1', 'shipaddress1', 'shipline1'], 'W', 22);
+                $sLine2 = $getVal($row, ['shippingaddressline2', 'shippingline2', 'shipaddress2', 'shipline2'], 'X', 23);
+                $sCity  = $getVal($row, ['shippingtowncity', 'shippingcity', 'shipcity'], 'Y', 24);
+                $sCountry = $getVal($row, ['shippingcountry', 'shipcountry'], 'Z', 25);
+
+                $sFullForm = implode(', ', array_filter([$sLine1, $sLine2, $sCity, $sCountry]));
+                $shippingAddress = $sFullForm ?: ($getVal($row, ['shippingaddress', 'shipto', 'shipping'], 'T', 19) ?: ($billingAddress !== 'N/A' ? $billingAddress : 'N/A'));
+
+                $paymentTerms = $getVal($row, ['paymentterms', 'terms'], 'AA', 26) ?: 'Net 15';
+                $preferredDelivery = $getVal($row, ['preferreddeliverymethod', 'deliverymethod', 'delivery'], 'AB', 27) ?: 'Main Warehouse';
+                $preferredPayment = $getVal($row, ['preferredpaymentmethod', 'paymentmethod'], 'AC', 28) ?: 'check';
+
+                $creditLimitStr = $getVal($row, ['creditlimit'], 'AD', 29);
+                $creditLimit = is_numeric($creditLimitStr) ? (float)$creditLimitStr : 0.0;
+
+                $priceLevel = strtolower($getVal($row, ['pricelevel'], 'AE', 30)) ?: 'standard';
+                $cardNumberLast4 = $getVal($row, ['cardnumberlast4'], 'AF', 31);
+                $cardExpMonth = $getVal($row, ['cardexpmonth'], 'AG', 32);
+                $cardExpYear = $getVal($row, ['cardexpyear'], 'AH', 33);
+                $cardName = $getVal($row, ['cardname'], 'AI', 34);
+                $cardBillingAddr = $getVal($row, ['cardbillingaddress'], 'AJ', 35);
+                $cardZip = $getVal($row, ['cardzip'], 'AK', 36);
+                $custType = $getVal($row, ['customertype', 'type'], 'AL', 37) ?: 'TEAM A';
+                $rep = $getVal($row, ['rep'], 'AM', 38) ?: 'CLE';
+                $class = $getVal($row, ['class'], 'AN', 39) ?: 'LAG';
+                $contactPerson = $getVal($row, ['contactperson'], 'AO', 40);
+                $customCustField = $getVal($row, ['customcustomerfield', 'customfield'], 'AP', 41);
+
+                $accountNo = 'CUST-' . strtoupper(uniqid());
+
+                try {
+                    Customer::create([
+                        'customer_name' => $custName,
+                        'company_name' => $companyName,
+                        'account_number' => $accountNo,
+                        'opening_balance' => $openingBal,
+                        'opening_balance_date' => $asOfDate,
+                        'currency_code' => $currencyCode,
+                        'title' => $title ?: null,
+                        'first_name' => $firstName ?: null,
+                        'middle_initial' => $middleInitial ?: null,
+                        'last_name' => $lastName ?: null,
+                        'job_title' => $jobTitle ?: null,
+                        'main_phone' => $mainPhone ?: null,
+                        'work_phone' => $workPhone ?: null,
+                        'mobile' => $mobile,
+                        'fax' => $fax ?: null,
+                        'main_email' => !empty($mainEmail) && filter_var($mainEmail, FILTER_VALIDATE_EMAIL) ? $mainEmail : null,
+                        'cc_email' => !empty($ccEmail) && filter_var($ccEmail, FILTER_VALIDATE_EMAIL) ? $ccEmail : null,
+                        'website' => $website ?: null,
+                        'other_contact' => $otherContact ?: null,
+                        'billing_address' => $billingAddress,
+                        'shipping_address' => $shippingAddress,
+                        'is_default_shipping' => 1,
+                        'payment_terms' => in_array($paymentTerms, ['Net 15', 'Net 30', 'Net 60', 'Due on receipt']) ? $paymentTerms : 'Net 15',
+                        'preferred_delivery_method' => in_array($preferredDelivery, ['Lazada', 'Shopee', 'Main Warehouse']) ? $preferredDelivery : 'Main Warehouse',
+                        'preferred_payment_method' => in_array(strtolower($preferredPayment), ['check', 'cash']) ? strtolower($preferredPayment) : 'check',
+                        'credit_limit' => $creditLimit,
+                        'price_level' => in_array(strtolower($priceLevel), ['standard', 'wholesale']) ? strtolower($priceLevel) : 'standard',
+                        'card_number_last4' => $cardNumberLast4 ?: null,
+                        'card_exp_month' => $cardExpMonth ?: null,
+                        'card_exp_year' => $cardExpYear ?: null,
+                        'card_name' => $cardName ?: null,
+                        'card_billing_address' => $cardBillingAddr ?: null,
+                        'card_zip' => $cardZip ?: null,
+                        'customer_type' => $custType,
+                        'rep' => $rep,
+                        'class' => $class,
+                        'custom_contact_person' => $contactPerson ?: null,
+                        'custom_customer_field' => $customCustField ?: null,
+                        'is_inactive' => 0,
+                        'manual_status' => 'good',
+                    ]);
+
+                    $importedCount++;
+                } catch (\Exception $e) {
+                    $skippedCount++;
+                    $errors[] = "Row #{$rowCounter} ({$custName}): " . $e->getMessage();
+                }
+            }
+
+            if ($importedCount === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No customers were imported. Please make sure to fill out customer names in your file.',
+                    'errors' => $errors
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully imported {$importedCount} new customer(s)." . ($skippedCount > 0 ? " ({$skippedCount} skipped/failed)" : ""),
+                'imported_count' => $importedCount,
+                'skipped_count' => $skippedCount,
+                'errors' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error processing file: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

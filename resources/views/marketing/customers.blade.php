@@ -122,6 +122,35 @@
             color: #666;
             display: inline-block;
         }
+
+        /* Fix header action buttons icon styles */
+        .customer-header-actions .btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0.4rem !important;
+            height: 38px !important;
+            padding: 0.5rem 0.9rem !important;
+            font-size: 0.875rem !important;
+            font-weight: 600 !important;
+            border-radius: 4px !important;
+            box-shadow: none !important;
+        }
+
+        .customer-header-actions .btn i {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            width: auto !important;
+            height: auto !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            display: inline-block !important;
+            font-size: 1.15rem !important;
+            line-height: 1 !important;
+            color: inherit !important;
+        }
     </style>
     @endpush
 
@@ -132,16 +161,22 @@
                     <div>
                         <h4 class="fs-20 mb-0 text-black">Customer List</h4>
                     </div>
-                    <div class="d-flex align-items-center mt-3 mt-sm-0">
-                        <input type="text" class="form-control me-3" placeholder="Search customers..."
-                            id="customerSearch" style="max-width: 300px;">
+                    <div class="d-flex align-items-center gap-2 mt-3 mt-sm-0 customer-header-actions">
+                        <input type="text" class="form-control me-2" placeholder="Search customers..."
+                            id="customerSearch" style="max-width: 250px; height: 38px;">
                         <a href="javascript:void(0);"
-                            class="btn btn-primary rounded d-flex align-items-center" data-bs-toggle="modal"
+                            class="btn btn-outline-primary" data-bs-toggle="modal"
+                            data-bs-target="#importCustomerModal"
+                            title="Import Customers from Excel">
+                            <i class="las la-file-upload"></i>
+                            <span>Import Excel</span>
+                        </a>
+                        <a href="javascript:void(0);"
+                            class="btn btn-danger text-white" data-bs-toggle="modal"
                             data-bs-target="#addCustomerModal"
-                            style="gap: 0.5rem; padding: 0.5rem 1rem; height: 38px; min-height: 38px; line-height: 1.5; box-sizing: border-box; border: none; background: #ff0000; color: #ffffff; font-weight: 500;">
-                            <i class="las la-plus"
-                                style="font-size: 1rem; line-height: 1; margin: 0; padding: 0; background: transparent; border: none; box-shadow: none;"></i>
-                            <span style="font-size: 0.875rem; white-space: nowrap;">Add New Customer</span>
+                            style="background: #ff0000; border-color: #ff0000;">
+                            <i class="las la-plus"></i>
+                            <span>Add New Customer</span>
                         </a>
                     </div>
                 </div>
@@ -213,6 +248,45 @@
     </div>
 
     @push('modals')
+    <!-- Import Customer Modal -->
+    <div class="modal fade" id="importCustomerModal" tabindex="-1" aria-labelledby="importCustomerModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white" id="importCustomerModalLabel"><i class="las la-file-excel me-2"></i>Import Customers from Excel</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="importCustomerForm" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="alert alert-info py-2 px-3 small">
+                            <i class="fas fa-info-circle me-1"></i> Upload an Excel (<strong>.xlsx</strong>, <strong>.xls</strong>) or <strong>.csv</strong> file containing multiple customer records.
+                        </div>
+
+                        <div class="mb-3 text-end">
+                            <a href="{{ route('marketing.customers.template') }}" class="btn btn-sm btn-outline-success">
+                                <i class="las la-download me-1"></i> Download Sample Excel Template
+                            </a>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="customerExcelFile" class="form-label fw-bold small">Select Excel/CSV File <span class="text-danger">*</span></label>
+                            <input class="form-control" type="file" id="customerExcelFile" name="file" accept=".xlsx,.xls,.csv" required>
+                        </div>
+
+                        <div id="importFeedback" class="d-none"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger btn-sm" id="btnSubmitImport">
+                            <i class="las la-file-upload me-1"></i> Upload & Import Customers
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Customer Modal -->
     <div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerModalLabel"
         aria-hidden="true">
@@ -360,25 +434,53 @@
                                     </div>
 
                                     <div class="section-divider">Address Details</div>
-                                    <div class="address-box-container">
-                                        <div>
-                                            <label class="small fw-bold mb-1">INVOICE/BILL TO</label>
-                                            <div class="address-box">
-                                                <textarea id="invoiceAddress"
-                                                    placeholder="Enter billing address..."></textarea>
+                                    <div class="row g-3">
+                                        <!-- Invoice / Bill To Column -->
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-light rounded border h-100">
+                                                <label class="small fw-bold text-primary mb-2 d-block"><i class="las la-file-invoice me-1"></i>INVOICE / BILL TO</label>
+                                                <div class="mb-2">
+                                                    <input type="text" class="form-control form-control-sm mb-1" id="billAddr1" placeholder="Address Line 1 (Street / Barangay)">
+                                                    <input type="text" class="form-control form-control-sm" id="billAddr2" placeholder="Address Line 2 (Building / Suite - Optional)">
+                                                </div>
+                                                <div class="row g-2">
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="billCity" placeholder="Town / City">
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="billProvince" placeholder="Province / Region">
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="billCountry" placeholder="Country" value="Philippines">
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div>
-                                            <div class="mb-1">
-                                                <label class="small fw-bold mb-0">SHIP TO <span class="text-danger">*</span></label>
-                                            </div>
-                                            <div class="address-box">
-                                                <textarea id="shipToAddress"
-                                                    placeholder="Enter shipping address... (Required)" required></textarea>
-                                            </div>
-                                            <div class="mt-2">
-                                                <input type="checkbox" id="defaultShipping"> <label
-                                                    for="defaultShipping" class="small">Default shipping address</label>
+                                        <!-- Ship To Column -->
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-light rounded border h-100">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <label class="small fw-bold text-danger mb-0"><i class="las la-truck me-1"></i>SHIP TO <span class="text-danger">*</span></label>
+                                                    <button type="button" class="btn btn-link btn-xs text-decoration-none p-0 fw-bold" id="copyBillingToShippingBtn"><i class="las la-copy me-1"></i>Copy Billing</button>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <input type="text" class="form-control form-control-sm mb-1" id="shipAddr1" placeholder="Address Line 1 (Street / Barangay)" required>
+                                                    <input type="text" class="form-control form-control-sm" id="shipAddr2" placeholder="Address Line 2 (Building / Suite - Optional)">
+                                                </div>
+                                                <div class="row g-2">
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="shipCity" placeholder="Town / City" required>
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="shipProvince" placeholder="Province / Region">
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="shipCountry" placeholder="Country" value="Philippines">
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <input type="checkbox" id="defaultShipping" checked> <label for="defaultShipping" class="small mb-0">Default shipping address</label>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -904,25 +1006,53 @@
                                     </div>
 
                                     <div class="section-divider">Address Details</div>
-                                    <div class="address-box-container">
-                                        <div>
-                                            <label class="small fw-bold mb-1">INVOICE/BILL TO</label>
-                                            <div class="address-box">
-                                                <textarea id="editInvoiceAddress"
-                                                    placeholder="Enter billing address..."></textarea>
+                                    <div class="row g-3">
+                                        <!-- Invoice / Bill To Column -->
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-light rounded border h-100">
+                                                <label class="small fw-bold text-primary mb-2 d-block"><i class="las la-file-invoice me-1"></i>INVOICE / BILL TO</label>
+                                                <div class="mb-2">
+                                                    <input type="text" class="form-control form-control-sm mb-1" id="editBillAddr1" placeholder="Address Line 1 (Street / Barangay)">
+                                                    <input type="text" class="form-control form-control-sm" id="editBillAddr2" placeholder="Address Line 2 (Building / Suite - Optional)">
+                                                </div>
+                                                <div class="row g-2">
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="editBillCity" placeholder="Town / City">
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="editBillProvince" placeholder="Province / Region">
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="editBillCountry" placeholder="Country" value="Philippines">
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div>
-                                            <div class="mb-1">
-                                                <label class="small fw-bold mb-0">SHIP TO <span class="text-danger">*</span></label>
-                                            </div>
-                                            <div class="address-box">
-                                                <textarea id="editShipToAddress"
-                                                    placeholder="Enter shipping address... (Required)" required></textarea>
-                                            </div>
-                                            <div class="mt-2">
-                                                <input type="checkbox" id="editDefaultShipping"> <label
-                                                    for="editDefaultShipping" class="small">Default shipping address</label>
+                                        <!-- Ship To Column -->
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-light rounded border h-100">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <label class="small fw-bold text-danger mb-0"><i class="las la-truck me-1"></i>SHIP TO <span class="text-danger">*</span></label>
+                                                    <button type="button" class="btn btn-link btn-xs text-decoration-none p-0 fw-bold" id="editCopyBillingToShippingBtn"><i class="las la-copy me-1"></i>Copy Billing</button>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <input type="text" class="form-control form-control-sm mb-1" id="editShipAddr1" placeholder="Address Line 1 (Street / Barangay)" required>
+                                                    <input type="text" class="form-control form-control-sm" id="editShipAddr2" placeholder="Address Line 2 (Building / Suite - Optional)">
+                                                </div>
+                                                <div class="row g-2">
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="editShipCity" placeholder="Town / City" required>
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="editShipProvince" placeholder="Province / Region">
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <input type="text" class="form-control form-control-sm" id="editShipCountry" placeholder="Country" value="Philippines">
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <input type="checkbox" id="editDefaultShipping" checked> <label for="editDefaultShipping" class="small mb-0">Default shipping address</label>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1274,11 +1404,46 @@
             }
         });
 
+        // Copy Billing to Shipping button handlers
+        document.getElementById('copyBillingToShippingBtn')?.addEventListener('click', function() {
+            document.getElementById('shipAddr1').value = document.getElementById('billAddr1')?.value || '';
+            document.getElementById('shipAddr2').value = document.getElementById('billAddr2')?.value || '';
+            document.getElementById('shipCity').value = document.getElementById('billCity')?.value || '';
+            document.getElementById('shipProvince').value = document.getElementById('billProvince')?.value || '';
+            document.getElementById('shipCountry').value = document.getElementById('billCountry')?.value || 'Philippines';
+        });
+
+        document.getElementById('editCopyBillingToShippingBtn')?.addEventListener('click', function() {
+            document.getElementById('editShipAddr1').value = document.getElementById('editBillAddr1')?.value || '';
+            document.getElementById('editShipAddr2').value = document.getElementById('editBillAddr2')?.value || '';
+            document.getElementById('editShipCity').value = document.getElementById('editBillCity')?.value || '';
+            document.getElementById('editShipProvince').value = document.getElementById('editBillProvince')?.value || '';
+            document.getElementById('editShipCountry').value = document.getElementById('editBillCountry')?.value || 'Philippines';
+        });
+
         // Save Customer via AJAX
         document.getElementById('saveCustomerBtn')?.addEventListener('click', async function() {
             const btn = this;
             btn.disabled = true;
             btn.textContent = 'Saving...';
+
+            const billParts = [
+                document.getElementById('billAddr1')?.value,
+                document.getElementById('billAddr2')?.value,
+                document.getElementById('billCity')?.value,
+                document.getElementById('billProvince')?.value,
+                document.getElementById('billCountry')?.value
+            ].filter(Boolean);
+            const billingAddressVal = billParts.join(', ') || 'N/A';
+
+            const shipParts = [
+                document.getElementById('shipAddr1')?.value,
+                document.getElementById('shipAddr2')?.value,
+                document.getElementById('shipCity')?.value,
+                document.getElementById('shipProvince')?.value,
+                document.getElementById('shipCountry')?.value
+            ].filter(Boolean);
+            const shippingAddressVal = shipParts.join(', ') || billingAddressVal || 'N/A';
 
             const data = {
                 customer_name: document.getElementById('custNameInput')?.value || '',
@@ -1299,8 +1464,8 @@
                 cc_email: document.getElementById('ccEmail')?.value || null,
                 website: document.getElementById('website')?.value || null,
                 other_contact: document.getElementById('otherContact')?.value || null,
-                billing_address: document.getElementById('invoiceAddress')?.value || null,
-                shipping_address: document.getElementById('shipToAddress')?.value || null,
+                billing_address: billingAddressVal,
+                shipping_address: shippingAddressVal,
                 is_default_shipping: document.getElementById('defaultShipping')?.checked ? 1 : 0,
                 account_number: document.getElementById('accountNo')?.value || null,
                 payment_terms: document.getElementById('paymentTerms')?.value || null,
@@ -1399,7 +1564,20 @@
                     document.getElementById('editCustomerId').value = customer.customer_id;
                     document.getElementById('editCustNameInput').value = customer.customer_name || '';
                     document.getElementById('editOpeningBalance').value = customer.opening_balance || '';
-                    document.getElementById('editAsOfDate').value = customer.opening_balance_date || '';
+                    
+                    // Format opening_balance_date to YYYY-MM-DD for HTML5 date input
+                    let formattedAsOfDate = '';
+                    if (customer.opening_balance_date) {
+                        const dateStr = String(customer.opening_balance_date);
+                        if (dateStr.includes('T')) {
+                            formattedAsOfDate = dateStr.split('T')[0];
+                        } else if (dateStr.includes(' ')) {
+                            formattedAsOfDate = dateStr.split(' ')[0];
+                        } else if (dateStr.length >= 10) {
+                            formattedAsOfDate = dateStr.substring(0, 10);
+                        }
+                    }
+                    document.getElementById('editAsOfDate').value = formattedAsOfDate;
                     document.getElementById('editCurrencySelect').value = customer.currency_code || 'PHP';
                     document.getElementById('editCompanyName').value = customer.company_name || '';
                     document.getElementById('editTitleName').value = customer.title || '';
@@ -1415,8 +1593,43 @@
                     document.getElementById('editCcEmail').value = customer.cc_email || '';
                     document.getElementById('editWebsite').value = customer.website || '';
                     document.getElementById('editOtherContact').value = customer.other_contact || '';
-                    document.getElementById('editInvoiceAddress').value = customer.billing_address || '';
-                    document.getElementById('editShipToAddress').value = customer.shipping_address || '';
+                    // Helper to parse address strings cleanly
+                    const parseAddressString = (addrStr) => {
+                        if (!addrStr || addrStr === 'N/A') {
+                            return { line1: '', line2: '', city: '', province: '', country: 'Philippines' };
+                        }
+                        if (addrStr.includes('|')) {
+                            const p = addrStr.split('|').map(s => s.trim());
+                            return { line1: p[0] || '', line2: p[1] || '', city: p[2] || '', province: p[3] || '', country: p[4] || 'Philippines' };
+                        }
+                        const parts = addrStr.split(',').map(s => s.trim()).filter(Boolean);
+                        if (parts.length >= 5) {
+                            return { line1: parts[0] || '', line2: parts[1] || '', city: parts[2] || '', province: parts[3] || '', country: parts[4] || 'Philippines' };
+                        } else if (parts.length === 4) {
+                            return { line1: parts[0] || '', line2: '', city: parts[1] || '', province: parts[2] || '', country: parts[3] || 'Philippines' };
+                        } else if (parts.length === 3) {
+                            return { line1: parts[0] || '', line2: '', city: parts[1] || '', province: '', country: parts[2] || 'Philippines' };
+                        } else if (parts.length === 2) {
+                            return { line1: parts[0] || '', line2: '', city: parts[1] || '', province: '', country: 'Philippines' };
+                        }
+                        return { line1: parts[0] || '', line2: '', city: '', province: '', country: 'Philippines' };
+                    };
+
+                    // Populate Form-Style Address Fields using smart parser
+                    const parsedBill = parseAddressString(customer.billing_address);
+                    document.getElementById('editBillAddr1').value = parsedBill.line1;
+                    document.getElementById('editBillAddr2').value = parsedBill.line2;
+                    document.getElementById('editBillCity').value = parsedBill.city;
+                    document.getElementById('editBillProvince').value = parsedBill.province;
+                    document.getElementById('editBillCountry').value = parsedBill.country;
+
+                    const parsedShip = parseAddressString(customer.shipping_address);
+                    document.getElementById('editShipAddr1').value = parsedShip.line1;
+                    document.getElementById('editShipAddr2').value = parsedShip.line2;
+                    document.getElementById('editShipCity').value = parsedShip.city;
+                    document.getElementById('editShipProvince').value = parsedShip.province;
+                    document.getElementById('editShipCountry').value = parsedShip.country;
+
                     document.getElementById('editDefaultShipping').checked = customer.is_default_shipping == 1;
                     document.getElementById('editAccountNo').value = customer.account_number || '';
                     document.getElementById('editPaymentTerms').value = customer.payment_terms || 'Net 15';
@@ -1479,6 +1692,24 @@
 
             const customerId = document.getElementById('editCustomerId').value;
 
+            const editBillParts = [
+                document.getElementById('editBillAddr1')?.value,
+                document.getElementById('editBillAddr2')?.value,
+                document.getElementById('editBillCity')?.value,
+                document.getElementById('editBillProvince')?.value,
+                document.getElementById('editBillCountry')?.value
+            ].filter(Boolean);
+            const editBillingAddressVal = editBillParts.join(', ') || 'N/A';
+
+            const editShipParts = [
+                document.getElementById('editShipAddr1')?.value,
+                document.getElementById('editShipAddr2')?.value,
+                document.getElementById('editShipCity')?.value,
+                document.getElementById('editShipProvince')?.value,
+                document.getElementById('editShipCountry')?.value
+            ].filter(Boolean);
+            const editShippingAddressVal = editShipParts.join(', ') || editBillingAddressVal || 'N/A';
+
             const data = {
                 customer_name: document.getElementById('editCustNameInput')?.value || '',
                 company_name: document.getElementById('editCompanyName')?.value || '',
@@ -1498,8 +1729,8 @@
                 cc_email: document.getElementById('editCcEmail')?.value || null,
                 website: document.getElementById('editWebsite')?.value || null,
                 other_contact: document.getElementById('editOtherContact')?.value || null,
-                billing_address: document.getElementById('editInvoiceAddress')?.value || null,
-                shipping_address: document.getElementById('editShipToAddress')?.value || null,
+                billing_address: editBillingAddressVal,
+                shipping_address: editShippingAddressVal,
                 is_default_shipping: document.getElementById('editDefaultShipping')?.checked ? 1 : 0,
                 account_number: document.getElementById('editAccountNo')?.value || null,
                 payment_terms: document.getElementById('editPaymentTerms')?.value || null,
@@ -2036,6 +2267,68 @@
                 }
             }
         });
+
+        // Import Customer Form Submission
+        const importForm = document.getElementById('importCustomerForm');
+        if (importForm) {
+            importForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const fileInput = document.getElementById('customerExcelFile');
+                if (!fileInput.files.length) {
+                    alert('Please select an Excel file to import.');
+                    return;
+                }
+
+                const btn = document.getElementById('btnSubmitImport');
+                const feedback = document.getElementById('importFeedback');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Importing...';
+                feedback.classList.add('d-none');
+
+                const formData = new FormData(this);
+
+                try {
+                    const response = await fetch('{{ route("marketing.customers.import") }}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        feedback.className = 'alert alert-success mt-3 small';
+                        feedback.innerHTML = '<strong><i class="fas fa-check-circle me-1"></i> Success:</strong> ' + data.message;
+                        feedback.classList.remove('d-none');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1200);
+                    } else {
+                        feedback.className = 'alert alert-danger mt-3 small';
+                        let errHtml = '<strong><i class="fas fa-exclamation-triangle me-1"></i> Import Error:</strong> ' + (data.message || 'Failed to import customers.');
+                        if (data.errors && data.errors.length) {
+                            errHtml += '<ul class="mb-0 mt-2 ps-3">';
+                            data.errors.forEach(err => {
+                                errHtml += '<li>' + err + '</li>';
+                            });
+                            errHtml += '</ul>';
+                        }
+                        feedback.innerHTML = errHtml;
+                        feedback.classList.remove('d-none');
+                    }
+                } catch (err) {
+                    feedback.className = 'alert alert-danger mt-3 small';
+                    feedback.innerHTML = '<strong>Error:</strong> ' + err.message;
+                    feedback.classList.remove('d-none');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="las la-file-upload me-1"></i> Upload & Import Customers';
+                }
+            });
+        }
     </script>
     @endpush
 </x-app-layout>

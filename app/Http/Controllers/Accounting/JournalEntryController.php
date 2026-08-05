@@ -57,27 +57,27 @@ class JournalEntryController extends Controller
 
     public function create()
     {
-        $accounts = ChartOfAccount::orderBy('code')->get();
         $bankAccounts = \App\Models\CompanyBankAccount::orderBy('bank_name')->get();
         
         foreach ($bankAccounts as $bank) {
             $code = $bank->account_code ?: ('BANK-' . $bank->id);
             $name = 'Bank: ' . $bank->bank_name . ' (' . $bank->account_number . ' - ' . $bank->account_name . ')';
             
-            $exists = $accounts->first(function($acc) use ($code) {
-                return $acc->code == $code;
-            });
-            
-            if (!$exists) {
-                $accounts->push(new ChartOfAccount([
-                    'id' => $bank->id,
-                    'code' => $code,
+            ChartOfAccount::firstOrCreate(
+                ['code' => $code],
+                [
                     'name' => $name,
                     'type' => 'Asset',
-                    'category' => 'Cash & Bank'
-                ]));
-            }
+                    'category' => 'Cash & Bank',
+                    'is_active' => 1,
+                ]
+            );
         }
+
+        // Fetch ONLY Bank Accounts starting with BANK-
+        $accounts = ChartOfAccount::where('code', 'like', 'BANK-%')
+            ->orderBy('code')
+            ->get();
         
         // Generate next Entry No (JV-YEAR-SEQ)
         $year = now()->year;
@@ -110,6 +110,8 @@ class JournalEntryController extends Controller
         $validated = $request->validate([
             'entry_no' => 'required|unique:journal_entries,entry_no',
             'date' => 'required|date',
+            'currency' => 'nullable|string|in:PHP,USD',
+            'exchange_rate' => 'nullable|numeric|min:0.0001',
             'reference' => 'nullable|string',
             'memo' => 'nullable|string',
             'items' => 'required|array|min:1',
@@ -141,8 +143,8 @@ class JournalEntryController extends Controller
                 'date' => $request->date,
                 'reference' => $request->reference,
                 'memo' => $request->memo,
-                'currency' => 'PHP',
-                'exchange_rate' => 1.0000,
+                'currency' => $request->currency ?: 'PHP',
+                'exchange_rate' => $request->exchange_rate ?: 1.0000,
                 'created_by' => auth()->id(),
                 'status' => 'posted',
             ]);

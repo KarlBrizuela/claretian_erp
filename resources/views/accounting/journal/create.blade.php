@@ -14,15 +14,16 @@
                                 <div class="col-md-3">
                                     <div class="form-group mb-3">
                                         <label class="form-label">CURRENCY</label>
-                                        <select class="form-control default-select" name="currency" readonly>
-                                            <option value="PHP">Philippine peso</option>
+                                        <select class="form-control default-select" name="currency" id="journalCurrency">
+                                            <option value="PHP" {{ old('currency', 'PHP') == 'PHP' ? 'selected' : '' }}>Philippine peso</option>
+                                            <option value="USD" {{ old('currency') == 'USD' ? 'selected' : '' }}>US Dollar</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="col-md-2">
                                     <div class="form-group mb-3">
                                         <label class="form-label">DATE</label>
-                                        <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}" required>
+                                        <input type="date" name="date" class="form-control" value="{{ old('date', date('Y-m-d')) }}" required>
                                     </div>
                                 </div>
                                 <div class="col-md-2">
@@ -31,10 +32,16 @@
                                         <input type="text" name="entry_no" class="form-control" value="{{ $entryNo }}" required>
                                     </div>
                                 </div>
+                                <div class="col-md-3">
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">REFERENCE NO.</label>
+                                        <input type="text" name="reference" class="form-control" value="{{ old('reference') }}" placeholder="Ref / Cheque / Doc No.">
+                                    </div>
+                                </div>
                                 <div class="col-md-2">
                                     <div class="form-group mb-3">
                                         <label class="form-label">EXCHANGE RATE</label>
-                                        <input type="text" name="exchange_rate" class="form-control" value="1.0000" readonly>
+                                        <input type="number" step="0.0001" name="exchange_rate" id="journalExchangeRate" class="form-control" value="{{ old('exchange_rate', '1.0000') }}" readonly>
                                     </div>
                                 </div>
                             </div>
@@ -336,6 +343,14 @@
                 } else if (totalDebit <= 0) {
                     e.preventDefault();
                     showNotification('Total amount must be greater than zero.', 'error');
+                }
+            });
+
+            $('#journalCurrency').on('change', function() {
+                if ($(this).val() === 'USD') {
+                    $('#journalExchangeRate').prop('readonly', false);
+                } else {
+                    $('#journalExchangeRate').val('1.0000').prop('readonly', true);
                 }
             });
 

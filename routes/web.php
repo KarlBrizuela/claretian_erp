@@ -233,6 +233,10 @@ Route::middleware(['auth'])->group(function () {
 
   // Marketing Pages - Protected by division.access:marketing middleware
   Route::middleware(['division.access:marketing'])->group(function () {
+    Route::get('/marketing/customers-export', [CustomerController::class, 'exportExcel'])->name('marketing.customers.export');
+    Route::get('/marketing/customers-template', [CustomerController::class, 'downloadTemplate'])->name('marketing.customers.template');
+    Route::post('/marketing/customers-import', [CustomerController::class, 'importExcel'])->name('marketing.customers.import');
+
     Route::resource('marketing/customers', CustomerController::class)->names([
         'index' => 'marketing.customers',
         'create' => 'marketing.customers.create',
