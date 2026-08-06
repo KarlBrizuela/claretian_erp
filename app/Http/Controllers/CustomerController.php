@@ -14,11 +14,24 @@ class CustomerController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $customers = Customer::whereNotIn('customer_name', ['Lazada', 'Shopee', 'TikTok'])
-            ->orderBy('customer_name', 'asc')
-            ->get();
+        $query = Customer::whereNotIn('customer_name', ['Lazada', 'Shopee', 'TikTok']);
+
+        if ($request->filled('search')) {
+            $search = strtolower(trim($request->search));
+            $query->where(function($q) use ($search) {
+                $q->whereRaw('LOWER(customer_name) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(company_name) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(mobile) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(main_email) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(account_number) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(shipping_address) LIKE ?', ["%{$search}%"]);
+            });
+        }
+
+        $customers = $query->orderBy('customer_name', 'asc')->paginate(15)->withQueryString();
+
         return view('marketing.customers', [
             'customers' => $customers,
             'title' => 'Customer Management',
@@ -326,6 +339,30 @@ class CustomerController extends Controller
     }
 
     /**
+     * Remove multiple customers from storage.
+     */
+    public function destroyBatch(Request $request)
+    {
+        // Super Admin or Marketing with permission can delete customers
+        $user = auth()->user();
+        if (!($user->isSuperAdmin() || ($user->hasPermission('marketing.customers')))) {
+            return response()->json(['message' => 'Unauthorized action. Only Super Admin or Marketing can delete customers.'], 403);
+        }
+
+        $validated = $request->validate([
+            'customer_ids' => 'required|array',
+            'customer_ids.*' => 'exists:customers,customer_id',
+        ]);
+
+        $deletedCount = Customer::whereIn('customer_id', $validated['customer_ids'])->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully deleted {$deletedCount} customer(s)."
+        ]);
+    }
+
+    /**
      * Get transaction history for a customer
      */
     public function getTransactionHistory(Request $request, Customer $customer)
@@ -577,7 +614,8 @@ class CustomerController extends Controller
             'Shipping Address Line 1*', 'Shipping Address Line 2', 'Shipping Town/City*', 'Shipping Province/Region', 'Shipping Country',
             'Payment Terms', 'Preferred Delivery Method', 'Preferred Payment Method',
             'Credit Limit', 'Price Level', 'Card Number Last 4', 'Card Exp Month', 'Card Exp Year', 'Card Name',
-            'Card Billing Address', 'Card Zip', 'Customer Type', 'Rep', 'Class', 'Contact Person', 'Custom Customer Field'
+            'Card Billing Address', 'Card Zip', 'Customer Type', 'Rep', 'Class', 'Contact Person', 'Custom Customer Field',
+            'Status (good/bad)'
         ];
 
         // Format header row
@@ -680,7 +718,8 @@ class CustomerController extends Controller
                 $c->rep ?? '',
                 $c->class ?? '',
                 $c->custom_contact_person ?? '',
-                $c->custom_customer_field ?? ''
+                $c->custom_customer_field ?? '',
+                $c->manual_status ?? 'good'
             ];
 
             foreach ($data as $colIndex => $val) {
@@ -717,7 +756,7 @@ class CustomerController extends Controller
             }
         };
 
-        // E = Currency, AC = Terms, AD = Delivery Method, AE = Payment Method, AG = Price Level, AN = Type, AO = Rep, AP = Class
+        // E = Currency, AC = Terms, AD = Delivery Method, AE = Payment Method, AG = Price Level, AN = Type, AO = Rep, AP = Class, AS = Status
         $addDropdownValidation($sheet, 'E', ['PHP', 'USD']);
         $addDropdownValidation($sheet, 'AC', ['Net 15', 'Net 30', 'Net 60', 'Due on receipt']);
         $addDropdownValidation($sheet, 'AD', ['Main Warehouse', 'Lazada', 'Shopee']);
@@ -726,6 +765,7 @@ class CustomerController extends Controller
         $addDropdownValidation($sheet, 'AN', $typesList);
         $addDropdownValidation($sheet, 'AO', $repsList);
         $addDropdownValidation($sheet, 'AP', $classesList);
+        $addDropdownValidation($sheet, 'AS', ['good', 'bad']);
 
         // Auto-fit column widths
         foreach (range(1, count($headers)) as $colIndex) {
@@ -831,6 +871,7 @@ class CustomerController extends Controller
             $importedCount = 0;
             $skippedCount = 0;
             $errors = [];
+            $seenCustomerNames = [];
 
             // Helper to fetch cell value by header keyword, column letter, or numeric index
             $getVal = function($row, array $headerKeywords, $letterKey, $numericIdx) use ($headerMap, $isHeaderRow) {
@@ -879,6 +920,15 @@ class CustomerController extends Controller
                     $errors[] = "Row #{$rowCounter}: Customer Name is missing or empty.";
                     continue;
                 }
+
+                $cleanNameLower = strtolower(trim($custName));
+                // Duplicate check against database and within uploaded file batch
+                if (in_array($cleanNameLower, $seenCustomerNames) || Customer::whereRaw('LOWER(customer_name) = ?', [$cleanNameLower])->exists()) {
+                    $skippedCount++;
+                    $errors[] = "Row #{$rowCounter} ({$custName}): Customer name already exists in the customer list.";
+                    continue;
+                }
+                $seenCustomerNames[] = $cleanNameLower;
 
                 $companyName = $getVal($row, ['companyname', 'company'], 'B', 1) ?: 'Individual';
                 $openingBalStr = $getVal($row, ['openingbalance', 'balance'], 'C', 2);
@@ -958,6 +1008,9 @@ class CustomerController extends Controller
                 $class = $getVal($row, ['class'], 'AP', 41) ?: 'LAG';
                 $contactPerson = $getVal($row, ['contactperson'], 'AQ', 42);
                 $customCustField = $getVal($row, ['customcustomerfield', 'customfield'], 'AR', 43);
+                
+                $rawStatus = strtolower($getVal($row, ['statusgoodbad', 'status', 'manualstatus', 'clientstatus'], 'AS', 44));
+                $manualStatus = in_array($rawStatus, ['bad', 'bad client']) ? 'bad' : 'good';
 
                 $accountNo = 'CUST-' . strtoupper(uniqid());
 
@@ -1012,7 +1065,7 @@ class CustomerController extends Controller
                         'custom_contact_person' => $contactPerson ?: null,
                         'custom_customer_field' => $customCustField ?: null,
                         'is_inactive' => 0,
-                        'manual_status' => 'good',
+                        'manual_status' => $manualStatus,
                     ]);
 
                     $importedCount++;

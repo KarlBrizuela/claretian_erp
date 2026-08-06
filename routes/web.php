@@ -237,6 +237,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/customers-template', [CustomerController::class, 'downloadTemplate'])->name('marketing.customers.template');
     Route::post('/marketing/customers-import', [CustomerController::class, 'importExcel'])->name('marketing.customers.import');
 
+    Route::post('/marketing/customers/bulk-delete', [CustomerController::class, 'destroyBatch'])->name('marketing.customers.bulk-delete');
+
     Route::resource('marketing/customers', CustomerController::class)->names([
         'index' => 'marketing.customers',
         'create' => 'marketing.customers.create',

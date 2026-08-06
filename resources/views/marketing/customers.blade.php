@@ -151,8 +151,74 @@
             line-height: 1 !important;
             color: inherit !important;
         }
+
+        /* Customer Row Selection & Checkbox Styles */
+        .customer-row {
+            transition: background-color 0.2s ease;
+        }
+        .customer-row:hover {
+            background-color: rgba(220, 53, 69, 0.04) !important;
+        }
+        .customer-row.selected-row {
+            background-color: rgba(220, 53, 69, 0.08) !important;
+        }
+        .customer-select-col {
+            width: 45px;
+            text-align: center;
+            vertical-align: middle !important;
+        }
+        .customer-select-cb {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+
+        /* Floating Sticky Bulk Action Bar at Bottom of Screen */
+        .bulk-floating-bar {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e1e2d;
+            color: #ffffff;
+            padding: 10px 22px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            z-index: 1060;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .bulk-floating-bar.hidden {
+            opacity: 0;
+            visibility: hidden;
+            transform: translate(-50%, 35px);
+            pointer-events: none;
+        }
     </style>
     @endpush
+
+    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
+    <!-- Floating Sticky Bulk Action Bar -->
+    <div id="bulkFloatingBar" class="bulk-floating-bar hidden">
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-danger rounded-pill px-3 py-2 fs-13">
+                <span id="floatingSelectedCount">0</span> selected
+            </span>
+            <span class="fw-medium text-white d-none d-sm-inline">customer(s) selected</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" id="clearSelectionBtn">
+                <i class="fas fa-times me-1"></i> Deselect
+            </button>
+            <button type="button" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm" id="floatingBulkDeleteBtn" style="background:#ff0000; border-color:#ff0000;">
+                <i class="fa fa-trash me-1"></i> Delete Selected
+            </button>
+        </div>
+    </div>
+    @endif
 
     <div class="row">
         <div class="col-xl-12 col-xxl-12">
@@ -162,8 +228,17 @@
                         <h4 class="fs-20 mb-0 text-black">Customer List</h4>
                     </div>
                     <div class="d-flex align-items-center gap-2 mt-3 mt-sm-0 customer-header-actions">
-                        <input type="text" class="form-control me-2" placeholder="Search customers..."
-                            id="customerSearch" style="max-width: 250px; height: 38px;">
+                        <input type="text" class="form-control me-2" placeholder="Search customers (press Enter)..."
+                            id="customerSearch" value="{{ request('search') }}" style="max-width: 250px; height: 38px;">
+                        
+                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
+                        <button type="button" class="btn btn-danger text-white d-none" id="bulkDeleteBtn"
+                            style="background: #dc3545; border-color: #dc3545;">
+                            <i class="fa fa-trash me-1"></i>
+                            <span>Delete Selected (<span id="selectedCount">0</span>)</span>
+                        </button>
+                        @endif
+
                         <a href="javascript:void(0);"
                             class="btn btn-outline-primary" data-bs-toggle="modal"
                             data-bs-target="#importCustomerModal"
@@ -185,6 +260,11 @@
                         <table class="table table-responsive-md">
                             <thead>
                                 <tr>
+                                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
+                                    <th class="customer-select-col">
+                                        <input type="checkbox" id="selectAllCustomers" class="form-check-input customer-select-cb" title="Select All">
+                                    </th>
+                                    @endif
                                     <th><strong>CUSTOMER ID</strong></th>
                                     <th><strong>CUSTOMER NAME</strong></th>
                                     <th><strong>PHONE NUMBER</strong></th>
@@ -196,7 +276,12 @@
                             </thead>
                             <tbody id="customerTableBody">
                               @forelse($customers as $customer)
-                               <tr>
+                               <tr class="customer-row" data-customer-id="{{$customer->customer_id}}">
+                                  @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
+                                  <td class="customer-select-col">
+                                      <input type="checkbox" class="form-check-input customer-select-cb customer-row-cb" value="{{$customer->customer_id}}">
+                                  </td>
+                                  @endif
                                   <td><strong>{{$customer->customer_id}}</strong></td>
                                   <td>
                                     <div class="d-flex align-items-center">
@@ -236,12 +321,23 @@
                               </tr>
                               @empty
                               <tr>
-                                  <td colspan="7" class="text-center">No customers found.</td>  
+                                  <td colspan="8" class="text-center">No customers found.</td>  
                               </tr>
                               @endforelse
                             </tbody>
                         </table>
                     </div>
+
+                    @if($customers->hasPages())
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 pt-3 border-top gap-2">
+                        <div class="small text-muted">
+                            Showing <strong>{{ $customers->firstItem() ?? 0 }}</strong> to <strong>{{ $customers->lastItem() ?? 0 }}</strong> of <strong>{{ $customers->total() }}</strong> customers
+                        </div>
+                        <div>
+                            {{ $customers->appends(request()->query())->links('pagination::bootstrap-4') }}
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -2248,45 +2344,224 @@
             }
         });
 
-        // Customer Search Functionality
-        document.getElementById('customerSearch')?.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#customerTableBody tr:not(#noResultsRow)');
-            let hasVisibleRows = false;
-            let totalActualRows = 0;
+        // Bulk Select & Delete functionality
+        const selectAllCb = document.getElementById('selectAllCustomers');
+        const rowCbs = document.querySelectorAll('.customer-row-cb');
+        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+        const floatingBulkDeleteBtn = document.getElementById('floatingBulkDeleteBtn');
+        const bulkFloatingBar = document.getElementById('bulkFloatingBar');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const floatingSelectedCountSpan = document.getElementById('floatingSelectedCount');
+
+        function updateBulkDeleteState() {
+            const checkedCbs = document.querySelectorAll('.customer-row-cb:checked');
+            const count = checkedCbs.length;
             
-            rows.forEach(row => {
-                // Check if this is the generic "No customers found" row from the backend
-                if (row.cells.length === 1 && row.textContent.includes('No customers found')) {
-                    return; 
-                }
-                
-                totalActualRows++;
-                const text = row.textContent.toLowerCase();
-                if (text.includes(searchTerm)) {
-                    row.style.display = '';
-                    hasVisibleRows = true;
+            if (selectedCountSpan) selectedCountSpan.textContent = count;
+            if (floatingSelectedCountSpan) floatingSelectedCountSpan.textContent = count;
+
+            if (bulkDeleteBtn) {
+                if (count > 0) {
+                    bulkDeleteBtn.classList.remove('d-none');
                 } else {
-                    row.style.display = 'none';
-                }
-            });
-            
-            // Only handle "no results" logic if we actually have customer rows
-            if (totalActualRows > 0) {
-                let noResultsRow = document.getElementById('noResultsRow');
-                if (!hasVisibleRows) {
-                    if (!noResultsRow) {
-                        noResultsRow = document.createElement('tr');
-                        noResultsRow.id = 'noResultsRow';
-                        noResultsRow.innerHTML = '<td colspan="7" class="text-center py-4">No customers match your search.</td>';
-                        document.getElementById('customerTableBody').appendChild(noResultsRow);
-                    }
-                    noResultsRow.style.display = '';
-                } else if (noResultsRow) {
-                    noResultsRow.style.display = 'none';
+                    bulkDeleteBtn.classList.add('d-none');
                 }
             }
+
+            if (bulkFloatingBar) {
+                if (count > 0) {
+                    bulkFloatingBar.classList.remove('hidden');
+                } else {
+                    bulkFloatingBar.classList.add('hidden');
+                }
+            }
+
+            if (selectAllCb) {
+                selectAllCb.checked = (rowCbs.length > 0 && count === rowCbs.length);
+                selectAllCb.indeterminate = (count > 0 && count < rowCbs.length);
+            }
+
+            // Update row background styling
+            document.querySelectorAll('.customer-row').forEach(row => {
+                const cb = row.querySelector('.customer-row-cb');
+                if (cb && cb.checked) {
+                    row.classList.add('selected-row');
+                } else {
+                    row.classList.remove('selected-row');
+                }
+            });
+        }
+
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', function() {
+                document.querySelectorAll('.customer-row-cb').forEach(cb => cb.checked = false);
+                if (selectAllCb) {
+                    selectAllCb.checked = false;
+                    selectAllCb.indeterminate = false;
+                }
+                updateBulkDeleteState();
+            });
+        }
+
+        if (selectAllCb) {
+            selectAllCb.addEventListener('change', function() {
+                const isChecked = this.checked;
+                document.querySelectorAll('.customer-row-cb').forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                updateBulkDeleteState();
+            });
+        }
+
+        document.querySelectorAll('.customer-row-cb').forEach(cb => {
+            cb.addEventListener('change', updateBulkDeleteState);
         });
+
+        // Mouse Hold / Click on Row Selection feature
+        document.querySelectorAll('.customer-row').forEach(row => {
+            let holdTimer = null;
+            
+            row.addEventListener('mousedown', function(e) {
+                // Don't trigger if user clicked on action buttons or inputs directly
+                if (e.target.closest('a, button, input, select, textarea')) return;
+
+                holdTimer = setTimeout(() => {
+                    const cb = row.querySelector('.customer-row-cb');
+                    if (cb) {
+                        cb.checked = !cb.checked;
+                        updateBulkDeleteState();
+                    }
+                }, 350); // Hold mouse for 350ms
+            });
+
+            row.addEventListener('mouseup', function() {
+                if (holdTimer) clearTimeout(holdTimer);
+            });
+
+            row.addEventListener('mouseleave', function() {
+                if (holdTimer) clearTimeout(holdTimer);
+            });
+        });
+
+        // Shared Execute Bulk Delete Function
+        async function executeBulkDelete(targetBtn) {
+            const checkedCbs = document.querySelectorAll('.customer-row-cb:checked');
+            const selectedIds = Array.from(checkedCbs).map(cb => cb.value);
+
+            if (!selectedIds.length) return;
+
+            if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected customer(s)? This action cannot be undone.`)) {
+                return;
+            }
+
+            if (targetBtn) {
+                targetBtn.disabled = true;
+                targetBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Deleting...';
+            }
+            if (bulkDeleteBtn) bulkDeleteBtn.disabled = true;
+            if (floatingBulkDeleteBtn) floatingBulkDeleteBtn.disabled = true;
+
+            try {
+                const response = await fetch('{{ route("marketing.customers.bulk-delete") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ customer_ids: selectedIds })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    alert(data.message || 'Customers deleted successfully!');
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Failed to delete selected customers.');
+                }
+            } catch (err) {
+                alert('An error occurred during bulk deletion: ' + err.message);
+            } finally {
+                if (bulkDeleteBtn) {
+                    bulkDeleteBtn.disabled = false;
+                    bulkDeleteBtn.innerHTML = '<i class="fa fa-trash me-1"></i> Delete Selected (<span id="selectedCount">' + selectedIds.length + '</span>)';
+                }
+                if (floatingBulkDeleteBtn) {
+                    floatingBulkDeleteBtn.disabled = false;
+                    floatingBulkDeleteBtn.innerHTML = '<i class="fa fa-trash me-1"></i> Delete Selected';
+                }
+                updateBulkDeleteState();
+            }
+        }
+
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.addEventListener('click', function() {
+                executeBulkDelete(this);
+            });
+        }
+        if (floatingBulkDeleteBtn) {
+            floatingBulkDeleteBtn.addEventListener('click', function() {
+                executeBulkDelete(this);
+            });
+        }
+
+        // Customer Search Functionality (Enter Key for Server Pagination + Filter for Current Page)
+        const customerSearchInput = document.getElementById('customerSearch');
+        if (customerSearchInput) {
+            customerSearchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const searchTerm = this.value.trim();
+                    const url = new URL(window.location.href);
+                    if (searchTerm) {
+                        url.searchParams.set('search', searchTerm);
+                    } else {
+                        url.searchParams.delete('search');
+                    }
+                    url.searchParams.delete('page');
+                    window.location.href = url.toString();
+                }
+            });
+
+            customerSearchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#customerTableBody tr:not(#noResultsRow)');
+                let hasVisibleRows = false;
+                let totalActualRows = 0;
+                
+                rows.forEach(row => {
+                    if (row.cells.length <= 1 && row.textContent.includes('No customers found')) {
+                        return; 
+                    }
+                    
+                    totalActualRows++;
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(searchTerm)) {
+                        row.style.display = '';
+                        hasVisibleRows = true;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                if (totalActualRows > 0) {
+                    let noResultsRow = document.getElementById('noResultsRow');
+                    if (!hasVisibleRows) {
+                        if (!noResultsRow) {
+                            noResultsRow = document.createElement('tr');
+                            noResultsRow.id = 'noResultsRow';
+                            noResultsRow.innerHTML = '<td colspan="8" class="text-center py-4">No customers match your search.</td>';
+                            document.getElementById('customerTableBody').appendChild(noResultsRow);
+                        }
+                        noResultsRow.style.display = '';
+                    } else if (noResultsRow) {
+                        noResultsRow.style.display = 'none';
+                    }
+                }
+            });
+        }
 
         // Import Customer Form Submission
         const importForm = document.getElementById('importCustomerForm');
