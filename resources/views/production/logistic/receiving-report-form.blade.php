@@ -112,6 +112,18 @@
                             <textarea name="notes" class="form-control" rows="3" placeholder="Enter any discrepancies or delivery notes..."></textarea>
                         </div>
 
+                        <div class="card p-3 mb-4 border" style="background-color: #f8f9fa; border-radius: 8px;">
+                            <div class="form-check form-switch m-0 d-flex align-items-center">
+                                <input class="form-check-input me-2" type="checkbox" name="mark_as_completed" id="markAsCompletedCheck" value="1" style="cursor: pointer; width: 2.25em; height: 1.25em;">
+                                <label class="form-check-label fw-bold text-dark mb-0" for="markAsCompletedCheck" style="cursor: pointer; font-size: 0.95rem;">
+                                    <i class="fas fa-check-circle text-success me-1"></i> Mark Purchase Order as Completed / Closed
+                                </label>
+                            </div>
+                            <small class="text-muted mt-1 ms-4 d-block">
+                                Check this if no further deliveries will be received for this PO. The Purchase Order status will be set to <strong>Received / Completed</strong> even if ordered quantities are not fully received.
+                            </small>
+                        </div>
+
                         <div class="d-flex justify-content-between">
                             <a href="{{ route('production.logistic.receiving-report-list') }}" class="btn btn-light">Cancel</a>
                             <button type="submit" class="btn btn-primary">Post Receiving Report</button>

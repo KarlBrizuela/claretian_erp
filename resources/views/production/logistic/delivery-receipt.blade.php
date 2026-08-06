@@ -228,9 +228,12 @@
                                 </form>
                             @endif
 
-                            <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-primary btn-sm">
-                                <i class="las la-file-invoice me-1"></i> Move to SI
-                            </a>
+                             <form action="{{ route('production.logistic.move-to-si', $order->id) }}" method="POST" style="display:inline-block;">
+                                 @csrf
+                                 <button type="submit" class="btn btn-danger btn-sm text-white fw-bold">
+                                     <i class="las la-file-invoice me-1"></i> Move to SI
+                                 </button>
+                             </form>
                         </div>
                     </div>
                 </div>
@@ -255,13 +258,13 @@
                         @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
                             <form action="{{ route('production.logistic.request-reconsignment', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
                                 @csrf
-                                <button type="submit" class="btn btn-warning" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created']) ? 'disabled' : '' }}>
+                                <button type="submit" class="btn btn-warning" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep']) ? 'disabled' : '' }}>
                                     <i class="las la-retweet"></i> Reconsignment
                                 </button>
                             </form>
                             <form action="{{ route('production.logistic.return-consignment', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
                                 @csrf
-                                <button type="submit" class="btn btn-danger" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created']) ? 'disabled' : '' }}>
+                                <button type="submit" class="btn btn-danger" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep']) ? 'disabled' : '' }}>
                                     <i class="las la-undo-alt"></i> Return
                                 </button>
                             </form>

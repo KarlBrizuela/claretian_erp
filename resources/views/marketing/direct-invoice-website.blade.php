@@ -218,8 +218,9 @@
                                 <th style="width: 80px;">QTY</th>
                                 <th style="width: 80px;">UNIT</th>
                                 <th>DESCRIPTION / PRODUCT</th>
-                                <th style="width: 150px;">UNIT PRICE</th>
-                                <th style="width: 150px;">AMOUNT</th>
+                                <th style="width: 130px;">UNIT PRICE</th>
+                                <th style="width: 140px;">DISCOUNT</th>
+                                <th style="width: 130px;">AMOUNT</th>
                                 <th style="width: 50px;"></th>
                             </tr>
                         </thead>
@@ -228,7 +229,7 @@
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="4" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
+                                <td colspan="5" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
                                 <td class="text-end fw-bold fs-5" id="grandTotal">₱ 0.00</td>
                                 <td></td>
                             </tr>
@@ -413,7 +414,19 @@
             function calculateRow(row) {
                 const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
                 const price = parseFloat(row.querySelector('.price-input').value) || 0;
-                const amount = qty * price;
+                const gross = qty * price;
+
+                const discVal = parseFloat(row.querySelector('.discount-input')?.value) || 0;
+                const discType = row.querySelector('.discount-type-select')?.value || 'percentage';
+
+                let discAmount = 0;
+                if (discType === 'percentage') {
+                    discAmount = gross * (discVal / 100);
+                } else {
+                    discAmount = discVal;
+                }
+
+                const amount = Math.max(0, gross - discAmount);
                 row.querySelector('.amount-display').textContent = '₱ ' + amount.toFixed(2);
                 updateGrandTotal();
             }
@@ -451,6 +464,15 @@
                     <td>
                         <input type="number" class="price-input" name="items[${idx}][price]" step="0.01" value="0" required style="text-align:right;">
                     </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-1">
+                            <input type="number" step="any" min="0" class="form-control form-control-sm text-end discount-input" name="items[${idx}][discount_value]" value="0" placeholder="0" style="width:65px;">
+                            <select class="form-select form-select-sm discount-type-select" name="items[${idx}][discount_type]" style="width:50px; padding: 2px 4px;">
+                                <option value="percentage">%</option>
+                                <option value="amount">₱</option>
+                            </select>
+                        </div>
+                    </td>
                     <td class="amount-display fw-bold text-end pe-3">₱ 0.00</td>
                     <td class="text-center">
                         <button type="button" class="btn btn-outline-danger btn-sm remove-row border-0"><i class="fa fa-trash"></i></button>
@@ -460,6 +482,8 @@
                 const select = tr.querySelector('.product-select');
                 const priceInput = tr.querySelector('.price-input');
                 const qtyInput = tr.querySelector('.qty-input');
+                const discountInput = tr.querySelector('.discount-input');
+                const discountTypeSelect = tr.querySelector('.discount-type-select');
                 const removeBtn = tr.querySelector('.remove-row');
 
                 tbody.appendChild(tr);
@@ -485,6 +509,8 @@
 
                 qtyInput.addEventListener('input', () => calculateRow(tr));
                 priceInput.addEventListener('input', () => calculateRow(tr));
+                discountInput.addEventListener('input', () => calculateRow(tr));
+                discountTypeSelect.addEventListener('change', () => calculateRow(tr));
 
                 removeBtn.addEventListener('click', function() {
                     if (tbody.rows.length > 1) {

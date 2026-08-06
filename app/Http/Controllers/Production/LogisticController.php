@@ -627,7 +627,7 @@ class LogisticController extends Controller
         $allTotal = $po->items->sum('quantity');
         $allReceived = $po->items->sum('received_quantity');
 
-        if ($allReceived >= $allTotal) {
+        if ($request->boolean('mark_as_completed') || $allReceived >= $allTotal) {
             $po->update(['status' => 'received']);
         } else if ($allReceived > 0) {
             $po->update(['status' => 'partially_received']);
@@ -704,7 +704,7 @@ class LogisticController extends Controller
     {
         // Get sales orders pending DR prep/approval or linked/pending reconsignment, moved to AR/CR
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'reconsignment_pending'])
+            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval'])
             ->latest()
             ->get();
 
@@ -720,7 +720,7 @@ class LogisticController extends Controller
         $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
         
         // Ensure order is area_consignment or area_sales_consignment and status is in valid statuses
-        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created'])) {
+        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep'])) {
             return redirect()->back()->with('error', 'Invalid order status for reconsignment.');
         }
 
@@ -1552,6 +1552,22 @@ class LogisticController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
+        // Organize ready for pickup orders by platform
+        $readyByPlatform = [
+            'shopee' => $readyForPickupOrders->filter(function($item) {
+                $p = strtolower($item->ecom_platform ?? $item->platform ?? $item->customer->customer_name ?? '');
+                return str_contains($p, 'shopee') || str_contains($p, 'shoppee');
+            })->values(),
+            'tiktok' => $readyForPickupOrders->filter(function($item) {
+                $p = strtolower($item->ecom_platform ?? $item->platform ?? $item->customer->customer_name ?? '');
+                return str_contains($p, 'tiktok') || str_contains($p, 'tik');
+            })->values(),
+            'lazada' => $readyForPickupOrders->filter(function($item) {
+                $p = strtolower($item->ecom_platform ?? $item->platform ?? $item->customer->customer_name ?? '');
+                return str_contains($p, 'lazada') || str_contains($p, 'laz');
+            })->values(),
+        ];
+
         // Check if an order_id was passed to preload a specific order
         $preloadOrderId = $request->input('order_id');
         $preloadOrder = null;
@@ -1572,6 +1588,7 @@ class LogisticController extends Controller
             'complimentaryPackingOrders' => $complimentaryPackingOrders,
             'ecomByPlatform' => $ecomByPlatform,
             'readyForPickupOrders' => $readyForPickupOrders,
+            'readyByPlatform' => $readyByPlatform,
             'preloadOrder' => $preloadOrder,
             'preloadOrderId' => $preloadOrderId,
             'title' => 'Packing Management',
@@ -1854,60 +1871,78 @@ class LogisticController extends Controller
     public function markPackedOrdersAsGathered(Request $request)
     {
         try {
-            $orderId = $request->input('order_id');
+            $orderIds = $request->input('order_ids');
+            if (empty($orderIds) && $request->has('order_id')) {
+                $orderIds = [$request->input('order_id')];
+            }
             
-            if (!$orderId) {
+            if (empty($orderIds)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Order ID is required'
                 ], 400);
             }
 
-            $order = \App\Models\SalesOrder::findOrFail($orderId);
-            
-            // Update packing data status to gathered
-            $packingData = json_decode($order->packing_data ?? '{}', true);
-            $packingData['status'] = 'gathered';
-            $packingData['gathered_at'] = now()->toDateTimeString();
-            $packingData['gathered_by'] = auth()->user()->name;
+            $updatedCount = 0;
+            $lastTargetQueue = '';
 
-            // Packing complete: move order to Delivery Scheduling or complete if ecom direct
-            if ($order->type === 'ecom_direct') {
-                $newStatus = 'completed';
-                $targetQueue = 'Completed (E-Commerce)';
-            } else {
-                $isPickup = in_array($order->delivery_method, ['pickup']) || in_array($order->shipping_method, ['pickup']);
-                $newStatus = $isPickup ? 'ready_for_pickup' : 'ready_for_delivery';
-                $targetQueue = 'Delivery Scheduling';
+            foreach ($orderIds as $orderId) {
+                $order = \App\Models\SalesOrder::find($orderId);
+                if (!$order) continue;
+
+                // Update packing data status to gathered
+                $packingData = json_decode($order->packing_data ?? '{}', true);
+                $packingData['status'] = 'gathered';
+                $packingData['gathered_at'] = now()->toDateTimeString();
+                $packingData['gathered_by'] = auth()->user()->name;
+
+                // Packing complete: move order to Delivery Scheduling or complete if ecom direct
+                if ($order->type === 'ecom_direct') {
+                    $newStatus = 'completed';
+                    $targetQueue = 'Completed (E-Commerce)';
+                } else {
+                    $isPickup = in_array($order->delivery_method, ['pickup']) || in_array($order->shipping_method, ['pickup']);
+                    $newStatus = $isPickup ? 'ready_for_pickup' : 'ready_for_delivery';
+                    $targetQueue = 'Delivery Scheduling';
+                }
+                $lastTargetQueue = $targetQueue;
+
+                $order->update([
+                    'status' => $newStatus,
+                    'packing_data' => json_encode($packingData)
+                ]);
+
+                // Log activity
+                \App\Models\ActivityLog::create([
+                    'user_id' => auth()->id(),
+                    'action' => 'Packed order marked as gathered',
+                    'description' => 'SO ' . $order->so_number . ' marked as gathered and moved to ' . $targetQueue,
+                    'reference_type' => 'SalesOrder',
+                    'reference_id' => $order->id,
+                    'details' => json_encode([
+                        'so_number' => $order->so_number,
+                        'marked_by' => auth()->user()->name,
+                        'action' => 'moved to ' . $targetQueue
+                    ])
+                ]);
+                $updatedCount++;
             }
 
-            $order->update([
-                'status' => $newStatus,
-                'packing_data' => json_encode($packingData)
-            ]);
-
-            // Log activity
-            \App\Models\ActivityLog::create([
-                'user_id' => auth()->id(),
-                'action' => 'Packed order marked as gathered',
-                'description' => 'SO ' . $order->so_number . ' marked as gathered and moved to ' . $targetQueue,
-                'reference_type' => 'SalesOrder',
-                'reference_id' => $order->id,
-                'details' => json_encode([
-                    'so_number' => $order->so_number,
-                    'marked_by' => auth()->user()->name,
-                    'action' => 'moved to ' . $targetQueue
-                ])
-            ]);
+            $message = $updatedCount > 1
+                ? "✓ {$updatedCount} order(s) successfully marked as gathered and ready for delivery!"
+                : 'Order marked as gathered and moved to ' . $lastTargetQueue;
 
             return response()->json([
                 'success' => true,
-                'message' => 'Order marked as gathered and moved to ' . $targetQueue
+                'message' => $message
             ]);
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Error marking as gathered: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+            \Log::error('Error marking packed orders as gathered: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error marking order as gathered: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -2487,6 +2522,103 @@ class LogisticController extends Controller
             \Illuminate\Support\Facades\Log::error('Error returning consignment: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Error returning consignment items: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Fast-track Move Sales Order directly to Sales Invoice queue
+     * For area consignment: uses customer_selected_qty as the invoiced qty
+     * Sets status to si_created so the SO stays in DR list and can still be reconsigned
+     */
+    public function fastMoveToSI(Request $request, $id)
+    {
+        try {
+            $order = \App\Models\SalesOrder::with(['items.book', 'customer'])->findOrFail($id);
+
+            // Build SI items using picked qty (customer_selected_qty).
+            // Skip items with zero pick qty.
+            $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
+            $siItems = [];
+            $totalAmount = 0;
+
+            foreach ($order->items as $item) {
+                $qty = $isConsignment
+                    ? (int)($item->customer_selected_qty ?? 0)
+                    : (int)($item->quantity ?? 0);
+
+                if ($qty <= 0) continue;
+
+                $unitPrice = $item->price ?? 0;
+                $amount = $qty * $unitPrice;
+                $totalAmount += $amount;
+
+                $siItems[] = [
+                    'so_item_id' => $item->id,
+                    'book_id'    => $item->book_id,
+                    'quantity'   => $qty,
+                    'unit_price' => $unitPrice,
+                    'amount'     => $amount,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            if (empty($siItems)) {
+                return redirect()->back()->with('error', 'No items with a pick quantity selected. Please save pick quantities first before moving to SI.');
+            }
+
+            // Use si_created status: keeps the SO visible in DR list and allows reconsignment
+            $order->update([
+                'status'         => 'si_created',
+                'si_prepared_by' => auth()->id(),
+                'si_prepared_at' => now(),
+                'remarks'        => ($order->remarks ? $order->remarks . ' | ' : '') . 'Moved to SI by ' . auth()->user()->name
+            ]);
+
+            // Create or re-use Sales Invoice record
+            $si = \App\Models\SalesInvoice::firstOrCreate(
+                ['so_id' => $order->id],
+                [
+                    'si_number'        => 'SI-' . $order->so_number,
+                    'customer_id'      => $order->customer_id,
+                    'customer_name'    => $order->customer->customer_name ?? 'N/A',
+                    'total_amount'     => $totalAmount,
+                    'transaction_type' => $order->type . '_si',
+                    'status'           => 'pending_approval',
+                    'created_by'       => auth()->id()
+                ]
+            );
+
+            // Update totals and status in case the record already existed
+            $si->update([
+                'total_amount'   => $totalAmount,
+                'status'         => 'pending_approval',
+                'payment_method' => $order->payment_method ?? 'cash'
+            ]);
+
+            // Remove any previously incorrect items and re-create from picked qty
+            $si->items()->delete();
+            foreach ($siItems as $row) {
+                \App\Models\SalesInvoiceItem::create(array_merge(['si_id' => $si->id], $row));
+            }
+
+            // Log activity
+            \App\Models\ActivityLog::create([
+                'user_id'            => auth()->id(),
+                'action'             => 'Moved to Sales Invoice',
+                'description'        => "Sales Order {$order->so_number} moved to SI. " . count($siItems) . " item(s), total ₱" . number_format($totalAmount, 2) . ".",
+                'affected_model'     => 'SalesOrder',
+                'affected_model_id'  => $order->id,
+                'ip_address'         => $request->ip(),
+                'user_agent'         => $request->header('User-Agent')
+            ]);
+
+            return redirect()
+                ->route('admin-finance.accounting.sales-invoice')
+                ->with('success', 'Sales Order #' . $order->so_number . ' moved to Sales Invoice successfully! ' . count($siItems) . ' item(s) invoiced.');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error moving order to SI: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error moving order to SI: ' . $e->getMessage());
         }
     }
 }

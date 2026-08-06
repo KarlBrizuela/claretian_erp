@@ -24,12 +24,14 @@
             $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
         }
 
-        if ($activeInvoice) {
+        // If activeInvoice has no items, fall back to SO items
+        if ($activeInvoice && $activeInvoice->items->count() > 0) {
             $itemsToRender = $activeInvoice->items;
             $totalSalesAmount = (float) $activeInvoice->total_amount;
         } else {
             $itemsToRender = $order->items;
             $totalSalesAmount = (float) $order->total_amount;
+            $activeInvoice = null; // reset so item fields resolve from SO items
         }
     @endphp
 
@@ -62,7 +64,7 @@
                         @else
                             <span class="badge bg-{{ $pmBadgeColor }} fs-14 px-3 py-2 me-2">{{ $pmLabel }}</span>
                             @if($remBal > 0 && $order->customer_id)
-                                <button type="button" class="btn btn-sm btn-success open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $order->total_amount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
+                                <button type="button" class="btn btn-sm btn-success open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $order->total_amount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}">
                                     <i class="las la-coins me-1"></i> Record Payment / Installment
                                 </button>
                             @endif
@@ -173,6 +175,49 @@
                                 <div>
                                     @if($isComplimentary)
                                         <span class="badge p-2" style="background-color: #6f42c1; color: #fff;"><i class="las la-info-circle me-1"></i>Not Required (Complimentary Order)</span>
+                                        @if($order->proof_of_payment)
+                                            <a href="{{ asset('storage/' . $order->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-success fw-bold ms-1">
+                                                <i class="las la-receipt me-1"></i> View POP
+                                            </a>
+                                        @else
+                                            <form action="{{ route('admin-finance.sales-order.upload-attachment', $order->id) }}" method="POST" enctype="multipart/form-data" class="mt-2">
+                                                @csrf
+                                                <input type="hidden" name="attachment_type" value="proof_of_payment">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="file" name="attachment_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                                                    <button type="submit" class="btn btn-outline-secondary text-nowrap"><i class="las la-upload me-1"></i> Upload (Optional)</button>
+                                                </div>
+                                            </form>
+                                        @endif
+                                    @elseif(in_array($order->type, ['charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment']))
+                                        <span class="badge p-2 bg-info text-white"><i class="las la-info-circle me-1"></i>Not Required ({{ ucfirst(str_replace('_', ' ', $order->type)) }} Transaction)</span>
+                                        @if($order->proof_of_payment)
+                                            <div class="d-flex align-items-center gap-2 mt-1">
+                                                <a href="{{ asset('storage/' . $order->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-success fw-bold">
+                                                    <i class="las la-receipt me-1"></i> View POP
+                                                </a>
+                                                <button class="btn btn-sm btn-light border text-muted" type="button" onclick="document.getElementById('reuploadPopFormExempt').classList.toggle('d-none')" title="Re-upload">
+                                                    <i class="las la-edit"></i>
+                                                </button>
+                                            </div>
+                                            <form id="reuploadPopFormExempt" action="{{ route('admin-finance.sales-order.upload-attachment', $order->id) }}" method="POST" enctype="multipart/form-data" class="d-none mt-2">
+                                                @csrf
+                                                <input type="hidden" name="attachment_type" value="proof_of_payment">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="file" name="attachment_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                                                    <button type="submit" class="btn btn-primary"><i class="las la-upload me-1"></i> Upload</button>
+                                                </div>
+                                            </form>
+                                        @else
+                                            <form action="{{ route('admin-finance.sales-order.upload-attachment', $order->id) }}" method="POST" enctype="multipart/form-data" class="mt-2">
+                                                @csrf
+                                                <input type="hidden" name="attachment_type" value="proof_of_payment">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="file" name="attachment_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                                                    <button type="submit" class="btn btn-outline-secondary text-nowrap"><i class="las la-upload me-1"></i> Upload (Optional)</button>
+                                                </div>
+                                            </form>
+                                        @endif
                                     @elseif($order->proof_of_payment)
                                         <div class="d-flex align-items-center gap-2">
                                             <a href="{{ asset('storage/' . $order->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-success fw-bold">
@@ -255,7 +300,8 @@
                             <th style="width: 80px;">QTY</th>
                             <th style="width: 100px;">UNIT</th>
                             <th>DESCRIPTION</th>
-                            <th style="width: 150px;">UNIT PRICE</th>
+                            <th style="width: 130px;">UNIT PRICE</th>
+                            <th style="width: 110px;">DISCOUNT</th>
                             <th style="width: 150px;">AMOUNT</th>
                         </tr>
                     </thead>
@@ -271,6 +317,19 @@
                                 <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? '-' }}</small>
                             </td>
                             <td class="text-end">₱{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
+                            <td class="text-center">
+                                @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
+                                    @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
+                                        {{ (float)$item->discount_value }}%
+                                    @elseif(($item->discount_value ?? 0) > 0)
+                                        ₱{{ number_format($item->discount_value, 2) }}
+                                    @else
+                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
                             <td class="text-end fw-bold">₱{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>
                         </tr>
                         @endif
@@ -281,22 +340,22 @@
                             $itemsSubtotal = $itemsToRender->sum(function($item) {
                                 return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
                             });
-                            $discountAmount = $order->discount_amount ?? 0;
+                            $discountAmount = (float) ($order->discount_amount ?? 0);
                             $discountPercentage = $order->discount_percentage ?? 0;
                             $freightCharges = $order->freight_charges ?? 0;
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
                         @endphp
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase">
+                            <td colspan="5" class="text-end text-uppercase">
                                 <strong>
                                     Discount
-                                    @if($discountPercentage > 0)
-                                        ({{ (float)$discountPercentage }}%)
+                                    @if(($order->discount_percentage ?? 0) > 0)
+                                        ({{ (float)$order->discount_percentage }}%)
                                     @endif:
                                 </strong>
                             </td>
@@ -305,18 +364,18 @@
                         @endif
                         @if($freightCharges > 0)
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($freightCharges, 2) }}</td>
                         </tr>
                         @endif
                         @if($serviceFee > 0)
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
                         </tr>
                         @endif
                         <tr style="background: #f8f9fa;">
-                            <td colspan="4" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
                             <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($totalSalesAmount, 2) }}</td>
                         </tr>
                     </tfoot>
@@ -363,7 +422,7 @@
                                 </button>
                             </form>
                         @elseif($order->status === 'pending_si_prep')
-                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
+                            @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary']))
                                 <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning">
                                     <i class="las la-file-invoice me-2"></i>Prepare Sales Invoice
                                 </a>
@@ -436,20 +495,28 @@
                         <input type="hidden" id="payCustomerId">
                         
                         <div class="alert alert-light border mb-3">
-                            <div class="row g-2">
-                                <div class="col-6 col-md-3 border-end">
+                            <div class="row g-2 text-center text-md-start">
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Transaction #:</span>
                                     <strong id="paySoNumber" class="text-dark">SO-0000</strong>
                                 </div>
-                                <div class="col-6 col-md-3 border-end">
+                                <div class="col-6 col-md-2 border-end">
+                                    <span class="text-muted small d-block">Terms:</span>
+                                    <span id="payTerms" class="badge bg-info text-white fw-semibold">COD</span>
+                                </div>
+                                <div class="col-6 col-md-2 border-end">
+                                    <span class="text-muted small d-block">Due Date:</span>
+                                    <strong id="payDueDate" class="text-dark">N/A</strong>
+                                </div>
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Grand Total:</span>
                                     <strong id="payTotalAmount" class="text-dark">₱0.00</strong>
                                 </div>
-                                <div class="col-6 col-md-3 border-end">
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Already Paid:</span>
                                     <span id="payAlreadyPaid" class="text-success fw-bold">₱0.00</span>
                                 </div>
-                                <div class="col-6 col-md-3">
+                                <div class="col-6 col-md-2">
                                     <span class="text-muted small d-block">Remaining:</span>
                                     <strong id="payRemainingBalance" class="text-danger fs-16">₱0.00</strong>
                                 </div>
@@ -590,9 +657,14 @@
                 const paidAmount = parseFloat(payBtn.dataset.paid) || 0;
                 const remainingBalance = parseFloat(payBtn.dataset.remaining) || 0;
 
+                const terms = payBtn.dataset.terms || 'COD';
+                const dueDate = payBtn.dataset.dueDate || 'N/A';
+
                 document.getElementById('paySoId').value = soId;
                 document.getElementById('payCustomerId').value = customerId;
                 document.getElementById('paySoNumber').textContent = soNumber;
+                document.getElementById('payTerms').textContent = terms;
+                document.getElementById('payDueDate').textContent = dueDate;
                 document.getElementById('payTotalAmount').textContent = '₱' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('payAlreadyPaid').textContent = '₱' + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('payRemainingBalance').textContent = '₱' + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});

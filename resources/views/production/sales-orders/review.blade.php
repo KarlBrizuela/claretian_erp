@@ -133,7 +133,8 @@
                             <th style="width: 80px;">QTY</th>
                             <th style="width: 100px;">UNIT</th>
                             <th>DESCRIPTION</th>
-                            <th style="width: 150px;">UNIT PRICE</th>
+                            <th style="width: 130px;">UNIT PRICE</th>
+                            <th style="width: 110px;">DISCOUNT</th>
                             <th style="width: 150px;">AMOUNT</th>
                         </tr>
                     </thead>
@@ -149,6 +150,19 @@
                                 <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? '-' }}</small>
                             </td>
                             <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
+                            <td class="text-center">
+                                @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
+                                    @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
+                                        {{ (float)$item->discount_value }}%
+                                    @elseif(($item->discount_value ?? 0) > 0)
+                                        ₱{{ number_format($item->discount_value, 2) }}
+                                    @else
+                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
                             <td class="text-end fw-bold">₱{{ number_format($item->subtotal, 2) }}</td>
                         </tr>
                         @endif
@@ -161,18 +175,18 @@
                             $itemsSubtotal = $itemsToRender->sum(function($item) {
                                 return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
                             });
-                            $discountAmount = $order->discount_amount ?? 0;
+                            $discountAmount = (float) ($order->discount_amount ?? 0);
                             $discountPercentage = $order->discount_percentage ?? 0;
                             $freightCharges = $order->freight_charges ?? 0;
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
                         @endphp
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase">
+                            <td colspan="5" class="text-end text-uppercase">
                                 <strong>
                                     Discount
                                     @if($discountPercentage > 0)
@@ -185,18 +199,18 @@
                         @endif
                         @if($freightCharges > 0)
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($freightCharges, 2) }}</td>
                         </tr>
                         @endif
                         @if($serviceFee > 0)
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
                         </tr>
                         @endif
                         <tr style="background: #f8f9fa;">
-                            <td colspan="4" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
                             <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($totalSalesAmount, 2) }}</td>
                         </tr>
                     </tfoot>

@@ -230,14 +230,6 @@
                     <div class="d-flex align-items-center gap-2 mt-3 mt-sm-0 customer-header-actions">
                         <input type="text" class="form-control me-2" placeholder="Search customers (press Enter)..."
                             id="customerSearch" value="{{ request('search') }}" style="max-width: 250px; height: 38px;">
-                        
-                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers'))
-                        <button type="button" class="btn btn-danger text-white d-none" id="bulkDeleteBtn"
-                            style="background: #dc3545; border-color: #dc3545;">
-                            <i class="fa fa-trash me-1"></i>
-                            <span>Delete Selected (<span id="selectedCount">0</span>)</span>
-                        </button>
-                        @endif
 
                         <a href="javascript:void(0);"
                             class="btn btn-outline-primary" data-bs-toggle="modal"
@@ -854,20 +846,28 @@
                         <input type="hidden" id="paySoId">
                         
                         <div class="alert alert-light border mb-3">
-                            <div class="row g-2">
-                                <div class="col-6 col-md-3 border-end">
+                            <div class="row g-2 text-center text-md-start">
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Transaction #:</span>
                                     <strong id="paySoNumber" class="text-dark">SO-0000</strong>
                                 </div>
-                                <div class="col-6 col-md-3 border-end">
+                                <div class="col-6 col-md-2 border-end">
+                                    <span class="text-muted small d-block">Terms:</span>
+                                    <span id="payTerms" class="badge bg-info text-white fw-semibold">COD</span>
+                                </div>
+                                <div class="col-6 col-md-2 border-end">
+                                    <span class="text-muted small d-block">Due Date:</span>
+                                    <strong id="payDueDate" class="text-dark">N/A</strong>
+                                </div>
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Grand Total:</span>
                                     <strong id="payTotalAmount" class="text-dark">₱0.00</strong>
                                 </div>
-                                <div class="col-6 col-md-3 border-end">
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Already Paid:</span>
                                     <span id="payAlreadyPaid" class="text-success fw-bold">₱0.00</span>
                                 </div>
-                                <div class="col-6 col-md-3">
+                                <div class="col-6 col-md-2">
                                     <span class="text-muted small d-block">Remaining:</span>
                                     <strong id="payRemainingBalance" class="text-danger fs-16">₱0.00</strong>
                                 </div>
@@ -1979,9 +1979,9 @@
                         
                         let actionCol = '';
                         if (order.remaining_balance > 0) {
-                            actionCol = `<button type="button" class="btn btn-xs btn-success open-pay-modal-btn shadow-sm" data-so-id="${order.id}" data-so-number="${order.so_number}" data-total="${order.total_amount}" data-paid="${order.paid_amount}" data-remaining="${order.remaining_balance}"><i class="las la-coins me-1"></i>Pay</button>`;
+                            actionCol = `<button type="button" class="btn btn-xs btn-success open-pay-modal-btn shadow-sm" data-so-id="${order.id}" data-so-number="${order.so_number}" data-total="${order.total_amount}" data-paid="${order.paid_amount}" data-remaining="${order.remaining_balance}" data-terms="${order.terms || 'COD'}" data-due-date="${order.due_date || 'N/A'}"><i class="las la-coins me-1"></i>Pay</button>`;
                         } else {
-                            actionCol = `<button type="button" class="btn btn-xs btn-outline-success open-pay-modal-btn shadow-sm" data-so-id="${order.id}" data-so-number="${order.so_number}" data-total="${order.total_amount}" data-paid="${order.paid_amount}" data-remaining="${order.remaining_balance}"><i class="las la-history me-1"></i>History</button>`;
+                            actionCol = `<button type="button" class="btn btn-xs btn-outline-success open-pay-modal-btn shadow-sm" data-so-id="${order.id}" data-so-number="${order.so_number}" data-total="${order.total_amount}" data-paid="${order.paid_amount}" data-remaining="${order.remaining_balance}" data-terms="${order.terms || 'COD'}" data-due-date="${order.due_date || 'N/A'}"><i class="las la-history me-1"></i>History</button>`;
                         }
 
                         rows += `
@@ -2098,8 +2098,13 @@
                 const paidAmount = parseFloat(payBtn.dataset.paid) || 0;
                 const remainingBalance = parseFloat(payBtn.dataset.remaining) || 0;
 
+                const terms = payBtn.dataset.terms || 'COD';
+                const dueDate = payBtn.dataset.dueDate || 'N/A';
+
                 document.getElementById('paySoId').value = soId;
                 document.getElementById('paySoNumber').textContent = soNumber;
+                document.getElementById('payTerms').textContent = terms;
+                document.getElementById('payDueDate').textContent = dueDate;
                 document.getElementById('payTotalAmount').textContent = '₱' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('payAlreadyPaid').textContent = '₱' + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('payRemainingBalance').textContent = '₱' + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
@@ -2344,30 +2349,43 @@
             }
         });
 
-        // Bulk Select & Delete functionality
+        // Bulk Select & Delete functionality with Cross-Page Persistence via sessionStorage
         const selectAllCb = document.getElementById('selectAllCustomers');
-        const rowCbs = document.querySelectorAll('.customer-row-cb');
-        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
         const floatingBulkDeleteBtn = document.getElementById('floatingBulkDeleteBtn');
         const bulkFloatingBar = document.getElementById('bulkFloatingBar');
         const clearSelectionBtn = document.getElementById('clearSelectionBtn');
-        const selectedCountSpan = document.getElementById('selectedCount');
         const floatingSelectedCountSpan = document.getElementById('floatingSelectedCount');
 
-        function updateBulkDeleteState() {
-            const checkedCbs = document.querySelectorAll('.customer-row-cb:checked');
-            const count = checkedCbs.length;
-            
-            if (selectedCountSpan) selectedCountSpan.textContent = count;
-            if (floatingSelectedCountSpan) floatingSelectedCountSpan.textContent = count;
-
-            if (bulkDeleteBtn) {
-                if (count > 0) {
-                    bulkDeleteBtn.classList.remove('d-none');
-                } else {
-                    bulkDeleteBtn.classList.add('d-none');
-                }
+        function getSelectedCustomerIds() {
+            try {
+                const stored = sessionStorage.getItem('selectedCustomerIds');
+                return stored ? JSON.parse(stored) : [];
+            } catch (e) {
+                return [];
             }
+        }
+
+        function saveSelectedCustomerIds(ids) {
+            sessionStorage.setItem('selectedCustomerIds', JSON.stringify(Array.from(new Set(ids))));
+        }
+
+        function updateBulkDeleteState() {
+            const currentSelected = new Set(getSelectedCustomerIds());
+
+            // Synchronize current page checkboxes with session storage
+            document.querySelectorAll('.customer-row-cb').forEach(cb => {
+                if (cb.checked) {
+                    currentSelected.add(cb.value);
+                } else {
+                    currentSelected.delete(cb.value);
+                }
+            });
+
+            const allSelectedIds = Array.from(currentSelected);
+            saveSelectedCustomerIds(allSelectedIds);
+
+            const count = allSelectedIds.length;
+            if (floatingSelectedCountSpan) floatingSelectedCountSpan.textContent = count;
 
             if (bulkFloatingBar) {
                 if (count > 0) {
@@ -2377,9 +2395,11 @@
                 }
             }
 
+            const pageCbs = document.querySelectorAll('.customer-row-cb');
+            const pageCheckedCbs = document.querySelectorAll('.customer-row-cb:checked');
             if (selectAllCb) {
-                selectAllCb.checked = (rowCbs.length > 0 && count === rowCbs.length);
-                selectAllCb.indeterminate = (count > 0 && count < rowCbs.length);
+                selectAllCb.checked = (pageCbs.length > 0 && pageCheckedCbs.length === pageCbs.length);
+                selectAllCb.indeterminate = (pageCheckedCbs.length > 0 && pageCheckedCbs.length < pageCbs.length);
             }
 
             // Update row background styling
@@ -2393,8 +2413,22 @@
             });
         }
 
+        function restoreCheckboxStates() {
+            const selectedIds = new Set(getSelectedCustomerIds());
+            document.querySelectorAll('.customer-row-cb').forEach(cb => {
+                if (selectedIds.has(cb.value)) {
+                    cb.checked = true;
+                }
+            });
+            updateBulkDeleteState();
+        }
+
+        // Restore checkboxes when page loads
+        restoreCheckboxStates();
+
         if (clearSelectionBtn) {
             clearSelectionBtn.addEventListener('click', function() {
+                sessionStorage.removeItem('selectedCustomerIds');
                 document.querySelectorAll('.customer-row-cb').forEach(cb => cb.checked = false);
                 if (selectAllCb) {
                     selectAllCb.checked = false;
@@ -2446,12 +2480,11 @@
 
         // Shared Execute Bulk Delete Function
         async function executeBulkDelete(targetBtn) {
-            const checkedCbs = document.querySelectorAll('.customer-row-cb:checked');
-            const selectedIds = Array.from(checkedCbs).map(cb => cb.value);
+            const selectedIds = getSelectedCustomerIds();
 
             if (!selectedIds.length) return;
 
-            if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected customer(s)? This action cannot be undone.`)) {
+            if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected customer(s) across pages? This action cannot be undone.`)) {
                 return;
             }
 
@@ -2459,8 +2492,6 @@
                 targetBtn.disabled = true;
                 targetBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Deleting...';
             }
-            if (bulkDeleteBtn) bulkDeleteBtn.disabled = true;
-            if (floatingBulkDeleteBtn) floatingBulkDeleteBtn.disabled = true;
 
             try {
                 const response = await fetch('{{ route("marketing.customers.bulk-delete") }}', {
@@ -2476,6 +2507,7 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
+                    sessionStorage.removeItem('selectedCustomerIds');
                     alert(data.message || 'Customers deleted successfully!');
                     window.location.reload();
                 } else {
@@ -2484,10 +2516,6 @@
             } catch (err) {
                 alert('An error occurred during bulk deletion: ' + err.message);
             } finally {
-                if (bulkDeleteBtn) {
-                    bulkDeleteBtn.disabled = false;
-                    bulkDeleteBtn.innerHTML = '<i class="fa fa-trash me-1"></i> Delete Selected (<span id="selectedCount">' + selectedIds.length + '</span>)';
-                }
                 if (floatingBulkDeleteBtn) {
                     floatingBulkDeleteBtn.disabled = false;
                     floatingBulkDeleteBtn.innerHTML = '<i class="fa fa-trash me-1"></i> Delete Selected';
@@ -2496,11 +2524,6 @@
             }
         }
 
-        if (bulkDeleteBtn) {
-            bulkDeleteBtn.addEventListener('click', function() {
-                executeBulkDelete(this);
-            });
-        }
         if (floatingBulkDeleteBtn) {
             floatingBulkDeleteBtn.addEventListener('click', function() {
                 executeBulkDelete(this);

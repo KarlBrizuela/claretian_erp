@@ -545,25 +545,22 @@
                 const baseQty = 1;
                 const portion = qtyMode;
                 const qty = portion === 'half' ? 0.5 : 1;
-                cart.push({ ...item, cartKey, baseQty, qty, portion });
+                cart.push({ ...item, cartKey, baseQty, qty, portion, discount_value: 0, discount_type: 'percentage' });
             }
             renderCart();
         }
 
-        function setItemPortion(index, portion) {
+        function updateItemDiscount(index, val, type) {
             const item = cart[index];
             if (!item) return;
 
-            item.portion = portion;
-            if (item.baseQty === undefined) item.baseQty = item.qty;
-
-            if (portion === 'half') {
-                item.qty = item.baseQty / 2;
-            } else {
-                item.qty = item.baseQty;
+            if (val !== null && val !== undefined) {
+                item.discount_value = val === '' ? '' : (parseFloat(val) || 0);
             }
-
-            renderCart();
+            if (type !== null && type !== undefined) {
+                item.discount_type = type;
+            }
+            calculateTotals();
         }
 
         function renderCart() {
@@ -579,21 +576,42 @@
                     const typeBadge = item.type === 'bundle'
                         ? `<span style="font-size:0.65rem;background:#6f42c1;color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">BUNDLE</span>`
                         : '';
-                    const isHalf = item.portion === 'half';
+                    const discVal = item.discount_value !== undefined && item.discount_value !== '' ? item.discount_value : '';
+                    const discType = item.discount_type || 'percentage';
+
                     return `
-                    <div class="cart-item-card mb-2">
+                    <div class="cart-item-card mb-2 p-2" style="background:#fff; border:1px solid #e9ecef; border-radius:8px;">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h6 class="mb-1" style="font-size: 0.9rem;">${item.name}${typeBadge}</h6>
-                                <div class="text-primary font-w600">₱${item.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                            <div style="flex:1; padding-right:8px;">
+                                <h6 class="mb-1 fw-bold" style="font-size: 0.85rem; line-height:1.2;">${item.name}${typeBadge}</h6>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="text-primary font-w600" id="cart-item-subtotal-${index}" style="font-size: 0.85rem;">
+                                        ₱${(item.itemSubtotal || (item.qty * item.price)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                    </span>
+                                </div>
                             </div>
                             <div class="d-flex flex-column align-items-end">
-                                <button class="btn btn-xs btn-outline-danger mb-2" onclick="removeItem(${index})">×</button>
-                                <div class="input-group input-group-sm mb-1" style="width: 120px;">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="updateQty(${index}, -1)">-</button>
+                                <button class="btn btn-xs btn-outline-danger mb-1 py-0 px-1" onclick="removeItem(${index})" title="Remove item" style="line-height:1;">×</button>
+                                <div class="input-group input-group-sm mb-1" style="width: 110px;">
+                                    <button class="btn btn-outline-secondary py-0 px-2" type="button" onclick="updateQty(${index}, -1)">-</button>
                                     <input type="number" step="any" class="form-control text-center px-0 qty-input" value="${item.qty}" min="0.1" oninput="updateQtyDirect(${index}, this.value)">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="updateQty(${index}, 1)">+</button>
+                                    <button class="btn btn-outline-secondary py-0 px-2" type="button" onclick="updateQty(${index}, 1)">+</button>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top" style="border-color:#f1f3f5!important;">
+                            <span class="text-muted" style="font-size: 0.75rem;"><i class="las la-tag me-1"></i>Item Disc:</span>
+                            <div class="d-flex align-items-center gap-1">
+                                <input type="number" step="any" min="0" class="form-control form-control-sm text-end p-1" 
+                                       style="width: 65px; font-size: 0.75rem; height: 24px;" 
+                                       value="${discVal}" placeholder="0" 
+                                       oninput="updateItemDiscount(${index}, this.value, null)">
+                                <select class="form-select form-select-sm px-1 py-0" 
+                                        style="width: 52px; font-size: 0.75rem; height: 24px;" 
+                                        onchange="updateItemDiscount(${index}, null, this.value)">
+                                    <option value="percentage" ${discType === 'percentage' ? 'selected' : ''}>%</option>
+                                    <option value="amount" ${discType === 'amount' ? 'selected' : ''}>₱</option>
+                                </select>
                             </div>
                         </div>
                     </div>`;
@@ -796,11 +814,30 @@
                 payment_reference: paymentReference,
                 cash_received: cashReceived,
                 items: cart.map(item => {
+                    const qty = parseFloat(item.qty) || 0;
+                    const price = parseFloat(item.price) || 0;
+                    const gross = qty * price;
+                    const discVal = parseFloat(item.discount_value) || 0;
+                    const discType = item.discount_type || 'percentage';
+                    let dAmt = discType === 'percentage' ? gross * (discVal / 100) : discVal;
+                    dAmt = Math.min(gross, Math.max(0, dAmt));
+                    const netSub = Math.max(0, gross - dAmt);
+
+                    const itemPayload = {
+                        quantity: item.qty,
+                        price: item.price,
+                        discount_value: discVal,
+                        discount_type: discType,
+                        discount_amount: dAmt,
+                        subtotal: netSub
+                    };
+
                     if (item.type === 'bundle') {
-                        return { bundle_id: item.id, quantity: item.qty, price: item.price };
+                        itemPayload.bundle_id = item.id;
                     } else {
-                        return { product_id: item.id, quantity: item.qty, price: item.price };
+                        itemPayload.product_id = item.id;
                     }
+                    return itemPayload;
                 }),
                 subtotal: subtotalAmt,
                 tax: taxAmt,
@@ -885,7 +922,35 @@
         }
 
         function calculateTotals() {
-            subtotalAmt = cart.reduce((sum, item) => sum + (item.qty * item.price), 0);
+            subtotalAmt = 0;
+
+            cart.forEach((item, index) => {
+                const qty = parseFloat(item.qty) || 0;
+                const price = parseFloat(item.price) || 0;
+                const gross = qty * price;
+                const discVal = parseFloat(item.discount_value) || 0;
+                const discType = item.discount_type || 'percentage';
+
+                let dAmt = discType === 'percentage' ? gross * (discVal / 100) : discVal;
+                dAmt = Math.min(gross, Math.max(0, dAmt));
+                const netSub = Math.max(0, gross - dAmt);
+
+                item.itemDiscAmount = dAmt;
+                item.itemSubtotal = netSub;
+
+                subtotalAmt += netSub;
+
+                const cardSubtotalEl = document.getElementById(`cart-item-subtotal-${index}`);
+                if (cardSubtotalEl) {
+                    let discTag = '';
+                    if (discVal > 0) {
+                        discTag = discType === 'percentage' 
+                            ? `<span class="badge bg-danger-subtle text-danger ms-1" style="font-size:0.65rem; padding: 2px 4px;">-${discVal}%</span>`
+                            : `<span class="badge bg-danger-subtle text-danger ms-1" style="font-size:0.65rem; padding: 2px 4px;">-₱${dAmt.toFixed(2)}</span>`;
+                    }
+                    cardSubtotalEl.innerHTML = `₱${netSub.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` + discTag;
+                }
+            });
             
             // Calculate discount
             const discountValueInput = document.getElementById('discountValue');

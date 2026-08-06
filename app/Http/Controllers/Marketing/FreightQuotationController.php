@@ -67,6 +67,7 @@ class FreightQuotationController extends Controller
         try {
             $validated = $request->validate([
                 'customer_id' => 'required|exists:customers,customer_id',
+                'transaction_type' => 'nullable|string|max:50',
                 'origin_contact' => 'required|string|max:255',
                 'origin_address' => 'required|string',
                 'origin_province' => 'required|string|max:255',
@@ -74,6 +75,8 @@ class FreightQuotationController extends Controller
                 'destination_address' => 'required|string',
                 'destination_province' => 'required|string|max:255',
                 'service_mode' => 'required|string|max:255',
+                'freight_mode' => 'nullable|string|max:255',
+                'forwarder' => 'nullable|string|max:255',
                 'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
                 'cargo_qty' => 'nullable|array',
                 'cargo_qty.*' => 'nullable|integer|min:1',
@@ -85,6 +88,8 @@ class FreightQuotationController extends Controller
                 'so_items.*.product_id' => 'nullable|exists:books,id',
                 'so_items.*.quantity' => 'nullable|integer|min:1',
                 'so_items.*.price' => 'nullable|numeric|min:0',
+                'so_items.*.discount_value' => 'nullable|numeric|min:0',
+                'so_items.*.discount_type' => 'nullable|string|in:amount,percentage',
             ], [
                 'customer_id.required' => 'Customer is required',
                 'customer_id.exists' => 'Selected customer does not exist',
@@ -121,6 +126,8 @@ class FreightQuotationController extends Controller
                 'quote_number' => $quoteNumber,
                 'quote_date' => now()->toDateString(),
                 'validity_days' => 30,
+                'customer_id' => $validated['customer_id'],
+                'transaction_type' => $validated['transaction_type'] ?? 'paid',
                 'origin_contact' => $validated['origin_contact'],
                 'origin_address' => $validated['origin_address'],
                 'origin_province' => $validated['origin_province'],
@@ -128,6 +135,8 @@ class FreightQuotationController extends Controller
                 'destination_address' => $validated['destination_address'],
                 'destination_province' => $validated['destination_province'],
                 'service_mode' => $validated['service_mode'],
+                'freight_mode' => $validated['forwarder'] ?? $validated['freight_mode'] ?? null,
+                'forwarder' => $validated['forwarder'] ?? $validated['freight_mode'] ?? null,
                 'freight_option' => $validated['freight_option'] ?? null,
                 'cargo_items' => !empty($cargoItems) ? json_encode($cargoItems) : null,
                 'estimated_freight' => 0,
@@ -135,7 +144,6 @@ class FreightQuotationController extends Controller
                 'status' => 'pending',
                 'workflow_status' => 'draft',
                 'created_by' => auth()->id(),
-                'customer_id' => $validated['customer_id'],
             ]);
 
             // Create draft SO if SO items are provided
@@ -157,7 +165,13 @@ class FreightQuotationController extends Controller
                     // Calculate items total
                     $itemsTotal = 0;
                     foreach ($soItems as $item) {
-                        $itemsTotal += ($item['quantity'] * $item['price']);
+                        $qty = (int) ($item['quantity'] ?? 0);
+                        $price = (float) ($item['price'] ?? 0);
+                        $discVal = (float) ($item['discount_value'] ?? 0);
+                        $discType = $item['discount_type'] ?? 'percentage';
+                        $gross = $qty * $price;
+                        $discAmount = $discType === 'percentage' ? $gross * ($discVal / 100) : $discVal;
+                        $itemsTotal += max(0, $gross - $discAmount);
                     }
 
                     if (($validated['freight_option'] ?? null) === 'freight_collect') {
@@ -167,7 +181,7 @@ class FreightQuotationController extends Controller
                     $salesOrder = SalesOrder::create([
                         'customer_id' => $validated['customer_id'],
                         'so_number' => $soNumber,
-                        'type' => 'paid',
+                        'type' => $validated['transaction_type'] ?? 'paid',
                         'status' => 'draft',
                         'total_amount' => $itemsTotal,
                         'freight_option' => $validated['freight_option'] ?? null,
@@ -177,11 +191,22 @@ class FreightQuotationController extends Controller
 
                     // Create SO items
                     foreach ($soItems as $item) {
+                        $qty = (int) ($item['quantity'] ?? 0);
+                        $price = (float) ($item['price'] ?? 0);
+                        $discVal = (float) ($item['discount_value'] ?? 0);
+                        $discType = $item['discount_type'] ?? 'percentage';
+                        $gross = $qty * $price;
+                        $discAmount = $discType === 'percentage' ? $gross * ($discVal / 100) : $discVal;
+                        $subtotal = max(0, $gross - $discAmount);
+
                         $salesOrder->items()->create([
                             'book_id' => $item['product_id'],
-                            'quantity' => $item['quantity'],
-                            'price' => $item['price'],
-                            'subtotal' => $item['quantity'] * $item['price'],
+                            'quantity' => $qty,
+                            'price' => $price,
+                            'discount_value' => $discVal,
+                            'discount_type' => $discType,
+                            'discount_amount' => $discAmount,
+                            'subtotal' => $subtotal,
                         ]);
                     }
 
@@ -370,6 +395,8 @@ class FreightQuotationController extends Controller
                 'items.*.product_id' => 'required|exists:books,id',
                 'items.*.quantity' => 'required|integer|min:1',
                 'items.*.price' => 'required|numeric|min:0.01',
+                'items.*.discount_value' => 'nullable|numeric|min:0',
+                'items.*.discount_type' => 'nullable|string|in:amount,percentage',
             ]);
 
             DB::beginTransaction();
@@ -386,7 +413,16 @@ class FreightQuotationController extends Controller
                 // Calculate total
                 $totalAmount = 0;
                 foreach ($validated['items'] as $item) {
-                    $totalAmount += ($item['quantity'] * $item['price']);
+                    $gross = $item['quantity'] * $item['price'];
+                    $discVal = (float) ($item['discount_value'] ?? 0);
+                    $discType = $item['discount_type'] ?? 'percentage';
+                    if ($discType === 'percentage') {
+                        $discAmount = $gross * ($discVal / 100);
+                    } else {
+                        $discAmount = $discVal;
+                    }
+                    $subtotal = max(0, $gross - $discAmount);
+                    $totalAmount += $subtotal;
                 }
 
                 // Add freight charges
@@ -410,11 +446,24 @@ class FreightQuotationController extends Controller
 
                 // Create SO items
                 foreach ($validated['items'] as $item) {
+                    $gross = $item['quantity'] * $item['price'];
+                    $discVal = (float) ($item['discount_value'] ?? 0);
+                    $discType = $item['discount_type'] ?? 'percentage';
+                    if ($discType === 'percentage') {
+                        $discAmount = $gross * ($discVal / 100);
+                    } else {
+                        $discAmount = $discVal;
+                    }
+                    $subtotal = max(0, $gross - $discAmount);
+
                     $salesOrder->items()->create([
                         'book_id' => $item['product_id'],
                         'quantity' => $item['quantity'],
                         'price' => $item['price'],
-                        'subtotal' => $item['quantity'] * $item['price'],
+                        'discount_value' => $discVal,
+                        'discount_type' => $discType,
+                        'discount_amount' => $discAmount,
+                        'subtotal' => $subtotal,
                     ]);
                 }
 

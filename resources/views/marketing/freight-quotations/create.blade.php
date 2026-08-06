@@ -12,19 +12,36 @@
 
                             <!-- Customer Selection Section -->
                             <h6 class="border-bottom pb-2 mb-3"><strong>Customer Information</strong></h6>
-                            <div class="mb-3">
-                                <label class="form-label">Customer:</label>
-                                <select class="form-control selectpicker @error('customer_id') is-invalid @enderror" 
-                                        data-live-search="true" data-size="8" data-live-search-placeholder="Search customer..."
-                                        name="customer_id" required>
-                                    <option value="">Select Customer...</option>
-                                    @foreach($customers as $customer)
-                                        <option value="{{ $customer->customer_id }}" {{ old('customer_id') == $customer->customer_id ? 'selected' : '' }}>
-                                            {{ $customer->customer_name }} ({{ $customer->company_name }})
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('customer_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Customer:</label>
+                                    <select class="form-control selectpicker @error('customer_id') is-invalid @enderror" 
+                                            data-live-search="true" data-size="8" data-live-search-placeholder="Search customer..."
+                                            name="customer_id" required>
+                                        <option value="">Select Customer...</option>
+                                        @foreach($customers as $customer)
+                                            <option value="{{ $customer->customer_id }}" {{ old('customer_id') == $customer->customer_id ? 'selected' : '' }}>
+                                                {{ $customer->customer_name }} ({{ $customer->company_name }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('customer_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Transaction Type:</label>
+                                    <select class="form-control @error('transaction_type') is-invalid @enderror" name="transaction_type" required>
+                                        <option value="paid" {{ old('transaction_type', 'paid') === 'paid' ? 'selected' : '' }}>Paid Transaction</option>
+                                        <option value="charge" {{ old('transaction_type') === 'charge' ? 'selected' : '' }}>Charge Transaction</option>
+                                        <option value="area_consignment" {{ old('transaction_type') === 'area_consignment' ? 'selected' : '' }}>Area Consignment</option>
+                                        <option value="area_sales_consignment" {{ old('transaction_type') === 'area_sales_consignment' ? 'selected' : '' }}>Area Sales Consignment</option>
+                                        <option value="direct_consignment" {{ old('transaction_type') === 'direct_consignment' ? 'selected' : '' }}>Direct Consignment</option>
+                                        <option value="foreign" {{ old('transaction_type') === 'foreign' ? 'selected' : '' }}>Foreign Order</option>
+                                        <option value="complimentary" {{ old('transaction_type') === 'complimentary' ? 'selected' : '' }}>Complimentary</option>
+                                        <option value="cod" {{ old('transaction_type') === 'cod' ? 'selected' : '' }}>Due on Receipt (COD)</option>
+                                        <option value="evaluation" {{ old('transaction_type') === 'evaluation' ? 'selected' : '' }}>Evaluation</option>
+                                    </select>
+                                    @error('transaction_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
                             </div>
 
                             <hr>
@@ -100,6 +117,14 @@
                             </div>
 
                             <div class="mb-3">
+                                 <label class="form-label">Forwarder:</label>
+                                 <input type="text" class="form-control @error('forwarder') is-invalid @enderror" 
+                                        name="forwarder" placeholder="Enter forwarder name (e.g., LBC, 2GO, J&T, AP Cargo, FedEx, DHL, etc.)..." 
+                                        value="{{ old('forwarder') }}">
+                                 @error('forwarder')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                             </div>
+
+                            <div class="mb-3">
                                 <label class="form-label">Freight Option:</label>
                                 <select class="form-control @error('freight_option') is-invalid @enderror" 
                                         name="freight_option" id="freightOption">
@@ -110,40 +135,8 @@
                                 @error('freight_option')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="alert alert-info py-2 mb-3" id="serviceFeeNotice" style="display: none;">
-                                <strong>Service Fee:</strong> â‚± 50.00
+                                <strong>Service Fee:</strong> ₱ 50.00
                             </div>
-
-                            <!-- Cargo Items Section -->
-                            <!-- <h6 class="border-bottom pb-2 mb-3"><strong>Cargo Items</strong></h6>
-
-                            <div class="table-responsive mb-3">
-                                <table class="table table-sm table-bordered" id="cargoItemsTable">
-                                    <thead class="table-danger">
-                                        <tr>
-                                            <th style="width: 100px;">Quantity</th>
-                                            <th style="width: 150px;">Package Type</th>
-                                            <th>Dimensions (L x W x H)</th>
-                                            <th style="width: 80px;">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="cargoItemsBody">
-                                        <tr>
-                                            <td><input type="number" class="form-control form-control-sm" name="cargo_qty[]" min="1" value="1" required></td>
-                                            <td><input type="text" class="form-control form-control-sm" name="cargo_package_type[]" placeholder="Box, Bag, Pallet, etc." required></td>
-                                            <td><input type="text" class="form-control form-control-sm" name="cargo_dimensions[]" placeholder="e.g., 50cm x 40cm x 30cm" required></td>
-                                            <td><button type="button" class="btn btn-sm btn-danger remove-row"><i class="bi bi-trash"></i></button></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div> -->
-
-                            
-
-                            <!-- <button type="button" class="btn btn-sm btn-outline-danger mb-3" id="addCargoItem">
-                                <i class="bi bi-plus me-1"></i>Add Item
-                            </button> -->
-
-                            @error('cargo_qty')<div class="alert alert-danger">{{ $message }}</div>@enderror
 
                             <hr>
 
@@ -159,9 +152,10 @@
                                 <table class="table table-sm table-bordered" id="soItemsTable">
                                     <thead class="table-primary">
                                         <tr>
-                                            <th style="width: 120px;">QTY</th>
+                                            <th style="width: 100px;">QTY</th>
                                             <th>DESCRIPTION / PRODUCT</th>
                                             <th style="width: 120px;">UNIT PRICE</th>
+                                            <th style="width: 130px;">DISCOUNT</th>
                                             <th style="width: 120px;">AMOUNT</th>
                                             <th style="width: 80px;">ACTION</th>
                                         </tr>
@@ -171,18 +165,18 @@
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
+                                            <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
                                             <td class="text-end fw-bold" id="soSubtotal">₱ 0.00</td>
                                             <td></td>
                                         </tr>
                                         <tr id="serviceFeeRow" style="display: none;">
-                                            <td colspan="3" class="text-end"><strong>Service Fee:</strong></td>
+                                            <td colspan="4" class="text-end"><strong>Service Fee:</strong></td>
                                             <td class="text-end fw-bold">₱ 50.00</td>
                                             <td></td>
                                         </tr>
                                         <tr>
-                                            <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                                            <td class="text-end fw-bold" id="soTotal">â‚± 0.00</td>
+                                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                                            <td class="text-end fw-bold" id="soTotal">₱ 0.00</td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
@@ -331,8 +325,14 @@
             function calculateRow(row) {
                 const qty = parseFloat(row.querySelector('.so-qty').value) || 0;
                 const price = parseFloat(row.querySelector('.so-price').value) || 0;
-                const amount = qty * price;
-                row.querySelector('.so-item-amount').textContent = '₱ ' + amount.toFixed(2);
+                const discVal = parseFloat(row.querySelector('.so-discount-val')?.value) || 0;
+                const discType = row.querySelector('.so-discount-type')?.value || 'percentage';
+
+                const gross = qty * price;
+                let dAmt = discType === 'percentage' ? gross * (discVal / 100) : discVal;
+                const netSubtotal = Math.max(0, gross - dAmt);
+
+                row.querySelector('.so-item-amount').textContent = '₱ ' + netSubtotal.toFixed(2);
                 calculateSOSubtotal();
             }
 
@@ -352,6 +352,15 @@
                     <td>
                         <input type="number" class="form-control form-control-sm so-price" name="so_items[new_${uniqueId}][price]" step="0.01" min="0" required style="text-align: right;">
                     </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-1">
+                            <input type="number" step="any" min="0" class="form-control form-control-sm so-discount-val" name="so_items[new_${uniqueId}][discount_value]" placeholder="0" style="text-align: right; width: 55%;">
+                            <select class="form-select form-select-sm so-discount-type px-1" name="so_items[new_${uniqueId}][discount_type]" style="width: 45%; font-size: 0.8rem;">
+                                <option value="percentage">%</option>
+                                <option value="amount">₱</option>
+                            </select>
+                        </div>
+                    </td>
                     <td class="so-item-amount text-end fw-bold">₱ 0.00</td>
                     <td class="text-center">
                         <button type="button" class="btn btn-sm btn-danger so-remove-row" title="Remove Item" style="background: #ff0000; border: none; padding: 0.35rem 0.6rem;"><i class="fas fa-trash"></i></button>
@@ -360,11 +369,15 @@
 
                 const qtyInput = row.querySelector('.so-qty');
                 const priceInput = row.querySelector('.so-price');
+                const discValInput = row.querySelector('.so-discount-val');
+                const discTypeSelect = row.querySelector('.so-discount-type');
                 const productSelect = row.querySelector('.so-product');
                 const removeBtn = row.querySelector('.so-remove-row');
 
                 qtyInput.addEventListener('input', () => calculateRow(row));
                 priceInput.addEventListener('input', () => calculateRow(row));
+                discValInput.addEventListener('input', () => calculateRow(row));
+                discTypeSelect.addEventListener('change', () => calculateRow(row));
                 
                 productSelect.addEventListener('change', function() {
                     const option = this.options[this.selectedIndex];

@@ -80,17 +80,22 @@
                 <table class="table table-bordered mt-4">
                     <thead class="bg-primary text-white">
                         <tr>
-                            <th style="width: 80px;">QTY</th>
+                            <th style="width: 80px;">ORD. QTY</th>
+                            <th style="width: 80px;">REC'D</th>
+                            <th style="width: 80px;">REM.</th>
                             <th>PRODUCT / DESCRIPTION</th>
-                            <th style="width: 150px;">ISBN</th>
-                            <th style="width: 150px; text-align: right;">UNIT PRICE</th>
-                            <th style="width: 150px; text-align: right;">AMOUNT</th>
+                            <th style="width: 140px;">ISBN</th>
+                            <th style="width: 140px; text-align: right;">UNIT PRICE</th>
+                            <th style="width: 140px; text-align: right;">AMOUNT</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($po->items as $item)
+                        @php $remaining = max(0, $item->quantity - $item->received_quantity); @endphp
                         <tr>
-                            <td class="text-center">{{ $item->quantity }}</td>
+                            <td class="text-center fw-bold">{{ $item->quantity }}</td>
+                            <td class="text-center text-success fw-bold">{{ $item->received_quantity }}</td>
+                            <td class="text-center {{ $remaining > 0 ? 'text-danger fw-bold' : 'text-success' }}">{{ $remaining }}</td>
                             <td>
                                 <strong>{{ $item->product ? $item->product->name : $item->description }}</strong>
                                 @if($item->description && $item->product && $item->description != $item->product->name)
@@ -105,7 +110,7 @@
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="4" style="text-align: right; font-weight: 600;">TOTAL:</td>
+                            <td colspan="6" style="text-align: right; font-weight: 600;">TOTAL:</td>
                             <td style="text-align: right; font-weight: 600;">{{ $po->currency_symbol }}{{ number_format($po->total_amount, 2) }}</td>
                         </tr>
                     </tfoot>

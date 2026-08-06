@@ -204,6 +204,7 @@
                                 <th style="width: 110px;">ISBN</th>
                                 <th style="width: 90px;">AREA</th> <!-- Added AREA -->
                                 <th style="width: 110px;">UNIT PRICE</th>
+                                <th style="width: 120px;">DISCOUNT</th>
                                 <th style="width: 110px;">AMOUNT</th>
                                 <th style="width: 80px;">ACTION</th>
                             </tr>
@@ -213,12 +214,12 @@
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="6" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
+                                <td colspan="7" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
                                 <td class="text-end fw-bold fs-5" id="subtotalAmount">₱ 0.00</td>
                                 <td></td>
                             </tr>
                             <tr>
-                                <td colspan="6" class="text-end text-uppercase">
+                                <td colspan="7" class="text-end text-uppercase">
                                     <div class="d-inline-flex align-items-center justify-content-end gap-2">
                                         <strong>Discount:</strong>
                                         <input type="number" step="any" min="0" name="discount_value" id="discountValue" class="form-control form-control-sm text-end" style="width: 100px; display: inline-block;" value="{{ old('discount_value', $discountValue) }}">
@@ -233,18 +234,18 @@
                             </tr>
                             @if($isEdit && $order->freight_charges)
                             <tr class="bg-light">
-                                <td colspan="6" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                                <td colspan="7" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
                                 <td class="text-end fw-bold fs-5" id="freightChargesDisplay">₱ {{ number_format($order->freight_charges, 2) }}</td>
                                 <td></td>
                             </tr>
                             @endif
                             <tr id="serviceFeeTotalRow" style="display: none;">
-                                <td colspan="6" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                                <td colspan="7" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
                                 <td class="text-end fw-bold fs-5">₱ 50.00</td>
                                 <td></td>
                             </tr>
                             <tr>
-                                <td colspan="6" class="text-end text-uppercase"><strong>Total Amount:</strong></td>
+                                <td colspan="7" class="text-end text-uppercase"><strong>Total Amount:</strong></td>
                                 <td class="text-end fw-bold fs-5" id="grandTotal">₱ 0.00</td>
                                 <td></td>
                             </tr>
@@ -570,11 +571,25 @@
                 if (!row) return;
                 const qtyInput = row.querySelector('.qty-input');
                 const priceInput = row.querySelector('.price-input');
+                const discountValueInput = row.querySelector('.discount-input');
+                const discountTypeSelect = row.querySelector('.discount-type-select');
+
                 const qty = parseFloat(qtyInput?.value) || 0;
                 const price = parseFloat(priceInput?.value) || 0;
-                const subtotal = qty * price;
+                const discountVal = parseFloat(discountValueInput?.value) || 0;
+                const discountType = discountTypeSelect?.value || 'percentage';
+
+                const gross = qty * price;
+                let itemDiscountAmount = 0;
+                if (discountType === 'percentage') {
+                    itemDiscountAmount = gross * (discountVal / 100);
+                } else {
+                    itemDiscountAmount = discountVal;
+                }
+
+                const netSubtotal = Math.max(0, gross - itemDiscountAmount);
                 const subtotalEl = row.querySelector('.subtotal-display');
-                if (subtotalEl) subtotalEl.textContent = '₱ ' + subtotal.toFixed(2);
+                if (subtotalEl) subtotalEl.textContent = '₱ ' + netSubtotal.toFixed(2);
                 updateGrandTotal();
             }
 
@@ -588,7 +603,18 @@
                 document.querySelectorAll('#itemsBody tr').forEach(row => {
                     const qty = parseFloat(row.querySelector('.qty-input')?.value) || 0;
                     const price = parseFloat(row.querySelector('.price-input')?.value) || 0;
-                    total += qty * price;
+                    const discountVal = parseFloat(row.querySelector('.discount-input')?.value) || 0;
+                    const discountType = row.querySelector('.discount-type-select')?.value || 'percentage';
+
+                    const gross = qty * price;
+                    let itemDiscountAmount = 0;
+                    if (discountType === 'percentage') {
+                        itemDiscountAmount = gross * (discountVal / 100);
+                    } else {
+                        itemDiscountAmount = discountVal;
+                    }
+
+                    total += Math.max(0, gross - itemDiscountAmount);
                 });
 
                 const subtotalEl = document.getElementById('subtotalAmount');
@@ -686,7 +712,20 @@
                 const productId = data ? (data.book_index_id ? ('index_' + data.book_index_id) : (data.bundle_id ? ('bundle_' + data.bundle_id) : ('book_' + (data.book_id || data.product_id)))) : '';
                 const isbnVal = data ? (data.isbn || '') : '';
                 const priceVal = data ? parseFloat(data.price) : '';
-                const subtotalVal = data ? (data.quantity * data.price) : 0;
+                const discountVal = data ? (parseFloat(data.discount_value) || 0) : 0;
+                const discountTypeVal = data ? (data.discount_type || 'percentage') : 'percentage';
+
+                let subtotalVal = 0;
+                if (data) {
+                    const gross = (parseFloat(data.quantity) || 0) * (parseFloat(data.price) || 0);
+                    let dAmt = 0;
+                    if (discountTypeVal === 'percentage') {
+                        dAmt = gross * (discountVal / 100);
+                    } else {
+                        dAmt = discountVal;
+                    }
+                    subtotalVal = Math.max(0, gross - dAmt);
+                }
 
                 tr.innerHTML = `
                     <td>
@@ -719,6 +758,15 @@
                     </td>
                     <td>
                         <input type="number" class="price-input" name="items[new_${uniqueId}][price]" step="0.01" value="${priceVal !== '' ? parseFloat(priceVal).toFixed(2) : ''}" required oninput="window.soRowRecalc(this)" style="width: 100%; text-align: right; border: 1px solid #eee;">
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-1">
+                            <input type="number" step="any" min="0" class="discount-input" name="items[new_${uniqueId}][discount_value]" value="${discountVal > 0 ? discountVal : ''}" placeholder="0" oninput="window.soRowRecalc(this)" style="width: 55%; text-align: right; border: 1px solid #eee; border-radius: 4px; padding: 0.25rem 0.3rem;">
+                            <select class="form-select form-select-sm discount-type-select" name="items[new_${uniqueId}][discount_type]" onchange="window.soRowRecalc(this)" style="width: 45%; font-size: 0.8rem; padding: 0.25rem 0.2rem; border-radius: 4px;">
+                                <option value="percentage" ${discountTypeVal === 'percentage' ? 'selected' : ''}>%</option>
+                                <option value="amount" ${discountTypeVal === 'amount' ? 'selected' : ''}>₱</option>
+                            </select>
+                        </div>
                     </td>
                     <td class="subtotal-display fw-bold text-end pe-3">₱ ${subtotalVal.toFixed(2)}</td>
                     <td class="text-center">

@@ -142,6 +142,8 @@
                         </div>
 
                         <p><strong>Service Mode:</strong> {{ $quotation->service_mode }}</p>
+                        <p><strong>Forwarder:</strong> {{ $quotation->forwarder ?? $quotation->freight_mode ?? 'N/A' }}</p>
+                        <p><strong>Transaction Type:</strong> {{ $quotation->transaction_type ? ucwords(str_replace('_', ' ', $quotation->transaction_type)) : 'Paid' }}</p>
                         <p><strong>Freight Option:</strong> {{ $quotation->freight_option ? ucwords(str_replace('_', ' ', $quotation->freight_option)) : 'N/A' }}</p>
                         <p><strong>Service Fee:</strong> {{ $quotation->freight_option === 'freight_collect' ? 'Applies to Freight Collect' : 'No service fee for Freight Billing' }}</p>
 

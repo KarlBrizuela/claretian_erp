@@ -44,12 +44,14 @@
                 $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
             }
 
-            if ($activeInvoice) {
+            // If activeInvoice exists but has no items, fall back to SO items
+            if ($activeInvoice && $activeInvoice->items->count() > 0) {
                 $itemsToRender = $activeInvoice->items ?? collect();
                 $totalSalesAmount = (float) ($activeInvoice->total_amount ?? 0);
             } else {
                 $itemsToRender = $order->items ?? collect();
                 $totalSalesAmount = (float) ($order->total_amount ?? 0);
+                $activeInvoice = null; // reset so item display uses SO item fields
             }
         }
     @endphp
@@ -192,7 +194,8 @@
                             <th>DESCRIPTION</th>
                             <th style="width: 120px;">ISBN</th>
                             <th style="width: 120px;">AREA</th>
-                            <th style="width: 150px;">UNIT PRICE</th>
+                            <th style="width: 130px;">UNIT PRICE</th>
+                            <th style="width: 110px;">DISCOUNT</th>
                             <th style="width: 150px;">AMOUNT</th>
                         </tr>
                     </thead>
@@ -256,6 +259,19 @@
                             <td>{{ $displayIsbn }}</td>
                             <td>{{ $item->area ?? '-' }}</td>
                             <td class="text-end">₱{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
+                            <td class="text-center">
+                                @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
+                                    @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
+                                        {{ (float)$item->discount_value }}%
+                                    @elseif(($item->discount_value ?? 0) > 0)
+                                        ₱{{ number_format($item->discount_value, 2) }}
+                                    @else
+                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
                             <td class="text-end fw-bold">₱{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>
                         </tr>
                         @endif
@@ -267,17 +283,17 @@
                             $itemsSubtotal = $itemsToRender->sum(function($item) {
                                 return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
                             });
-                            $discountAmount = $order->discount_amount ?? 0;
+                            $discountAmount = (float) ($order->discount_amount ?? 0);
                             $freightCharges = $order->freight_charges ?? 0;
                             $grandTotal = $activeInvoice ? (float)$activeInvoice->total_amount : max(0, $itemsSubtotal - $discountAmount + $freightCharges + $serviceFee);
                         @endphp
                         <tr>
-                            <td colspan="6" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
+                            <td colspan="7" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
-                            <td colspan="6" class="text-end text-uppercase">
+                            <td colspan="7" class="text-end text-uppercase">
                                 <strong>
                                     Discount
                                     @if(($order->discount_percentage ?? 0) > 0)
@@ -290,18 +306,18 @@
                         @endif
                         @if($order->freight_charges && $order->freight_charges > 0)
                         <tr>
-                            <td colspan="6" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                            <td colspan="7" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($order->freight_charges, 2) }}</td>
                         </tr>
                         @endif
                         @if($serviceFee > 0)
                         <tr>
-                            <td colspan="6" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
+                            <td colspan="7" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
                             <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
                         </tr>
                         @endif
                         <tr style="background: #f8f9fa;">
-                            <td colspan="6" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
+                            <td colspan="7" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
                             <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($grandTotal, 2) }}</td>
                         </tr>
                     </tfoot>

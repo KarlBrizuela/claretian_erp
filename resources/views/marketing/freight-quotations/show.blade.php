@@ -83,6 +83,18 @@
                                 </div>
                                 <div class="col-md-3">
                                     <div class="mb-2">
+                                        <small class="text-muted d-block mb-1"><strong>Forwarder</strong></small>
+                                        <p class="mb-0">{{ $quotation->forwarder ?? $quotation->freight_mode ?? 'N/A' }}</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block mb-1"><strong>Transaction Type</strong></small>
+                                        <p class="mb-0">{{ $quotation->transaction_type ? ucwords(str_replace('_', ' ', $quotation->transaction_type)) : 'Paid' }}</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-2">
                                         <small class="text-muted d-block mb-1"><strong>Freight Option</strong></small>
                                         <p class="mb-0">{{ $quotation->freight_option ? ucwords(str_replace('_', ' ', $quotation->freight_option)) : 'N/A' }}</p>
                                     </div>

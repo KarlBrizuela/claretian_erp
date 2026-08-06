@@ -123,11 +123,12 @@
                                                data-bs-toggle="modal" data-bs-target="#pickModal{{ $order->id }}">
                                                 <i class="las la-edit"></i>
                                             </a>
-                                            <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}"
-                                               class="btn btn-success shadow btn-xs sharp"
-                                               title="Move to SI (Prepare Sales Invoice)">
-                                                <i class="las la-file-invoice"></i>
-                                            </a>
+                                            <form action="{{ route('production.logistic.move-to-si', $order->id) }}" method="POST" style="display:inline-block;">
+                                                @csrf
+                                                <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Move to SI (Prepare Sales Invoice)">
+                                                    <i class="las la-file-invoice"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>
@@ -306,9 +307,12 @@
 
                     <div class="modal-footer d-flex justify-content-between" style="border-top:2px solid #e0e0e0;">
                         <div>
-                            <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-success">
-                                <i class="las la-file-invoice me-1"></i> Move to SI
-                            </a>
+                            <form action="{{ route('production.logistic.move-to-si', $order->id) }}" method="POST" style="display:inline-block;">
+                                @csrf
+                                <button type="submit" class="btn btn-success">
+                                    <i class="las la-file-invoice me-1"></i> Move to SI
+                                </button>
+                            </form>
                         </div>
                         <div>
                             <button type="button" class="btn btn-danger light me-1" data-bs-dismiss="modal">Cancel</button>

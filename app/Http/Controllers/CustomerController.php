@@ -432,7 +432,8 @@ class CustomerController extends Controller
                 'proof_of_payment_url' => $hasProof ? asset('storage/' . $order->proof_of_payment) : null,
                 'status' => $order->status ?? 'pending',
                 'status_label' => ucfirst(str_replace('_', ' ', $order->status ?? 'pending')),
-                'due_date' => $order->due_date ? $order->due_date->format('Y-m-d') : 'N/A',
+                'terms' => $order->terms ?? 'COD',
+                'due_date' => $order->due_date ? $order->due_date->format('M d, Y') : 'N/A',
                 'is_overdue' => $isOverdue,
             ];
         });

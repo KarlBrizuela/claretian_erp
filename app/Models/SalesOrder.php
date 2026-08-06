@@ -227,12 +227,17 @@ class SalesOrder extends Model
         $baseDate = $this->si_prepared_at ?: ($this->created_at ?: now());
         $days = 0;
         
-        switch ($this->terms) {
-            case 'Net 15': $days = 15; break;
-            case 'Net 30': $days = 30; break;
-            case 'Net 60': $days = 60; break;
-            case 'Due on receipt': $days = 0; break;
-            default: $days = 0;
+        $termsRaw = strtolower(trim($this->terms ?? ''));
+        if (preg_match('/(\d+)/', $termsRaw, $matches)) {
+            $days = (int) $matches[1];
+        } else {
+            switch ($termsRaw) {
+                case 'net 15': case '15_days': case '15 days': $days = 15; break;
+                case 'net 30': case '30_days': case '30 days': $days = 30; break;
+                case 'net 60': case '60_days': case '60 days': $days = 60; break;
+                case 'net 90': case '90_days': case '90 days': $days = 90; break;
+                default: $days = 0;
+            }
         }
         
         return \Carbon\Carbon::parse($baseDate)->addDays($days);

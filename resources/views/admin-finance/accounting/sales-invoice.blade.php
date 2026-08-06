@@ -140,7 +140,7 @@
                                             <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-type="{{ $order->type }}">
                                                 <td>
                                                     @if($order->status === 'pending_si_prep' || $order->status === 'pending_si_approval' || $order->status === 'si_created' || $order->status === 'ar_created')
-                                                        <input type="checkbox" class="order-checkbox normal-check" value="{{ $order->id }}" data-proof="{{ ($order->proof_of_payment || $order->type === 'ecom_direct') ? 'yes' : 'no' }}" data-amount="{{ $displayAmount }}" style="width: 16px; height: 16px; cursor: pointer;">
+                                                        <input type="checkbox" class="order-checkbox normal-check" value="{{ $order->id }}" data-proof="{{ ($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary'])) ? 'yes' : 'no' }}" data-amount="{{ $displayAmount }}" style="width: 16px; height: 16px; cursor: pointer;">
                                                     @else
                                                         <input type="checkbox" disabled style="width: 16px; height: 16px; opacity: 0.4;">
                                                     @endif
@@ -192,13 +192,13 @@
                                                         <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
                                                         @if($remBal > 0 && $order->customer_id)
-                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
+                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}">
                                                                 <i class="las la-coins me-1"></i> Pay
                                                             </button>
                                                         @endif
 
                                                         @if($order->status === 'pending_si_prep' || $order->status === 'si_created' || $order->status === 'ar_created')
-                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment || $paidAmt > 0)
+                                                            @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary']) || $paidAmt > 0)
                                                                 <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
                                                             @else
                                                                 <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
@@ -206,7 +206,7 @@
                                                         @endif
  
                                                         @if($order->status === 'pending_si_approval')
-                                                            @if($order->type === 'ecom_direct' || in_array($order->type, ['area_consignment', 'area_sales_consignment']) || $order->proof_of_payment)
+                                                            @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary']))
                                                                 <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
                                                                     @csrf
                                                                     <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
@@ -406,7 +406,7 @@
                                                 <td>
                                                     <div class="d-flex align-items-center gap-1 flex-wrap">
                                                         @if($remBal > 0 && $so && $so->customer_id)
-                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $so->id }}" data-customer-id="{{ $so->customer_id }}" data-so-number="{{ $so->so_number }}" data-total="{{ $totalAmt }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
+                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $so->id }}" data-customer-id="{{ $so->customer_id }}" data-so-number="{{ $so->so_number }}" data-total="{{ $totalAmt }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $so->terms ?? 'COD' }}" data-due-date="{{ $so->due_date ? $so->due_date->format('M d, Y') : 'N/A' }}">
                                                                 <i class="las la-coins me-1"></i> Pay
                                                             </button>
                                                         @endif
@@ -839,20 +839,28 @@
                         <input type="hidden" id="payCustomerId">
                         
                         <div class="alert alert-light border mb-3">
-                            <div class="row g-2">
-                                <div class="col-6 col-md-3 border-end">
+                            <div class="row g-2 text-center text-md-start">
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Transaction #:</span>
                                     <strong id="paySoNumber" class="text-dark">SO-0000</strong>
                                 </div>
-                                <div class="col-6 col-md-3 border-end">
+                                <div class="col-6 col-md-2 border-end">
+                                    <span class="text-muted small d-block">Terms:</span>
+                                    <span id="payTerms" class="badge bg-info text-white fw-semibold">COD</span>
+                                </div>
+                                <div class="col-6 col-md-2 border-end">
+                                    <span class="text-muted small d-block">Due Date:</span>
+                                    <strong id="payDueDate" class="text-dark">N/A</strong>
+                                </div>
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Grand Total:</span>
                                     <strong id="payTotalAmount" class="text-dark">₱0.00</strong>
                                 </div>
-                                <div class="col-6 col-md-3 border-end">
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Already Paid:</span>
                                     <span id="payAlreadyPaid" class="text-success fw-bold">₱0.00</span>
                                 </div>
-                                <div class="col-6 col-md-3">
+                                <div class="col-6 col-md-2">
                                     <span class="text-muted small d-block">Remaining:</span>
                                     <strong id="payRemainingBalance" class="text-danger fs-16">₱0.00</strong>
                                 </div>
@@ -993,9 +1001,14 @@
                 const paidAmount = parseFloat(payBtn.dataset.paid) || 0;
                 const remainingBalance = parseFloat(payBtn.dataset.remaining) || 0;
 
+                const terms = payBtn.dataset.terms || 'COD';
+                const dueDate = payBtn.dataset.dueDate || 'N/A';
+
                 document.getElementById('paySoId').value = soId;
                 document.getElementById('payCustomerId').value = customerId;
                 document.getElementById('paySoNumber').textContent = soNumber;
+                document.getElementById('payTerms').textContent = terms;
+                document.getElementById('payDueDate').textContent = dueDate;
                 document.getElementById('payTotalAmount').textContent = '₱' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('payAlreadyPaid').textContent = '₱' + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('payRemainingBalance').textContent = '₱' + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});

@@ -1862,15 +1862,21 @@ class MarketingController extends Controller
             foreach ($request->items as $item) {
                 if (empty($item['product_id'])) continue;
                 $pid = $item['product_id'];
-                if (isset($aggregatedItems[$pid])) {
-                    $aggregatedItems[$pid]['quantity'] += (int) $item['quantity'];
+                $discVal = (float) ($item['discount_value'] ?? 0);
+                $discType = $item['discount_type'] ?? 'percentage';
+                $key = $pid . '_' . $discVal . '_' . $discType;
+
+                if (isset($aggregatedItems[$key])) {
+                    $aggregatedItems[$key]['quantity'] += (int) $item['quantity'];
                 } else {
-                    $aggregatedItems[$pid] = [
+                    $aggregatedItems[$key] = [
                         'product_id' => $pid,
                         'quantity' => (int) $item['quantity'],
                         'price' => (float) $item['price'],
                         'unit' => $item['unit'] ?? 'pcs',
                         'area' => $item['area'] ?? null,
+                        'discount_value' => $discVal,
+                        'discount_type' => $discType,
                     ];
                 }
             }
@@ -1882,7 +1888,15 @@ class MarketingController extends Controller
                     continue;
                 }
 
-                $subtotal = $item['quantity'] * $item['price'];
+                $gross = $item['quantity'] * $item['price'];
+                $discVal = (float) ($item['discount_value'] ?? 0);
+                $discType = $item['discount_type'] ?? 'percentage';
+                if ($discType === 'percentage') {
+                    $discAmount = $gross * ($discVal / 100);
+                } else {
+                    $discAmount = $discVal;
+                }
+                $subtotal = max(0, $gross - $discAmount);
                 $totalAmount += $subtotal;
 
                 \App\Models\SalesOrderItem::create([
@@ -1892,6 +1906,9 @@ class MarketingController extends Controller
                     'book_index_id' => $target['book_index_id'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
+                    'discount_value' => $discVal,
+                    'discount_type' => $discType,
+                    'discount_amount' => $discAmount,
                     'subtotal' => $subtotal,
                     'unit' => $item['unit'] ?? 'pcs',
                     'area' => $item['area'] ?? null,
@@ -2137,15 +2154,21 @@ class MarketingController extends Controller
             foreach ($request->items as $item) {
                 if (empty($item['product_id'])) continue;
                 $pid = $item['product_id'];
-                if (isset($aggregatedItems[$pid])) {
-                    $aggregatedItems[$pid]['quantity'] += (int) $item['quantity'];
+                $discVal = (float) ($item['discount_value'] ?? 0);
+                $discType = $item['discount_type'] ?? 'percentage';
+                $key = $pid . '_' . $discVal . '_' . $discType;
+
+                if (isset($aggregatedItems[$key])) {
+                    $aggregatedItems[$key]['quantity'] += (int) $item['quantity'];
                 } else {
-                    $aggregatedItems[$pid] = [
+                    $aggregatedItems[$key] = [
                         'product_id' => $pid,
                         'quantity' => (int) $item['quantity'],
                         'price' => (float) $item['price'],
                         'unit' => $item['unit'] ?? 'pcs',
                         'area' => $item['area'] ?? null,
+                        'discount_value' => $discVal,
+                        'discount_type' => $discType,
                     ];
                 }
             }
@@ -2157,7 +2180,15 @@ class MarketingController extends Controller
                     continue;
                 }
 
-                $subtotal = $item['quantity'] * $item['price'];
+                $gross = $item['quantity'] * $item['price'];
+                $discVal = (float) ($item['discount_value'] ?? 0);
+                $discType = $item['discount_type'] ?? 'percentage';
+                if ($discType === 'percentage') {
+                    $discAmount = $gross * ($discVal / 100);
+                } else {
+                    $discAmount = $discVal;
+                }
+                $subtotal = max(0, $gross - $discAmount);
                 $totalAmount += $subtotal;
 
                 \App\Models\SalesOrderItem::create([
@@ -2167,6 +2198,9 @@ class MarketingController extends Controller
                     'book_index_id' => $target['book_index_id'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
+                    'discount_value' => $discVal,
+                    'discount_type' => $discType,
+                    'discount_amount' => $discAmount,
                     'subtotal' => $subtotal,
                     'unit' => $item['unit'] ?? 'pcs',
                     'area' => $item['area'] ?? null,
@@ -2305,20 +2339,37 @@ class MarketingController extends Controller
         foreach ($request->items as $item) {
             if (empty($item['product_id'])) continue;
             $pid = $item['product_id'];
-            if (isset($aggregatedWebItems[$pid])) {
-                $aggregatedWebItems[$pid]['quantity'] += (int) $item['quantity'];
+            $discVal = (float)($item['discount_value'] ?? 0);
+            $discType = $item['discount_type'] ?? 'percentage';
+            $key = $pid . '_' . $discVal . '_' . $discType;
+
+            if (isset($aggregatedWebItems[$key])) {
+                $aggregatedWebItems[$key]['quantity'] += (int) $item['quantity'];
             } else {
-                $aggregatedWebItems[$pid] = [
+                $aggregatedWebItems[$key] = [
                     'product_id' => $pid,
                     'quantity' => (int) $item['quantity'],
                     'price' => (float) $item['price'],
+                    'discount_value' => $discVal,
+                    'discount_type' => $discType,
                     'unit' => $item['unit'] ?? 'pcs',
                 ];
             }
         }
 
         foreach (array_values($aggregatedWebItems) as $item) {
-            $subtotal = $item['quantity'] * $item['price'];
+            $gross = $item['quantity'] * $item['price'];
+            $discVal = $item['discount_value'];
+            $discType = $item['discount_type'];
+
+            $discAmount = 0;
+            if ($discType === 'percentage') {
+                $discAmount = $gross * ($discVal / 100);
+            } else {
+                $discAmount = $discVal;
+            }
+
+            $subtotal = max(0, $gross - $discAmount);
             $totalAmount += $subtotal;
 
             $book = Book::find($item['product_id']);
@@ -2327,6 +2378,9 @@ class MarketingController extends Controller
                 'book_id' => $item['product_id'],
                 'quantity' => $item['quantity'],
                 'price' => $item['price'],
+                'discount_value' => $discVal,
+                'discount_type' => $discType,
+                'discount_amount' => $discAmount,
                 'subtotal' => $subtotal,
                 'unit' => $item['unit'] ?? 'pcs',
                 'source_price_at_sale' => $book ? $book->source_price : 0,
@@ -2536,20 +2590,37 @@ class MarketingController extends Controller
         foreach ($request->items as $item) {
             if (empty($item['product_id'])) continue;
             $pid = $item['product_id'];
-            if (isset($aggregatedEcomItems[$pid])) {
-                $aggregatedEcomItems[$pid]['quantity'] += (int) $item['quantity'];
+            $discVal = (float)($item['discount_value'] ?? 0);
+            $discType = $item['discount_type'] ?? 'percentage';
+            $key = $pid . '_' . $discVal . '_' . $discType;
+
+            if (isset($aggregatedEcomItems[$key])) {
+                $aggregatedEcomItems[$key]['quantity'] += (int) $item['quantity'];
             } else {
-                $aggregatedEcomItems[$pid] = [
+                $aggregatedEcomItems[$key] = [
                     'product_id' => $pid,
                     'quantity' => (int) $item['quantity'],
                     'price' => (float) $item['price'],
+                    'discount_value' => $discVal,
+                    'discount_type' => $discType,
                     'unit' => $item['unit'] ?? 'pcs',
                 ];
             }
         }
 
         foreach (array_values($aggregatedEcomItems) as $item) {
-            $subtotal = $item['quantity'] * $item['price'];
+            $gross = $item['quantity'] * $item['price'];
+            $discVal = $item['discount_value'];
+            $discType = $item['discount_type'];
+
+            $discAmount = 0;
+            if ($discType === 'percentage') {
+                $discAmount = $gross * ($discVal / 100);
+            } else {
+                $discAmount = $discVal;
+            }
+
+            $subtotal = max(0, $gross - $discAmount);
             $totalAmount += $subtotal;
 
             $book = Book::find($item['product_id']);
@@ -2558,6 +2629,9 @@ class MarketingController extends Controller
                 'book_id' => $item['product_id'],
                 'quantity' => $item['quantity'],
                 'price' => $item['price'],
+                'discount_value' => $discVal,
+                'discount_type' => $discType,
+                'discount_amount' => $discAmount,
                 'subtotal' => $subtotal,
                 'unit' => $item['unit'] ?? 'pcs',
                 'source_price_at_sale' => $book ? $book->source_price : 0,

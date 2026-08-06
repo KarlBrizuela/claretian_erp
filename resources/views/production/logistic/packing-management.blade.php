@@ -13,6 +13,30 @@
         .status-in-progress { background-color: #cce5ff; color: #004085; }
         .status-packed { background-color: #d4edda; color: #155724; }
         .status-partial { background-color: #e2e3e5; color: #383d41; }
+
+        /* Floating Sticky Bulk Action Bar at Bottom of Screen */
+        .ready-bulk-floating-bar {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e1e2d;
+            color: #ffffff;
+            padding: 10px 24px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            z-index: 1060;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .ready-bulk-floating-bar.hidden {
+            opacity: 0;
+            visibility: hidden;
+            transform: translate(-50%, 35px);
+            pointer-events: none;
+        }
     </style>
     @endpush
 
@@ -405,70 +429,315 @@
 
                         <!-- Ready for Pickup Tab -->
                         <div class="tab-pane fade" id="ready-pickup-content" role="tabpanel" aria-labelledby="ready-pickup-tab">
-                            <div class="table-responsive">
-                                <table id="readyForPickupTable" class="display" style="width: 100%">
-                                    <thead>
-                                        <tr>
-                                            <th>SO #</th>
-                                            <th>Customer</th>
-                                            <th>SI Signed</th>
-                                            <th>Total Items</th>
-                                            <th>Packed Items</th>
-                                            <th>Total Amount</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse($readyForPickupOrders as $order)
-                                        @php
-                                            $packingData = json_decode($order->packing_data ?? '{}', true);
-                                            $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
-                                            $totalItems = $order->items->count();
-                                            $statusClass = 'status-packed';
-                                            $statusText = 'Ready for Pickup/Drop-off';
-                                        @endphp
-                                        <tr>
-                                            <td><strong>{{ $order->so_number }}</strong></td>
-                                            <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
-                                            <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
-                                            <td>{{ $totalItems }}</td>
-                                            <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                            <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
-                                            <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
-                                            <td>
-                                                <div class="d-flex gap-2">
-                                                    <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                            onclick="openPackingDetailsModal({{ $order->id }})"
-                                                            data-order-id="{{ $order->id }}"
-                                                            data-so-number="{{ $order->so_number }}"
-                                                            data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
-                                                            data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
-                                                            data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
-                                                            title="View Details"
-                                                            style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                        <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
-                                                    </button>
-                                                    <button type="button" class="btn btn-success shadow mark-gathered-btn"
-                                                            onclick="markOrderAsGatheredAction({{ $order->id }}, '{{ $order->so_number }}')"
-                                                            data-order-id="{{ $order->id }}"
-                                                            data-so-number="{{ $order->so_number }}"
-                                                            title="Mark as Gathered (Ready for Delivery)"
-                                                            style="background: #007bff; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                        <i class="fas fa-box-open" style="font-size: 0.9rem; pointer-events: none;"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        @empty
-                                        <tr>
-                                            <td colspan="8" class="text-center" style="padding: 2rem;">
-                                                <p style="color: #999;">No orders ready for pickup yet</p>
-                                            </td>
-                                        </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
+                            <!-- Platform Sub-tabs -->
+                            <ul class="nav nav-tabs mb-3" id="readyPickupPlatformTabs" role="tablist" style="border-bottom: 2px solid #dee2e6;">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="ready-all-tab" data-bs-toggle="tab" data-bs-target="#ready-all-content" type="button" role="tab" aria-controls="ready-all-content" aria-selected="true">
+                                        <i class="fas fa-boxes me-2"></i>All Orders <span class="badge bg-secondary ms-2">{{ $readyForPickupOrders->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="ready-shopee-tab" data-bs-toggle="tab" data-bs-target="#ready-shopee-content" type="button" role="tab" aria-controls="ready-shopee-content" aria-selected="false">
+                                        <i class="las la-shopping-bag me-2" style="color: #ee4d2d;"></i>Shopee <span class="badge bg-danger ms-2">{{ $readyByPlatform['shopee']->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="ready-tiktok-tab" data-bs-toggle="tab" data-bs-target="#ready-tiktok-content" type="button" role="tab" aria-controls="ready-tiktok-content" aria-selected="false">
+                                        <i class="las la-music me-2"></i>TikTok <span class="badge bg-dark ms-2">{{ $readyByPlatform['tiktok']->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="ready-lazada-tab" data-bs-toggle="tab" data-bs-target="#ready-lazada-content" type="button" role="tab" aria-controls="ready-lazada-content" aria-selected="false">
+                                        <i class="las la-shopping-bag me-2" style="color: #0f146d;"></i>Lazada <span class="badge bg-primary ms-2">{{ $readyByPlatform['lazada']->count() }}</span>
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <!-- Platform Sub-tabs Content -->
+                            <div class="tab-content" id="readyPickupPlatformTabContent">
+                                <!-- All Orders Tab -->
+                                <div class="tab-pane fade show active" id="ready-all-content" role="tabpanel" aria-labelledby="ready-all-tab">
+                                    <div class="table-responsive">
+                                        <table id="readyForPickupTableAll" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($readyForPickupOrders as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    $statusClass = 'status-packed';
+                                                    $statusText = 'Ready for Pickup/Drop-off';
+                                                @endphp
+                                                <tr>
+                                                    <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success shadow mark-gathered-btn"
+                                                                    onclick="markOrderAsGatheredAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Gathered (Ready for Delivery)"
+                                                                    style="background: #007bff; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-box-open" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                        <p style="color: #999;">No orders ready for pickup yet</p>
+                                                    </td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Shopee Tab -->
+                                <div class="tab-pane fade" id="ready-shopee-content" role="tabpanel" aria-labelledby="ready-shopee-tab">
+                                    <div class="table-responsive">
+                                        <table id="readyForPickupTableShopee" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($readyByPlatform['shopee'] as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    $statusClass = 'status-packed';
+                                                    $statusText = 'Ready for Pickup/Drop-off';
+                                                @endphp
+                                                <tr>
+                                                    <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'Shopee Customer' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success shadow mark-gathered-btn"
+                                                                    onclick="markOrderAsGatheredAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Gathered (Ready for Delivery)"
+                                                                    style="background: #007bff; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-box-open" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                        <p style="color: #999;">No Shopee orders ready for pickup</p>
+                                                    </td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- TikTok Tab -->
+                                <div class="tab-pane fade" id="ready-tiktok-content" role="tabpanel" aria-labelledby="ready-tiktok-tab">
+                                    <div class="table-responsive">
+                                        <table id="readyForPickupTableTiktok" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($readyByPlatform['tiktok'] as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    $statusClass = 'status-packed';
+                                                    $statusText = 'Ready for Pickup/Drop-off';
+                                                @endphp
+                                                <tr>
+                                                    <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'TikTok Customer' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success shadow mark-gathered-btn"
+                                                                    onclick="markOrderAsGatheredAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Gathered (Ready for Delivery)"
+                                                                    style="background: #007bff; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-box-open" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                        <p style="color: #999;">No TikTok orders ready for pickup</p>
+                                                    </td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Lazada Tab -->
+                                <div class="tab-pane fade" id="ready-lazada-content" role="tabpanel" aria-labelledby="ready-lazada-tab">
+                                    <div class="table-responsive">
+                                        <table id="readyForPickupTableLazada" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($readyByPlatform['lazada'] as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    $statusClass = 'status-packed';
+                                                    $statusText = 'Ready for Pickup/Drop-off';
+                                                @endphp
+                                                <tr>
+                                                    <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'Lazada Customer' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success shadow mark-gathered-btn"
+                                                                    onclick="markOrderAsGatheredAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Gathered (Ready for Delivery)"
+                                                                    style="background: #007bff; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-box-open" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                        <p style="color: #999;">No Lazada orders ready for pickup</p>
+                                                    </td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -524,6 +793,21 @@
                     </div>
                 </div>
             </div>
+    <!-- Floating Sticky Bulk Action Bar for Ready for Pickup -->
+    <div id="readyBulkFloatingBar" class="ready-bulk-floating-bar hidden">
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge rounded-pill px-3 py-2 fs-13" style="background:#007bff!important; color:#fff;">
+                <span id="readyFloatingSelectedCount">0</span> selected
+            </span>
+            <span class="fw-medium text-white d-none d-sm-inline">order(s) selected</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="clearReadySelections()">
+                <i class="fas fa-times me-1"></i> Deselect
+            </button>
+            <button type="button" class="btn btn-sm btn-success rounded-pill px-4 fw-bold shadow-sm" id="btnMarkSelectedReadyDelivery" onclick="markSelectedReadyForDelivery()" style="background:#28a745; border-color:#28a745; font-size:0.875rem;">
+                <i class="fas fa-truck me-1"></i> Mark Selected as Ready for Delivery
+            </button>
         </div>
     </div>
 
@@ -1032,6 +1316,73 @@
             }
         };
 
+        window.markSelectedReadyForDelivery = function() {
+            const selectedCheckboxes = document.querySelectorAll('.ready-order-checkbox:checked');
+            const orderIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.orderId));
+
+            if (orderIds.length === 0) {
+                alert('Please select at least one order using the checkboxes.');
+                return;
+            }
+
+            if (confirm(`Mark ${orderIds.length} selected e-commerce order(s) as ready for delivery / gathered?`)) {
+                fetch('{{ route("production.logistic.packing.mark-as-gathered") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify({ order_ids: orderIds })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data.message || 'Failed to process selected orders'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error processing orders: ' + error.message);
+                });
+            }
+        };
+
+        window.clearReadySelections = function() {
+            $('.ready-order-checkbox, .ready-select-all-table-checkbox').prop('checked', false);
+            updateReadySelectedCount();
+        };
+
+        // Checkbox sync event handlers
+        $(document).on('change', '.ready-select-all-table-checkbox', function() {
+            const table = $(this).closest('table');
+            table.find('.ready-order-checkbox').prop('checked', this.checked);
+            updateReadySelectedCount();
+        });
+
+        $(document).on('change', '.ready-order-checkbox', function() {
+            updateReadySelectedCount();
+        });
+
+        function updateReadySelectedCount() {
+            const count = $('.ready-order-checkbox:checked').length;
+            const floatingCountEl = document.getElementById('readyFloatingSelectedCount');
+            if (floatingCountEl) {
+                floatingCountEl.textContent = count;
+            }
+
+            const floatingBar = document.getElementById('readyBulkFloatingBar');
+            if (floatingBar) {
+                if (count > 0) {
+                    floatingBar.classList.remove('hidden');
+                } else {
+                    floatingBar.classList.add('hidden');
+                }
+            }
+        }
+
         // Initialize DataTable and Event Listeners
         $(document).ready(function() {
             $('#packingTable').DataTable({
@@ -1059,7 +1410,7 @@
                 responsive: true
             });
 
-            $('#readyForPickupTable').DataTable({
+            $('#readyForPickupTableAll, #readyForPickupTableShopee, #readyForPickupTableTiktok, #readyForPickupTableLazada').DataTable({
                 order: [[1, 'desc']],
                 pageLength: 25,
                 responsive: true

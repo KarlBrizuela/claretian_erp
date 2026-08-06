@@ -5,12 +5,14 @@
             $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
         }
 
-        if ($activeInvoice) {
+        // If activeInvoice has no items, fall back to SO items
+        if ($activeInvoice && $activeInvoice->items->count() > 0) {
             $itemsToRender = $activeInvoice->items;
             $totalSalesAmount = (float) $activeInvoice->total_amount;
         } else {
             $itemsToRender = $order->items;
             $totalSalesAmount = (float) $order->total_amount;
+            $activeInvoice = null; // reset so item fields resolve from SO items
         }
     @endphp
     @push('styles')
@@ -140,7 +142,7 @@
                                     <span class="fw-bold {{ $isComp ? 'text-success' : 'text-danger' }}">{{ $isComp ? '₱0.00 (No Charge)' : '₱' . number_format($remBal, 2) }}</span>
                                 </div>
                                 @if(!$isComp && $remBal > 0 && $order->customer_id)
-                                    <button type="button" class="btn btn-sm btn-success w-100 open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $order->total_amount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
+                                    <button type="button" class="btn btn-sm btn-success w-100 open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $order->total_amount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}">
                                         <i class="las la-coins me-1"></i> Record Payment / Installment
                                     </button>
                                 @endif
@@ -168,7 +170,16 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold text-muted">Proof of Payment:</label>
                                     <div>
-                                        @if($order->proof_of_payment)
+                                        @if(in_array($order->type, ['charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary']))
+                                            <span class="badge p-2 bg-info text-white"><i class="las la-info-circle me-1"></i> Not Required ({{ ucfirst(str_replace('_', ' ', $order->type)) }} Transaction)</span>
+                                            @if($order->proof_of_payment)
+                                                <a href="{{ asset('storage/' . $order->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-success fw-bold ms-1">
+                                                    <i class="las la-receipt me-1"></i> View POP
+                                                </a>
+                                            @else
+                                                <div class="text-muted small mt-1"><i class="las la-info-circle me-1"></i> You may optionally attach a Proof of Payment via the SO Review page.</div>
+                                            @endif
+                                        @elseif($order->proof_of_payment)
                                             <a href="{{ asset('storage/' . $order->proof_of_payment) }}" target="_blank" class="btn btn-sm btn-outline-primary">
                                                 <i class="las la-receipt me-1"></i> View Proof of Payment
                                             </a>
@@ -301,20 +312,28 @@
                         <input type="hidden" id="payCustomerId">
                         
                         <div class="alert alert-light border mb-3">
-                            <div class="row g-2">
-                                <div class="col-6 col-md-3 border-end">
+                            <div class="row g-2 text-center text-md-start">
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Transaction #:</span>
                                     <strong id="paySoNumber" class="text-dark">SO-0000</strong>
                                 </div>
-                                <div class="col-6 col-md-3 border-end">
+                                <div class="col-6 col-md-2 border-end">
+                                    <span class="text-muted small d-block">Terms:</span>
+                                    <span id="payTerms" class="badge bg-info text-white fw-semibold">COD</span>
+                                </div>
+                                <div class="col-6 col-md-2 border-end">
+                                    <span class="text-muted small d-block">Due Date:</span>
+                                    <strong id="payDueDate" class="text-dark">N/A</strong>
+                                </div>
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Grand Total:</span>
                                     <strong id="payTotalAmount" class="text-dark">₱0.00</strong>
                                 </div>
-                                <div class="col-6 col-md-3 border-end">
+                                <div class="col-6 col-md-2 border-end">
                                     <span class="text-muted small d-block">Already Paid:</span>
                                     <span id="payAlreadyPaid" class="text-success fw-bold">₱0.00</span>
                                 </div>
-                                <div class="col-6 col-md-3">
+                                <div class="col-6 col-md-2">
                                     <span class="text-muted small d-block">Remaining:</span>
                                     <strong id="payRemainingBalance" class="text-danger fs-16">₱0.00</strong>
                                 </div>
@@ -455,9 +474,14 @@
                 const paidAmount = parseFloat(payBtn.dataset.paid) || 0;
                 const remainingBalance = parseFloat(payBtn.dataset.remaining) || 0;
 
+                const terms = payBtn.dataset.terms || 'COD';
+                const dueDate = payBtn.dataset.dueDate || 'N/A';
+
                 document.getElementById('paySoId').value = soId;
                 document.getElementById('payCustomerId').value = customerId;
                 document.getElementById('paySoNumber').textContent = soNumber;
+                document.getElementById('payTerms').textContent = terms;
+                document.getElementById('payDueDate').textContent = dueDate;
                 document.getElementById('payTotalAmount').textContent = '₱' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('payAlreadyPaid').textContent = '₱' + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('payRemainingBalance').textContent = '₱' + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});

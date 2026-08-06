@@ -33,6 +33,10 @@ class POSController extends Controller
             'items.*.bundle_id'   => 'nullable|exists:book_bundles,id',
             'items.*.quantity'    => 'required|numeric|min:0.1',
             'items.*.price'       => 'required|numeric|min:0',
+            'items.*.discount_value'  => 'nullable|numeric|min:0',
+            'items.*.discount_type'   => 'nullable|string|in:amount,percentage',
+            'items.*.discount_amount' => 'nullable|numeric|min:0',
+            'items.*.subtotal'        => 'nullable|numeric|min:0',
             'subtotal'            => 'required|numeric|min:0',
             'tax'                 => 'required|numeric|min:0',
             'total'               => 'required|numeric|min:0',
@@ -145,15 +149,22 @@ class POSController extends Controller
             // Aggregate duplicate item entries to prevent duplicate line items
             $aggregatedItems = [];
             foreach ($validated['items'] as $item) {
-                $key = !empty($item['bundle_id']) ? 'bundle_' . $item['bundle_id'] : 'prod_' . ($item['product_id'] ?? 'none');
+                $discVal = (float) ($item['discount_value'] ?? 0);
+                $discType = $item['discount_type'] ?? 'percentage';
+                $key = (!empty($item['bundle_id']) ? 'bundle_' . $item['bundle_id'] : 'prod_' . ($item['product_id'] ?? 'none'))
+                     . '_' . $discVal . '_' . $discType;
+
                 if (isset($aggregatedItems[$key])) {
-                    $aggregatedItems[$key]['quantity'] += (int) $item['quantity'];
+                    $aggregatedItems[$key]['quantity'] += (float) $item['quantity'];
                 } else {
                     $aggregatedItems[$key] = [
-                        'product_id' => $item['product_id'] ?? null,
-                        'bundle_id'  => $item['bundle_id'] ?? null,
-                        'quantity'   => (int) $item['quantity'],
-                        'price'      => (float) $item['price'],
+                        'product_id'     => $item['product_id'] ?? null,
+                        'bundle_id'      => $item['bundle_id'] ?? null,
+                        'quantity'       => (float) $item['quantity'],
+                        'price'          => (float) $item['price'],
+                        'discount_value' => $discVal,
+                        'discount_type'  => $discType,
+                        'subtotal'       => (float) ($item['subtotal'] ?? 0),
                     ];
                 }
             }
@@ -161,7 +172,14 @@ class POSController extends Controller
 
             // ── PROCESS EACH LINE ITEM ───────────────────────────────────────
             foreach ($validated['items'] as $item) {
-                $qty = (int) $item['quantity'];
+                $qty = (float) $item['quantity'];
+                $price = (float) $item['price'];
+                $discVal = (float) ($item['discount_value'] ?? 0);
+                $discType = $item['discount_type'] ?? 'percentage';
+                $gross = $qty * $price;
+                $discAmount = $discType === 'percentage' ? $gross * ($discVal / 100) : $discVal;
+                $discAmount = min($gross, max(0, $discAmount));
+                $subtotal = isset($item['subtotal']) && $item['subtotal'] > 0 ? (float) $item['subtotal'] : max(0, $gross - $discAmount);
 
                 if (!empty($item['bundle_id'])) {
                     // ── Bundle item ───────────────────────────────────────
@@ -174,8 +192,11 @@ class POSController extends Controller
                         'book_id'             => null,
                         'bundle_id'           => $bundle->id,
                         'quantity'            => $qty,
-                        'price'               => $item['price'],
-                        'subtotal'            => $qty * $item['price'],
+                        'price'               => $price,
+                        'discount_value'      => $discVal,
+                        'discount_type'       => $discType,
+                        'discount_amount'     => $discAmount,
+                        'subtotal'            => $subtotal,
                         'unit'                => 'pcs',
                         'source_price_at_sale'=> 0,
                     ]);
@@ -218,8 +239,11 @@ class POSController extends Controller
                         'book_id'             => $item['product_id'],
                         'bundle_id'           => null,
                         'quantity'            => $qty,
-                        'price'               => $item['price'],
-                        'subtotal'            => $qty * $item['price'],
+                        'price'               => $price,
+                        'discount_value'      => $discVal,
+                        'discount_type'       => $discType,
+                        'discount_amount'     => $discAmount,
+                        'subtotal'            => $subtotal,
                         'unit'                => 'pcs',
                         'source_price_at_sale'=> $book ? $book->source_price : 0,
                     ]);

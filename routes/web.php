@@ -136,6 +136,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/return-consignment/{id}', [App\Http\Controllers\Production\LogisticController::class, 'returnConsignment'])->name('return-consignment');
       Route::post('/move-to-ar/{id}', [App\Http\Controllers\Production\LogisticController::class, 'moveToAR'])->name('move-to-ar');
       Route::post('/move-to-cr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'moveToCR'])->name('move-to-cr');
+      Route::post('/move-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'fastMoveToSI'])->name('move-to-si');
       Route::post('/delivery-receipt/{id}/update-pick-qty', [App\Http\Controllers\Production\LogisticController::class, 'updateDrPickQty'])->name('delivery-receipt.update-pick-qty');
       Route::post('/upload-dr-pop/{id}', [App\Http\Controllers\Production\LogisticController::class, 'uploadDRProofOfPayment'])->name('upload-dr-pop');
 
