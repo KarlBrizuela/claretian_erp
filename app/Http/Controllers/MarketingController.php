@@ -1986,6 +1986,22 @@ class MarketingController extends Controller
         return redirect()->route('marketing.approval-queue')->with('success', $successMsg);
     }
 
+    public function rejectSalesOrder(Request $request, $id)
+    {
+        if (!str_contains(auth()->user()->position, 'Manager') && !str_contains(auth()->user()->position, 'Supervisor')) {
+            return redirect()->back()->with('error', 'Only Marketing Managers or Supervisors can reject Sales Orders.');
+        }
+
+        $order = \App\Models\SalesOrder::findOrFail($id);
+        $remarksText = $request->remarks ? ($request->remarks . ' (Rejected by Marketing)') : 'Rejected by Marketing';
+        $order->update([
+            'status' => 'cancelled',
+            'remarks' => $remarksText
+        ]);
+
+        return redirect()->route('marketing.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');
+    }
+
     public function proceedToFinalSalesOrder(Request $request, $id)
     {
         /**

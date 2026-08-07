@@ -414,6 +414,13 @@
                     @endphp
                     
                     @if($order->status === 'pending_mkt_approval' && $isMktManager)
+                    <form action="{{ route('marketing.sales-orders.reject', $order->id) }}" method="POST" id="rejectForm">
+                        @csrf
+                        <input type="hidden" name="remarks" id="rejectRemarks">
+                        <button type="button" class="btn btn-outline-danger" onclick="confirmReject()">
+                            <i class="las la-times-circle me-2"></i>Reject Order
+                        </button>
+                    </form>
                     <form action="{{ route('marketing.sales-orders.approve', $order->id) }}" method="POST" id="mktApproveForm">
                         @csrf
                         <button type="submit" class="btn btn-success">
@@ -699,6 +706,30 @@
                     }, 1000);
                 }, 500);
             };
+        }
+        function confirmReject() {
+            if (typeof showAppModal === 'function') {
+                showAppModal('Reject Sales Order', 'Please provide a reason for rejection:', {
+                    type: 'input',
+                    placeholder: 'Enter rejection remarks...',
+                    confirmText: 'Confirm Reject',
+                    confirmClass: 'btn-danger',
+                    onConfirm: function(remarks) {
+                        if (remarks && remarks.trim() !== '') {
+                            document.getElementById('rejectRemarks').value = remarks.trim();
+                            document.getElementById('rejectForm').submit();
+                        } else {
+                            alert('Rejection reason is required.');
+                        }
+                    }
+                });
+            } else {
+                let remarks = prompt('Please provide a reason for rejection:');
+                if (remarks && remarks.trim() !== '') {
+                    document.getElementById('rejectRemarks').value = remarks.trim();
+                    document.getElementById('rejectForm').submit();
+                }
+            }
         }
     </script>
     @endpush

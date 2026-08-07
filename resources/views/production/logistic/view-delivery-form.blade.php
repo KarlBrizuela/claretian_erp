@@ -23,11 +23,31 @@
         .signature-box { text-align: center; }
         .signature-line { border-top: 1px solid #333; margin-top: 3rem; padding-top: 0.5rem; font-weight: 600; color: #333; }
         
+        @page {
+            size: letter portrait; /* Short bond paper (8.5in x 11in) */
+            margin: 0.35in 0.4in;
+        }
+        
         @media print { 
-            .sidebar, .header, .form-actions, .btn, .nav-header { display: none !important; } 
+            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
+            body, html { background: #fff !important; color: #000 !important; font-size: 11px !important; line-height: 1.2 !important; margin: 0 !important; padding: 0 !important; }
+            .sidebar, .header, .form-actions, .btn, .nav-header, .doc-type-badge { display: none !important; } 
             .content-body { margin-left: 0 !important; padding: 0 !important; } 
-            .order-form { box-shadow: none !important; padding: 0 !important; max-width: 100% !important; }
-            .order-table thead { background: #eee !important; color: #333 !important; }
+            .order-form { box-shadow: none !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; border: none !important; }
+            .form-header { margin-bottom: 0.75rem !important; padding-bottom: 0.5rem !important; border-bottom: 2px solid #000 !important; text-align: center !important; }
+            .form-header .company-logo { display: none !important; }
+            .form-header .company-name { font-size: 1rem !important; font-weight: 700 !important; margin-bottom: 2px !important; }
+            .form-header .company-address, .form-header .company-contact { font-size: 0.75rem !important; margin: 0 !important; }
+            .document-title { font-size: 1.25rem !important; font-weight: 700 !important; margin-top: 0.35rem !important; margin-bottom: 0.2rem !important; }
+            .customer-section { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0.75rem !important; margin-bottom: 0.75rem !important; }
+            .details-box { background: transparent !important; padding: 0.5rem !important; border: 1px solid #ddd !important; border-radius: 4px !important; }
+            .details-box h5 { font-size: 0.85rem !important; margin-bottom: 0.35rem !important; padding-bottom: 0.2rem !important; border-bottom: 1px solid #000 !important; }
+            .details-box td { font-size: 0.75rem !important; padding: 2px 4px !important; }
+            .order-table { width: 100% !important; border-collapse: collapse !important; margin-bottom: 0.75rem !important; font-size: 11px !important; }
+            .order-table th, .order-table td { padding: 4px 6px !important; border: 1px solid #000 !important; font-size: 11px !important; }
+            .order-table thead { background: #e9ecef !important; color: #000 !important; font-weight: 700 !important; }
+            .signature-section { margin-top: 1.25rem !important; gap: 2rem !important; page-break-inside: avoid !important; }
+            .signature-line { border-top: 1px solid #000 !important; margin-top: 1.5rem !important; padding-top: 0.25rem !important; font-size: 0.75rem !important; }
         }
     </style>
     @endpush
@@ -55,7 +75,7 @@
                 <!-- Form Header -->
                 <div class="form-header">
                     <div class="company-info">
-                        <div class="company-logo">C</div>
+                        <img src="{{ asset('images/claeritian_logo.png') }}" alt="Claretian Logo" class="company-logo-img me-2" style="height: 50px; width: auto; object-fit: contain;">
                         <div class="company-details">
                             <div class="company-name">CLARETIAN COMMUNICATIONS FOUNDATION INC.</div>
                             <div class="company-address">8 Mayumi St., UP Village, Diliman, Quezon City</div>
@@ -118,38 +138,106 @@
                     <thead>
                         <tr>
                             <th style="width: 80px;" class="text-center">QTY</th>
-                            <th style="width: 100px;" class="text-center">UNIT</th>
+                            <th style="width: 80px;" class="text-center">UNIT</th>
                             <th>DESCRIPTION</th>
-                            @if($documentType !== 'DELIVERY RECEIPT')
-                                <th style="width: 150px;" class="text-center">UNIT PRICE</th>
-                                <th style="width: 150px;" class="text-center">AMOUNT</th>
-                            @endif
+                            <th style="width: 120px;" class="text-center">UNIT PRICE</th>
+                            <th style="width: 100px;" class="text-center">DISCOUNT</th>
+                            <th style="width: 130px;" class="text-center">AMOUNT</th>
                         </tr>
                     </thead>
+                    @php
+                        $grossSubtotal = 0;
+                        $totalItemDiscounts = 0;
+                    @endphp
                     <tbody>
                         @foreach($order->items as $item)
+                        @php
+                            $qty = (float)($item->quantity ?? 0);
+                            $unitPrice = (float)($item->price ?? $item->unit_price ?? 0);
+                            $itemSubtotal = $qty * $unitPrice;
+                            $grossSubtotal += $itemSubtotal;
+                            
+                            $itemDiscountAmt = 0;
+                            if (($item->discount_amount ?? 0) > 0) {
+                                $itemDiscountAmt = (float)$item->discount_amount;
+                            } elseif (($item->discount_value ?? 0) > 0) {
+                                if (($item->discount_type ?? 'percentage') === 'percentage') {
+                                    $itemDiscountAmt = $itemSubtotal * ((float)$item->discount_value / 100);
+                                } else {
+                                    $itemDiscountAmt = (float)$item->discount_value;
+                                }
+                            }
+                            $totalItemDiscounts += $itemDiscountAmt;
+                            $rowAmount = max(0, $itemSubtotal - $itemDiscountAmt);
+                        @endphp
                         <tr>
-                            <td class="text-center text-black fw-bold">{{ (float)$item->quantity }}</td>
+                            <td class="text-center text-black fw-bold">{{ $qty }}</td>
                             <td class="text-center text-uppercase text-muted">{{ $item->book->unit ?? 'pcs' }}</td>
                             <td>
                                 <div class="text-black fw-bold">{{ $item->book->name ?? $item->description ?? 'Unknown Item' }}</div>
                                 <small class="text-muted">{{ $item->book->sku ?? 'N/A' }}</small>
                             </td>
-                            @if($documentType !== 'DELIVERY RECEIPT')
-                                <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
-                                <td class="text-end fw-bold">₱{{ number_format($item->subtotal, 2) }}</td>
-                            @endif
+                            <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
+                            <td class="text-center">
+                                @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
+                                    @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
+                                        {{ (float)$item->discount_value }}%
+                                    @elseif(($item->discount_value ?? 0) > 0)
+                                        ₱{{ number_format($item->discount_value, 2) }}
+                                    @else
+                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
+                            <td class="text-end fw-bold">₱{{ number_format($rowAmount, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
-                    @if($documentType !== 'DELIVERY RECEIPT')
+                    @php
+                        $orderDiscountAmt = (float)($order->discount_amount ?? 0);
+                        if ($orderDiscountAmt == 0 && ($order->discount_percentage ?? 0) > 0) {
+                            $orderDiscountAmt = max(0, $grossSubtotal - $totalItemDiscounts) * ((float)$order->discount_percentage / 100);
+                        }
+                        $allDiscountsCombined = $totalItemDiscounts + $orderDiscountAmt;
+                        $freightChargesAmt = (float)($order->freight_charges ?? 0);
+                        $finalTotalAmt = max(0, $grossSubtotal - $allDiscountsCombined + $freightChargesAmt);
+                    @endphp
                     <tfoot>
                         <tr>
-                            <td colspan="4" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
-                            <td class="text-end fw-bold fs-5">₱{{ number_format($order->total_amount, 2) }}</td>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Gross Subtotal:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($grossSubtotal, 2) }}</td>
+                        </tr>
+                        @if($totalItemDiscounts > 0)
+                        <tr>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Items Discount Subtotal:</strong></td>
+                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($totalItemDiscounts, 2) }}</td>
+                        </tr>
+                        @endif
+                        @if($orderDiscountAmt > 0)
+                        <tr>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Order Discount @if(($order->discount_percentage ?? 0) > 0)({{ (float)$order->discount_percentage }}%)@endif:</strong></td>
+                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($orderDiscountAmt, 2) }}</td>
+                        </tr>
+                        @endif
+                        @if($allDiscountsCombined > 0)
+                        <tr style="background-color: #fff3cd;">
+                            <td colspan="5" class="text-end text-uppercase fw-bold text-dark">TOTAL DISCOUNT:</td>
+                            <td class="text-end fw-bold text-danger" style="font-size: 15px;">- ₱{{ number_format($allDiscountsCombined, 2) }}</td>
+                        </tr>
+                        @endif
+                        @if($freightChargesAmt > 0)
+                        <tr>
+                            <td colspan="5" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                            <td class="text-end fw-bold">₱{{ number_format($freightChargesAmt, 2) }}</td>
+                        </tr>
+                        @endif
+                        <tr class="table-light">
+                            <td colspan="5" class="text-end text-uppercase fs-6"><strong>GRAND TOTAL:</strong></td>
+                            <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</td>
                         </tr>
                     </tfoot>
-                    @endif
                 </table>
 
                 <!-- Remarks -->

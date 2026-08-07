@@ -7,7 +7,7 @@
                 <!-- Form Header -->
                 <div class="form-header">
                     <div class="company-info">
-                        <div class="company-logo">C</div>
+                        <img src="{{ asset('images/claeritian_logo.png') }}" alt="Claretian Logo" class="company-logo-img me-2" style="height: 50px; width: auto; object-fit: contain;">
                         <div class="company-details">
                             <div class="company-name">CLARETIAN COMMUNICATIONS FOUNDATION INC.</div>
                             <div class="company-address">8 Mayumi St., UP Village, Diliman, Quezon City</div>
@@ -60,7 +60,9 @@
                     @php
                         $isConsignment = $order && in_array($order->type, ['area_consignment', 'area_sales_consignment']);
                         $displayItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
-                        $calculatedTotal = 0;
+                        
+                        $grossSubtotal = 0;
+                        $totalItemDiscounts = 0;
                     @endphp
 
                     <form action="{{ route('production.logistic.delivery-receipt.update-pick-qty', $order->id) }}" method="POST" id="drPickQtyForm">
@@ -75,6 +77,7 @@
                                         @endif
                                         <th>DESCRIPTION</th>
                                         <th style="width: 140px; text-align: right;">UNIT PRICE</th>
+                                        <th style="width: 110px; text-align: center;">DISCOUNT</th>
                                         <th style="width: 140px; text-align: right;">AMOUNT</th>
                                     </tr>
                                 </thead>
@@ -83,9 +86,22 @@
                                         @php
                                             $qty = (int)($item->quantity ?? 0);
                                             $pickQty = (int)($item->customer_selected_qty ?? 0);
-                                            $unitPrice = $item->unit_price ?? $item->price ?? 0;
-                                            $rowAmount = ($isConsignment && $pickQty > 0 ? $pickQty : $qty) * $unitPrice;
-                                            $calculatedTotal += $rowAmount;
+                                            $unitPrice = (float)($item->unit_price ?? $item->price ?? 0);
+                                            $itemSubtotal = ($isConsignment && $pickQty > 0 ? $pickQty : $qty) * $unitPrice;
+                                            $grossSubtotal += $itemSubtotal;
+                                            
+                                            $itemDiscountAmt = 0;
+                                            if (($item->discount_amount ?? 0) > 0) {
+                                                $itemDiscountAmt = (float)$item->discount_amount;
+                                            } elseif (($item->discount_value ?? 0) > 0) {
+                                                if (($item->discount_type ?? 'percentage') === 'percentage') {
+                                                    $itemDiscountAmt = $itemSubtotal * ((float)$item->discount_value / 100);
+                                                } else {
+                                                    $itemDiscountAmt = (float)$item->discount_value;
+                                                }
+                                            }
+                                            $totalItemDiscounts += $itemDiscountAmt;
+                                            $rowAmount = max(0, $itemSubtotal - $itemDiscountAmt);
                                         @endphp
                                         <tr>
                                             <td style="text-align: center;">{{ $qty }}</td>
@@ -104,14 +120,62 @@
                                             @endif
                                             <td>{{ $item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item')) }}</td>
                                             <td style="text-align: right;">₱{{ number_format($unitPrice, 2) }}</td>
+                                            <td style="text-align: center;">
+                                                @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
+                                                    @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
+                                                        {{ (float)$item->discount_value }}%
+                                                    @elseif(($item->discount_value ?? 0) > 0)
+                                                        ₱{{ number_format($item->discount_value, 2) }}
+                                                    @else
+                                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                                    @endif
+                                                @else
+                                                    -
+                                                @endif
+                                            </td>
                                             <td style="text-align: right; font-weight: 600;" class="row-amount-td">₱{{ number_format($rowAmount, 2) }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-center py-3 text-muted">No items found for this delivery receipt</td>
+                                            <td colspan="{{ $isConsignment ? 6 : 5 }}" class="text-center py-3 text-muted">No items found for this delivery receipt</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
+                                @php
+                                    $orderDiscountAmt = (float)($order->discount_amount ?? 0);
+                                    if ($orderDiscountAmt == 0 && ($order->discount_percentage ?? 0) > 0) {
+                                        $orderDiscountAmt = max(0, $grossSubtotal - $totalItemDiscounts) * ((float)$order->discount_percentage / 100);
+                                    }
+                                    $allDiscountsCombined = $totalItemDiscounts + $orderDiscountAmt;
+                                    $freightChargesAmt = (float)($order->freight_charges ?? 0);
+                                    $finalTotalAmt = max(0, $grossSubtotal - $allDiscountsCombined + $freightChargesAmt);
+                                @endphp
+                                <tfoot>
+                                    @if($totalItemDiscounts > 0)
+                                    <tr>
+                                        <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-end text-uppercase"><strong>Items Discount Subtotal:</strong></td>
+                                        <td class="text-end fw-bold text-danger">- ₱{{ number_format($totalItemDiscounts, 2) }}</td>
+                                    </tr>
+                                    @endif
+                                    @if($orderDiscountAmt > 0)
+                                    <tr>
+                                        <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-end text-uppercase"><strong>Order Discount @if(($order->discount_percentage ?? 0) > 0)({{ (float)$order->discount_percentage }}%)@endif:</strong></td>
+                                        <td class="text-end fw-bold text-danger">- ₱{{ number_format($orderDiscountAmt, 2) }}</td>
+                                    </tr>
+                                    @endif
+                                    @if($allDiscountsCombined > 0)
+                                    <tr style="background-color: #fff3cd;">
+                                        <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-end text-uppercase fw-bold text-dark">Total Discount:</td>
+                                        <td class="text-end fw-bold text-danger" style="font-size: 15px;">- ₱{{ number_format($allDiscountsCombined, 2) }}</td>
+                                    </tr>
+                                    @endif
+                                    @if($freightChargesAmt > 0)
+                                    <tr>
+                                        <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                                        <td class="text-end fw-bold">₱{{ number_format($freightChargesAmt, 2) }}</td>
+                                    </tr>
+                                    @endif
+                                </tfoot>
                             </table>
                         </div>
 
@@ -127,7 +191,14 @@
 
                     <!-- Total Amount -->
                     <div style="text-align: right; margin-bottom: 1.5rem; font-size: 1.1rem; font-weight: 600;">
-                        <strong>Total Amount: <span id="drTotalAmountDisplay">₱{{ number_format($calculatedTotal > 0 ? $calculatedTotal : $order->total_amount, 2) }}</span></strong>
+                        <div class="small text-muted mb-1">Gross Subtotal: ₱{{ number_format($grossSubtotal, 2) }}</div>
+                        @if($allDiscountsCombined > 0)
+                            <div class="small text-danger mb-1">Total Discount (Books + Order): - ₱{{ number_format($allDiscountsCombined, 2) }}</div>
+                        @endif
+                        @if($freightChargesAmt > 0)
+                            <div class="small text-secondary mb-1">Freight Charges: + ₱{{ number_format($freightChargesAmt, 2) }}</div>
+                        @endif
+                        <strong>Total Amount: <span id="drTotalAmountDisplay">₱{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</span></strong>
                     </div>
                 @else
                     <!-- Empty Form for Creating New Receipt -->
@@ -593,24 +664,34 @@
         }
 
         .notes-section textarea {
-            width: 100%;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 0.5rem;
             min-height: 80px;
-            resize: vertical;
+        }
+
+        @page {
+            size: letter portrait; /* Short bond paper (8.5in x 11in) */
+            margin: 0.35in 0.4in;
         }
 
         @media print {
             * {
-                -webkit-print-color-adjust: exact;
-                color-adjust: exact;
-                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            body, html {
+                background: #ffffff !important;
+                color: #000000 !important;
+                font-size: 11px !important;
+                line-height: 1.2 !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
 
             /* Hide UI elements and buttons */
             .sidebar,
             .header,
+            .nav-header,
             .form-actions,
             .btn-add-row,
             .btn-remove-row,
@@ -618,12 +699,9 @@
             #linkToSIBtn,
             .modal,
             button,
-            .btn {
-                display: none !important;
-            }
-
-            /* Hide only the blue info box for area consignment */
-            div[style*="background: #e7f3ff"] {
+            .btn,
+            div[style*="background: #e7f3ff"],
+            .card.p-3.my-3.border.bg-light {
                 display: none !important;
             }
 
@@ -637,44 +715,50 @@
                 background: transparent !important;
                 outline: none !important;
                 color: #000 !important;
+                font-size: 11px !important;
             }
 
             /* Show the table and make input fields look like text */
             .receipt-table {
-                width: 100%;
+                width: 100% !important;
                 page-break-inside: avoid;
                 display: table !important;
+                margin-bottom: 0.75rem !important;
+                font-size: 11px !important;
             }
 
             .receipt-table thead {
-                display: table-header-group;
+                display: table-header-group !important;
                 page-break-inside: avoid;
             }
 
             .receipt-table tbody {
-                display: table-row-group;
+                display: table-row-group !important;
             }
 
             .receipt-table tr {
-                display: table-row;
+                display: table-row !important;
                 page-break-inside: avoid;
             }
 
             .receipt-table th,
             .receipt-table td {
-                display: table-cell;
-                border: 1px solid #333 !important;
-                padding: 0.5rem !important;
+                display: table-cell !important;
+                border: 1px solid #000 !important;
+                padding: 4px 6px !important;
+                font-size: 11px !important;
             }
 
             .receipt-table th {
-                background: #ff0000 !important;
-                color: #fff !important;
+                background: #e9ecef !important;
+                color: #000 !important;
                 font-weight: bold !important;
+                text-transform: uppercase !important;
             }
 
             .receipt-table td {
                 background: #fff !important;
+                color: #000 !important;
             }
 
             /* Show table inputs as text */
@@ -687,183 +771,143 @@
                 color: #000 !important;
                 font-family: inherit;
                 width: auto;
+                font-size: 11px !important;
                 text-align: inherit;
             }
 
             /* Clean up receipt form */
-            .receipt-form {
+            .receipt-form,
+            .card {
                 box-shadow: none !important;
-                padding: 1.5rem !important;
-                max-width: 100%;
+                padding: 0 !important;
+                max-width: 100% !important;
                 margin: 0 !important;
                 border: none !important;
+                background: transparent !important;
             }
 
             .form-header {
-                margin-bottom: 1.5rem;
-                padding-bottom: 1rem;
-                border-bottom: 2px solid #000;
-                text-align: center;
-            }
-
-            /* Hide company logo in print */
-            .form-header .company-info {
-                display: block !important;
-                width: 100% !important;
+                margin-bottom: 0.75rem !important;
+                padding-bottom: 0.5rem !important;
+                border-bottom: 2px solid #000 !important;
                 text-align: center !important;
-                flex-direction: column !important;
-                justify-content: center !important;
-                align-items: center !important;
-                gap: 0 !important;
-                flex: none !important;
             }
 
-            .form-header .company-logo {
-                display: none !important;
-                visibility: hidden !important;
-                position: fixed !important;
-                left: -9999px !important;
-                top: -9999px !important;
-                width: 0 !important;
-                height: 0 !important;
-                border: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                opacity: 0 !important;
-                overflow: hidden !important;
-                clip: rect(0, 0, 0, 0) !important;
-                z-index: -9999 !important;
+            .form-header .company-info {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 0.75rem !important;
+                margin-bottom: 0.35rem !important;
+                text-align: left !important;
+            }
+
+            .form-header .company-logo-img {
+                display: block !important;
+                height: 48px !important;
+                width: auto !important;
+                object-fit: contain !important;
             }
 
             .form-header .company-details {
-                width: 100%;
-                flex: none;
+                flex: none !important;
             }
 
             .form-header .company-name {
-                font-size: 1.1rem !important;
-                margin-bottom: 0.1rem !important;
+                font-size: 1.05rem !important;
+                font-weight: bold !important;
+                margin-bottom: 2px !important;
+                color: #000 !important;
             }
 
             .form-header .company-address,
             .form-header .company-contact {
-                font-size: 0.8rem !important;
+                font-size: 0.75rem !important;
                 margin: 0 !important;
+                color: #333 !important;
+            }
+
+            .document-title {
+                font-size: 1.25rem !important;
+                font-weight: bold !important;
+                margin-top: 0.35rem !important;
+                margin-bottom: 0.2rem !important;
+                letter-spacing: 1px !important;
+                color: #000 !important;
             }
 
             .form-info-row {
                 background: transparent !important;
                 border: none !important;
                 padding: 0.25rem 0 !important;
-                margin-bottom: 0.25rem !important;
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 1rem;
+                margin-bottom: 0.5rem !important;
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 0.5rem !important;
             }
 
-            .form-info-item {
-                display: block;
-                margin-bottom: 0;
-            }
-
-            .form-info-item label {
-                display: block;
-                font-weight: bold;
-                margin-bottom: 0.25rem;
-                min-width: auto;
+            .form-info-item label,
+            .form-group label {
+                font-size: 0.75rem !important;
+                font-weight: bold !important;
+                margin-bottom: 2px !important;
             }
 
             .form-group {
                 background: transparent !important;
                 border: none !important;
-                padding: 0.5rem 0 !important;
-                margin-bottom: 0.5rem !important;
-            }
-
-            .form-group label {
-                font-weight: bold;
+                padding: 0.25rem 0 !important;
+                margin-bottom: 0.35rem !important;
             }
 
             /* Signature section */
             .signature-section {
-                page-break-inside: avoid;
-                margin-top: 2rem;
-                border-top: 2px solid #000;
-                padding-top: 1.5rem;
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 2rem;
-            }
-
-            .signature-box {
-                page-break-inside: avoid;
+                page-break-inside: avoid !important;
+                margin-top: 1.25rem !important;
+                border-top: 1.5px solid #000 !important;
+                padding-top: 0.75rem !important;
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 1.5rem !important;
             }
 
             .signature-box label {
-                font-weight: bold;
-                display: block;
-                margin-bottom: 0.5rem;
+                font-weight: bold !important;
+                display: block !important;
+                font-size: 0.75rem !important;
+                margin-bottom: 0.25rem !important;
             }
 
             .signature-box input {
-                border: none !important;
-                background: transparent !important;
-                padding: 0 !important;
-                min-height: 40px;
-                margin-bottom: 1rem;
-                color: #000 !important;
-                font-size: 0.95rem;
                 display: none !important;
-                width: 100% !important;
-                -webkit-appearance: none;
-                appearance: none;
-                font-family: inherit;
             }
 
             .signature-input-wrapper {
-                display: block;
-                min-height: 40px;
-                margin-bottom: 1rem;
-                position: relative;
+                display: block !important;
+                min-height: 25px !important;
+                margin-bottom: 0.5rem !important;
             }
 
             .signature-value-display {
                 display: block !important;
                 color: #000 !important;
-                font-size: 0.95rem !important;
-                font-family: inherit !important;
-                min-height: 20px !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                white-space: pre-wrap !important;
+                font-size: 0.85rem !important;
             }
 
             .signature-box div[style*="border-top"] {
                 border-top: 1px solid #000 !important;
-                text-align: center;
-                padding-top: 0.5rem;
-                font-size: 0.8rem;
-                font-weight: bold;
+                text-align: center !important;
+                padding-top: 0.25rem !important;
+                font-size: 0.75rem !important;
+                font-weight: bold !important;
             }
 
-            /* Page layout */
             body,
-            html {
-                margin: 0;
-                padding: 0;
-            }
-
+            html,
             .row,
             .col-xl-12 {
                 margin: 0 !important;
                 padding: 0 !important;
-            }
-
-            .card {
-                margin: 0 !important;
-                padding: 1.5rem !important;
-                border: none !important;
-                box-shadow: none !important;
             }
         }
     </style>

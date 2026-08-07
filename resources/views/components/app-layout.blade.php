@@ -162,15 +162,35 @@
             window.showAppModal = function(currTitle, message, options = {}) {
                 title.innerText = currTitle || 'Notification';
                 title.style.color = '#333';
-                body.innerHTML = message; // Allow HTML
                 
                 if (options.type === 'confirm') {
+                    body.innerHTML = message;
                     cancelBtn.style.display = 'block';
                     cancelBtn.innerText = options.cancelText || 'Cancel';
                     confirmBtn.innerText = options.confirmText || 'Confirm';
                     confirmBtn.style.background = options.confirmColor || '#ff0000';
                     currentCallback = options.onConfirm || null;
+                } else if (options.type === 'input') {
+                    cancelBtn.style.display = 'block';
+                    cancelBtn.innerText = options.cancelText || 'Cancel';
+                    confirmBtn.innerText = options.confirmText || 'Confirm';
+                    confirmBtn.style.background = options.confirmColor || '#ff0000';
+                    
+                    const placeholder = options.placeholder || 'Enter reason...';
+                    body.innerHTML = `
+                        <div class="text-start mb-2">${message}</div>
+                        <textarea id="bespoke-modal-input-field" class="form-control" rows="3" placeholder="${placeholder}" style="width:100%; border:1px solid #ced4da; border-radius:8px; padding:10px; font-size:14px; color:#333; resize:vertical; margin-top:10px;"></textarea>
+                    `;
+                    
+                    currentCallback = function() {
+                        const inputEl = document.getElementById('bespoke-modal-input-field');
+                        const val = inputEl ? inputEl.value : '';
+                        if (typeof options.onConfirm === 'function') {
+                            options.onConfirm(val);
+                        }
+                    };
                 } else {
+                    body.innerHTML = message;
                     cancelBtn.style.display = 'none';
                     confirmBtn.innerText = 'OK';
                     confirmBtn.style.background = '#ff0000';
@@ -178,6 +198,12 @@
                 }
                 
                 showModal();
+                if (options.type === 'input') {
+                    setTimeout(() => {
+                        const inputEl = document.getElementById('bespoke-modal-input-field');
+                        if (inputEl) inputEl.focus();
+                    }, 200);
+                }
             };
 
             // Keep backward compatibility if needed, or alias them

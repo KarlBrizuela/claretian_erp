@@ -333,6 +333,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/sales-orders/{id}/edit', [MarketingController::class, 'editSalesOrder'])->name('marketing.sales-orders.edit');
     Route::put('/marketing/sales-orders/{id}', [MarketingController::class, 'updateSalesOrder'])->name('marketing.sales-orders.update');
     Route::post('/marketing/sales-orders/{id}/approve', [MarketingController::class, 'approveSalesOrder'])->name('marketing.sales-orders.approve');
+    Route::post('/marketing/sales-orders/{id}/reject', [MarketingController::class, 'rejectSalesOrder'])->name('marketing.sales-orders.reject');
     Route::post('/marketing/sales-orders/{id}/quick-update', [MarketingController::class, 'updateSalesOrderQuick'])->name('marketing.sales-orders.quick-update');
     Route::post('/marketing/sales-orders/{id}/proceed-to-final', [MarketingController::class, 'proceedToFinalSalesOrder'])->name('marketing.sales-orders.proceed-to-final');
     Route::delete('/marketing/sales-orders/{id}', [MarketingController::class, 'destroySalesOrder'])->name('marketing.sales-orders.destroy');

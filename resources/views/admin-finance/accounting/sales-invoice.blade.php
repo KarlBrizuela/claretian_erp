@@ -137,7 +137,7 @@
                                                 $pmBadgeColor = $pmStatus === 'paid' ? 'success' : ($pmStatus === 'partially_paid' ? 'warning' : 'danger');
                                                 $pmLabel = $pmStatus === 'partially_paid' ? 'PARTIALLY PAID' : strtoupper($pmStatus);
                                             @endphp
-                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-type="{{ $order->type }}">
+                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-type="{{ $order->type }}" data-amount="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
                                                 <td>
                                                     @if($order->status === 'pending_si_prep' || $order->status === 'pending_si_approval' || $order->status === 'si_created' || $order->status === 'ar_created')
                                                         <input type="checkbox" class="order-checkbox normal-check" value="{{ $order->id }}" data-proof="{{ ($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary'])) ? 'yes' : 'no' }}" data-amount="{{ $displayAmount }}" style="width: 16px; height: 16px; cursor: pointer;">
@@ -224,11 +224,26 @@
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="8" class="text-center py-4 text-muted">No normal orders requiring Sales Invoice at this time.</td>
+                                                <td colspan="12" class="text-center py-4 text-muted">No normal orders requiring Sales Invoice at this time.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
+                                        <tfoot>
+                                            <tr id="normalTotalRow" style="background: #f8f9fa; border-top: 2px solid #dee2e6;">
+                                                <td colspan="5" class="text-end fw-bold" style="font-size: 14px;">TOTAL SUMMARY:</td>
+                                                <td class="fw-bold text-primary" style="font-size: 14px;" id="normalTotalAmount">₱0.00</td>
+                                                <td class="fw-bold text-success" style="font-size: 14px;" id="normalPaidAmount">₱0.00</td>
+                                                <td class="fw-bold text-danger" style="font-size: 14px;" id="normalRemainingAmount">₱0.00</td>
+                                                <td colspan="4"></td>
+                                            </tr>
+                                        </tfoot>
                                     </table>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="normal-pagination">
+                                    <div class="text-muted small">Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</div>
+                                    <nav>
+                                        <ul class="pagination pagination-sm mb-0"></ul>
+                                    </nav>
                                 </div>
                             </div>
 
@@ -346,6 +361,12 @@
                                         </tfoot>
                                     </table>
                                 </div>
+                                <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="ecom-pagination">
+                                    <div class="text-muted small">Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</div>
+                                    <nav>
+                                        <ul class="pagination pagination-sm mb-0"></ul>
+                                    </nav>
+                                </div>
                             </div>
 
                             <!-- Completed SI Tab Pane -->
@@ -379,7 +400,7 @@
                                                 $pmBadgeColor = $pmStatus === 'paid' ? 'success' : ($pmStatus === 'partially_paid' ? 'warning' : 'danger');
                                                 $pmLabel = $pmStatus === 'partially_paid' ? 'PARTIALLY PAID' : strtoupper($pmStatus);
                                             @endphp
-                                            <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}" data-type="{{ $si->salesOrder->type ?? str_replace('_si', '', $si->transaction_type ?? 'area_consignment') }}">
+                                            <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}" data-type="{{ $si->salesOrder->type ?? str_replace('_si', '', $si->transaction_type ?? 'area_consignment') }}" data-amount="{{ $totalAmt }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
                                                 <td><strong>#{{ $si->si_number }}</strong></td>
                                                 <td>#{{ $si->so_number }}</td>
                                                 <td>{{ $si->customer_name ?? ($si->customer->customer_name ?? 'N/A') }}</td>
@@ -418,11 +439,26 @@
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="8" class="text-center py-4 text-muted">No completed Sales Invoices found.</td>
+                                                <td colspan="12" class="text-center py-4 text-muted">No completed Sales Invoices found.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
+                                        <tfoot>
+                                            <tr id="completedTotalRow" style="background: #f8f9fa; border-top: 2px solid #dee2e6;">
+                                                <td colspan="5" class="text-end fw-bold" style="font-size: 14px;">TOTAL SUMMARY:</td>
+                                                <td class="fw-bold text-primary" style="font-size: 14px;" id="completedTotalAmount">₱0.00</td>
+                                                <td class="fw-bold text-success" style="font-size: 14px;" id="completedPaidAmount">₱0.00</td>
+                                                <td class="fw-bold text-danger" style="font-size: 14px;" id="completedRemainingAmount">₱0.00</td>
+                                                <td colspan="4"></td>
+                                            </tr>
+                                        </tfoot>
                                     </table>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="completed-pagination">
+                                    <div class="text-muted small">Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</div>
+                                    <nav>
+                                        <ul class="pagination pagination-sm mb-0"></ul>
+                                    </nav>
                                 </div>
                             </div>
                         </div>
@@ -469,119 +505,193 @@
         const endDateInput = document.getElementById('siEndDate');
         const clearBtn = document.getElementById('clearFiltersBtn');
 
-        function filterRows() {
+        const pageState = {
+            'normal-pane': 1,
+            'ecom-pane': 1,
+            'completed-pane': 1
+        };
+        const pageSize = 10;
+
+        function filterAndPaginate() {
             const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
             const selectedType = typeSelect ? typeSelect.value : '';
             const platform = platformSelect ? platformSelect.value : '';
             const selectedPm = pmSelect ? pmSelect.value.toLowerCase() : '';
 
-            document.querySelectorAll('.si-row').forEach(row => {
-                let matchesSearch = true;
-                let matchesDate = true;
-                let matchesPlatform = true;
-                let matchesType = true;
-                let matchesPm = true;
+            ['normal-pane', 'ecom-pane', 'completed-pane'].forEach(paneId => {
+                const pane = document.getElementById(paneId);
+                if (!pane) return;
+                const rows = Array.from(pane.querySelectorAll('.si-row'));
 
-                // Search query match
-                if (query) {
-                    const text = row.innerText.toLowerCase();
-                    matchesSearch = text.includes(query);
-                }
+                // 1. Determine matches
+                const matchingRows = [];
+                rows.forEach(row => {
+                    let matchesSearch = true;
+                    let matchesDate = true;
+                    let matchesPlatform = true;
+                    let matchesType = true;
+                    let matchesPm = true;
 
-                // Type/Category match
-                if (selectedType) {
-                    const rowType = row.getAttribute('data-type');
-                    if (rowType && rowType !== selectedType) {
-                        matchesType = false;
+                    if (query) {
+                        const text = row.innerText.toLowerCase();
+                        matchesSearch = text.includes(query);
                     }
-                }
 
-                // Payment Method match
-                if (selectedPm) {
-                    const rowPmSelect = row.querySelector('.pm-select');
-                    const rowPm = rowPmSelect ? rowPmSelect.value.toLowerCase() : (row.getAttribute('data-pm') || '');
-                    if (rowPm !== selectedPm) {
-                        matchesPm = false;
+                    if (selectedType) {
+                        const rowType = row.getAttribute('data-type');
+                        if (rowType && rowType !== selectedType) matchesType = false;
                     }
-                }
 
-                // Date range match
-                const rowDateStr = row.getAttribute('data-date');
-                if (rowDateStr) {
-                    if (startDateInput && startDateInput.value && rowDateStr < startDateInput.value) {
-                        matchesDate = false;
+                    if (selectedPm) {
+                        const rowPmSelect = row.querySelector('.pm-select');
+                        const rowPm = rowPmSelect ? rowPmSelect.value.toLowerCase() : (row.getAttribute('data-pm') || '');
+                        if (rowPm !== selectedPm) matchesPm = false;
                     }
-                    if (endDateInput && endDateInput.value && rowDateStr > endDateInput.value) {
-                        matchesDate = false;
+
+                    const rowDateStr = row.getAttribute('data-date');
+                    if (rowDateStr) {
+                        if (startDateInput && startDateInput.value && rowDateStr < startDateInput.value) matchesDate = false;
+                        if (endDateInput && endDateInput.value && rowDateStr > endDateInput.value) matchesDate = false;
                     }
-                }
 
-                // Platform match
-                if (platform) {
-                    const rowPlatform = row.getAttribute('data-platform');
-                    if (rowPlatform && rowPlatform !== platform) {
-                        matchesPlatform = false;
+                    if (platform) {
+                        const rowPlatform = row.getAttribute('data-platform');
+                        if (rowPlatform && rowPlatform !== platform) matchesPlatform = false;
                     }
-                }
 
-                if (matchesSearch && matchesType && matchesDate && matchesPlatform && matchesPm) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
+                    if (matchesSearch && matchesType && matchesDate && matchesPlatform && matchesPm) {
+                        matchingRows.push(row);
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
 
-            // Check if there are no visible rows in either table, show placeholder if empty
-            const tables = document.querySelectorAll('table');
-            tables.forEach(table => {
-                const tbody = table.querySelector('tbody');
-                if (!tbody) return;
-                const rows = tbody.querySelectorAll('.si-row');
-                const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none');
-                
+                // 2. Handle empty state
+                const tbody = pane.querySelector('tbody');
                 let noResultRow = tbody.querySelector('.no-results-row');
-                if (visibleRows.length === 0 && rows.length > 0) {
+                if (matchingRows.length === 0 && rows.length > 0) {
                     if (!noResultRow) {
                         noResultRow = document.createElement('tr');
                         noResultRow.className = 'no-results-row';
-                        const colCount = table.querySelectorAll('thead th').length;
+                        const colCount = pane.querySelectorAll('thead th').length;
                         noResultRow.innerHTML = `<td colspan="${colCount}" class="text-center py-4 text-muted">No matching results found.</td>`;
                         tbody.appendChild(noResultRow);
                     }
                 } else if (noResultRow) {
                     noResultRow.remove();
                 }
-            });
 
-            // Recalculate visible e-com total
-            updateEcomTotal();
-        }
+                // 3. Update totals for matching rows
+                let totalAmount = 0;
+                let paidAmount = 0;
+                let remainingAmount = 0;
 
-        function updateEcomTotal() {
-            const ecomTotalEl = document.getElementById('ecomTotalAmount');
-            if (!ecomTotalEl) return;
-            const ecomPane = document.getElementById('ecom-pane');
-            if (!ecomPane) return;
-            const visibleRows = ecomPane.querySelectorAll('.si-row');
-            let total = 0;
-            visibleRows.forEach(row => {
-                if (row.style.display !== 'none') {
-                    const amt = parseFloat(row.getAttribute('data-amount'));
-                    if (!isNaN(amt)) total += amt;
+                matchingRows.forEach(row => {
+                    const amt = parseFloat(row.getAttribute('data-amount')) || 0;
+                    const paid = parseFloat(row.getAttribute('data-paid')) || 0;
+                    const rem = parseFloat(row.getAttribute('data-remaining')) || 0;
+                    totalAmount += amt;
+                    paidAmount += paid;
+                    remainingAmount += rem;
+                });
+
+                const prefix = paneId.replace('-pane', '');
+                const totEl = document.getElementById(prefix + 'TotalAmount');
+                const paidEl = document.getElementById(prefix + 'PaidAmount');
+                const remEl = document.getElementById(prefix + 'RemainingAmount');
+
+                if (totEl) totEl.textContent = '₱' + totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                if (paidEl) paidEl.textContent = '₱' + paidAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                if (remEl) remEl.textContent = '₱' + remainingAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // 4. Paginate matching rows
+                const totalMatching = matchingRows.length;
+                const totalPages = Math.ceil(totalMatching / pageSize) || 1;
+                if (pageState[paneId] > totalPages) pageState[paneId] = totalPages;
+                if (pageState[paneId] < 1) pageState[paneId] = 1;
+
+                const currPage = pageState[paneId];
+                const startIndex = (currPage - 1) * pageSize;
+                const endIndex = Math.min(startIndex + pageSize, totalMatching);
+
+                matchingRows.forEach((row, index) => {
+                    if (index >= startIndex && index < endIndex) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // 5. Update pagination UI controls
+                const pagWrapper = document.getElementById(prefix + '-pagination');
+                if (pagWrapper) {
+                    if (totalMatching === 0) {
+                        pagWrapper.style.display = 'none';
+                    } else {
+                        pagWrapper.style.display = 'flex';
+                        pagWrapper.querySelector('.page-start').textContent = startIndex + 1;
+                        pagWrapper.querySelector('.page-end').textContent = endIndex;
+                        pagWrapper.querySelector('.total-items').textContent = totalMatching;
+
+                        const ul = pagWrapper.querySelector('.pagination');
+                        ul.innerHTML = '';
+
+                        // Prev button
+                        const prevLi = document.createElement('li');
+                        prevLi.className = `page-item ${currPage === 1 ? 'disabled' : ''}`;
+                        prevLi.innerHTML = `<a class="page-link" href="javascript:void(0)"><i class="fas fa-chevron-left"></i></a>`;
+                        prevLi.addEventListener('click', () => {
+                            if (currPage > 1) {
+                                pageState[paneId]--;
+                                filterAndPaginate();
+                            }
+                        });
+                        ul.appendChild(prevLi);
+
+                        // Page numbers
+                        for (let i = 1; i <= totalPages; i++) {
+                            if (totalPages <= 7 || i === 1 || i === totalPages || (i >= currPage - 1 && i <= currPage + 1)) {
+                                const pageLi = document.createElement('li');
+                                pageLi.className = `page-item ${i === currPage ? 'active' : ''}`;
+                                pageLi.innerHTML = `<a class="page-link" href="javascript:void(0)">${i}</a>`;
+                                pageLi.addEventListener('click', () => {
+                                    pageState[paneId] = i;
+                                    filterAndPaginate();
+                                });
+                                ul.appendChild(pageLi);
+                            } else if (i === currPage - 2 || i === currPage + 2) {
+                                const dotsLi = document.createElement('li');
+                                dotsLi.className = 'page-item disabled';
+                                dotsLi.innerHTML = `<span class="page-link">...</span>`;
+                                ul.appendChild(dotsLi);
+                            }
+                        }
+
+                        // Next button
+                        const nextLi = document.createElement('li');
+                        nextLi.className = `page-item ${currPage === totalPages ? 'disabled' : ''}`;
+                        nextLi.innerHTML = `<a class="page-link" href="javascript:void(0)"><i class="fas fa-chevron-right"></i></a>`;
+                        nextLi.addEventListener('click', () => {
+                            if (currPage < totalPages) {
+                                pageState[paneId]++;
+                                filterAndPaginate();
+                            }
+                        });
+                        ul.appendChild(nextLi);
+                    }
                 }
             });
-            ecomTotalEl.textContent = '₱' + total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
         // Calculate on page load
-        updateEcomTotal();
+        filterAndPaginate();
 
-        if (searchInput) searchInput.addEventListener('input', filterRows);
-        if (typeSelect) typeSelect.addEventListener('change', filterRows);
-        if (pmSelect) pmSelect.addEventListener('change', filterRows);
-        if (platformSelect) platformSelect.addEventListener('change', filterRows);
-        if (startDateInput) startDateInput.addEventListener('change', filterRows);
-        if (endDateInput) endDateInput.addEventListener('change', filterRows);
+        if (searchInput) searchInput.addEventListener('input', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
+        if (typeSelect) typeSelect.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
+        if (pmSelect) pmSelect.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
+        if (platformSelect) platformSelect.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
+        if (startDateInput) startDateInput.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
+        if (endDateInput) endDateInput.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
 
         if (clearBtn) {
             clearBtn.addEventListener('click', function () {
@@ -591,7 +701,10 @@
                 if (platformSelect) platformSelect.value = '';
                 if (startDateInput) startDateInput.value = '';
                 if (endDateInput) endDateInput.value = '';
-                filterRows();
+                pageState['normal-pane'] = 1;
+                pageState['ecom-pane'] = 1;
+                pageState['completed-pane'] = 1;
+                filterAndPaginate();
             });
         }
 

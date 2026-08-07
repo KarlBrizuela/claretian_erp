@@ -128,6 +128,26 @@
             padding: 0.75rem 1rem;
             border-bottom: 1px solid #eee;
         }
+
+        @page {
+            size: letter portrait; /* Short bond paper (8.5in x 11in) */
+            margin: 0.35in 0.4in;
+        }
+
+        @media print {
+            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
+            body, html { background: #fff !important; color: #000 !important; font-size: 11px !important; line-height: 1.2 !important; margin: 0 !important; padding: 0 !important; }
+            .sidebar, .header, .nav-header, .form-actions, .btn, .nav-tabs, .btn-danger, .fa-times { display: none !important; }
+            .receipt-form { box-shadow: none !important; padding: 0 !important; margin: 0 !important; border: none !important; }
+            .form-header { margin-bottom: 0.75rem !important; padding-bottom: 0.5rem !important; border-bottom: 2px solid #000 !important; text-align: center !important; }
+            .form-header .company-logo { display: none !important; }
+            .form-header .company-name { font-size: 1rem !important; font-weight: 700 !important; margin-bottom: 2px !important; }
+            .document-title { font-size: 1.25rem !important; font-weight: 700 !important; margin-top: 0.35rem !important; }
+            .receipt-table { width: 100% !important; border-collapse: collapse !important; margin-bottom: 0.75rem !important; font-size: 11px !important; }
+            .receipt-table th, .receipt-table td { padding: 4px 6px !important; border: 1px solid #000 !important; font-size: 11px !important; }
+            .receipt-table th { background: #e9ecef !important; color: #000 !important; font-weight: 700 !important; }
+            .signature-section { margin-top: 1.25rem !important; page-break-inside: avoid !important; }
+        }
     </style>
     @endpush
 
@@ -155,7 +175,7 @@
                         <div class="receipt-form">
                 <div class="form-header">
                     <div class="company-info">
-                        <div class="company-logo">C</div>
+                        <img src="{{ asset('images/claeritian_logo.png') }}" alt="Claretian Logo" class="company-logo-img me-2" style="height: 50px; width: auto; object-fit: contain;">
                         <div class="company-details">
                             <div class="company-name">CLARETIAN COMMUNICATIONS FOUNDATION INC.</div>
                             <div class="company-address">8 Mayumi St., UP Village, Diliman, Quezon City</div>
@@ -214,8 +234,9 @@
                             <tr>
                                 <th style="width: 100px;">QUANTITY</th>
                                 <th>DESCRIPTION</th>
-                                <th style="width: 150px; text-align: right;">UNIT PRICE</th>
-                                <th style="width: 150px; text-align: right;">AMOUNT</th>
+                                <th style="width: 130px; text-align: right;">UNIT PRICE</th>
+                                <th style="width: 110px; text-align: center;">DISCOUNT</th>
+                                <th style="width: 130px; text-align: right;">AMOUNT</th>
                                 <th style="width: 50px;"></th>
                             </tr>
                         </thead>
@@ -224,6 +245,7 @@
                                 <td><input type="number" class="qty-input" value="0"></td>
                                 <td><input type="text" placeholder="Product description"></td>
                                 <td><input type="number" class="price-input" value="0.00" step="0.01"></td>
+                                <td><input type="text" class="discount-input text-center" placeholder="0%" value="-"></td>
                                 <td><input type="number" class="amount-input" value="0.00" readonly></td>
                                 <td class="text-center"><button type="button" class="btn btn-xs sharp btn-danger" onclick="removeRow(this)"><i class="fa fa-times"></i></button></td>
                             </tr>
