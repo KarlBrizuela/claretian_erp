@@ -52,15 +52,15 @@
                                     @if($item->product && $item->product->isbn) <br><small class="text-muted">ISBN: {{ $item->product->isbn }}</small> @endif
                                 </td>
                                 <td>{{ $item->product->isbn ?? $item->purchaseOrderItem->isbn ?? 'N/A' }}</td>
-                                <td class="text-end">₱{{ number_format($item->unit_cost, 2) }}</td>
-                                <td class="text-end">₱{{ number_format($item->total_cost, 2) }}</td>
+                                <td class="text-end">{{ $rr->currency_symbol }}{{ number_format($item->unit_cost, 2) }}</td>
+                                <td class="text-end">{{ $rr->currency_symbol }}{{ number_format($item->total_cost, 2) }}</td>
                             </tr>
                             @endforeach
                         </tbody>
                         <tfoot>
                             <tr>
                                 <td colspan="4" style="text-align: right; font-weight: 600;">TOTAL:</td>
-                                <td style="text-align: right; font-weight: 600;">₱{{ number_format($rr->items->sum('total_cost'), 2) }}</td>
+                                <td style="text-align: right; font-weight: 600;">{{ $rr->currency_symbol }}{{ number_format($rr->items->sum('total_cost'), 2) }}</td>
                             </tr>
                         </tfoot>
                     </table>

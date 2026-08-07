@@ -131,6 +131,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/delivery-receipt/import-excel', [App\Http\Controllers\Production\LogisticController::class, 'importDeliveryReceiptFromExcel'])->name('delivery-receipt.import-excel');
       Route::post('/mark-as-dr-prepared/{id}', [App\Http\Controllers\Production\LogisticController::class, 'markAsDRPrepared'])->name('mark-as-dr-prepared');
       Route::post('/approve-dr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'approveDR'])->name('approve-dr');
+      Route::post('/complete-dr/{id}', [App\Http\Controllers\Production\LogisticController::class, 'completeDR'])->name('complete-dr');
       Route::post('/link-consignment-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'linkConsignmentToSI'])->name('link-consignment-to-si');
       Route::post('/request-reconsignment/{id}', [App\Http\Controllers\Production\LogisticController::class, 'requestReconsignment'])->name('request-reconsignment');
       Route::post('/return-consignment/{id}', [App\Http\Controllers\Production\LogisticController::class, 'returnConsignment'])->name('return-consignment');
@@ -263,6 +264,8 @@ Route::middleware(['auth'])->group(function () {
         'update' => 'marketing.companies.update',
         'destroy' => 'marketing.companies.destroy',
     ]);
+    Route::get('/marketing/companies/branches/download-template', [CompanyController::class, 'downloadBranchTemplate'])->name('marketing.companies.branches.download-template');
+    Route::post('/marketing/companies/{company}/branches/import-excel', [CompanyController::class, 'importBranchesExcel'])->name('marketing.companies.branches.import-excel');
     Route::get('/marketing/approval-queue', [MarketingController::class, 'approvalQueue'])->name('marketing.approval-queue');
     Route::get('/marketing/my-requests', [MarketingController::class, 'myRequests'])->name('marketing.my-requests');
     

@@ -21,7 +21,7 @@
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-direct" type="button" role="tab" aria-controls="ecom-direct" aria-selected="false">
-                                E-Commerce Direct <span class="badge bg-info ms-2">{{ $ecomByPlatform['lazada']->count() + $ecomByPlatform['shopee']->count() + $ecomByPlatform['tiktok']->count() }}</span>
+                                E-Commerce Direct <span class="badge bg-info ms-2">{{ $ecomByPlatform['lazada']->count() + $ecomByPlatform['shopee']->count() + $ecomByPlatform['tiktok']->count() + ($ecomByPlatform['cob']?->count() ?? 0) }}</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
@@ -113,6 +113,11 @@
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="tiktok-tab" data-bs-toggle="tab" data-bs-target="#tiktok-content" type="button" role="tab" aria-controls="tiktok-content" aria-selected="false">
                                         <i class="las la-music me-2"></i>TikTok <span class="badge bg-dark ms-2">{{ $ecomByPlatform['tiktok']->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="cob-tab" data-bs-toggle="tab" data-bs-target="#cob-content" type="button" role="tab" aria-controls="cob-content" aria-selected="false">
+                                        <i class="las la-building me-2"></i>COB <span class="badge ms-2" style="background-color: #6f42c1; color: #fff;">{{ $ecomByPlatform['cob']->count() }}</span>
                                     </button>
                                 </li>
                             </ul>
@@ -245,7 +250,7 @@
                                     </div>
                                 </div>
 
-                                <!-- TikTok Tab -->
+                                 <!-- TikTok Tab -->
                                 <div class="tab-pane fade" id="tiktok-content" role="tabpanel" aria-labelledby="tiktok-tab">
                                     <div class="table-responsive">
                                         <table id="tiktokTable" class="display ecom-table" style="width: 100%">
@@ -301,6 +306,69 @@
                                                 @empty
                                                 <tr>
                                                     <td colspan="9" class="text-center">No TikTok pick lists.</td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- COB Tab -->
+                                <div class="tab-pane fade" id="cob-content" role="tabpanel" aria-labelledby="cob-tab">
+                                    <div class="table-responsive">
+                                        <table id="cobTable" class="display ecom-table" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th>Pick List Number</th>
+                                                    <th>Sales Order</th>
+                                                    <th>Customer</th>
+                                                    <th>Date Created</th>
+                                                    <th>Total Items</th>
+                                                    <th>Items Picked</th>
+                                                    <th>Status</th>
+                                                    <th>Prepared By</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($ecomByPlatform['cob'] as $pickList)
+                                                <tr>
+                                                    <td><strong>{{ $pickList->pick_list_number }}</strong></td>
+                                                    <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
+                                                    <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
+                                                    <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
+                                                    <td>{{ $pickList->pickListItems->sum('picked_qty') }}</td>
+                                                    <td>
+                                                        @if($pickList->status === 'draft')
+                                                            <span class="badge bg-secondary">Draft</span>
+                                                        @elseif($pickList->status === 'in_progress')
+                                                            <span class="badge" style="background-color: #0dcaf0;">Picking</span>
+                                                        @elseif($pickList->status === 'completed')
+                                                            <span class="badge bg-success">Completed</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>{{ $pickList->preparedByUser->name ?? 'System' }}</td>
+                                                    <td>
+                                                        <div class="workflow-actions">
+                                                            <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
+                                                                <i class="las la-eye"></i>
+                                                            </a>
+                                                            <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
+                                                                @csrf
+                                                                <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
+                                                                    <i class="las la-check"></i>
+                                                                </button>
+                                                            </form>
+                                                            <a href="javascript:void(0);" class="btn btn-info shadow btn-xs sharp" title="Print" onclick="window.print();">
+                                                                <i class="las la-print"></i>
+                                                            </a>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center">No COB pick lists.</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>

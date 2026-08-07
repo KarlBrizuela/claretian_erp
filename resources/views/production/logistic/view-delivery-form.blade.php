@@ -95,8 +95,12 @@
                         <h5>Customer Information</h5>
                         <table class="table table-sm table-borderless mb-0">
                             <tr>
-                                <td class="fw-bold text-dark" style="width: 120px;">Sold/Delivered to:</td>
-                                <td class="text-black fw-bold">{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                <td class="fw-bold text-dark" style="width: 130px;">Company:</td>
+                                <td class="text-black fw-bold">{{ $order->customer?->customer_name ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-dark">Customer Name:</td>
+                                <td class="text-black fw-bold">{{ $order->customer_representative ?: ($order->customer?->customer_name ?? 'N/A') }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Address:</td>
@@ -174,8 +178,8 @@
                             <td class="text-center text-black fw-bold">{{ $qty }}</td>
                             <td class="text-center text-uppercase text-muted">{{ $item->book->unit ?? 'pcs' }}</td>
                             <td>
-                                <div class="text-black fw-bold">{{ $item->book->name ?? $item->description ?? 'Unknown Item' }}</div>
-                                <small class="text-muted">{{ $item->book->sku ?? 'N/A' }}</small>
+                                <div class="text-black fw-bold">{{ $item->item_name ?? ($item->book->name ?? ($item->description ?? 'Unknown Item')) }}</div>
+                                <small class="text-muted">{{ $item->book->sku ?? ($item->bundle->sku ?? 'N/A') }}</small>
                             </td>
                             <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
                             <td class="text-center">

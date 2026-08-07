@@ -92,9 +92,9 @@
                         <h5 class="text-black fw-bold">Customer Information</h5>
                         <table class="table table-sm table-borderless">
                             <tr>
-                                <td class="fw-bold text-dark" style="width: 140px;">Customer Name:</td>
+                                <td class="fw-bold text-dark" style="width: 140px;">Company:</td>
                                 <td class="fw-bold text-black">
-                                    {{ $order->customer?->customer_name ?? 'Unknown Customer' }}
+                                    {{ $order->customer?->customer_name ?? 'N/A' }}
                                     @if($order->customer)
                                         @if($order->customer->isBadClient)
                                             <span class="badge bg-danger ms-2">BAD CLIENT</span>
@@ -104,6 +104,10 @@
                                     @endif
                                 </td>
                             </tr>
+                            <tr>
+                                <td class="fw-bold text-dark">Customer Name:</td>
+                                <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->freightQuotation?->customer_representative ?: 'N/A') }}</td>
+                            </tr>
                             @if($order->type === 'area_sales_consignment')
                             <tr>
                                 <td class="fw-bold text-dark" style="width: 140px;">Area Sales Staff:</td>
@@ -112,10 +116,6 @@
                                 </td>
                             </tr>
                             @endif
-                            <tr>
-                                <td class="fw-bold text-dark">Company:</td>
-                                <td class="fw-bold text-black">{{ $order->customer?->company_name ?? 'N/A' }}</td>
-                            </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Account No:</td>
                                 <td class="text-black">{{ $order->customer?->account_number ?? 'N/A' }}</td>

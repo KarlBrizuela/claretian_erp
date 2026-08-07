@@ -40,26 +40,54 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between">
-                    <div>
-                        <h4 class="fs-20 mb-0 text-black">Sales Orders</h4>
+                <div class="card-header border-0 d-flex align-items-center justify-content-between flex-nowrap" style="gap: 1rem;">
+                    <div style="flex-shrink: 0;">
+                        <h4 class="fs-20 mb-0 text-black text-nowrap">Sales Orders</h4>
                     </div>
-                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
-                        <form method="GET" action="{{ route('marketing.sales-orders.list') }}" class="d-flex align-items-center">
-                            <div class="input-group input-group-sm">
-                                <input type="text" name="search" class="form-control rounded-start" placeholder="Search orders..." value="{{ request('search') }}" style="height: 40px;">
-                                <button type="submit" class="btn btn-primary" style="background: #ff0000; border-color: #ff0000; height: 40px;">
-                                    <i class="las la-search"></i>
+                    <div class="d-flex align-items-center flex-nowrap gap-2" style="flex-shrink: 0;">
+                        <form method="GET" action="{{ route('marketing.sales-orders.list') }}" class="d-flex align-items-center flex-nowrap gap-2 mb-0">
+                            <!-- Filter by Transaction Type -->
+                            <select name="type" class="form-select form-select-sm" style="height: 40px; width: 170px; border-radius: 6px; border: 1px solid #ced4da;" onchange="this.form.submit()">
+                                <option value="all" {{ request('type') == 'all' || !request('type') ? 'selected' : '' }}>All Types</option>
+                                <option value="paid" {{ request('type') == 'paid' ? 'selected' : '' }}>Paid Transaction</option>
+                                <option value="charge" {{ request('type') == 'charge' ? 'selected' : '' }}>Charge Transaction</option>
+                                <option value="area_sales_consignment" {{ request('type') == 'area_sales_consignment' ? 'selected' : '' }}>Area Sales Consignment</option>
+                                <option value="ecom_direct" {{ request('type') == 'ecom_direct' ? 'selected' : '' }}>Direct Invoice (E-com)</option>
+                                <option value="calculator_pos" {{ request('type') == 'calculator_pos' ? 'selected' : '' }}>Direct POS</option>
+                                <option value="complimentary" {{ request('type') == 'complimentary' ? 'selected' : '' }}>Complimentary</option>
+                            </select>
+
+                            <!-- Filter by Status -->
+                            <select name="status" class="form-select form-select-sm" style="height: 40px; width: 170px; border-radius: 6px; border: 1px solid #ced4da;" onchange="this.form.submit()">
+                                <option value="all" {{ request('status') == 'all' || !request('status') ? 'selected' : '' }}>All Statuses</option>
+                                <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Draft</option>
+                                <option value="pending_mkt_approval" {{ request('status') == 'pending_mkt_approval' ? 'selected' : '' }}>Pending Mkt Approval</option>
+                                <option value="pending_acct_approval" {{ request('status') == 'pending_acct_approval' ? 'selected' : '' }}>Pending Acct Approval</option>
+                                <option value="pending_si_prep" {{ request('status') == 'pending_si_prep' ? 'selected' : '' }}>Gathered (In SI Prep)</option>
+                                <option value="si_created" {{ request('status') == 'si_created' ? 'selected' : '' }}>SI Created</option>
+                                <option value="pending_dr_prep" {{ request('status') == 'pending_dr_prep' ? 'selected' : '' }}>In DR Prep</option>
+                                <option value="ready_for_delivery" {{ request('status') == 'ready_for_delivery' ? 'selected' : '' }}>Ready for Delivery/Pickup</option>
+                                <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed</option>
+                                <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+                            </select>
+
+                            <div class="input-group input-group-sm flex-nowrap" style="width: 210px;">
+                                <input type="text" name="search" class="form-control" placeholder="Search orders..." value="{{ request('search') }}" style="height: 40px; border-radius: 6px 0 0 6px; border: 1px solid #ced4da;">
+                                <button type="submit" class="btn btn-danger d-flex align-items-center justify-content-center" style="background: #ff0000; border-color: #ff0000; height: 40px; width: 40px; border-radius: 0 6px 6px 0;">
+                                    <i class="las la-search fs-16"></i>
                                 </button>
-                                @if(request('search'))
-                                    <a href="{{ route('marketing.sales-orders.list') }}" class="btn btn-light d-flex align-items-center justify-content-center" style="height: 40px; border: 1px solid #dee2e6;">
-                                        <i class="las la-times"></i>
-                                    </a>
-                                @endif
                             </div>
+                            @if(request('search') || (request('type') && request('type') !== 'all') || (request('status') && request('status') !== 'all'))
+                                <a href="{{ route('marketing.sales-orders.list') }}" 
+                                   class="d-flex align-items-center justify-content-center" 
+                                   style="height: 40px; width: 40px; border-radius: 6px; border: 1px solid #ff0000; background: #ffffff; color: #ff0000; padding: 0; font-size: 1.25rem; flex-shrink: 0; text-decoration: none;" 
+                                   title="Clear Filters">
+                                    <i class="las la-times"></i>
+                                </a>
+                            @endif
                         </form>
-                        <a href="{{ route('marketing.sales-orders.create') }}" class="btn btn-primary rounded d-flex align-items-center" style="background: #ff0000; color: #ffffff; height: 40px; padding: 0 1.5rem;">
-                            <i class="las la-plus me-2"></i>
+                        <a href="{{ route('marketing.sales-orders.create') }}" class="btn btn-primary rounded d-flex align-items-center text-nowrap" style="background: #ff0000; color: #ffffff; height: 40px; padding: 0 1.25rem; flex-shrink: 0;">
+                            <i class="las la-plus me-1"></i>
                             <span>Create New Order</span>
                         </a>
                     </div>

@@ -56,6 +56,28 @@ class SalesOrderItem extends Model
     }
 
     /**
+     * Get display name for item regardless of whether it's a book, bundle, or index.
+     */
+    public function getItemNameAttribute()
+    {
+        if ($this->bundle_id && $this->bundle) {
+            return '[Bundle] ' . $this->bundle->name;
+        }
+
+        if ($this->book_index_id && $this->bookIndex) {
+            $bookName = $this->bookIndex->book ? $this->bookIndex->book->name : '';
+            $indexVal = $this->bookIndex->index_value ?? '';
+            return trim(($bookName ? $bookName . ' ' : '') . ($indexVal ? 'Index (' . $indexVal . ')' : 'Index'));
+        }
+
+        if ($this->book_id && $this->book) {
+            return $this->book->name ?? ($this->book->title ?? ($this->book->product_name ?? 'Book'));
+        }
+
+        return $this->product_name ?? ($this->description ?? 'Unknown Item');
+    }
+
+    /**
      * Get evaluation status for this item
      * Returns: 'full' (all selected), 'partial' (some returned), 'fully_returned' (none selected), 'not_evaluated' (pending)
      */

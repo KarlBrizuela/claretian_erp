@@ -38,8 +38,12 @@
                 @if($order)
                     <!-- Delivered To Section -->
                     <div class="form-group">
-                        <label class="fw-bold">Delivered To:</label>
-                        <input type="text" class="form-control" value="{{ $order->customer->customer_name ?? 'Unknown' }}" readonly>
+                        <label class="fw-bold">Company:</label>
+                        <input type="text" class="form-control" value="{{ $order->customer->customer_name ?? 'N/A' }}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="fw-bold">Customer Name:</label>
+                        <input type="text" class="form-control" value="{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown') }}" readonly>
                     </div>
 
                     <!-- Delivery Address -->
@@ -118,7 +122,7 @@
                                                            style="width: 90px; margin: 0 auto; color: #0d6efd; border-color: #0d6efd; background-color: #fff;">
                                                 </td>
                                             @endif
-                                            <td>{{ $item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item')) }}</td>
+                                            <td>{{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}</td>
                                             <td style="text-align: right;">₱{{ number_format($unitPrice, 2) }}</td>
                                             <td style="text-align: center;">
                                                 @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
@@ -326,16 +330,22 @@
                         <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-secondary">
                             <i class="las la-arrow-left"></i> Back to List
                         </a>
+                        <form action="{{ route('production.logistic.complete-dr', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
+                            @csrf
+                            <button type="submit" class="btn btn-success">
+                                <i class="las la-check-circle me-1"></i> Complete DR
+                            </button>
+                        </form>
                         @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
                             <form action="{{ route('production.logistic.request-reconsignment', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
                                 @csrf
-                                <button type="submit" class="btn btn-warning" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep']) ? 'disabled' : '' }}>
+                                <button type="submit" class="btn btn-warning" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_packing', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep', 'completed']) ? 'disabled' : '' }}>
                                     <i class="las la-retweet"></i> Reconsignment
                                 </button>
                             </form>
                             <form action="{{ route('production.logistic.return-consignment', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
                                 @csrf
-                                <button type="submit" class="btn btn-danger" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep']) ? 'disabled' : '' }}>
+                                <button type="submit" class="btn btn-danger" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_packing', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep', 'completed']) ? 'disabled' : '' }}>
                                     <i class="las la-undo-alt"></i> Return
                                 </button>
                             </form>

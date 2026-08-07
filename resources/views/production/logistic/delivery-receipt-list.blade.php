@@ -66,6 +66,11 @@
                             <i class="fas fa-hourglass-half me-2"></i>Pending DR Prep ({{ count($orders) }})
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-pane" type="button" role="tab" aria-controls="completed-pane" aria-selected="false">
+                            <i class="fas fa-check-circle me-2"></i>Completed DRs ({{ count($completedOrders ?? []) }})
+                        </button>
+                    </li>
                 </ul>
 
                 <div class="card-header border-0 d-block d-sm-flex px-4 pt-3 pb-0">
@@ -257,8 +262,16 @@
                                                           </form>
                                                       @endif
                                                 @endif
+                                                 @if($canPrep)
+                                                     <form action="{{ route('production.logistic.complete-dr', $order->id) }}" method="POST" style="display:inline;">
+                                                         @csrf
+                                                         <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Complete DR & Move to Packing">
+                                                             <i class="fas fa-check-circle"></i>
+                                                         </button>
+                                                     </form>
+                                                 @endif
 
-                                                @if($order->status === 'pending_dr_prep' && $canPrep)
+                                                 @if($order->status === 'pending_dr_prep' && $canPrep)
                                                     <form action="{{ route('production.logistic.mark-as-dr-prepared', $order->id) }}" method="POST" style="display:inline;">
                                                         @csrf
                                                         <button type="submit" class="btn btn-warning shadow btn-xs sharp" title="Mark as DR Prepared">
@@ -283,13 +296,177 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Completed DRs Tab -->
+                    <div class="tab-pane fade" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="completedDrTable" style="width:100%">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>SO Number</th>
+                                        <th>Customer</th>
+                                        <th>Total Amount</th>
+                                        <th>Payment Terms</th>
+                                        <th>Remaining Date</th>
+                                        <th>Status</th>
+                                        <th>Prepared By</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($completedOrders ?? [] as $order)
+                                    @php
+                                        $termsMap = [
+                                            'cash' => 0, 
+                                            'cod' => 0, 
+                                            '7_days' => 7, 
+                                            '7 days' => 7,
+                                            '7days' => 7,
+                                            '15_days' => 15,
+                                            '15 days' => 15,
+                                            '15days' => 15,
+                                            '30_days' => 30, 
+                                            '30 days' => 30,
+                                            '30days' => 30,
+                                            '60_days' => 60, 
+                                            '60 days' => 60,
+                                            '60days' => 60,
+                                            '90_days' => 90, 
+                                            '90 days' => 90,
+                                            '90days' => 90,
+                                            '90' => 90,
+                                            '30' => 30,
+                                            '7' => 7,
+                                            '15' => 15,
+                                            '60' => 60
+                                        ];
+                                        
+                                        $termValue = strtolower(trim($order->terms ?? ''));
+                                        $daysFromTerms = $termsMap[$termValue] ?? 0;
+                                        if ($daysFromTerms === 0 && preg_match('/(\d+)\s*day/i', $termValue, $matches)) {
+                                            $daysFromTerms = (int)$matches[1];
+                                        }
+                                        
+                                        if ($daysFromTerms > 0) {
+                                            $baseDateTime = $order->dr_prepared_at ?? $order->created_at;
+                                            $baseDate = \Carbon\Carbon::parse($baseDateTime);
+                                            $dueDate = $baseDate->copy()->addDays($daysFromTerms);
+                                            $today = \Carbon\Carbon::today();
+                                            $interval = $today->diff($dueDate);
+                                            $daysRemaining = (int)$interval->format('%r%a');
+                                        } else {
+                                            $daysRemaining = null;
+                                            $dueDate = null;
+                                        }
+
+                                        $termsDisplay = match($order->terms) {
+                                            'cash' => 'Cash',
+                                            'cod' => 'COD',
+                                            '7_days' => '7 Days',
+                                            '15_days' => '15 Days',
+                                            '30_days' => '30 Days',
+                                            '60_days' => '60 Days',
+                                            '90_days' => '90 Days',
+                                            default => $order->terms ?? 'Standard'
+                                        };
+                                    @endphp
+                                    <tr>
+                                        <td><strong>{{ $order->so_number }}</strong></td>
+                                        <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
+                                        <td>₱{{ number_format($order->total_amount, 2) }}</td>
+                                        <td><span class="badge bg-info">{{ $termsDisplay }}</span></td>
+                                        <td>
+                                            @if($daysRemaining !== null)
+                                                <span class="@if($daysRemaining < 0) text-danger fw-bold @elseif($daysRemaining < 7) text-warning @else text-success @endif">
+                                                    {{ $dueDate->format('M d, Y') }}
+                                                    <br><small>{{ $daysRemaining < 0 ? abs($daysRemaining) . ' days overdue' : $daysRemaining . ' days' }}</small>
+                                                </span>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($order->status === 'ready_for_packing')
+                                                <span class="table-status-badge bg-primary text-white">In Packing</span>
+                                            @elseif($order->status === 'ready_for_delivery')
+                                                <span class="table-status-badge status-completed">Ready for Delivery</span>
+                                            @elseif($order->status === 'ar_created')
+                                                <span class="table-status-badge bg-info text-white">Moved to AR</span>
+                                            @elseif($order->status === 'cr_created')
+                                                <span class="table-status-badge bg-success text-white">Moved to CR</span>
+                                            @elseif($order->status === 'si_created')
+                                                <span class="table-status-badge bg-warning text-dark">Moved to SI</span>
+                                            @elseif($order->status === 'completed')
+                                                <span class="table-status-badge bg-success text-white">Completed</span>
+                                            @else
+                                                <span class="table-status-badge bg-secondary text-white">{{ ucfirst(str_replace('_', ' ', $order->status)) }}</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $order->preparedBy->name ?? 'System' }}</td>
+                                        <td>
+                                            <div class="d-flex gap-1">
+                                                <a href="{{ route('production.logistic.delivery-receipt', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View DR">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+
+                                                @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
+                                                     <button type="button" class="btn btn-success shadow btn-xs sharp" title="Import Excel (Customer Name + Pick Qty)" data-bs-toggle="modal" data-bs-target="#importExcelModalDr{{ $order->id }}">
+                                                         <i class="las la-file-excel"></i>
+                                                     </button>
+                                                     @php
+                                                         $isMovedToAR = $order->status === 'ar_created' || $order->ar_prepared_at !== null;
+                                                         $isMovedToCR = $order->status === 'cr_created' || $order->cr_prepared_at !== null;
+                                                     @endphp
+                                                     @if($order->type === 'area_sales_consignment')
+                                                         <form action="{{ route('production.logistic.move-to-ar', $order->id) }}" method="POST" style="display:inline;">
+                                                             @csrf
+                                                             <button type="submit" class="btn btn-info shadow btn-xs sharp text-white" title="{{ $isMovedToAR ? 'Already Moved to AR' : 'Move to Acknowledgement Receipt (AR)' }}" {{ $isMovedToAR ? 'disabled' : '' }}>
+                                                                 <i class="las la-file-signature"></i>
+                                                             </button>
+                                                         </form>
+                                                     @elseif($order->type === 'area_consignment')
+                                                         <form action="{{ route('production.logistic.move-to-cr', $order->id) }}" method="POST" style="display:inline;">
+                                                             @csrf
+                                                             <button type="submit" class="btn btn-success shadow btn-xs sharp" title="{{ $isMovedToCR ? 'Already Moved to CR' : 'Move to Consignment Receipt (CR)' }}" {{ $isMovedToCR ? 'disabled' : '' }}>
+                                                                 <i class="las la-file-contract"></i>
+                                                             </button>
+                                                         </form>
+                                                     @endif
+                                                     <form action="{{ route('production.logistic.request-reconsignment', $order->id) }}" method="POST" style="display:inline;">
+                                                         @csrf
+                                                         <button type="submit" class="btn btn-warning shadow btn-xs sharp" title="Request Reconsignment">
+                                                             <i class="las la-retweet"></i>
+                                                         </button>
+                                                     </form>
+                                                     <form action="{{ route('production.logistic.return-consignment', $order->id) }}" method="POST" style="display:inline;">
+                                                         @csrf
+                                                         <button type="submit" class="btn btn-danger shadow btn-xs sharp" title="Return Consignment Stock">
+                                                             <i class="las la-undo-alt"></i>
+                                                         </button>
+                                                     </form>
+                                                 @endif
+
+                                                <form action="{{ route('production.logistic.move-to-si', $order->id) }}" method="POST" style="display:inline;">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-danger shadow btn-xs sharp text-white" title="Move to Sales Invoice (SI)">
+                                                        <i class="las la-file-invoice"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     {{-- Import Excel Modals for DR --}}
-    @foreach($orders as $order)
+    @foreach($orders->concat($completedOrders ?? [])->unique('id') as $order)
     @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
     <div class="modal fade" id="importExcelModalDr{{ $order->id }}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -346,6 +523,17 @@
                 ],
                 language: {
                     zeroRecords: "No matching delivery receipts found"
+                }
+            });
+
+            $('#completedDrTable').DataTable({
+                order: [[0, 'desc']],
+                pageLength: 10,
+                columnDefs: [
+                    { orderable: false, targets: -1 }
+                ],
+                language: {
+                    zeroRecords: "No completed delivery receipts found"
                 }
             });
 

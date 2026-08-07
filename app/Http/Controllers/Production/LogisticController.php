@@ -17,13 +17,13 @@ class LogisticController extends Controller
     public function pickListManagement(Request $request)
     {
         // Get existing pick lists (not completed)
-        $pickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'preparedByUser'])
+        $pickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'pickListItems.salesOrderItem.bundle', 'pickListItems.salesOrderItem.bookIndex.book', 'preparedByUser'])
             ->where('status', '!=', 'completed')
             ->latest()
             ->get();
 
         // Get completed pick lists for recreation option
-        $completedPickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'preparedByUser'])
+        $completedPickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'pickListItems.salesOrderItem.bundle', 'pickListItems.salesOrderItem.bookIndex.book', 'preparedByUser'])
             ->where('status', 'completed')
             ->latest()
             ->paginate(10);
@@ -96,6 +96,9 @@ class LogisticController extends Controller
             'tiktok' => $ecomPickLists->filter(function($item) {
                 return $item->salesOrder->ecom_platform === 'tiktok';
             })->values(),
+            'cob' => $ecomPickLists->filter(function($item) {
+                return $item->salesOrder->ecom_platform === 'cob';
+            })->values(),
         ];
 
         // Get pending Sales Orders ready for picking (status = 'picking' and no active pick list yet)
@@ -132,6 +135,8 @@ class LogisticController extends Controller
                 'salesOrder', 
                 'salesOrder.customer', 
                 'pickListItems.salesOrderItem.book', 
+                'pickListItems.salesOrderItem.bundle', 
+                'pickListItems.salesOrderItem.bookIndex.book', 
                 'preparedByUser'
             ])->findOrFail($id);
 
@@ -296,9 +301,14 @@ class LogisticController extends Controller
     {
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
             ->where('status', 'ready_for_delivery')
+            ->where('status', '!=', 'ready_for_packing')
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
-            ->whereNotNull('packing_data')
-            ->where('packing_data->status', 'gathered')
+            ->where(function($query) {
+                $query->where(function($q) {
+                    $q->whereNotNull('packing_data')
+                      ->whereIn('packing_data->status', ['gathered', 'completed', 'ready_for_pickup']);
+                })->orWhereNotNull('delivery_date');
+            })
             ->orderByRaw('COALESCE(signed_at, created_at) DESC')
             ->get();
 
@@ -623,14 +633,16 @@ class LogisticController extends Controller
             }
         }
 
-        // Update PO Overall Status
+        // Update PO Overall Status based on total vs received quantity
         $allTotal = $po->items->sum('quantity');
         $allReceived = $po->items->sum('received_quantity');
 
-        if ($request->boolean('mark_as_completed') || $allReceived >= $allTotal) {
+        if ($allReceived >= $allTotal && $allTotal > 0) {
             $po->update(['status' => 'received']);
         } else if ($allReceived > 0) {
             $po->update(['status' => 'partially_received']);
+        } else {
+            $po->update(['status' => 'ordered']);
         }
 
         // --- ACCOUNTING INTEGRATION ---
@@ -702,25 +714,73 @@ class LogisticController extends Controller
 
     public function deliveryReceiptList()
     {
-        // Get sales orders pending DR prep/approval or linked/pending reconsignment, moved to AR/CR
+        // Get sales orders pending DR prep/approval
         $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval'])
+            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval'])
+            ->latest()
+            ->get();
+
+        // Get sales orders where DR is completed (moved to packing, ready for delivery, moved to SI, AR/CR, completed)
+        $completedOrders = \App\Models\SalesOrder::with('customer', 'preparedBy')
+            ->whereIn('status', ['ready_for_packing', 'ready_for_delivery', 'si_created', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval'])
             ->latest()
             ->get();
 
         return view('production.logistic.delivery-receipt-list', [
             'orders' => $orders,
+            'completedOrders' => $completedOrders,
             'title' => 'Delivery Receipts',
             'sidebar' => 'production'
         ]);
     }
+
+    public function completeDR($id)
+    {
+        $user = auth()->user();
+        $userPos = $user->position;
+        $isSuperAdmin = $user->isSuperAdmin();
+        
+        if (!$isSuperAdmin && 
+            !str_contains($userPos, 'Manager') && 
+            !str_contains($userPos, 'Supervisor') && 
+            !str_contains($userPos, 'Head') && 
+            !str_contains($userPos, 'Senior Logistics Staff') && 
+            !str_contains($userPos, 'Logistics Staff')) {
+             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can complete Delivery Receipts.');
+        }
+
+        $order = \App\Models\SalesOrder::findOrFail($id);
+
+        $order->update([
+            'status' => 'ready_for_packing',
+            'dr_prepared_at' => $order->dr_prepared_at ?? now(),
+            'dr_prepared_by' => $order->dr_prepared_by ?? auth()->id(),
+        ]);
+
+        $dr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
+        if ($dr) {
+            $dr->update(['status' => 'completed']);
+        }
+
+        \App\Models\ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'DR Completed & Sent to Packing',
+            'description' => "Delivery Receipt for Sales Order {$order->so_number} marked as completed and moved to Packing Management.",
+            'reference_type' => 'SalesOrder',
+            'reference_id' => $order->id,
+        ]);
+
+        return redirect()->route('production.logistic.delivery-receipt-list')
+            ->with('success', "Delivery Receipt for Sales Order #{$order->so_number} completed successfully and moved to Packing Management.");
+    }
+
 
     public function requestReconsignment($id)
     {
         $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
         
         // Ensure order is area_consignment or area_sales_consignment and status is in valid statuses
-        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep'])) {
+        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_packing', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep', 'completed'])) {
             return redirect()->back()->with('error', 'Invalid order status for reconsignment.');
         }
 
@@ -1536,6 +1596,9 @@ class LogisticController extends Controller
             'tiktok' => $ecomPackingOrders->filter(function($item) {
                 return $item->ecom_platform === 'tiktok';
             })->values(),
+            'cob' => $ecomPackingOrders->filter(function($item) {
+                return $item->ecom_platform === 'cob';
+            })->values(),
         ];
 
         // Get orders ready for pickup (only those marked as 'ready_for_pickup' but NOT gathered)
@@ -1566,6 +1629,35 @@ class LogisticController extends Controller
                 $p = strtolower($item->ecom_platform ?? $item->platform ?? $item->customer->customer_name ?? '');
                 return str_contains($p, 'lazada') || str_contains($p, 'laz');
             })->values(),
+            'cob' => $readyForPickupOrders->filter(function($item) {
+                $p = strtolower($item->ecom_platform ?? $item->platform ?? $item->customer->customer_name ?? '');
+                return str_contains($p, 'cob');
+            })->values(),
+        ];
+
+        // Get completed drop-off orders (e-com orders that have been gathered)
+        $completedDropoffOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+            ->where('type', '=', 'ecom_direct')
+            ->where('status', 'completed')
+            ->whereNotNull('packing_data')
+            ->where('packing_data->status', '=', 'gathered')
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        // Organize completed drop-off orders by platform
+        $completedByPlatform = [
+            'shopee' => $completedDropoffOrders->filter(function($item) {
+                return strtolower($item->ecom_platform ?? '') === 'shopee';
+            })->values(),
+            'tiktok' => $completedDropoffOrders->filter(function($item) {
+                return strtolower($item->ecom_platform ?? '') === 'tiktok';
+            })->values(),
+            'lazada' => $completedDropoffOrders->filter(function($item) {
+                return strtolower($item->ecom_platform ?? '') === 'lazada';
+            })->values(),
+            'cob' => $completedDropoffOrders->filter(function($item) {
+                return strtolower($item->ecom_platform ?? '') === 'cob';
+            })->values(),
         ];
 
         // Check if an order_id was passed to preload a specific order
@@ -1589,6 +1681,8 @@ class LogisticController extends Controller
             'ecomByPlatform' => $ecomByPlatform,
             'readyForPickupOrders' => $readyForPickupOrders,
             'readyByPlatform' => $readyByPlatform,
+            'completedDropoffOrders' => $completedDropoffOrders,
+            'completedByPlatform' => $completedByPlatform,
             'preloadOrder' => $preloadOrder,
             'preloadOrderId' => $preloadOrderId,
             'title' => 'Packing Management',

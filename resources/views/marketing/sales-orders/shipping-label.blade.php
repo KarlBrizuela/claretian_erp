@@ -6,15 +6,18 @@
     <title> </title>
     <style>
         @page {
-            size: letter; /* 8.5in x 11in */
+            size: letter portrait;
             margin: 0 !important;
+        }
+        * {
+            box-sizing: border-box;
         }
         html, body {
             margin: 0 !important;
             padding: 0 !important;
-            width: 8.5in;
-            height: 11in;
-            overflow: hidden;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
             font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: #fff;
             color: #1a1a1a;
@@ -23,22 +26,28 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            width: 8.5in;
-            height: 11in;
-            box-sizing: border-box;
-            padding: 0.25in;
-            gap: 0.2in;
+            width: 100vw;
+            height: 100vh;
+            max-width: 8.5in;
+            max-height: 11in;
+            margin: 0 auto;
+            padding: 0.2in;
+            gap: 0.15in;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
         }
         .label {
             border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 0.25in;
+            border-radius: 10px;
+            padding: 0.2in;
             display: flex;
             flex-direction: column;
-            box-sizing: border-box;
+            justify-content: space-between;
             background-color: #fff;
             position: relative;
             overflow: hidden;
+            height: 100%;
+            page-break-inside: avoid !important;
         }
         /* Color Accent */
         .label::before {
@@ -53,13 +62,13 @@
         .header {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
             border-bottom: 1px solid #eee;
-            padding-bottom: 12px;
-            margin-bottom: 15px;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
         }
         .logo-img {
-            width: 50px;
+            width: 42px;
             height: auto;
             flex-shrink: 0;
         }
@@ -67,7 +76,7 @@
             flex-grow: 1;
         }
         .company-name {
-            font-size: 11pt;
+            font-size: 10.5pt;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -75,7 +84,7 @@
             color: #cc0000;
         }
         .company-sub {
-            font-size: 8pt;
+            font-size: 7.5pt;
             margin: 1px 0;
             color: #666;
             line-height: 1.2;
@@ -86,7 +95,7 @@
             flex-direction: column;
         }
         .section-title {
-            font-size: 8pt;
+            font-size: 7.5pt;
             font-weight: 700;
             color: #999;
             text-transform: uppercase;
@@ -102,20 +111,20 @@
             background: #f0f0f0;
         }
         .buyer-name {
-            font-size: 16pt;
+            font-size: 14pt;
             font-weight: 900;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             text-transform: uppercase;
             line-height: 1.1;
             color: #000;
         }
         .buyer-address {
-            font-size: 11pt;
-            margin-bottom: 15px;
-            line-height: 1.4;
+            font-size: 10pt;
+            margin-bottom: 10px;
+            line-height: 1.3;
             font-weight: 500;
             color: #333;
-            min-height: 3em;
+            min-height: 2.5em;
         }
         .contact-row {
             display: flex;
@@ -123,16 +132,16 @@
             align-items: center;
             margin-top: auto;
             background: #f8f9fa;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-radius: 6px;
         }
         .buyer-contact {
-            font-size: 11pt;
+            font-size: 10pt;
             font-weight: 700;
             color: #000;
         }
         .website-label {
-            font-size: 8pt;
+            font-size: 7.5pt;
             font-weight: 600;
             color: #cc0000;
             text-transform: lowercase;
@@ -141,41 +150,61 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            margin-top: 15px;
-            padding-top: 10px;
+            margin-top: 8px;
+            padding-top: 6px;
             border-top: 1px dashed #eee;
         }
         .order-ref {
-            font-size: 9pt;
+            font-size: 8.5pt;
             font-weight: 600;
             color: #999;
         }
         .no-group {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
         .no-text {
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: 800;
             color: #333;
         }
         .no-box {
             border: 2px solid #333;
             border-radius: 4px;
-            width: 60px;
-            height: 30px;
+            width: 55px;
+            height: 26px;
         }
         
         @media print {
+            @page {
+                size: letter portrait;
+                margin: 0 !important;
+            }
+            html, body {
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                background: none !important;
+            }
             .no-print {
                 display: none !important;
             }
-            .label {
-                border-color: #000; /* Darker border for printing */
+            .container {
+                width: 100vw !important;
+                height: 100vh !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+                padding: 0.15in !important;
+                gap: 0.12in !important;
+                page-break-after: avoid !important;
+                page-break-inside: avoid !important;
             }
-            body {
-                background: none;
+            .label {
+                border-color: #000 !important;
+                page-break-inside: avoid !important;
             }
         }
         

@@ -343,10 +343,15 @@
     <select id="productSource" class="d-none">
         <option value="" disabled selected>Select Product...</option>
         @foreach($products as $product)
-            <option value="{{ $product->id }}"
-                    data-price="{{ $product->price }}"
+            @php
+                $pId = $product->id ?? $product->product_id;
+                $pPrice = $product->price ?? $product->source_price ?? 0;
+                $pName = $product->name ?? $product->title ?? '';
+            @endphp
+            <option value="{{ $pId }}"
+                    data-price="{{ $pPrice }}"
                     data-isbn="{{ $product->isbn ?? $product->barcode ?? $product->sku ?? '' }}">
-                {{ $product->name }}
+                {{ $pName }}
             </option>
         @endforeach
     </select>

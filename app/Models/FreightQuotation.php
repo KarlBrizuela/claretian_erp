@@ -15,6 +15,7 @@ class FreightQuotation extends Model
         'quote_date',
         'validity_days',
         'customer_id',
+        'customer_representative',
         'transaction_type',
         'origin_contact',
         'origin_address',

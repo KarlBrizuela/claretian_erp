@@ -41,14 +41,17 @@
         .attachments-section { margin-bottom: 1.5rem; padding: 1.5rem; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 8px; border: 1px solid #42a5f5; }
         .attachments-section h5 { font-weight: 700; color: #1565c0; }
 
-        .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+        .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; table-layout: fixed; }
         .invoice-table thead { background: linear-gradient(135deg, #cc0000, #ff0000); color: #fff; }
         .invoice-table th { padding: 0.75rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; border: 1px solid #ddd; }
-        .invoice-table td { padding: 0.5rem; border: 1px solid #ddd; vertical-align: middle; }
+        .invoice-table td { padding: 0.5rem; border: 1px solid #ddd; vertical-align: middle; overflow: hidden; }
         .invoice-table input, .invoice-table select { width: 100%; border: none; padding: 0.5rem; background: transparent; }
         .invoice-table input:focus, .invoice-table select:focus { outline: 2px solid #ff0000; outline-offset: -2px; background: #fff; }
         .invoice-table tfoot { background: #f8f9fa; font-weight: 600; }
-        .invoice-table tfoot td { padding: 0.75rem; border-top: 2px solid #333; }
+        .invoice-table tfoot td { padding: 0.75rem; border-top: 2px solid #333; overflow: visible; }
+        /* Constrain Select2 inside table cells */
+        .invoice-table td .select2-container { max-width: 100% !important; }
+        .invoice-table td .select2-container .select2-selection--single .select2-selection__rendered { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .btn-add-row { background: linear-gradient(135deg, #cc0000, #ff3333); color: #fff; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; margin-bottom: 1rem; cursor: pointer; transition: all 0.3s; font-weight: 600; }
         .btn-add-row:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,0,0,0.3); }
@@ -88,6 +91,7 @@
         .platform-lazada { background: #0f146d; color: #fff; }
         .platform-shopee { background: #ee4d2d; color: #fff; }
         .platform-tiktok { background: #010101; color: #fff; }
+        .platform-cob { background: #6f42c1; color: #fff; }
 
         @media print { .sidebar, .header, .form-actions, .btn-add-row, .attachments-section, .invoices-list-section { display: none !important; } }
         @media (max-width: 768px) { .customer-section { grid-template-columns: 1fr; } .platform-select { flex-direction: column; } }
@@ -132,7 +136,7 @@
                             <div class="company-contact">Tel. No.: 921-3984</div>
                         </div>
                     </div>
-                    <div class="document-title">DIRECT INVOICE (E-COM / LAZADA / SHOPEE / TIKTOK)</div>
+                    <div class="document-title">DIRECT INVOICE (E-COM / LAZADA / SHOPEE / TIKTOK / COB)</div>
                 </div>
 
                 <form id="diEcomForm" action="{{ route('marketing.direct-invoice.ecom.store') }}" method="POST" enctype="multipart/form-data">
@@ -156,6 +160,11 @@
                                 <input type="radio" name="ecom_platform" value="tiktok" class="d-none" {{ old('ecom_platform') == 'tiktok' ? 'checked' : '' }}>
                                 <span class="platform-icon">🎵</span>
                                 <span class="platform-name">TikTok</span>
+                            </label>
+                            <label class="platform-option" id="opt-cob">
+                                <input type="radio" name="ecom_platform" value="cob" class="d-none" {{ old('ecom_platform') == 'cob' ? 'checked' : '' }}>
+                                <span class="platform-icon">🏢</span>
+                                <span class="platform-name">COB</span>
                             </label>
                         </div>
                         <small class="text-muted"><i class="las la-info-circle me-1"></i> All E-com invoices route to <strong>Marketing Manager/Supervisor</strong> for approval, then to Logistics.</small>
@@ -383,15 +392,21 @@
     <select id="productSource" class="d-none">
         <option value="" disabled selected>Select Product...</option>
         @foreach($products as $product)
-            <option value="{{ $product->id }}"
-                    data-price="{{ $product->price }}"
+            @php
+                $pId = $product->id ?? $product->product_id;
+                $pPrice = $product->price ?? $product->source_price ?? 0;
+                $pName = $product->name ?? $product->title ?? '';
+            @endphp
+            <option value="{{ $pId }}"
+                    data-price="{{ $pPrice }}"
                     data-isbn="{{ $product->isbn ?? $product->barcode ?? $product->sku ?? '' }}"
-                    data-name="{{ $product->name }}"
-                    data-stock-lazada="{{ $product->lazada_stock ?? 0 }}"
-                    data-stock-shopee="{{ $product->shopee_stock ?? 0 }}"
-                    data-stock-tiktok="{{ $product->tiktok_stock ?? 0 }}"
-                    data-stock-main="{{ $product->main_stock ?? 0 }}">
-                {{ $product->name }}
+                    data-name="{{ $pName }}"
+                    data-stock-lazada="{{ $product->lazada_stock ?? $product->stock ?? 0 }}"
+                    data-stock-shopee="{{ $product->shopee_stock ?? $product->stock ?? 0 }}"
+                    data-stock-tiktok="{{ $product->tiktok_stock ?? $product->stock ?? 0 }}"
+                    data-stock-cob="{{ $product->cob_stock ?? $product->stock ?? 0 }}"
+                    data-stock-main="{{ $product->main_stock ?? $product->stock ?? 0 }}">
+                {{ $pName }}
             </option>
         @endforeach
     </select>
@@ -457,6 +472,8 @@
                             stock = opt.dataset.stockShopee || 0;
                         } else if (platform === 'tiktok') {
                             stock = opt.dataset.stockTiktok || 0;
+                        } else if (platform === 'cob') {
+                            stock = opt.dataset.stockCob || opt.dataset.stockMain || 0;
                         } else {
                             stock = opt.dataset.stockMain || 0;
                         }

@@ -41,7 +41,7 @@
                                     @php
                                         $pickListItemsJson = json_encode($pickList->pickListItems->map(function($item) {
                                             return [
-                                                'product'      => $item->salesOrderItem->book->name ?? 'Unknown',
+                                                'product'      => $item->salesOrderItem->item_name ?? ($item->salesOrderItem->book->name ?? 'Unknown'),
                                                 'quantity'     => $item->requested_qty,
                                                 'picked_qty'   => $item->picked_qty,
                                                 'price'        => $item->salesOrderItem->price ?? 0,
@@ -117,7 +117,7 @@
                                         // Build items data from PickListItems (which have picked_qty)
                                         $pickListItemsJson = json_encode($pickList->pickListItems->map(function($item) {
                                             return [
-                                                'product'      => $item->salesOrderItem->book->name ?? 'Unknown',
+                                                'product'      => $item->salesOrderItem->item_name ?? ($item->salesOrderItem->book->name ?? 'Unknown'),
                                                 'quantity'     => $item->requested_qty,
                                                 'picked_qty'   => $item->picked_qty,
                                                 'price'        => $item->salesOrderItem->price ?? 0,

@@ -13,21 +13,33 @@
                             <!-- Customer Selection Section -->
                             <h6 class="border-bottom pb-2 mb-3"><strong>Customer Information</strong></h6>
                             <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Customer:</label>
+                                <div class="col-md-4">
+                                    <label class="form-label">Company:</label>
                                     <select class="form-control selectpicker @error('customer_id') is-invalid @enderror" 
-                                            data-live-search="true" data-size="8" data-live-search-placeholder="Search customer..."
-                                            name="customer_id" required>
-                                        <option value="">Select Customer...</option>
+                                            data-live-search="true" data-size="8" data-live-search-placeholder="Search company..."
+                                            name="customer_id" id="fqCustomerSelect" required>
+                                        <option value="">Select Company...</option>
                                         @foreach($customers as $customer)
-                                            <option value="{{ $customer->customer_id }}" {{ old('customer_id') == $customer->customer_id ? 'selected' : '' }}>
-                                                {{ $customer->customer_name }} ({{ $customer->company_name }})
+                                            <option value="{{ $customer->customer_id }}"
+                                                    data-customer-name="{{ $customer->customer_name ?? '' }}"
+                                                    data-representatives='@json($customer->representatives ?? [])'
+                                                    data-address="{{ $customer->shipping_address ?? $customer->billing_address ?? '' }}"
+                                                    data-province="{{ $customer->province ?? $customer->city_municipality ?? '' }}"
+                                                    data-phone="{{ $customer->main_phone ?? $customer->mobile ?? '' }}"
+                                                    {{ old('customer_id') == $customer->customer_id ? 'selected' : '' }}>
+                                                {{ $customer->customer_name }}
                                             </option>
                                         @endforeach
                                     </select>
                                     @error('customer_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
+                                    <label class="form-label">Customer Name:</label>
+                                    <select class="form-control" name="customer_representative" id="fqRepresentativeSelect">
+                                        <option value="">Select Representative...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
                                     <label class="form-label">Transaction Type:</label>
                                     <select class="form-control @error('transaction_type') is-invalid @enderror" name="transaction_type" required>
                                         <option value="paid" {{ old('transaction_type', 'paid') === 'paid' ? 'selected' : '' }}>Paid Transaction</option>
@@ -47,7 +59,12 @@
                             <hr>
 
                             <!-- Shipment Details Section -->
-                            <h6 class="border-bottom pb-2 mb-3"><strong>Shipment Details</strong></h6>
+                            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                                <h6 class="mb-0"><strong>Shipment Details</strong></h6>
+                                <button type="button" class="btn btn-sm btn-outline-secondary shadow-sm" id="toggleAutofillBtn">
+                                    <i class="fas fa-edit me-1"></i> <span id="autofillBtnText">Manual Input Mode</span>
+                                </button>
+                            </div>
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
@@ -155,7 +172,7 @@
                                             <th style="width: 100px;">QTY</th>
                                             <th>DESCRIPTION / PRODUCT</th>
                                             <th style="width: 120px;">UNIT PRICE</th>
-                                            <th style="width: 130px;">DISCOUNT</th>
+                                            <th style="width: 140px;">DISCOUNT</th>
                                             <th style="width: 120px;">AMOUNT</th>
                                             <th style="width: 80px;">ACTION</th>
                                         </tr>
@@ -167,6 +184,20 @@
                                         <tr>
                                             <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
                                             <td class="text-end fw-bold" id="soSubtotal">₱ 0.00</td>
+                                            <td></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="4" class="text-end align-middle">
+                                                <div class="d-inline-flex align-items-center justify-content-end gap-2">
+                                                    <strong>Discount:</strong>
+                                                    <input type="number" step="any" min="0" name="discount_value" id="discountValue" class="form-control form-control-sm text-end" style="width: 90px;" value="{{ old('discount_value', 0) }}" placeholder="0">
+                                                    <select name="discount_type" id="discountType" class="form-select form-select-sm" style="width: 80px;">
+                                                        <option value="percentage" {{ old('discount_type', 'percentage') === 'percentage' ? 'selected' : '' }}>%</option>
+                                                        <option value="amount" {{ old('discount_type') === 'amount' ? 'selected' : '' }}>₱</option>
+                                                    </select>
+                                                </div>
+                                            </td>
+                                            <td class="text-end fw-bold text-danger align-middle" id="soTotalDiscount">- ₱ 0.00</td>
                                             <td></td>
                                         </tr>
                                         <tr id="serviceFeeRow" style="display: none;">
@@ -188,10 +219,13 @@
                                 <option value="" disabled selected>Select Product...</option>
                                 @if(isset($products))
                                     @foreach($products as $product)
+                                        @php
+                                            $dispName = $product->display_name ?? $product->name;
+                                        @endphp
                                         <option value="{{ $product->id }}" 
                                                 data-price="{{ $product->price }}" 
-                                                data-name="{{ $product->name }}">
-                                                {{ $product->name }}
+                                                data-name="{{ $dispName }}">
+                                                {{ $dispName }}
                                         </option>
                                     @endforeach
                                 @endif
@@ -237,6 +271,15 @@
         .bootstrap-select .dropdown-menu .inner {
             max-height: 280px !important;
             overflow-y: auto !important;
+        }
+        /* Remove spinner arrows for discount value input for clear visibility */
+        input[type=number].so-discount-val::-webkit-inner-spin-button, 
+        input[type=number].so-discount-val::-webkit-outer-spin-button { 
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number].so-discount-val {
+            -moz-appearance: textfield;
         }
     </style>
     @endpush
@@ -306,20 +349,54 @@
                 freightOption.dispatchEvent(event);
             }
 
+            const discountValueInput = document.getElementById('discountValue');
+            const discountTypeSelect = document.getElementById('discountType');
+
+            if (discountValueInput) discountValueInput.addEventListener('input', calculateSOSubtotal);
+            if (discountTypeSelect) discountTypeSelect.addEventListener('change', calculateSOSubtotal);
+
             function calculateSOSubtotal() {
-                let total = 0;
-                document.querySelectorAll('.so-item-amount').forEach(el => {
-                    total += parseFloat(el.textContent.replace('₱ ', '')) || 0;
+                let itemsNetTotal = 0;
+
+                document.querySelectorAll('#soItemsBody tr').forEach(row => {
+                    const qty = parseFloat(row.querySelector('.so-qty')?.value) || 0;
+                    const price = parseFloat(row.querySelector('.so-price')?.value) || 0;
+                    const discVal = parseFloat(row.querySelector('.so-discount-val')?.value) || 0;
+                    const discType = row.querySelector('.so-discount-type')?.value || 'percentage';
+
+                    const rowGross = qty * price;
+                    let rowDisc = discType === 'percentage' ? rowGross * (discVal / 100) : discVal;
+                    rowDisc = Math.min(rowGross, Math.max(0, rowDisc));
+                    const rowNet = Math.max(0, rowGross - rowDisc);
+
+                    itemsNetTotal += rowNet;
                 });
-                
-                // Add service fee if freight collect is selected
+
+                // Calculate Overall Discount from summary input
+                const overallDiscVal = parseFloat(discountValueInput?.value) || 0;
+                const overallDiscType = discountTypeSelect?.value || 'percentage';
+
+                let overallDiscountAmount = 0;
+                if (overallDiscType === 'percentage') {
+                    overallDiscountAmount = itemsNetTotal * (overallDiscVal / 100);
+                } else {
+                    overallDiscountAmount = overallDiscVal;
+                }
+                overallDiscountAmount = Math.min(itemsNetTotal, Math.max(0, overallDiscountAmount));
+
+                const netAfterOverallDiscount = Math.max(0, itemsNetTotal - overallDiscountAmount);
+
                 const isFreightCollect = freightOption && freightOption.value === 'freight_collect';
                 const serviceFeeAmount = isFreightCollect ? 50 : 0;
-                
-                const finalTotal = total + serviceFeeAmount;
-                
-                document.getElementById('soSubtotal').textContent = '₱ ' + total.toFixed(2);
-                document.getElementById('soTotal').textContent = '₱ ' + finalTotal.toFixed(2);
+                const finalTotal = netAfterOverallDiscount + serviceFeeAmount;
+
+                const subtotalEl = document.getElementById('soSubtotal');
+                const discountEl = document.getElementById('soTotalDiscount');
+                const totalEl = document.getElementById('soTotal');
+
+                if (subtotalEl) subtotalEl.textContent = '₱ ' + itemsNetTotal.toFixed(2);
+                if (discountEl) discountEl.textContent = '- ₱ ' + overallDiscountAmount.toFixed(2);
+                if (totalEl) totalEl.textContent = '₱ ' + finalTotal.toFixed(2);
             }
 
             function calculateRow(row) {
@@ -353,9 +430,9 @@
                         <input type="number" class="form-control form-control-sm so-price" name="so_items[new_${uniqueId}][price]" step="0.01" min="0" required style="text-align: right;">
                     </td>
                     <td>
-                        <div class="d-flex align-items-center gap-1">
-                            <input type="number" step="any" min="0" class="form-control form-control-sm so-discount-val" name="so_items[new_${uniqueId}][discount_value]" placeholder="0" style="text-align: right; width: 55%;">
-                            <select class="form-select form-select-sm so-discount-type px-1" name="so_items[new_${uniqueId}][discount_type]" style="width: 45%; font-size: 0.8rem;">
+                        <div class="d-flex align-items-center gap-1" style="min-width: 110px;">
+                            <input type="number" step="any" min="0" class="form-control form-control-sm so-discount-val text-center px-1" name="so_items[new_${uniqueId}][discount_value]" placeholder="0" style="width: 60%; font-size: 0.85rem;">
+                            <select class="form-select form-select-sm so-discount-type px-1" name="so_items[new_${uniqueId}][discount_type]" style="width: 40%; font-size: 0.8rem;">
                                 <option value="percentage">%</option>
                                 <option value="amount">₱</option>
                             </select>
@@ -385,14 +462,6 @@
                     calculateRow(row);
                 });
 
-                if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
-                    $(productSelect).selectpicker({
-                        size: 8,
-                        liveSearch: true,
-                        liveSearchPlaceholder: 'Search product...'
-                    });
-                }
-
                 removeBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     row.remove();
@@ -400,8 +469,113 @@
                 });
 
                 soItemsBody.appendChild(row);
+
+                if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
+                    $(productSelect).selectpicker({
+                        size: 8,
+                        liveSearch: true,
+                        liveSearchPlaceholder: 'Search product...',
+                        dropupAuto: false
+                    });
+                }
+
                 calculateSOSubtotal();
             });
+
+            // Customer Select & Auto-fill Logic
+            const fqCustomerSelect = document.getElementById('fqCustomerSelect');
+            const fqRepresentativeSelect = document.getElementById('fqRepresentativeSelect');
+            const toggleAutofillBtn = document.getElementById('toggleAutofillBtn');
+
+            const originContact = document.querySelector('input[name="origin_contact"]');
+            const originProvince = document.querySelector('input[name="origin_province"]');
+            const originAddress = document.querySelector('textarea[name="origin_address"]');
+            const destinationContact = document.querySelector('input[name="destination_contact"]');
+            const destinationProvince = document.querySelector('input[name="destination_province"]');
+            const destinationAddress = document.querySelector('textarea[name="destination_address"]');
+
+            let isAutofillEnabled = false;
+
+            function populateRepresentatives(option) {
+                if (!fqRepresentativeSelect) return;
+                fqRepresentativeSelect.innerHTML = '<option value="">Select Representative...</option>';
+
+                const repsData = option.getAttribute('data-representatives');
+                let repsArray = [];
+                if (repsData) {
+                    try { repsArray = JSON.parse(repsData); } catch(e) { repsArray = []; }
+                }
+
+                if (Array.isArray(repsArray) && repsArray.length > 0) {
+                    repsArray.forEach((rep, index) => {
+                        const repName = rep.name || rep.rep_name;
+                        if (repName) {
+                            const opt = document.createElement('option');
+                            opt.value = repName;
+                            opt.textContent = repName;
+                            if (index === 0) opt.selected = true;
+                            fqRepresentativeSelect.appendChild(opt);
+                        }
+                    });
+                }
+            }
+
+            function performAutofill() {
+                if (!fqCustomerSelect) return;
+                const selectedOpt = fqCustomerSelect.options[fqCustomerSelect.selectedIndex];
+                if (!selectedOpt || !selectedOpt.value) return;
+
+                // Origin default (Claretian info)
+                if (originContact && !originContact.value) originContact.value = 'Claretian Communications Foundation Inc.';
+                if (originProvince && !originProvince.value) originProvince.value = 'Metro Manila';
+                if (originAddress && !originAddress.value) originAddress.value = '8 Mayumi St, UP Village, Diliman, Quezon City';
+
+                // Destination info
+                const custName = selectedOpt.getAttribute('data-customer-name') || '';
+                const repVal = fqRepresentativeSelect ? fqRepresentativeSelect.value : '';
+                const phone = selectedOpt.getAttribute('data-phone') || '';
+                const address = selectedOpt.getAttribute('data-address') || '';
+                const province = selectedOpt.getAttribute('data-province') || '';
+
+                let destContactStr = repVal || custName;
+                if (phone) destContactStr += ' (' + phone + ')';
+
+                if (destinationContact) destinationContact.value = destContactStr;
+                if (destinationProvince) destinationProvince.value = province;
+                if (destinationAddress) destinationAddress.value = address;
+            }
+
+            if (fqCustomerSelect) {
+                fqCustomerSelect.addEventListener('change', function() {
+                    const option = this.options[this.selectedIndex];
+                    populateRepresentatives(option);
+                    if (isAutofillEnabled) {
+                        performAutofill();
+                    }
+                });
+            }
+
+            if (fqRepresentativeSelect) {
+                fqRepresentativeSelect.addEventListener('change', function() {
+                    if (isAutofillEnabled) {
+                        performAutofill();
+                    }
+                });
+            }
+
+            if (toggleAutofillBtn) {
+                toggleAutofillBtn.addEventListener('click', function() {
+                    isAutofillEnabled = !isAutofillEnabled;
+                    if (isAutofillEnabled) {
+                        this.className = 'btn btn-sm btn-outline-danger shadow-sm';
+                        this.innerHTML = '<i class="fas fa-magic me-1"></i> <span id="autofillBtnText">Auto-fill Customer Details</span>';
+                        performAutofill();
+                    } else {
+                        this.className = 'btn btn-sm btn-outline-secondary shadow-sm';
+                        this.innerHTML = '<i class="fas fa-edit me-1"></i> <span id="autofillBtnText">Manual Input Mode</span>';
+                    }
+                });
+            }
         });
     </script>
     @endpush

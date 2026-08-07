@@ -1341,6 +1341,8 @@ class MarketingController extends Controller
     public function salesOrdersList(Request $request)
     {
         $search = $request->input('search');
+        $typeFilter = $request->input('type');
+        $statusFilter = $request->input('status');
 
         $query = \App\Models\SalesOrder::with('customer', 'preparedBy');
 
@@ -1354,6 +1356,18 @@ class MarketingController extends Controller
                       $cq->where('customer_name', 'like', "%{$search}%");
                   });
             });
+        }
+
+        if ($typeFilter && $typeFilter !== 'all') {
+            if ($typeFilter === 'area_sales_consignment') {
+                $query->whereIn('type', ['area_sales_consignment', 'area_consignment']);
+            } else {
+                $query->where('type', $typeFilter);
+            }
+        }
+
+        if ($statusFilter && $statusFilter !== 'all') {
+            $query->where('status', $statusFilter);
         }
 
         $orders = $query->latest()->paginate(10)->withQueryString();
@@ -1638,21 +1652,27 @@ class MarketingController extends Controller
     public function getUnifiedProducts()
     {
         $books = \App\Models\Book::where('is_active', true)
-            ->withSum('inventory as stock', 'quantity')
             ->orderBy('name')
             ->get()
             ->map(function($b) {
+                $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
+                             (isset($b->category) && strtolower($b->category) === 'non-book') ||
+                             (isset($b->book_type) && strtolower($b->book_type) === 'non-book');
+                $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
+                $fullName = $b->name . $typeSuffix;
+                $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
+
                 return (object)[
                     'id' => 'book_' . $b->id,
                     'type' => 'book',
                     'real_id' => $b->id,
                     'book_id' => $b->id,
-                    'name' => $b->name,
-                    'category' => 'Books',
-                    'display_name' => '[Book] ' . $b->name,
+                    'name' => $fullName,
+                    'category' => $isNonBook ? 'Non-Books' : 'Books',
+                    'display_name' => $prefix . $b->name,
                     'price' => (float) $b->price,
                     'isbn' => $b->isbn ?? $b->barcode ?? $b->sku ?? '',
-                    'stock' => (int) ($b->stock ?? 0),
+                    'stock' => (int) ($b->main_stock ?? 0),
                     'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg'),
                 ];
             });
@@ -1674,7 +1694,7 @@ class MarketingController extends Controller
                     'display_name' => '[Index] ' . $fullName,
                     'price' => $price,
                     'isbn' => $idx->book?->isbn ?? '',
-                    'stock' => (int) ($idx->stock ?? 0),
+                    'stock' => (int) ($idx->main_stock ?? 0),
                     'image' => $img,
                 ];
             });
@@ -1683,17 +1703,18 @@ class MarketingController extends Controller
             ->orderBy('name')
             ->get()
             ->map(function($bun) {
+                $fullName = $bun->name . ' (bundle)';
                 return (object)[
                     'id' => 'bundle_' . $bun->id,
                     'type' => 'bundle',
                     'real_id' => $bun->id,
                     'book_id' => null,
-                    'name' => $bun->name,
+                    'name' => $fullName,
                     'category' => 'Book Bundles',
                     'display_name' => '[Bundle] ' . $bun->name,
                     'price' => (float) $bun->price,
                     'isbn' => $bun->sku ?? '',
-                    'stock' => (int) ($bun->stock ?? 0),
+                    'stock' => (int) ($bun->main_stock ?? 0),
                     'image' => asset('images/no-book-cover.svg'),
                 ];
             });
@@ -1713,7 +1734,7 @@ class MarketingController extends Controller
                 'book_id' => null,
                 'bundle_id' => $id,
                 'book_index_id' => null,
-                'stock' => (int) ($bundle?->stock ?? 0),
+                'stock' => (int) ($bundle?->main_stock ?? 0),
                 'source_price' => (float) ($bundle?->price ?? 0),
                 'exists' => (bool) $bundle,
             ];
@@ -1727,20 +1748,20 @@ class MarketingController extends Controller
                 'book_id' => $index?->book_id,
                 'bundle_id' => null,
                 'book_index_id' => $id,
-                'stock' => (int) ($index?->stock ?? 0),
+                'stock' => (int) ($index?->main_stock ?? 0),
                 'source_price' => (float) ($index?->price ?: ($index?->book?->source_price ?? 0)),
                 'exists' => (bool) $index,
             ];
         } else {
             $id = (int) str_replace('book_', '', $pidStr);
-            $book = \App\Models\Book::withSum('inventory as stock', 'quantity')->find($id);
+            $book = \App\Models\Book::find($id);
             return [
                 'type' => 'book',
                 'name' => $book?->name ?? "Book #{$id}",
                 'book_id' => $id,
                 'bundle_id' => null,
                 'book_index_id' => null,
-                'stock' => (int) ($book?->stock ?? 0),
+                'stock' => (int) ($book?->main_stock ?? 0),
                 'source_price' => (float) ($book?->source_price ?? 0),
                 'exists' => (bool) $book,
             ];
@@ -1791,14 +1812,9 @@ class MarketingController extends Controller
             $qty = (int) ($item['quantity'] ?? 0);
             $target = $this->resolveItemTarget($item['product_id']);
             $productName = $target['name'];
-            $availableStock = $target['stock'];
 
             if ($qty <= 0) {
                 $itemErrors[] = "<strong>{$productName}</strong>: Quantity must be at least 1.";
-            } elseif ($action === 'submit' && $availableStock <= 0) {
-                $itemErrors[] = "<strong>{$productName}</strong>: Item is out of stock (Stock: 0).";
-            } elseif ($action === 'submit' && $availableStock < $qty) {
-                $itemErrors[] = "<strong>{$productName}</strong>: Insufficient stock (Available: {$availableStock} pcs, Requested: {$qty} pcs).";
             }
         }
 
@@ -1836,6 +1852,7 @@ class MarketingController extends Controller
         // 3. Create Header
         $so = \App\Models\SalesOrder::create([
             'customer_id' => $request->customer_id,
+            'customer_representative' => $request->customer_representative,
             'area_sales_staff_id' => $request->type === 'area_sales_consignment' ? $request->area_sales_staff_id : null,
             'so_number' => $request->so_number,
             'type' => $request->type,
@@ -2150,6 +2167,7 @@ class MarketingController extends Controller
 
         $so->update([
             'customer_id' => $request->customer_id,
+            'customer_representative' => $request->customer_representative,
             'area_sales_staff_id' => $request->type === 'area_sales_consignment' ? $request->area_sales_staff_id : null,
             'type' => $request->type,
             'remarks' => $request->remarks,
@@ -2258,7 +2276,7 @@ class MarketingController extends Controller
     public function directInvoiceWebsite()
     {
         $customers = \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get();
-        $products = \App\Models\Book::where('is_active', true)->orderBy('name')->get();
+        $products = $this->getUnifiedProducts();
         $invoices = \App\Models\SalesOrder::with('customer', 'preparedBy')
             ->where('type', 'website_direct')
             ->latest()
@@ -2280,7 +2298,7 @@ class MarketingController extends Controller
             'customer_id' => 'required|exists:customers,customer_id',
             'transaction_subtype' => 'required|in:foreign,local',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:books,id',
+            'items.*.product_id' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.unit' => 'nullable|string',
@@ -2294,10 +2312,11 @@ class MarketingController extends Controller
         // STOCK VALIDATION: Check if all items have sufficient stock
         $insufficientItems = [];
         foreach ($request->items as $item) {
-            $book = Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
-            if (!$book || $book->stock < $item['quantity']) {
-                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
-                $availableStock = $book ? $book->stock : 0;
+            if (empty($item['product_id'])) continue;
+            $target = $this->resolveItemTarget($item['product_id']);
+            if (!$target['exists'] || $target['stock'] < $item['quantity']) {
+                $bookName = $target['name'];
+                $availableStock = $target['stock'];
                 $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
             }
         }
@@ -2388,10 +2407,12 @@ class MarketingController extends Controller
             $subtotal = max(0, $gross - $discAmount);
             $totalAmount += $subtotal;
 
-            $book = Book::find($item['product_id']);
+            $target = $this->resolveItemTarget($item['product_id']);
             \App\Models\SalesOrderItem::create([
                 'sales_order_id' => $so->id,
-                'book_id' => $item['product_id'],
+                'book_id' => $target['book_id'],
+                'bundle_id' => $target['bundle_id'],
+                'book_index_id' => $target['book_index_id'],
                 'quantity' => $item['quantity'],
                 'price' => $item['price'],
                 'discount_value' => $discVal,
@@ -2399,7 +2420,7 @@ class MarketingController extends Controller
                 'discount_amount' => $discAmount,
                 'subtotal' => $subtotal,
                 'unit' => $item['unit'] ?? 'pcs',
-                'source_price_at_sale' => $book ? $book->source_price : 0,
+                'source_price_at_sale' => $target['source_price'],
             ]);
         }
 
@@ -2464,14 +2485,24 @@ class MarketingController extends Controller
     public function directInvoiceEcom()
     {
         $customers = \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get();
-        $products = \App\Models\Book::where('is_active', true)->orderBy('name')->get();
+        $products = $this->getUnifiedProducts();
 
         // Load stocks for B2C platforms: Lazada (site_id=3), Shopee (site_id=4), TikTok (site_id=5), Main (site_id=1)
         foreach ($products as $product) {
-            $product->lazada_stock = \DB::table('site_inventory')->where('book_id', $product->id)->where('site_id', 3)->value('quantity') ?? 0;
-            $product->shopee_stock = \DB::table('site_inventory')->where('book_id', $product->id)->where('site_id', 4)->value('quantity') ?? 0;
-            $product->tiktok_stock = \DB::table('site_inventory')->where('book_id', $product->id)->where('site_id', 5)->value('quantity') ?? 0;
-            $product->main_stock = \DB::table('site_inventory')->where('book_id', $product->id)->where('site_id', 1)->value('quantity') ?? 0;
+            $realId = $product->real_id ?? $product->id;
+            if (($product->type ?? 'book') === 'book') {
+                $product->lazada_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 3)->value('quantity') ?? 0;
+                $product->shopee_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 4)->value('quantity') ?? 0;
+                $product->tiktok_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 5)->value('quantity') ?? 0;
+                $product->cob_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 6)->value('quantity') ?? $product->stock ?? 0;
+                $product->main_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 1)->value('quantity') ?? 0;
+            } else {
+                $product->lazada_stock = $product->stock ?? 0;
+                $product->shopee_stock = $product->stock ?? 0;
+                $product->tiktok_stock = $product->stock ?? 0;
+                $product->cob_stock = $product->stock ?? 0;
+                $product->main_stock = $product->stock ?? 0;
+            }
         }
 
         $invoices = \App\Models\SalesOrder::with('customer', 'preparedBy')
@@ -2493,10 +2524,10 @@ class MarketingController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'nullable',
-            'ecom_platform' => 'required|in:lazada,shopee,tiktok',
+            'ecom_platform' => 'required|in:lazada,shopee,tiktok,cob',
             'platform_order_id' => 'nullable|string|max:255',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:books,id',
+            'items.*.product_id' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.unit' => 'nullable|string',
@@ -2508,7 +2539,7 @@ class MarketingController extends Controller
             'remarks' => 'nullable|string',
         ]);
 
-        // Determine platform site (Lazada, Shoppee, Tiktok)
+        // Determine platform site (Lazada, Shoppee, Tiktok, COB)
         $platformStr = strtolower($request->ecom_platform);
         $targetSite = null;
         if ($platformStr === 'lazada') {
@@ -2517,6 +2548,8 @@ class MarketingController extends Controller
             $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%shop%'])->first();
         } elseif ($platformStr === 'tiktok') {
             $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%tik%'])->first();
+        } elseif ($platformStr === 'cob') {
+            $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%cob%'])->first();
         }
         if (!$targetSite) {
             $targetSite = \App\Models\Site::where('name', 'Main Warehouse')->first();
@@ -2525,17 +2558,13 @@ class MarketingController extends Controller
         // STOCK VALIDATION: Check if items have sufficient stock at the chosen platform site
         $insufficientItems = [];
         foreach ($request->items as $item) {
-            $book = Book::find($item['product_id']);
-            $siteInv = $targetSite ? \App\Models\SiteInventory::where('site_id', $targetSite->id)->where('book_id', $item['product_id'])->first() : null;
-            $siteStock = $siteInv ? $siteInv->quantity : 0;
-            
-            // Fallback check overall if site record does not exist
-            if ($siteInv === null && $book) {
-                $siteStock = \App\Models\SiteInventory::where('book_id', $book->id)->sum('quantity') ?? $book->stock;
-            }
+            if (empty($item['product_id'])) continue;
+            $target = $this->resolveItemTarget($item['product_id']);
+            $siteInv = ($targetSite && $target['book_id']) ? \App\Models\SiteInventory::where('site_id', $targetSite->id)->where('book_id', $target['book_id'])->first() : null;
+            $siteStock = $siteInv ? $siteInv->quantity : $target['stock'];
 
-            if (!$book || $siteStock < $item['quantity']) {
-                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
+            if (!$target['exists'] || $siteStock < $item['quantity']) {
+                $bookName = $target['name'];
                 $siteNameLabel = $targetSite ? $targetSite->name : 'Site';
                 $insufficientItems[] = "$bookName (Available at $siteNameLabel: $siteStock pcs, Requested: {$item['quantity']} pcs)";
             }
@@ -2639,10 +2668,13 @@ class MarketingController extends Controller
             $subtotal = max(0, $gross - $discAmount);
             $totalAmount += $subtotal;
 
-            $book = Book::find($item['product_id']);
+            $target = $this->resolveItemTarget($item['product_id']);
+            $book = $target['book_id'] ? Book::find($target['book_id']) : null;
             \App\Models\SalesOrderItem::create([
                 'sales_order_id' => $so->id,
-                'book_id' => $item['product_id'],
+                'book_id' => $target['book_id'],
+                'bundle_id' => $target['bundle_id'],
+                'book_index_id' => $target['book_index_id'],
                 'quantity' => $item['quantity'],
                 'price' => $item['price'],
                 'discount_value' => $discVal,
@@ -2650,7 +2682,7 @@ class MarketingController extends Controller
                 'discount_amount' => $discAmount,
                 'subtotal' => $subtotal,
                 'unit' => $item['unit'] ?? 'pcs',
-                'source_price_at_sale' => $book ? $book->source_price : 0,
+                'source_price_at_sale' => $target['source_price'],
             ]);
 
             // Deduct from specific platform site inventory (Lazada, Shoppee, Tiktok)

@@ -389,7 +389,7 @@
                     <div class="row align-items-center">
                         <div class="col-md-5">
                             <div class="form-row-custom">
-                                <label>CUSTOMER NAME <span class="text-danger">*</span></label>
+                                <label>COMPANY NAME <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-sm" id="custNameInput" required>
                             </div>
                         </div>
@@ -438,9 +438,8 @@
                                     <div class="row">
                                         <div class="col-md-7">
                                             <div class="form-row-custom">
-                                                <label>COMPANY NAME</label>
-                                                <input type="text" class="form-control form-control-sm"
-                                                    id="companyName">
+                                                <label>CUSTOMER NAME</label>
+                                                <input type="text" class="form-control form-control-sm" id="companyName">
                                             </div>
                                             <div class="form-row-custom">
                                                 <label>FULL NAME</label>
@@ -456,11 +455,44 @@
                                                 </div>
                                             </div>
                                             <div class="form-row-custom mt-3">
-                                                <label>JOB TITLE</label>
-                                                <input type="text" class="form-control form-control-sm" id="jobTitle">
-                                            </div>
-                                        </div>
-                                    </div>
+                                                 <label>JOB TITLE</label>
+                                                 <input type="text" class="form-control form-control-sm" id="jobTitle">
+                                             </div>
+                                         </div>
+                                     </div>
+
+                                     <!-- Representatives Section -->
+                                     <div class="row mt-3">
+                                         <div class="col-12">
+                                             <div class="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom">
+                                                 <span class="fw-bold text-dark d-flex align-items-center" style="font-size: 0.85rem; letter-spacing: 0.3px;">
+                                                     <i class="las la-user-tie text-danger me-1 fs-5"></i> REPRESENTATIVES
+                                                 </span>
+                                                 <button type="button" class="btn btn-outline-danger btn-xs px-3 rounded-pill fw-bold" id="addRepBtn" style="font-size: 0.75rem;">
+                                                     <i class="las la-plus me-1"></i> Add Representative
+                                                 </button>
+                                             </div>
+                                             
+                                             <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+                                                 <table class="table table-sm table-bordered align-middle mb-0" style="font-size: 0.82rem; background: #fff;">
+                                                     <thead style="background: #f8f9fa; color: #495057;">
+                                                         <tr>
+                                                             <th style="width: 28%; font-weight: 600;">Representative Name</th>
+                                                             <th style="width: 25%; font-weight: 600;">Position / Role</th>
+                                                             <th style="width: 22%; font-weight: 600;">Phone / Mobile</th>
+                                                             <th style="width: 20%; font-weight: 600;">Email Address</th>
+                                                             <th style="width: 5%; text-align: center;"></th>
+                                                         </tr>
+                                                     </thead>
+                                                     <tbody id="representativesContainer">
+                                                         <tr class="empty-rep-row">
+                                                             <td colspan="5" class="text-center py-2 text-muted small">No representatives added yet. Click "+ Add Representative" above.</td>
+                                                         </tr>
+                                                     </tbody>
+                                                 </table>
+                                             </div>
+                                         </div>
+                                     </div>
 
                                     <div class="row mt-4">
                                         <!-- Contact Methods Column 1 -->
@@ -969,7 +1001,7 @@
                     <div class="row align-items-center">
                         <div class="col-md-5">
                             <div class="form-row-custom">
-                                <label>CUSTOMER NAME <span class="text-danger">*</span></label>
+                                <label>COMPANY NAME <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-sm" id="editCustNameInput" required>
                             </div>
                         </div>
@@ -1018,9 +1050,8 @@
                                     <div class="row">
                                         <div class="col-md-7">
                                             <div class="form-row-custom">
-                                                <label>COMPANY NAME</label>
-                                                <input type="text" class="form-control form-control-sm"
-                                                    id="editCompanyName">
+                                                <label>CUSTOMER NAME</label>
+                                                <input type="text" class="form-control form-control-sm" id="editCompanyName">
                                             </div>
                                             <div class="form-row-custom">
                                                 <label>FULL NAME</label>
@@ -1036,11 +1067,44 @@
                                                 </div>
                                             </div>
                                             <div class="form-row-custom mt-3">
-                                                <label>JOB TITLE</label>
-                                                <input type="text" class="form-control form-control-sm" id="editJobTitle">
-                                            </div>
-                                        </div>
-                                    </div>
+                                                 <label>JOB TITLE</label>
+                                                 <input type="text" class="form-control form-control-sm" id="editJobTitle">
+                                             </div>
+                                         </div>
+                                     </div>
+
+                                     <!-- Representatives Section -->
+                                     <div class="row mt-3">
+                                         <div class="col-12">
+                                             <div class="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom">
+                                                 <span class="fw-bold text-dark d-flex align-items-center" style="font-size: 0.85rem; letter-spacing: 0.3px;">
+                                                     <i class="las la-user-tie text-danger me-1 fs-5"></i> REPRESENTATIVES
+                                                 </span>
+                                                 <button type="button" class="btn btn-outline-danger btn-xs px-3 rounded-pill fw-bold" id="editAddRepBtn" style="font-size: 0.75rem;">
+                                                     <i class="las la-plus me-1"></i> Add Representative
+                                                 </button>
+                                             </div>
+                                             
+                                             <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+                                                 <table class="table table-sm table-bordered align-middle mb-0" style="font-size: 0.82rem; background: #fff;">
+                                                     <thead style="background: #f8f9fa; color: #495057;">
+                                                         <tr>
+                                                             <th style="width: 28%; font-weight: 600;">Representative Name</th>
+                                                             <th style="width: 25%; font-weight: 600;">Position / Role</th>
+                                                             <th style="width: 22%; font-weight: 600;">Phone / Mobile</th>
+                                                             <th style="width: 20%; font-weight: 600;">Email Address</th>
+                                                             <th style="width: 5%; text-align: center;"></th>
+                                                         </tr>
+                                                     </thead>
+                                                     <tbody id="editRepresentativesContainer">
+                                                         <tr class="empty-rep-row">
+                                                             <td colspan="5" class="text-center py-2 text-muted small">No representatives added yet. Click "+ Add Representative" above.</td>
+                                                         </tr>
+                                                     </tbody>
+                                                 </table>
+                                             </div>
+                                         </div>
+                                     </div>
 
                                     <div class="row mt-4">
                                         <!-- Contact Methods Column 1 -->
@@ -1464,6 +1528,77 @@
             }
         };
 
+        window.renderRepRow = function(containerId, rep = {}) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const emptyRow = container.querySelector('.empty-rep-row');
+            if (emptyRow) {
+                emptyRow.remove();
+            }
+
+            const rowId = 'rep_row_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            const tr = document.createElement('tr');
+            tr.className = 'rep-row';
+            tr.id = rowId;
+            tr.innerHTML = `
+                <td class="p-1">
+                    <input type="text" class="form-control form-control-sm rep-name border-light-gray" placeholder="e.g. John Doe" value="${rep.name || rep.rep_name || ''}">
+                </td>
+                <td class="p-1">
+                    <input type="text" class="form-control form-control-sm rep-position border-light-gray" placeholder="e.g. Account Manager" value="${rep.position || rep.rep_position || ''}">
+                </td>
+                <td class="p-1">
+                    <input type="tel" class="form-control form-control-sm rep-phone border-light-gray" placeholder="e.g. 09171234567" value="${rep.phone || rep.rep_phone || ''}">
+                </td>
+                <td class="p-1">
+                    <input type="email" class="form-control form-control-sm rep-email border-light-gray" placeholder="e.g. rep@company.com" value="${rep.email || rep.rep_email || ''}">
+                </td>
+                <td class="p-1 text-center align-middle">
+                    <button type="button" class="btn btn-link text-danger p-0 m-0 remove-rep-btn" title="Remove Representative" onclick="removeRepRow('${containerId}', '${rowId}')">
+                        <i class="las la-trash-alt fs-5"></i>
+                    </button>
+                </td>
+            `;
+            container.appendChild(tr);
+        };
+
+        window.removeRepRow = function(containerId, rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+            
+            const container = document.getElementById(containerId);
+            if (container && container.querySelectorAll('.rep-row').length === 0) {
+                container.innerHTML = `<tr class="empty-rep-row"><td colspan="5" class="text-center py-2 text-muted small">No representatives added yet. Click "+ Add Representative" above.</td></tr>`;
+            }
+        };
+
+        window.getRepresentativesFromContainer = function(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return [];
+            const rows = container.querySelectorAll('.rep-row');
+            const reps = [];
+            rows.forEach(row => {
+                const name = row.querySelector('.rep-name')?.value?.trim() || '';
+                const position = row.querySelector('.rep-position')?.value?.trim() || '';
+                const phone = row.querySelector('.rep-phone')?.value?.trim() || '';
+                const email = row.querySelector('.rep-email')?.value?.trim() || '';
+                if (name || position || phone || email) {
+                    reps.push({ name, position, phone, email });
+                }
+            });
+            return reps;
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('addRepBtn')?.addEventListener('click', function() {
+                renderRepRow('representativesContainer');
+            });
+            document.getElementById('editAddRepBtn')?.addEventListener('click', function() {
+                renderRepRow('editRepresentativesContainer');
+            });
+        });
+
         // Authorization check
         const userPosition = '{{ auth()->user()->position ?? "" }}';
         const canEditCustomers = {{ auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers') ? 'true' : 'false' }};
@@ -1590,6 +1725,7 @@
                 class: document.getElementById('custClass')?.value || null,
                 custom_contact_person: document.getElementById('customContactPerson')?.value || null,
                 custom_customer_field: document.getElementById('customCustField')?.value || null,
+                representatives: getRepresentativesFromContainer('representativesContainer'),
                 is_inactive: document.getElementById('customerInactive')?.checked ? 1 : 0,
             };
 
@@ -1761,6 +1897,22 @@
                     setSelectOrAddOption('editCustClass', customer.class, 'LAG');
                     document.getElementById('editCustomContactPerson').value = customer.custom_contact_person || '';
                     document.getElementById('editCustomCustField').value = customer.custom_customer_field || '';
+                    
+                    // Populate representatives
+                    const editRepContainer = document.getElementById('editRepresentativesContainer');
+                    if (editRepContainer) {
+                        editRepContainer.innerHTML = '';
+                        let reps = customer.representatives;
+                        if (typeof reps === 'string') {
+                            try { reps = JSON.parse(reps); } catch(e) { reps = []; }
+                        }
+                        if (Array.isArray(reps) && reps.length > 0) {
+                            reps.forEach(rep => renderRepRow('editRepresentativesContainer', rep));
+                        } else {
+                            editRepContainer.innerHTML = `<tr class="empty-rep-row"><td colspan="5" class="text-center py-2 text-muted small">No representatives added yet. Click "+ Add Representative" above.</td></tr>`;
+                        }
+                    }
+
                     document.getElementById('editCustomerInactive').checked = customer.is_inactive == 1;
                     if (document.getElementById('editManualStatus')) {
                         document.getElementById('editManualStatus').value = customer.manual_status || '';
@@ -1865,6 +2017,7 @@
                 class: document.getElementById('editCustClass')?.value || null,
                 custom_contact_person: document.getElementById('editCustomContactPerson')?.value || null,
                 custom_customer_field: document.getElementById('editCustomCustField')?.value || null,
+                representatives: getRepresentativesFromContainer('editRepresentativesContainer'),
                 is_inactive: document.getElementById('editCustomerInactive')?.checked ? 1 : 0,
                 manual_status: document.getElementById('editManualStatus')?.value || null,
             };

@@ -43,18 +43,26 @@
                         <div class="customer-details">
                             <h5>Customer Information</h5>
                             <div class="form-group">
-                                <label>Customer:</label>
-                                <select class="form-control selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search customer..." name="customer_id" id="customerSelect" {{ $selectedType === 'area_sales_consignment' ? '' : 'required' }}>
-                                    <option value="" selected disabled>Select Customer...</option>
+                                <label>Company:</label>
+                                <select class="form-control selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search company..." name="customer_id" id="customerSelect" {{ $selectedType === 'area_sales_consignment' ? '' : 'required' }}>
+                                    <option value="" selected disabled>Select Company...</option>
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->customer_id }}" 
                                             data-address="{{ $customer->shipping_address ?? $customer->billing_address ?? 'No address found' }}"
+                                            data-customer-name="{{ $customer->customer_name ?? '' }}"
+                                            data-representatives='@json($customer->representatives ?? [])'
                                             {{ old('customer_id', $isEdit ? $order->customer_id : null) == $customer->customer_id ? 'selected' : '' }}>
-                                            {{ $customer->customer_name }} ({{ $customer->company_name }})
+                                            {{ $customer->customer_name }}
                                         </option>
                                     @endforeach
                                 </select>
                                 @error('customer_id')<small class="text-danger">{{ $message }}</small>@enderror
+                            </div>
+                            <div class="form-group">
+                                <label>Customer Name:</label>
+                                <select class="form-control" name="customer_representative" id="customerRepresentativeSelect">
+                                    <option value="">Select Representative...</option>
+                                </select>
                             </div>
                             <!-- Added Address Field -->
                             <div class="form-group">
@@ -486,7 +494,7 @@
                 toggleServiceFee();
             }
 
-            // Auto-fill address
+            // Auto-fill address & Customer Name Representatives
             customerSelect.addEventListener('change', function() {
                 const option = this.options[this.selectedIndex];
                 const address = option.getAttribute('data-address');
@@ -494,6 +502,33 @@
                     billingAddress.value = address;
                 } else {
                     billingAddress.value = '';
+                }
+
+                // Populate Customer Name / Representative Dropdown
+                const repSelect = document.getElementById('customerRepresentativeSelect');
+                if (repSelect) {
+                    repSelect.innerHTML = '<option value="">Select Representative...</option>';
+
+                    const primaryName = option.getAttribute('data-customer-name');
+                    const repsData = option.getAttribute('data-representatives');
+
+                    let repsArray = [];
+                    if (repsData) {
+                        try { repsArray = JSON.parse(repsData); } catch(e) { repsArray = []; }
+                    }
+
+                    if (Array.isArray(repsArray) && repsArray.length > 0) {
+                        repsArray.forEach((rep, index) => {
+                            const repName = rep.name || rep.rep_name;
+                            if (repName) {
+                                const opt = document.createElement('option');
+                                opt.value = repName;
+                                opt.textContent = repName;
+                                if (index === 0) opt.selected = true;
+                                repSelect.appendChild(opt);
+                            }
+                        });
+                    }
                 }
             });
 

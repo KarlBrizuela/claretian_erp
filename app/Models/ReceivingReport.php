@@ -42,4 +42,9 @@ class ReceivingReport extends Model
     {
         return $this->belongsTo(User::class, 'received_by');
     }
+
+    public function getCurrencySymbolAttribute()
+    {
+        return $this->purchaseOrder ? $this->purchaseOrder->currency_symbol : '₱';
+    }
 }

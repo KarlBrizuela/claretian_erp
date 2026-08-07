@@ -223,25 +223,19 @@
                                 <h5 class="mb-3"><i class="bi bi-check-circle me-2"></i><strong>Logistics Quotation</strong></h5>
                                 
                                 <div class="row mb-3">
-                                    <div class="col-md-3">
+                                    <div class="col-md-4">
                                         <div class="mb-2">
                                             <small class="text-muted d-block mb-1"><strong>Boxes Count</strong></small>
-                                            <p class="mb-0 fs-5"><strong>{{ $quotation->boxes_count }}</strong></p>
+                                            <p class="mb-0 fs-5"><strong>{{ $quotation->boxes_count ?? '-' }}</strong></p>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-4">
                                         <div class="mb-2">
                                             <small class="text-muted d-block mb-1"><strong>Estimated Freight</strong></small>
                                             <p class="mb-0 fs-5"><strong class="text-danger">₱ {{ number_format($quotation->estimated_freight, 2) }}</strong></p>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <div class="mb-2">
-                                            <small class="text-muted d-block mb-1"><strong>Valuation Charge</strong></small>
-                                            <p class="mb-0 fs-5"><strong class="text-danger">₱ {{ number_format($quotation->valuation_charge, 2) }}</strong></p>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-4">
                                         <div class="mb-2">
                                             <small class="text-muted d-block mb-1"><strong>Handling Fee</strong></small>
                                             <p class="mb-0 fs-5"><strong class="text-danger">₱ {{ number_format($quotation->handling_fee, 2) }}</strong></p>
@@ -278,8 +272,12 @@
                                         <p class="mb-0"><strong>{{ $quotation->salesOrder->so_number }}</strong></p>
                                     </div>
                                     <div class="col-md-3">
-                                        <small class="text-muted d-block mb-1"><strong>Customer</strong></small>
-                                        <p class="mb-0">{{ $quotation->salesOrder->customer->customer_name ?? 'N/A' }}</p>
+                                        <small class="text-muted d-block mb-1"><strong>Company</strong></small>
+                                        <p class="mb-0">{{ $quotation->salesOrder->customer?->customer_name ?? ($quotation->customer?->customer_name ?? 'N/A') }}</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block mb-1"><strong>Customer Name</strong></small>
+                                        <p class="mb-0">{{ $quotation->salesOrder->customer_representative ?: ($quotation->customer_representative ?: 'N/A') }}</p>
                                     </div>
                                     <div class="col-md-3">
                                         <small class="text-muted d-block mb-1"><strong>Status</strong></small>
@@ -316,24 +314,31 @@
                                                 <th>PRODUCT</th>
                                                 <th style="width: 80px;" class="text-center">WEIGHT (kg)</th>
                                                 <th style="width: 100px;" class="text-center">TOTAL WEIGHT</th>
-                                                <th style="width: 100px;">UNIT PRICE</th>
-                                                <th style="width: 100px;">AMOUNT</th>
+                                                <th style="width: 100px;" class="text-end">UNIT PRICE</th>
+                                                <th style="width: 100px;" class="text-end">DISCOUNT</th>
+                                                <th style="width: 100px;" class="text-end">AMOUNT</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @php $soSubtotal = 0; $totalWeight = 0; @endphp
                                             @foreach($quotation->salesOrder->items as $item)
                                                 @php
-                                                    $product = $item->product ?? $item->book;
+                                                    $product = $item->product ?? $item->book ?? $item->bundle ?? $item->bookIndex;
                                                     $weight = (float)($product?->weight ?? 0);
-                                                    $itemTotalWeight = $item->quantity * $weight;
+                                                    $quantity = (int)($item->quantity ?? 0);
+                                                    $price = (float)($item->price ?? 0);
+                                                    $discVal = (float)($item->discount_value ?? 0);
+                                                    $discType = $item->discount_type ?? 'percentage';
+                                                    $itemGross = $quantity * $price;
+                                                    $discAmt = $item->discount_amount ?? ($discType === 'percentage' ? $itemGross * ($discVal / 100) : $discVal);
+                                                    $itemSubtotal = $item->subtotal ?? max(0, $itemGross - $discAmt);
+                                                    $itemTotalWeight = $quantity * $weight;
                                                     $totalWeight += $itemTotalWeight;
-                                                    $itemAmount = $item->quantity * $item->price;
-                                                    $soSubtotal += $itemAmount;
+                                                    $soSubtotal += $itemSubtotal;
                                                 @endphp
                                                 <tr>
-                                                    <td>{{ $item->quantity }}</td>
-                                                    <td>{{ $product?->name ?? 'N/A' }}</td>
+                                                    <td>{{ $quantity }}</td>
+                                                    <td>{{ $product?->name ?? $item->product_name ?? 'N/A' }}</td>
                                                     <td class="text-center">
                                                         @if($weight > 0)
                                                             {{ number_format($weight, 2) }}
@@ -348,14 +353,29 @@
                                                             <span class="text-muted">-</span>
                                                         @endif
                                                     </td>
-                                                    <td class="text-end">₱ {{ number_format($item->price, 2) }}</td>
-                                                    <td class="text-end fw-bold">₱ {{ number_format($itemAmount, 2) }}</td>
+                                                    <td class="text-end">₱ {{ number_format($price, 2) }}</td>
+                                                    <td class="text-end text-danger">
+                                                        @if($discVal > 0)
+                                                            {{ $discType === 'percentage' ? $discVal . '%' : '₱' . number_format($discVal, 2) }}
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                    <td class="text-end fw-bold">₱ {{ number_format($itemSubtotal, 2) }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
                                         <tfoot class="table-light">
+                                            @php
+                                                $orderDiscVal = (float)($quotation->salesOrder->discount_value ?? 0);
+                                                $orderDiscType = $quotation->salesOrder->discount_type ?? 'amount';
+                                                $orderDiscAmount = $quotation->salesOrder->discount_amount ?? ($orderDiscType === 'percentage' ? $soSubtotal * ($orderDiscVal / 100) : $orderDiscVal);
+                                                $soNetTotal = max(0, $soSubtotal - $orderDiscAmount);
+                                                $serviceFee = $quotation->freight_option === 'freight_collect' ? 50 : 0;
+                                                $grandTotal = $soNetTotal + $serviceFee;
+                                            @endphp
                                             <tr>
-                                                <td colspan="3" class="text-end"><strong>Totals:</strong></td>
+                                                <td colspan="3" class="text-end"><strong>Items Subtotal:</strong></td>
                                                 <td class="text-center fw-bold">
                                                     @if($totalWeight > 0)
                                                         {{ number_format($totalWeight, 2) }} kg
@@ -363,8 +383,24 @@
                                                         <span class="text-muted">-</span>
                                                     @endif
                                                 </td>
-                                                <td></td>
+                                                <td colspan="2"></td>
                                                 <td class="text-end fw-bold">₱ {{ number_format($soSubtotal, 2) }}</td>
+                                            </tr>
+                                            @if($orderDiscAmount > 0)
+                                            <tr>
+                                                <td colspan="6" class="text-end text-danger"><strong>Order Discount:</strong></td>
+                                                <td class="text-end fw-bold text-danger">- ₱ {{ number_format($orderDiscAmount, 2) }}</td>
+                                            </tr>
+                                            @endif
+                                            @if($serviceFee > 0)
+                                            <tr style="background-color: #fff3cd;">
+                                                <td colspan="6" class="text-end text-success"><strong>Service Fee (Freight Collect):</strong></td>
+                                                <td class="text-end fw-bold text-success">₱ {{ number_format($serviceFee, 2) }}</td>
+                                            </tr>
+                                            @endif
+                                            <tr style="background-color: #e8f5e9;">
+                                                <td colspan="6" class="text-end"><strong>Grand Total:</strong></td>
+                                                <td class="text-end fw-bold fs-6" style="color: #2e7d32;">₱ {{ number_format($grandTotal, 2) }}</td>
                                             </tr>
                                         </tfoot>
                                     </table>

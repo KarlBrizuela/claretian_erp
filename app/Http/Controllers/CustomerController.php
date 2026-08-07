@@ -119,6 +119,7 @@ class CustomerController extends Controller
             'card_zip' => 'nullable|string|max:20',
             'custom_contact_person' => 'nullable|string',
             'custom_customer_field' => 'nullable|string',
+            'representatives' => 'nullable|array',
             'is_inactive' => 'nullable|boolean',
         ]);
 
@@ -276,6 +277,7 @@ class CustomerController extends Controller
             'card_zip' => 'nullable|string|max:20',
             'custom_contact_person' => 'nullable|string',
             'custom_customer_field' => 'nullable|string',
+            'representatives' => 'nullable|array',
             'is_inactive' => 'nullable|boolean',
         ]);
 

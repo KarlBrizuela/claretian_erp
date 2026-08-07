@@ -25,8 +25,12 @@
                                 <input type="text" value="{{ optional(optional($pickList->salesOrder)->created_at)->format('M d, Y') ?? 'N/A' }}" readonly>
                             </div>
                             <div class="form-group">
-                                <label>Customer:</label>
-                                <input type="text" value="{{ $pickList->salesOrder?->customer?->customer_name ?? 'Unknown' }}" readonly>
+                                <label>Company:</label>
+                                <input type="text" value="{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Customer Name:</label>
+                                <input type="text" value="{{ $pickList->salesOrder?->customer_representative ?: ($pickList->salesOrder?->customer?->customer_name ?? 'Unknown') }}" readonly>
                             </div>
                         </div>
                         <div class="order-info-box">
@@ -73,7 +77,7 @@
                             @forelse($pickList->pickListItems as $item)
                             <tr>
                                 <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: center;">{{ $loop->iteration }}</td>
-                                <td style="padding: 0.75rem; border: 1px solid #ddd;">{{ $item->salesOrderItem?->book?->name ?? 'Unknown' }}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #ddd;">{{ $item->salesOrderItem?->item_name ?? ($item->salesOrderItem?->book?->name ?? 'Unknown') }}</td>
                                 <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: center;">{{ $item->requested_qty }}</td>
                                 <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: right;">₱{{ number_format($item->salesOrderItem?->price ?? 0, 2) }}</td>
                                 <td style="padding: 0.75rem; border: 1px solid #ddd; text-align: right;">₱{{ number_format($item->salesOrderItem?->subtotal ?? 0, 2) }}</td>

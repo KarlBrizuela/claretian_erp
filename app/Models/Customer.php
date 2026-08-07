@@ -72,6 +72,7 @@ class Customer extends Model
         'card_zip',
         'custom_contact_person',
         'custom_customer_field',
+        'representatives',
         'is_inactive',
         'manual_status',
     ];
@@ -87,6 +88,7 @@ class Customer extends Model
         'is_default_shipping' => 'boolean',
         'credit_limit' => 'decimal:2',
         'is_inactive' => 'boolean',
+        'representatives' => 'array',
     ];
 
     /**

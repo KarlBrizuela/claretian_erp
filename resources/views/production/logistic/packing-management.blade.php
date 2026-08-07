@@ -37,6 +37,13 @@
             transform: translate(-50%, 35px);
             pointer-events: none;
         }
+
+        /* Platform badges for Completed Drop-off */
+        .platform-badge { padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .platform-lazada { background: #0f146d; color: #fff; }
+        .platform-shopee { background: #ee4d2d; color: #fff; }
+        .platform-tiktok { background: #010101; color: #fff; }
+        .platform-cob { background: #6f42c1; color: #fff; }
     </style>
     @endpush
 
@@ -58,7 +65,7 @@
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-direct-content" type="button" role="tab" aria-controls="ecom-direct-content" aria-selected="false" style="font-weight: 600; color: #666;">
-                                <i class="fas fa-shopping-bag" style="margin-right: 0.5rem;"></i>E-Commerce Direct <span class="badge bg-info" style="margin-left: 0.5rem;">{{ $ecomByPlatform['lazada']->count() + $ecomByPlatform['shopee']->count() + $ecomByPlatform['tiktok']->count() }}</span>
+                                <i class="fas fa-shopping-bag" style="margin-right: 0.5rem;"></i>E-Commerce Direct <span class="badge bg-info" style="margin-left: 0.5rem;">{{ $ecomByPlatform['lazada']->count() + $ecomByPlatform['shopee']->count() + $ecomByPlatform['tiktok']->count() + ($ecomByPlatform['cob']?->count() ?? 0) }}</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
@@ -100,7 +107,7 @@
                                         <tr>
                                             <th style="width: 30px;"><input type="checkbox" id="selectAllCheckbox" style="cursor: pointer;"></th>
                                             <th>SO #</th>
-                                            <th>Customer</th>
+                                            <th>Company</th>
                                             <th>SI Signed</th>
                                             <th>Total Items</th>
                                             <th>Packed Items</th>
@@ -184,6 +191,11 @@
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="tiktok-ecom-tab" data-bs-toggle="tab" data-bs-target="#tiktok-ecom-content" type="button" role="tab" aria-controls="tiktok-ecom-content" aria-selected="false">
                                         <i class="las la-music me-2"></i>TikTok <span class="badge bg-dark ms-2">{{ $ecomByPlatform['tiktok']->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="cob-ecom-tab" data-bs-toggle="tab" data-bs-target="#cob-ecom-content" type="button" role="tab" aria-controls="cob-ecom-content" aria-selected="false">
+                                        <i class="las la-building me-2" style="color: #6f42c1;"></i>COB <span class="badge ms-2" style="background-color: #6f42c1; color: #fff;">{{ $ecomByPlatform['cob']->count() }}</span>
                                     </button>
                                 </li>
                             </ul>
@@ -424,6 +436,85 @@
                                         </table>
                                     </div>
                                 </div>
+
+                                <!-- COB Tab -->
+                                <div class="tab-pane fade" id="cob-ecom-content" role="tabpanel" aria-labelledby="cob-ecom-tab">
+                                    <div class="table-responsive">
+                                        <table id="cobPackingTable" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ecom-select-all-checkbox" data-platform="cob" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($ecomByPlatform['cob'] as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    
+                                                    if($packedCount === 0) {
+                                                        $statusClass = 'status-ready';
+                                                        $statusText = 'Ready for Packing';
+                                                    } elseif($packedCount === $totalItems && $totalItems > 0) {
+                                                        $statusClass = 'status-packed';
+                                                        $statusText = 'Fully Packed';
+                                                    } else {
+                                                        $statusClass = 'status-partial';
+                                                        $statusText = 'Partially Packed';
+                                                    }
+                                                    $isFullyPacked = ($packedCount === $totalItems && $totalItems > 0);
+                                                @endphp
+                                                <tr class="packing-row" data-order-id="{{ $order->id }}">
+                                                    <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                                    onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Packed"
+                                                                    style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center">No COB orders found</td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -449,6 +540,16 @@
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="ready-lazada-tab" data-bs-toggle="tab" data-bs-target="#ready-lazada-content" type="button" role="tab" aria-controls="ready-lazada-content" aria-selected="false">
                                         <i class="las la-shopping-bag me-2" style="color: #0f146d;"></i>Lazada <span class="badge bg-primary ms-2">{{ $readyByPlatform['lazada']->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="ready-cob-tab" data-bs-toggle="tab" data-bs-target="#ready-cob-content" type="button" role="tab" aria-controls="ready-cob-content" aria-selected="false">
+                                        <i class="las la-building me-2" style="color: #6f42c1;"></i>COB <span class="badge ms-2" style="background-color: #6f42c1; color: #fff;">{{ $readyByPlatform['cob']->count() }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="ready-completed-tab" data-bs-toggle="tab" data-bs-target="#ready-completed-content" type="button" role="tab" aria-controls="ready-completed-content" aria-selected="false">
+                                        <i class="fas fa-check-double me-2" style="color: #17a2b8;"></i>Completed Drop-off <span class="badge ms-2" style="background-color: #17a2b8; color: #fff;">{{ count($completedDropoffOrders) }}</span>
                                     </button>
                                 </li>
                             </ul>
@@ -702,7 +803,7 @@
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
                                                     <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
-                                                    <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
+                                                    <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
@@ -716,7 +817,7 @@
                                                                     style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
                                                                 <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
-                                                            <button type="button" class="btn btn-success shadow mark-gathered-btn"
+                                                            <button type="button" class="btn btn-primary shadow mark-gathered-btn"
                                                                     onclick="markOrderAsGatheredAction({{ $order->id }}, '{{ $order->so_number }}')"
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
@@ -731,6 +832,138 @@
                                                 <tr>
                                                     <td colspan="9" class="text-center" style="padding: 2rem;">
                                                         <p style="color: #999;">No Lazada orders ready for pickup</p>
+                                                    </td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- COB Tab -->
+                                <div class="tab-pane fade" id="ready-cob-content" role="tabpanel" aria-labelledby="ready-cob-tab">
+                                    <div class="table-responsive">
+                                        <table id="readyForPickupTableCob" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
+                                                    <th>SO #</th>
+                                                    <th>Customer</th>
+                                                    <th>SI Signed</th>
+                                                    <th>Total Items</th>
+                                                    <th>Packed Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($readyByPlatform['cob'] as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $packedCount = count(array_filter($packingData, function($item) { return ($item['status'] ?? null) === 'Packed'; }));
+                                                    $totalItems = $order->items->count();
+                                                    $statusClass = 'status-packed';
+                                                    $statusText = 'Ready for Pickup/Drop-off';
+                                                @endphp
+                                                <tr>
+                                                    <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'COB Customer' }}</td>
+                                                    <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
+                                                    <td>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                    title="View Details"
+                                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-primary shadow mark-gathered-btn"
+                                                                    onclick="markOrderAsGatheredAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Mark as Gathered (Ready for Delivery)"
+                                                                    style="background: #007bff; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-box-open" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                        <p style="color: #999;">No COB orders ready for pickup</p>
+                                                    </td>
+                                                </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                </div>
+
+                                <!-- Completed Drop-off Sub-tab Content -->
+                                <div class="tab-pane fade" id="ready-completed-content" role="tabpanel" aria-labelledby="ready-completed-tab">
+                                    <div class="table-responsive">
+                                        <table id="completedDropoffAllTable" class="display" style="width: 100%">
+                                            <thead>
+                                                <tr>
+                                                    <th>SO #</th>
+                                                    <th>Platform</th>
+                                                    <th>Customer</th>
+                                                    <th>Total Items</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Gathered By</th>
+                                                    <th>Gathered At</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($completedDropoffOrders as $order)
+                                                @php
+                                                    $packingData = json_decode($order->packing_data ?? '{}', true);
+                                                    $totalItems = $order->items->count();
+                                                    $gatheredBy = $packingData['gathered_by'] ?? 'N/A';
+                                                    $gatheredAt = isset($packingData['gathered_at']) ? \Carbon\Carbon::parse($packingData['gathered_at'])->format('M d, Y h:i A') : 'N/A';
+                                                    $platformLabel = ucfirst($order->ecom_platform ?? 'N/A');
+                                                    $platformClass = 'platform-' . strtolower($order->ecom_platform ?? 'default');
+                                                @endphp
+                                                <tr>
+                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td><span class="platform-badge {{ $platformClass }}">{{ $platformLabel }}</span></td>
+                                                    <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                                    <td>{{ $totalItems }}</td>
+                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    <td>{{ $gatheredBy }}</td>
+                                                    <td>{{ $gatheredAt }}</td>
+                                                    <td><span class="badge" style="background-color: #17a2b8; color: #fff;">Completed</span></td>
+                                                    <td>
+                                                        <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                                onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                data-order-id="{{ $order->id }}"
+                                                                data-so-number="{{ $order->so_number }}"
+                                                                data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                                data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                                data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                                title="View Details"
+                                                                style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                            <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                @empty
+                                                <tr>
+                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                        <p style="color: #999;">No completed drop-off orders</p>
                                                     </td>
                                                 </tr>
                                                 @endforelse
@@ -790,6 +1023,7 @@
                                 </table>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -831,8 +1065,12 @@
                     <input type="text" id="detailOrderDate" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Customer:</label>
+                    <label>Company:</label>
                     <input type="text" id="detailCustomerName" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Customer Name:</label>
+                    <input type="text" id="detailRepresentative" readonly>
                 </div>
                 <div class="form-group">
                     <label>SI Signed Date:</label>
@@ -1697,6 +1935,7 @@
                     setInputValue('detailSONumber', order.so_number);
                     setInputValue('detailOrderDate', new Date(order.created_at).toLocaleDateString());
                     setInputValue('detailCustomerName', order.customer?.customer_name || 'N/A');
+                    setInputValue('detailRepresentative', order.customer_representative || 'N/A');
                     setInputValue('siSignedDate', order.signed_at ? new Date(order.signed_at).toLocaleDateString() : 'N/A');
 
                     // Get packing data from order

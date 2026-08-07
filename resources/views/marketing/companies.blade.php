@@ -304,9 +304,14 @@
                                 <div class="tab-pane fade" id="edit-company-branches" role="tabpanel">
                                     <div class="d-flex justify-content-between align-items-center section-divider mt-0" style="padding-bottom: 5px;">
                                         <span class="fw-bold">Branch List</span>
-                                        <button type="button" class="btn btn-xs btn-primary py-1 px-2" id="addBranchFromEditModalBtn" style="background: #ff0000; border: none; font-size: 0.75rem;">
-                                            <i class="fas fa-plus me-1"></i>Add Branch
-                                        </button>
+                                        <div class="d-flex gap-1">
+                                            <button type="button" class="btn btn-xs btn-outline-success py-1 px-2" id="importBranchFromEditModalBtn" style="font-size: 0.75rem;">
+                                                <i class="fas fa-file-excel me-1"></i>Import Excel
+                                            </button>
+                                            <button type="button" class="btn btn-xs btn-primary py-1 px-2" id="addBranchFromEditModalBtn" style="background: #ff0000; border: none; font-size: 0.75rem;">
+                                                <i class="fas fa-plus me-1"></i>Add Branch
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
                                         <table class="table table-sm mb-0">
@@ -409,6 +414,47 @@
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMPORT BRANCH MODAL -->
+    <div class="modal fade" id="importBranchModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+            <div class="modal-content border-0 shadow" style="border-radius: 12px; overflow: hidden;">
+                <div class="company-modal-header-info d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="modal-title fw-bold text-black mb-0">Import Branches from Excel</h5>
+                        <p class="text-muted mb-0 small" id="importBranchParentText">Upload Excel file to add multiple branches</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="importBranchForm" enctype="multipart/form-data">
+                    @csrf
+                    <input type="hidden" id="importBranchCompanyId" name="company_id">
+                    <div class="modal-body p-4">
+                        <div class="mb-3 text-end">
+                            <a href="{{ route('marketing.companies.branches.download-template') }}" class="btn btn-sm btn-outline-primary fw-semibold" style="border-radius: 6px;">
+                                <i class="fas fa-download me-1"></i>Download Excel Template
+                            </a>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label font-w600 text-black">Select Excel File (.xlsx, .xls, .csv) *</label>
+                            <input type="file" class="form-control form-control-sm" id="branchExcelFile" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                        </div>
+
+                        <div class="alert alert-info py-2 px-3 mb-0" style="font-size: 0.8rem; border-radius: 6px;">
+                            <i class="fas fa-info-circle me-1"></i><strong>Template Headers:</strong> <code>Branch Name*</code>, <code>Account Number</code>, <code>Phone / Mobile</code>, <code>Email</code>, <code>Address</code>, <code>Status</code>. If Account Number is blank, one will be generated automatically.
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top p-3 bg-light d-flex justify-content-end" style="gap: 0.5rem;">
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-success px-3" id="importBranchSubmitBtn" style="background: #28a745; border: none; font-weight: 500;">
+                            <i class="fas fa-upload me-1"></i>Upload & Import
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -613,7 +659,8 @@
                     branchesTableBody.querySelectorAll('.edit-branch-from-list-btn').forEach(btn => {
                         btn.addEventListener('click', function() {
                             const bId = this.dataset.branchId;
-                            bootstrap.Modal.getInstance(document.getElementById('editCompanyModal')).hide();
+                            const editModalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('editCompanyModal'));
+                            if (editModalInst) editModalInst.hide();
                             loadEditCompanyDetails(bId);
                         });
                     });
@@ -621,9 +668,10 @@
                     branchesTableBody.querySelectorAll('.delete-branch-from-list-btn').forEach(btn => {
                         btn.addEventListener('click', function() {
                             const bId = this.dataset.branchId;
-                            bootstrap.Modal.getInstance(document.getElementById('editCompanyModal')).hide();
+                            const editModalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('editCompanyModal'));
+                            if (editModalInst) editModalInst.hide();
                             companyIdToDelete = bId;
-                            const confirmDeleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+                            const confirmDeleteModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmDeleteModal'));
                             confirmDeleteModal.show();
                         });
                     });
@@ -635,25 +683,42 @@
 
                 // Wire Add Branch button inside edit modal
                 document.getElementById('addBranchFromEditModalBtn').onclick = function() {
-                    bootstrap.Modal.getInstance(document.getElementById('editCompanyModal')).hide();
+                    const editModalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('editCompanyModal'));
+                    if (editModalInst) editModalInst.hide();
                     
                     document.getElementById('addBranchParentId').value = company.company_id;
                     document.getElementById('addBranchParentText').textContent = `Add branch details under ${company.company_name}`;
                     document.getElementById('addBranchName').value = '';
                     document.getElementById('addBranchAccount').value = '';
 
-                    const addBranchModal = new bootstrap.Modal(document.getElementById('addBranchModal'));
+                    const addBranchModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('addBranchModal'));
                     addBranchModal.show();
+                };
+
+                // Wire Import Branch button inside edit modal
+                document.getElementById('importBranchFromEditModalBtn').onclick = function() {
+                    const editModalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('editCompanyModal'));
+                    if (editModalInst) editModalInst.hide();
+                    
+                    document.getElementById('importBranchCompanyId').value = company.company_id;
+                    document.getElementById('importBranchParentText').textContent = `Upload Excel file to add branches under ${company.company_name}`;
+                    document.getElementById('branchExcelFile').value = '';
+
+                    const importBranchModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('importBranchModal'));
+                    importBranchModal.show();
                 };
 
                 // Switch back to "General Info" tab as default when modal opens
                 const genTabBtn = document.getElementById('edit-company-gen-tab');
-                const firstTab = new bootstrap.Tab(genTabBtn);
-                firstTab.show();
+                if (genTabBtn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+                    const firstTab = bootstrap.Tab.getOrCreateInstance(genTabBtn);
+                    firstTab.show();
+                }
 
-                const editModal = new bootstrap.Modal(document.getElementById('editCompanyModal'));
+                const editModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('editCompanyModal'));
                 editModal.show();
             } catch (error) {
+                console.error('Error loading company details:', error);
                 alert('Error loading company details: ' + error.message);
             }
         }
@@ -826,6 +891,55 @@
                 } else if (noResultsRow) {
                     noResultsRow.style.display = 'none';
                 }
+            }
+        });
+
+        // Import Branch Form Submit Handler
+        document.getElementById('importBranchForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const companyId = document.getElementById('importBranchCompanyId').value;
+            const submitBtn = document.getElementById('importBranchSubmitBtn');
+            const fileInput = document.getElementById('branchExcelFile');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please select an Excel file to upload.');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Importing...';
+
+            const formData = new FormData();
+            formData.append('excel_file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(`/marketing/companies/${companyId}/branches/import-excel`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.imported_count) {
+                    alert('✓ ' + result.message);
+                    const importModal = bootstrap.Modal.getInstance(document.getElementById('importBranchModal'));
+                    if (importModal) importModal.hide();
+                    
+                    // Re-open edit company modal and load updated branches list
+                    loadEditCompanyDetails(companyId);
+                } else {
+                    let errorMsg = result.message || 'Failed to import branches.';
+                    alert('Import Error: ' + errorMsg);
+                }
+            } catch (error) {
+                alert('An error occurred during import: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-upload me-1"></i>Upload & Import';
             }
         });
     </script>

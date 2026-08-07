@@ -87,8 +87,12 @@
                         <div class="customer-details">
                             <h5 class="fw-bold mb-3">Customer Information</h5>
                             <div class="mb-2">
-                                <label class="form-label fw-bold">Sold to:</label>
+                                <label class="form-label fw-bold">Company:</label>
                                 <input type="text" class="form-control" value="{{ $order->customer->customer_name ?? 'N/A' }}" readonly>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Customer Name:</label>
+                                <input type="text" class="form-control" value="{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'N/A') }}" readonly>
                             </div>
                             <div class="mb-2">
                                 <label class="form-label fw-bold">Address:</label>
@@ -211,7 +215,14 @@
                                     {{ $activeInvoice ? ($item->book?->unit ?? 'pcs') : ($item->product?->unit ?? $item->book?->unit ?? 'pcs') }}
                                 </td>
                                 <td>
-                                    {{ $activeInvoice ? ($item->book?->name ?? 'Unknown Product') : ($item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'Unknown Product') }}
+                                    <div class="fw-bold d-flex align-items-center gap-1 flex-wrap">
+                                        <span>{{ $item->item_name ?? ($activeInvoice ? ($item->book?->name ?? 'Unknown Product') : ($item->product?->name ?? ($item->book?->name ?? ($item->bundle?->name ?? 'Unknown Product')))) }}</span>
+                                        @if($item->bundle_id || $item->bundle)
+                                            <span class="badge bg-purple text-white ms-1" style="background-color: #6f42c1; font-size: 10px; padding: 3px 6px;">Bundle</span>
+                                        @elseif($item->book_index_id || $item->bookIndex)
+                                            <span class="badge bg-info text-white ms-1" style="font-size: 10px; padding: 3px 6px;">Index</span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td>
                                     {{ $activeInvoice ? ($item->book?->sku ?? '-') : ($item->isbn ?? '-') }}

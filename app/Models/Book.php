@@ -126,4 +126,19 @@ class Book extends Model
     {
         return $this->hasMany(InventoryTransaction::class);
     }
+
+    /**
+     * Accessor for stock at Main Warehouse site only.
+     */
+    public function getMainStockAttribute()
+    {
+        $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
+        if ($mainWarehouse) {
+            $siteInv = $this->inventory()->where('site_id', $mainWarehouse->id)->first();
+            if ($siteInv) {
+                return (int)$siteInv->quantity;
+            }
+        }
+        return (int)$this->stock;
+    }
 }

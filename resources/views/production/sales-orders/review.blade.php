@@ -41,12 +41,12 @@
                         <h5 class="text-black fw-bold">Customer Information</h5>
                         <table class="table table-sm table-borderless">
                             <tr>
-                                <td class="fw-bold text-dark" style="width: 140px;">Customer Name:</td>
-                                <td class="fw-bold text-black">{{ $order->customer->customer_name ?? 'Unknown Customer' }}</td>
+                                <td class="fw-bold text-dark" style="width: 140px;">Company:</td>
+                                <td class="fw-bold text-black">{{ $order->customer->customer_name ?? 'N/A' }}</td>
                             </tr>
                             <tr>
-                                <td class="fw-bold text-dark">Company:</td>
-                                <td class="fw-bold text-black">{{ $order->customer->company_name ?? 'N/A' }}</td>
+                                <td class="fw-bold text-dark">Customer Name:</td>
+                                <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown Customer') }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Account No:</td>
@@ -140,14 +140,23 @@
                     </thead>
                     <tbody>
                         @foreach($order->items as $item)
-                        @php $itemName = $item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? null; @endphp
+                        @php 
+                            $itemName = $item->item_name ?? ($item->product?->name ?? ($item->book?->name ?? ($item->bundle?->name ?? null))); 
+                        @endphp
                         @if($itemName)
                         <tr>
                             <td class="text-center">{{ (float)$item->quantity }}</td>
                             <td class="text-center text-uppercase">{{ $item->product?->unit ?? $item->book?->unit ?? 'pcs' }}</td>
                             <td>
-                                <div class="fw-bold">{{ $itemName }}</div>
-                                <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? '-' }}</small>
+                                <div class="fw-bold d-flex align-items-center gap-1 flex-wrap">
+                                    <span>{{ $itemName }}</span>
+                                    @if($item->bundle_id || $item->bundle)
+                                        <span class="badge bg-purple text-white ms-1" style="background-color: #6f42c1; font-size: 10px; padding: 3px 6px;">Bundle</span>
+                                    @elseif($item->book_index_id || $item->bookIndex)
+                                        <span class="badge bg-info text-white ms-1" style="font-size: 10px; padding: 3px 6px;">Index</span>
+                                    @endif
+                                </div>
+                                <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? $item->bundle?->sku ?? '-' }}</small>
                             </td>
                             <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
                             <td class="text-center">

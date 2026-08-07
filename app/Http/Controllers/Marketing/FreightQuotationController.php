@@ -48,7 +48,7 @@ class FreightQuotationController extends Controller
     public function create()
     {
         $customers = Customer::all();
-        $products = \App\Models\Book::get(['id', 'name', 'price']);
+        $products = (new \App\Http\Controllers\MarketingController)->getUnifiedProducts();
         
         return view('marketing.freight-quotations.create', [
             'title' => 'Create Freight Quotation',
@@ -85,7 +85,7 @@ class FreightQuotationController extends Controller
                 'cargo_dimensions' => 'nullable|array',
                 'cargo_dimensions.*' => 'nullable|string',
                 'so_items' => 'nullable|array',
-                'so_items.*.product_id' => 'nullable|exists:books,id',
+                'so_items.*.product_id' => 'nullable|string',
                 'so_items.*.quantity' => 'nullable|integer|min:1',
                 'so_items.*.price' => 'nullable|numeric|min:0',
                 'so_items.*.discount_value' => 'nullable|numeric|min:0',
@@ -127,6 +127,7 @@ class FreightQuotationController extends Controller
                 'quote_date' => now()->toDateString(),
                 'validity_days' => 30,
                 'customer_id' => $validated['customer_id'],
+                'customer_representative' => $request->customer_representative,
                 'transaction_type' => $validated['transaction_type'] ?? 'paid',
                 'origin_contact' => $validated['origin_contact'],
                 'origin_address' => $validated['origin_address'],
@@ -180,6 +181,7 @@ class FreightQuotationController extends Controller
 
                     $salesOrder = SalesOrder::create([
                         'customer_id' => $validated['customer_id'],
+                        'customer_representative' => $request->customer_representative ?? null,
                         'so_number' => $soNumber,
                         'type' => $validated['transaction_type'] ?? 'paid',
                         'status' => 'draft',
@@ -190,6 +192,7 @@ class FreightQuotationController extends Controller
                     ]);
 
                     // Create SO items
+                    $marketingCtrl = new \App\Http\Controllers\MarketingController();
                     foreach ($soItems as $item) {
                         $qty = (int) ($item['quantity'] ?? 0);
                         $price = (float) ($item['price'] ?? 0);
@@ -199,8 +202,12 @@ class FreightQuotationController extends Controller
                         $discAmount = $discType === 'percentage' ? $gross * ($discVal / 100) : $discVal;
                         $subtotal = max(0, $gross - $discAmount);
 
+                        $target = $marketingCtrl->resolveItemTarget($item['product_id']);
+
                         $salesOrder->items()->create([
-                            'book_id' => $item['product_id'],
+                            'book_id' => $target['book_id'],
+                            'bundle_id' => $target['bundle_id'],
+                            'book_index_id' => $target['book_index_id'],
                             'quantity' => $qty,
                             'price' => $price,
                             'discount_value' => $discVal,
@@ -304,6 +311,7 @@ class FreightQuotationController extends Controller
 
             $salesOrder = SalesOrder::create([
                 'customer_id' => $freightQuotation->customer_id ?? $customer?->customer_id,
+                'customer_representative' => $freightQuotation->customer_representative ?? null,
                 'so_number' => $soNumber,
                 'type' => 'paid',
                 'status' => 'pending_mkt_approval',
@@ -434,6 +442,7 @@ class FreightQuotationController extends Controller
 
                 $salesOrder = SalesOrder::create([
                     'customer_id' => $validated['customer_id'],
+                    'customer_representative' => $freightQuotation->customer_representative ?? null,
                     'so_number' => $soNumber,
                     'type' => $validated['type'],
                     'status' => 'draft',

@@ -9,6 +9,7 @@ class SalesOrder extends Model
 {
     protected $fillable = [
         'customer_id',
+        'customer_representative',
         'area_sales_staff_id',
         'so_number',
         'type',
