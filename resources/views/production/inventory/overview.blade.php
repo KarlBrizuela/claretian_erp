@@ -1221,7 +1221,7 @@
                                                     <tr class="paginate-row">
                                                         <td>
                                                             {{ $inv->bookIndex->book->name ?? 'Unknown Book' }}
-                                                            <span class="badge bg-info light text-info ms-1">{{ $inv->bookIndex->index_value ?? 'Index' }}</span>
+                                                            <span class="badge bg-info text-white ms-1">{{ $inv->bookIndex->index_value ?? 'Index' }}</span>
                                                         </td>
                                                         <td><strong>{{ $inv->quantity }}</strong></td>
                                                         <td>{{ $inv->reorder_point ?? 'N/A' }}</td>
@@ -1262,7 +1262,7 @@
                                                     <tr class="paginate-row">
                                                         <td>
                                                             {{ $inv->bookBundle->name ?? 'Unknown Bundle' }}
-                                                            <span class="badge bg-warning light text-warning ms-1">Bundle</span>
+                                                            <span class="badge bg-warning text-white ms-1">Bundle</span>
                                                         </td>
                                                         <td><strong>{{ $inv->quantity }}</strong></td>
                                                         <td>{{ $inv->reorder_point ?? 'N/A' }}</td>

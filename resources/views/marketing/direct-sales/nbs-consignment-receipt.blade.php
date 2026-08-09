@@ -229,10 +229,10 @@
                 @foreach($order->items as $item)
                 <tr>
                     <td>{{ (float)$item->quantity }}</td>
-                    <td>{{ $item->book->name ?? $item->description }}</td>
-                    <td>{{ $item->book->article ?? $item->book->sku ?? '---' }}</td>
+                    <td>{{ $item->item_name }}</td>
+                    <td>{{ $item->bookIndex->article ?? $item->book->article ?? $item->book->sku ?? '---' }}</td>
                     <td>{{ number_format($item->price, 2) }}</td>
-                    <td>{{ $item->book->nbs_barcode ?? '---' }}</td>
+                    <td>{{ $item->bookIndex->nbs_barcode ?? $item->book->nbs_barcode ?? '---' }}</td>
                     <td>{{ number_format($item->subtotal, 2) }}</td>
                 </tr>
                 @endforeach

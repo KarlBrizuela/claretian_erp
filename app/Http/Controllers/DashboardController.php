@@ -162,20 +162,41 @@ class DashboardController extends Controller
                     }
                     
                     $details = '';
-                    if ($log->details) {
-                        $parsed = json_decode($log->details, true);
+                    if (!empty($log->description) && !str_starts_with(trim($log->description), '{')) {
+                        $details = $log->description;
+                    } elseif (!empty($log->details)) {
+                        $parsed = is_string($log->details) ? json_decode($log->details, true) : $log->details;
                         if (is_array($parsed)) {
-                            if (isset($parsed['po_number'])) {
+                            if (isset($parsed['so_number'])) {
+                                $details = "SO #" . $parsed['so_number'] . (isset($parsed['action']) ? " (" . $parsed['action'] . ")" : (isset($parsed['marked_by']) ? " by " . $parsed['marked_by'] : ""));
+                            } elseif (isset($parsed['po_number'])) {
                                 $details = "PO #" . $parsed['po_number'];
                             } elseif (isset($parsed['pick_list_number'])) {
                                 $details = "Pick List: " . $parsed['pick_list_number'];
                             } elseif (isset($parsed['gathered_at'])) {
                                 $details = "Gathered at: " . date('M d, Y H:i', strtotime($parsed['gathered_at']));
+                            } elseif (isset($parsed['packed_by'])) {
+                                $details = "Packed by " . $parsed['packed_by'] . (isset($parsed['boxes_count']) ? " ({$parsed['boxes_count']} box" . ($parsed['boxes_count'] > 1 ? "es" : "") . ")" : "");
+                            } elseif (isset($parsed['marked_by'])) {
+                                $details = "Marked by " . $parsed['marked_by'];
+                            } elseif (isset($parsed['description'])) {
+                                $details = $parsed['description'];
+                            } else {
+                                $parts = [];
+                                foreach ($parsed as $k => $v) {
+                                    if (is_string($v) || is_numeric($v)) {
+                                        $parts[] = ucwords(str_replace('_', ' ', $k)) . ': ' . $v;
+                                    }
+                                }
+                                $details = implode(', ', $parts);
                             }
+                        } else {
+                            $details = $log->details;
                         }
                     }
-                    if (empty($details)) {
-                        $details = $log->details ?: ($log->user->name ?? 'System Action');
+
+                    if (empty($details) || str_starts_with(trim($details), '{')) {
+                        $details = $log->user->name ?? 'System Action';
                     }
                     
                     return [

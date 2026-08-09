@@ -11,6 +11,9 @@ class BookIndex extends Model
     protected $fillable = [
         'book_id',
         'index_value',
+        'article',
+        'barcode',
+        'nbs_barcode',
         'stock',
         'price',
     ];

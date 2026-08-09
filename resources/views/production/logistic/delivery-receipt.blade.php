@@ -77,7 +77,7 @@
                                     <tr>
                                         <th style="width: 110px; text-align: center;">{{ $isConsignment ? 'SENT QTY' : 'QUANTITY' }}</th>
                                         @if($isConsignment)
-                                            <th style="width: 130px; text-align: center; background-color: #0d6efd !important; color: #fff;">PICK QTY</th>
+                                            <th class="pick-qty-col" style="width: 130px; text-align: center; background-color: #0d6efd !important; color: #fff;">PICK QTY</th>
                                         @endif
                                         <th>DESCRIPTION</th>
                                         <th style="width: 140px; text-align: right;">UNIT PRICE</th>
@@ -89,9 +89,9 @@
                                     @forelse($displayItems as $item)
                                         @php
                                             $qty = (int)($item->quantity ?? 0);
-                                            $pickQty = (int)($item->customer_selected_qty ?? 0);
+                                            $pickQty = isset($item->customer_selected_qty) && $item->customer_selected_qty !== null ? (int)$item->customer_selected_qty : $qty;
                                             $unitPrice = (float)($item->unit_price ?? $item->price ?? 0);
-                                            $itemSubtotal = ($isConsignment && $pickQty > 0 ? $pickQty : $qty) * $unitPrice;
+                                            $itemSubtotal = ($isConsignment ? $pickQty : $qty) * $unitPrice;
                                             $grossSubtotal += $itemSubtotal;
                                             
                                             $itemDiscountAmt = 0;
@@ -110,7 +110,7 @@
                                         <tr>
                                             <td style="text-align: center;">{{ $qty }}</td>
                                             @if($isConsignment)
-                                                <td style="text-align: center; background-color: #f0f7ff; padding: 4px;">
+                                                <td class="pick-qty-col" style="text-align: center; background-color: #f0f7ff; padding: 4px;">
                                                     <input type="number" 
                                                            class="form-control form-control-sm text-center fw-bold pick-qty-input" 
                                                            name="pick_qty[{{ $item->id }}]" 
@@ -120,6 +120,7 @@
                                                            data-price="{{ $unitPrice }}"
                                                            data-qty="{{ $qty }}"
                                                            style="width: 90px; margin: 0 auto; color: #0d6efd; border-color: #0d6efd; background-color: #fff;">
+                                                    <span class="d-none print-pick-qty fw-bold text-center">{{ $pickQty }}</span>
                                                 </td>
                                             @endif
                                             <td>{{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}</td>
@@ -785,6 +786,12 @@
                 text-align: inherit;
             }
 
+            .pick-qty-col,
+            th.pick-qty-col,
+            td.pick-qty-col {
+                display: none !important;
+            }
+
             /* Clean up receipt form */
             .receipt-form,
             .card {
@@ -928,7 +935,8 @@
                     const row = this.closest('tr');
                     const price = parseFloat(this.dataset.price) || 0;
                     const sentQty = parseInt(this.dataset.qty) || 0;
-                    let val = parseInt(this.value) || 0;
+                    let val = parseInt(this.value);
+                    if (isNaN(val)) val = 0;
 
                     if (val > sentQty) {
                         val = sentQty;
@@ -938,7 +946,13 @@
                         this.value = 0;
                     }
 
-                    const effectiveQty = val > 0 ? val : sentQty;
+                    this.setAttribute('value', this.value);
+                    const printSpan = row.querySelector('.print-pick-qty');
+                    if (printSpan) {
+                        printSpan.textContent = this.value;
+                    }
+
+                    const effectiveQty = val;
                     const rowAmount = effectiveQty * price;
 
                     const amountTd = row.querySelector('.row-amount-td');
@@ -949,10 +963,9 @@
                     let total = 0;
                     document.querySelectorAll('.pick-qty-input').forEach(i => {
                         const p = parseFloat(i.dataset.price) || 0;
-                        const q = parseInt(i.dataset.qty) || 0;
-                        const v = parseInt(i.value) || 0;
-                        const eff = v > 0 ? v : q;
-                        total += eff * p;
+                        let v = parseInt(i.value);
+                        if (isNaN(v)) v = 0;
+                        total += v * p;
                     });
 
                     const totalElem = document.getElementById('drTotalAmountDisplay');

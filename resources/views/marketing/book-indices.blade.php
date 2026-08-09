@@ -107,6 +107,9 @@
                             <thead>
                                 <tr>
                                     <th>SKU</th>
+                                    <th>Article</th>
+                                    <th>Barcode</th>
+                                    <th>NBS Barcode</th>
                                     <th>Original Book Name</th>
                                     <th>Index Value</th>
                                     <th>Resulting Book Name</th>
@@ -119,6 +122,9 @@
                                 @forelse($indices as $idx)
                                 <tr>
                                     <td><strong>#{{ $idx->book->sku ?? 'N/A' }}</strong></td>
+                                    <td>{{ $idx->article ?? $idx->book->article ?? 'N/A' }}</td>
+                                    <td>{{ $idx->barcode ?? $idx->book->barcode ?? 'N/A' }}</td>
+                                    <td>{{ $idx->nbs_barcode ?? $idx->book->nbs_barcode ?? 'N/A' }}</td>
                                     <td>{{ $idx->book->name ?? 'N/A' }}</td>
                                     <td><span class="badge badge-outline-primary">{{ $idx->index_value }}</span></td>
                                     <td><strong class="text-success">{{ $idx->display_name }}</strong></td>
@@ -135,7 +141,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="7" class="text-center">No book indices mapped.</td>
+                                    <td colspan="10" class="text-center">No book indices mapped.</td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -174,7 +180,12 @@
                             <select name="book_id" id="index_book_id" class="form-select form-control" required style="width: 100%;">
                                 <option value="">Select Book...</option>
                                 @foreach($allBooks as $book)
-                                    <option value="{{ $book->id }}">{{ $book->name }} (SKU: #{{ $book->sku }})</option>
+                                    <option value="{{ $book->id }}" 
+                                            data-article="{{ $book->article }}"
+                                            data-barcode="{{ $book->barcode }}"
+                                            data-nbs_barcode="{{ $book->nbs_barcode }}">
+                                        {{ $book->name }} (SKU: #{{ $book->sku }})
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -182,6 +193,18 @@
                             <label class="form-label small fw-bold">INDEX VALUE / SUFFIX <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="index_value" id="index_value_field" required placeholder="e.g. Index 1, Vol 2, Part A">
                             <p class="text-muted small mt-1">This will be appended as 'Book Name + Index Value'.</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">ARTICLE</label>
+                            <input type="text" class="form-control" name="article" id="index_article_field" placeholder="e.g. ART-001">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">BARCODE</label>
+                            <input type="text" class="form-control" name="barcode" id="index_barcode_field" placeholder="e.g. 9780764814754">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">NBS BARCODE</label>
+                            <input type="text" class="form-control" name="nbs_barcode" id="index_nbs_barcode_field" placeholder="e.g. NBS-12345">
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">STOCK <span class="text-danger">*</span></label>
@@ -265,6 +288,8 @@
             document.body.classList.remove('modal-open');
         }
 
+        let isEditingIndexMode = false;
+
         // Initialize Select2 dropdown parented to modal
         $(document).ready(function() {
             if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
@@ -274,6 +299,19 @@
                     allowClear: true,
                     width: '100%'
                 });
+
+                $('#index_book_id').on('change', function() {
+                    const selectedOpt = $(this).find('option:selected');
+                    if (selectedOpt.val() && !isEditingIndexMode) {
+                        const article = selectedOpt.data('article') || '';
+                        const barcode = selectedOpt.data('barcode') || '';
+                        const nbsBarcode = selectedOpt.data('nbs_barcode') || '';
+
+                        document.getElementById('index_article_field').value = article;
+                        document.getElementById('index_barcode_field').value = barcode;
+                        document.getElementById('index_nbs_barcode_field').value = nbsBarcode;
+                    }
+                });
             }
         });
 
@@ -282,8 +320,12 @@
         if (addNewIndexBtn) {
             addNewIndexBtn.addEventListener('click', function(e) {
                 e.preventDefault();
+                isEditingIndexMode = false;
                 document.getElementById('modal_index_id').value = '';
                 document.getElementById('addIndexForm').reset();
+                document.getElementById('index_article_field').value = '';
+                document.getElementById('index_barcode_field').value = '';
+                document.getElementById('index_nbs_barcode_field').value = '';
                 document.getElementById('index_stock_field').value = 0;
                 document.getElementById('index_price_field').value = '0.00';
                 $('#index_book_id').val('').trigger('change');
@@ -312,6 +354,9 @@
                 const payload = {
                     book_id: formData.get('book_id'),
                     index_value: formData.get('index_value'),
+                    article: formData.get('article'),
+                    barcode: formData.get('barcode'),
+                    nbs_barcode: formData.get('nbs_barcode'),
                     stock: formData.get('stock'),
                     price: formData.get('price') || 0
                 };
@@ -357,9 +402,13 @@
                 fetch(`/marketing/book-indices/${id}/edit`)
                     .then(response => response.json())
                     .then(data => {
+                        isEditingIndexMode = true;
                         document.getElementById('modal_index_id').value = data.id;
                         $('#index_book_id').val(data.book_id).trigger('change');
                         document.getElementById('index_value_field').value = data.index_value;
+                        document.getElementById('index_article_field').value = data.article || '';
+                        document.getElementById('index_barcode_field').value = data.barcode || '';
+                        document.getElementById('index_nbs_barcode_field').value = data.nbs_barcode || '';
                         document.getElementById('index_stock_field').value = data.stock ?? 0;
                         document.getElementById('index_price_field').value = data.price ?? '0.00';
                         document.getElementById('addIndexModalTitle').innerText = 'Edit Book Index Mapping';

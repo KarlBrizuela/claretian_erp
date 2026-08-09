@@ -199,13 +199,32 @@ class NBSImportController extends Controller
             $qty = (float)$getValue($row, 'qty');
             if ($qty <= 0) continue;
 
-            // Find Book strictly by the article field
+            // Find BookIndex or Book by article, barcode, or nbs_barcode
+            $bookIndex = null;
             $book = null;
+
             if ($bookArticle !== '') {
-                $book = Book::where('article', $bookArticle)->first();
+                // 1. Check BookIndex by article, barcode, nbs_barcode, or index_value
+                $bookIndex = \App\Models\BookIndex::with('book')
+                    ->where('article', $bookArticle)
+                    ->orWhere('barcode', $bookArticle)
+                    ->orWhere('nbs_barcode', $bookArticle)
+                    ->orWhere('index_value', $bookArticle)
+                    ->first();
+
+                if ($bookIndex) {
+                    $book = $bookIndex->book;
+                } else {
+                    // 2. Check Book by article, barcode, nbs_barcode, or sku
+                    $book = Book::where('article', $bookArticle)
+                        ->orWhere('barcode', $bookArticle)
+                        ->orWhere('nbs_barcode', $bookArticle)
+                        ->orWhere('sku', $bookArticle)
+                        ->first();
+                }
             }
 
-            if (!$book) {
+            if (!$bookIndex && !$book) {
                 $missingBooks[$bookArticle ?: 'Empty Article'] = $bookArticle ?: 'Empty Article';
             }
 
@@ -218,14 +237,21 @@ class NBSImportController extends Controller
                 ];
             }
 
-            // Always use the book's price in the Master Registry!
-            $unitPrice = $book ? (float)$book->price : 0;
+            // Determine unit price and description
+            if ($bookIndex) {
+                $unitPrice = ($bookIndex->price && $bookIndex->price > 0) ? (float)$bookIndex->price : ($book ? (float)$book->price : 0);
+                $description = $bookIndex->display_name;
+            } else {
+                $unitPrice = $book ? (float)$book->price : 0;
+                $description = $book ? $book->name : '';
+            }
 
             $orders[$poNumber]['items'][] = [
-                'book_id' => $book ? $book->id : null,
-                'description' => $book ? $book->name : '',
-                'qty' => $qty,
-                'price' => $unitPrice,
+                'book_id'       => $book ? $book->id : null,
+                'book_index_id' => $bookIndex ? $bookIndex->id : null,
+                'description'   => $description,
+                'qty'           => $qty,
+                'price'         => $unitPrice,
             ];
         }
 
@@ -233,7 +259,7 @@ class NBSImportController extends Controller
         if (!empty($missingBooks)) {
             $list = implode(', ', array_keys($missingBooks));
             Log::warning("NBS Import Failed: Missing books: " . $list);
-            return redirect()->back()->with('error', 'The following books were not found in your Master Registry: ' . $list . '. Please add them exactly as named in the import file before importing.');
+            return redirect()->back()->with('error', 'The following items were not found in your Master Registry or Index Registry: ' . $list . '. Please add them exactly as named or coded in the import file before importing.');
         }
 
         if (empty($orders)) {
@@ -247,11 +273,20 @@ class NBSImportController extends Controller
             if (empty($poData['items'])) continue;
             
             foreach ($poData['items'] as $item) {
-                $book = Book::find($item['book_id']);
-                if (!$book || $book->stock < $item['qty']) {
-                    $bookName = $book ? $book->name : "Book ID #{$item['book_id']}";
+                if (!empty($item['book_index_id'])) {
+                    $index = \App\Models\BookIndex::find($item['book_index_id']);
+                    $availableStock = $index ? $index->main_stock : 0;
+                    if (!$index || $availableStock < $item['qty']) {
+                        $itemName = $index ? $index->display_name : "Book Index ID #{$item['book_index_id']}";
+                        $stockIssues[] = "PO #$poNum: $itemName (Available: $availableStock pcs, Requested: {$item['qty']} pcs)";
+                    }
+                } else {
+                    $book = Book::find($item['book_id']);
                     $availableStock = $book ? $book->stock : 0;
-                    $stockIssues[] = "PO #$poNum: $bookName (Available: $availableStock pcs, Requested: {$item['qty']} pcs)";
+                    if (!$book || $availableStock < $item['qty']) {
+                        $bookName = $book ? $book->name : "Book ID #{$item['book_id']}";
+                        $stockIssues[] = "PO #$poNum: $bookName (Available: $availableStock pcs, Requested: {$item['qty']} pcs)";
+                    }
                 }
             }
         }
@@ -264,6 +299,19 @@ class NBSImportController extends Controller
         // Process orders into the database
         DB::beginTransaction();
         try {
+            $abacusCustomer = Customer::where('company_name', 'like', '%abacus%')
+                ->orWhere('customer_name', 'like', '%abacus%')
+                ->first();
+
+            if (!$abacusCustomer) {
+                $abacusCustomer = Customer::create([
+                    'customer_name'  => 'abacus',
+                    'company_name'   => 'abacus',
+                    'account_number' => 'CUST-NBS-ABACUS',
+                    'customer_type'  => 'business',
+                ]);
+            }
+
             $createdCount = 0;
             foreach ($orders as $poNum => $poData) {
                 if (empty($poData['items'])) continue;
@@ -273,9 +321,9 @@ class NBSImportController extends Controller
 
                 // Create SalesOrder directly in "picking" status
                 $so = SalesOrder::create([
-                    'customer_id'      => 1,
+                    'customer_id'      => $abacusCustomer->customer_id,
                     'so_number'        => 'SO-NBS-' . $poNum . '-' . date('His'),
-                    'type'             => 'direct_consignment',
+                    'type'             => 'area_consignment',
                     'ref_number'       => $poNum,
                     'remarks'          => $remarksStr,
                     'status'           => 'picking',
@@ -296,10 +344,11 @@ class NBSImportController extends Controller
                     
                     $soItem = SalesOrderItem::create([
                         'sales_order_id' => $so->id,
-                        'book_id' => $item['book_id'],
-                        'quantity' => $item['qty'],
-                        'price' => $unitPrice,
-                        'subtotal' => $subtotal,
+                        'book_id'        => $item['book_id'],
+                        'book_index_id'  => $item['book_index_id'] ?? null,
+                        'quantity'       => $item['qty'],
+                        'price'          => $unitPrice,
+                        'subtotal'       => $subtotal,
                     ]);
                     $totalAmount += $subtotal;
                     
@@ -387,33 +436,69 @@ class NBSImportController extends Controller
                 $description = $row[6] ?? '';
                 $gtin = $row[5] ?? '';
                 
-                $book = Book::where('name', $description)
-                            ->orWhere('name', 'like', $description . '%')
-                            ->orWhere('nbs_barcode', $gtin)
-                            ->first();
+                $bookIndex = null;
+                $book = null;
+
+                if (!empty($gtin)) {
+                    $bookIndex = \App\Models\BookIndex::with('book')
+                        ->where('nbs_barcode', $gtin)
+                        ->orWhere('barcode', $gtin)
+                        ->orWhere('article', $gtin)
+                        ->first();
+                }
+
+                if (!$bookIndex && !empty($description)) {
+                    $bookIndex = \App\Models\BookIndex::with('book')
+                        ->where('index_value', $description)
+                        ->orWhereHas('book', function($q) use ($description) {
+                            $q->where('name', $description);
+                        })
+                        ->first();
+                }
+
+                if ($bookIndex) {
+                    $book = $bookIndex->book;
+                } else {
+                    $book = Book::where('name', $description)
+                        ->orWhere('name', 'like', $description . '%')
+                        ->orWhere('nbs_barcode', $gtin)
+                        ->orWhere('barcode', $gtin)
+                        ->orWhere('article', $gtin)
+                        ->first();
+                }
                 
-                if (!$book) {
-                    $missingBooks[$description] = $description;
+                if (!$bookIndex && !$book) {
+                    $missingBooks[$description ?: $gtin] = $description ?: $gtin;
                 }
 
                 $discountPercent = isset($row[14]) ? (float)$row[14] : 0;
 
+                $price = (float)($row[9] ?? 0);
+                if ($price <= 0) {
+                    if ($bookIndex) {
+                        $price = ($bookIndex->price && $bookIndex->price > 0) ? (float)$bookIndex->price : ($book ? (float)$book->price : 0);
+                    } else {
+                        $price = $book ? (float)$book->price : 0;
+                    }
+                }
+
                 $orders[$currentPO]['items'][] = [
-                    'line_item' => $row[1],
-                    'description' => $description,
-                    'gtin' => $gtin,
-                    'qty' => (float)($row[7] ?? 0),
-                    'price' => (float)($row[9] ?? 0),
+                    'line_item'        => $row[1],
+                    'description'      => $bookIndex ? $bookIndex->display_name : ($book ? $book->name : $description),
+                    'gtin'             => $gtin,
+                    'qty'              => (float)($row[7] ?? 0),
+                    'price'            => $price,
                     'discount_percent' => $discountPercent,
-                    'book_id' => $book ? $book->id : null,
+                    'book_id'          => $book ? $book->id : null,
+                    'book_index_id'    => $bookIndex ? $bookIndex->id : null,
                 ];
             }
         }
 
         if (!empty($missingBooks)) {
             $list = implode(', ', array_keys($missingBooks));
-            Log::warning("NBS Import Failed: Missing books: " . $list);
-            return redirect()->back()->with('error', 'The following books were not found in your Master Registry: ' . $list . '. Please add them exactly as named in the import file before importing.');
+            Log::warning("NBS Import Failed: Missing items: " . $list);
+            return redirect()->back()->with('error', 'The following items were not found in your Master Registry or Index Registry: ' . $list . '. Please add them before importing.');
         }
 
         if (empty($orders)) {
@@ -427,11 +512,20 @@ class NBSImportController extends Controller
             if (empty($poData['items'])) continue;
             
             foreach ($poData['items'] as $item) {
-                $book = Book::find($item['book_id']);
-                if (!$book || $book->stock < $item['qty']) {
-                    $bookName = $book ? $book->name : "Book ID #{$item['book_id']}";
+                if (!empty($item['book_index_id'])) {
+                    $index = \App\Models\BookIndex::find($item['book_index_id']);
+                    $availableStock = $index ? $index->main_stock : 0;
+                    if (!$index || $availableStock < $item['qty']) {
+                        $itemName = $index ? $index->display_name : "Book Index ID #{$item['book_index_id']}";
+                        $stockIssues[] = "PO #$poNum: $itemName (Available: $availableStock pcs, Requested: {$item['qty']} pcs)";
+                    }
+                } else {
+                    $book = Book::find($item['book_id']);
                     $availableStock = $book ? $book->stock : 0;
-                    $stockIssues[] = "PO #$poNum: $bookName (Available: $availableStock pcs, Requested: {$item['qty']} pcs)";
+                    if (!$book || $availableStock < $item['qty']) {
+                        $bookName = $book ? $book->name : "Book ID #{$item['book_id']}";
+                        $stockIssues[] = "PO #$poNum: $bookName (Available: $availableStock pcs, Requested: {$item['qty']} pcs)";
+                    }
                 }
             }
         }
@@ -444,6 +538,19 @@ class NBSImportController extends Controller
         // Process orders into database
         DB::beginTransaction();
         try {
+            $abacusCustomer = Customer::where('company_name', 'like', '%abacus%')
+                ->orWhere('customer_name', 'like', '%abacus%')
+                ->first();
+
+            if (!$abacusCustomer) {
+                $abacusCustomer = Customer::create([
+                    'customer_name'  => 'abacus',
+                    'company_name'   => 'abacus',
+                    'account_number' => 'CUST-NBS-ABACUS',
+                    'customer_type'  => 'business',
+                ]);
+            }
+
             $createdCount = 0;
             foreach ($orders as $poNum => $poData) {
                 if (empty($poData['items'])) continue;
@@ -452,9 +559,9 @@ class NBSImportController extends Controller
                 $customer = Customer::where('account_number', $vendorCode)->first();
                 
                 $so = SalesOrder::create([
-                    'customer_id' => $customer ? $customer->customer_id : 1, 
+                    'customer_id' => $customer ? $customer->customer_id : $abacusCustomer->customer_id, 
                     'so_number' => 'SO-NBS-' . $poNum . '-' . date('His'),
-                    'type' => 'direct_consignment',
+                    'type' => 'area_consignment',
                     'ref_number' => $poNum,
                     'remarks' => ($poData['remarks'] ?? '') . ($customer ? '' : " (Vendor Code: $vendorCode)"),
                     'status' => 'draft',
@@ -469,10 +576,11 @@ class NBSImportController extends Controller
                     
                     SalesOrderItem::create([
                         'sales_order_id' => $so->id,
-                        'book_id' => $item['book_id'],
-                        'quantity' => $item['qty'],
-                        'price' => $item['price'],
-                        'subtotal' => $subtotal,
+                        'book_id'        => $item['book_id'],
+                        'book_index_id'  => $item['book_index_id'] ?? null,
+                        'quantity'       => $item['qty'],
+                        'price'          => $item['price'],
+                        'subtotal'       => $subtotal,
                     ]);
                     $totalAmount += $subtotal;
                 }
@@ -493,7 +601,7 @@ class NBSImportController extends Controller
 
     public function viewReceipt($id)
     {
-        $order = SalesOrder::with(['customer', 'items.book', 'preparedBy'])->findOrFail($id);
+        $order = SalesOrder::with(['customer', 'items.book', 'items.bookIndex.book', 'preparedBy'])->findOrFail($id);
         
         return view('marketing.direct-sales.nbs-consignment-receipt', [
             'order' => $order,

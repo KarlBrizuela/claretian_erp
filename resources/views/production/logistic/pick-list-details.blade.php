@@ -26,7 +26,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Company:</label>
-                                <input type="text" value="{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}" readonly>
+                                <input type="text" value="{{ $pickList->salesOrder?->customer?->company_name ?: ($pickList->salesOrder?->customer?->customer_name ?? 'N/A') }}" readonly>
                             </div>
                             <div class="form-group">
                                 <label>Customer Name:</label>
@@ -136,7 +136,11 @@
                         <a href="{{ route('production.logistic.pick-list-management', ['pickListId' => $pickList->id]) }}" class="btn btn-warning" style="background: #ffc107; border: none; color: #000; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
                             <i class="las la-edit me-2"></i>Edit Pick List
                         </a>
-                        <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark {{ $pickList->pick_list_number }} as gathered and move to Sales Invoice (SI) Preparation?');">
+                        @php
+                            $isConsignmentOrder = $pickList->salesOrder && in_array($pickList->salesOrder->type, ['area_consignment', 'area_sales_consignment']);
+                            $targetQueueText = $isConsignmentOrder ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
+                        @endphp
+                        <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark {{ $pickList->pick_list_number }} as gathered and move to {{ $targetQueueText }}?');">
                             @csrf
                             <button type="submit" class="btn btn-success" style="background: #28a745; border: none; color: white; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
                                 <i class="las la-check-circle me-2"></i>Mark as Gathered

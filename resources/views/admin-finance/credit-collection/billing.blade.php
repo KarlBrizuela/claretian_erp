@@ -401,7 +401,7 @@
                                                                 <td class="fw-bold text-primary">#{{ $jv->jv_number }}</td>
                                                                 <td>{{ $jv->client_name ?? ($jv->items->first()->customer_name ?? 'Multiple Clients') }}</td>
                                                                 <td class="fw-bold text-dark">₱ {{ number_format($jv->total_amount, 2) }}</td>
-                                                                <td><span class="badge bg-success light text-success">Approved</span></td>
+                                                                <td><span class="badge badge-success light">Approved</span></td>
                                                                 <td class="text-center">
                                                                     <div class="d-flex justify-content-center gap-1">
                                                                         <a href="{{ route('admin-finance.credit-collection.jv-requests.show', $jv->id) }}" class="btn btn-info btn-xs shadow text-white" title="View Details"><i class="las la-eye me-1"></i> View</a>

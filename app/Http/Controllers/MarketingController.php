@@ -537,9 +537,15 @@ class MarketingController extends Controller
         if (!empty($search)) {
             $query->where(function($q) use ($search) {
                 $q->where('index_value', 'like', '%' . $search . '%')
+                  ->orWhere('article', 'like', '%' . $search . '%')
+                  ->orWhere('barcode', 'like', '%' . $search . '%')
+                  ->orWhere('nbs_barcode', 'like', '%' . $search . '%')
                   ->orWhereHas('book', function($bq) use ($search) {
                       $bq->where('name', 'like', '%' . $search . '%')
-                         ->orWhere('sku', 'like', '%' . $search . '%');
+                         ->orWhere('sku', 'like', '%' . $search . '%')
+                         ->orWhere('article', 'like', '%' . $search . '%')
+                         ->orWhere('barcode', 'like', '%' . $search . '%')
+                         ->orWhere('nbs_barcode', 'like', '%' . $search . '%');
                   });
             });
         }
@@ -562,6 +568,9 @@ class MarketingController extends Controller
         $validated = $request->validate([
             'book_id' => 'required|exists:books,id',
             'index_value' => 'required|string|max:255',
+            'article' => 'nullable|string|max:255',
+            'barcode' => 'nullable|string|max:255',
+            'nbs_barcode' => 'nullable|string|max:255',
             'stock' => 'required|integer|min:0',
             'price' => 'nullable|numeric|min:0',
         ]);
@@ -610,6 +619,9 @@ class MarketingController extends Controller
         $validated = $request->validate([
             'book_id' => 'required|exists:books,id',
             'index_value' => 'required|string|max:255',
+            'article' => 'nullable|string|max:255',
+            'barcode' => 'nullable|string|max:255',
+            'nbs_barcode' => 'nullable|string|max:255',
             'stock' => 'required|integer|min:0',
             'price' => 'nullable|numeric|min:0',
         ]);
