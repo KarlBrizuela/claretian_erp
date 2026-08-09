@@ -854,10 +854,10 @@ class LogisticController extends Controller
             if ($deliveryReceipt) {
                 $order = $deliveryReceipt->salesOrder;
                 if ($order) {
-                    $order->load(['customer', 'items.book', 'items.product', 'preparedBy']);
+                    $order->load(['customer', 'items.book', 'items.product', 'preparedBy', 'drPreparedBy']);
                 }
             } else {
-                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.product', 'preparedBy'])->findOrFail($id);
+                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.product', 'preparedBy', 'drPreparedBy'])->findOrFail($id);
             }
         }
 

@@ -187,7 +187,7 @@
                                     <tr>
                                         <td class="fw-bold text-dark" style="width:130px;">Customer Name:</td>
                                         <td class="fw-bold text-black">
-                                            {{ $order->customer?->customer_name ?? '—' }}
+                                            {{ $order->customer_representative ?: ($order->customer?->customer_name ?? '—') }}
                                             @if($order->customer)
                                                 @if($order->customer->isBadClient)
                                                     <span class="badge bg-danger ms-1">BAD CLIENT</span>
@@ -198,6 +198,10 @@
                                                 <span class="badge bg-secondary ms-1">Not yet set</span>
                                             @endif
                                         </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold text-dark">Contact:</td>
+                                        <td class="text-black">{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}</td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold text-dark">Area Sales Staff:</td>

@@ -50,6 +50,7 @@
                                         <option value="{{ $customer->customer_id }}" 
                                             data-address="{{ $customer->shipping_address ?? $customer->billing_address ?? 'No address found' }}"
                                             data-customer-name="{{ $customer->customer_name ?? '' }}"
+                                            data-phone="{{ $customer->mobile ?: ($customer->main_phone ?: ($customer->work_phone ?: '')) }}"
                                             data-representatives='@json($customer->representatives ?? [])'
                                             {{ old('customer_id', $isEdit ? $order->customer_id : null) == $customer->customer_id ? 'selected' : '' }}>
                                             {{ $customer->customer_name }}
@@ -63,6 +64,10 @@
                                 <select class="form-control" name="customer_representative" id="customerRepresentativeSelect">
                                     <option value="">Select Representative...</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Contact:</label>
+                                <input type="text" class="form-control" name="customer_contact" id="customerContactInput" placeholder="Contact number of representative..." value="{{ old('customer_contact', $isEdit ? ($order->customer_contact ?? '') : '') }}">
                             </div>
                             <!-- Added Address Field -->
                             <div class="form-group">
@@ -494,10 +499,15 @@
                 toggleServiceFee();
             }
 
-            // Auto-fill address & Customer Name Representatives
+            // Auto-fill address & Customer Name Representatives & Contact
+            const contactInput = document.getElementById('customerContactInput');
+            const repSelect = document.getElementById('customerRepresentativeSelect');
+
             customerSelect.addEventListener('change', function() {
                 const option = this.options[this.selectedIndex];
                 const address = option.getAttribute('data-address');
+                const companyPhone = option.getAttribute('data-phone') || '';
+
                 if(address && address !== 'No address found') {
                     billingAddress.value = address;
                 } else {
@@ -505,7 +515,6 @@
                 }
 
                 // Populate Customer Name / Representative Dropdown
-                const repSelect = document.getElementById('customerRepresentativeSelect');
                 if (repSelect) {
                     repSelect.innerHTML = '<option value="">Select Representative...</option>';
 
@@ -517,20 +526,47 @@
                         try { repsArray = JSON.parse(repsData); } catch(e) { repsArray = []; }
                     }
 
+                    let selectedRepPhone = '';
+
                     if (Array.isArray(repsArray) && repsArray.length > 0) {
                         repsArray.forEach((rep, index) => {
                             const repName = rep.name || rep.rep_name;
+                            const repPhone = rep.phone || rep.mobile || rep.contact || rep.contact_number || rep.phone_number || '';
+
                             if (repName) {
                                 const opt = document.createElement('option');
                                 opt.value = repName;
                                 opt.textContent = repName;
-                                if (index === 0) opt.selected = true;
+                                opt.setAttribute('data-phone', repPhone);
+                                if (index === 0) {
+                                    opt.selected = true;
+                                    selectedRepPhone = repPhone;
+                                }
                                 repSelect.appendChild(opt);
                             }
                         });
                     }
+
+                    if (contactInput) {
+                        contactInput.value = selectedRepPhone || companyPhone;
+                    }
                 }
             });
+
+            if (repSelect) {
+                repSelect.addEventListener('change', function() {
+                    const selectedOpt = this.options[this.selectedIndex];
+                    const companyOpt = customerSelect.options[customerSelect.selectedIndex];
+                    const companyPhone = companyOpt ? (companyOpt.getAttribute('data-phone') || '') : '';
+
+                    if (selectedOpt) {
+                        const repPhone = selectedOpt.getAttribute('data-phone');
+                        if (contactInput) {
+                            contactInput.value = repPhone || companyPhone;
+                        }
+                    }
+                });
+            }
 
             // PO Upload UI Logic
             const uploadAreaPO = document.getElementById('uploadAreaPO');

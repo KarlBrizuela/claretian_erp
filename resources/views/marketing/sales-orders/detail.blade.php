@@ -108,6 +108,10 @@
                                 <td class="fw-bold text-dark">Customer Name:</td>
                                 <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->freightQuotation?->customer_representative ?: 'N/A') }}</td>
                             </tr>
+                            <tr>
+                                <td class="fw-bold text-dark">Contact:</td>
+                                <td class="text-black">{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}</td>
+                            </tr>
                             @if($order->type === 'area_sales_consignment')
                             <tr>
                                 <td class="fw-bold text-dark" style="width: 140px;">Area Sales Staff:</td>

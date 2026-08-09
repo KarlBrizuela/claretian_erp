@@ -45,6 +45,10 @@
                         <label class="fw-bold">Customer Name:</label>
                         <input type="text" class="form-control" value="{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown') }}" readonly>
                     </div>
+                    <div class="form-group">
+                        <label class="fw-bold">Contact:</label>
+                        <input type="text" class="form-control" value="{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}" readonly>
+                    </div>
 
                     <!-- Delivery Address -->
                     <div class="form-group">
@@ -57,6 +61,14 @@
                         <div class="form-group">
                             <label class="fw-bold">Terms:</label>
                             <textarea class="form-control" readonly style="min-height: 60px;">{{ $order->terms }}</textarea>
+                        </div>
+                    @endif
+
+                    <!-- Remarks -->
+                    @if($order->remarks)
+                        <div class="form-group">
+                            <label class="fw-bold">Remarks:</label>
+                            <textarea class="form-control" readonly style="min-height: 50px; font-weight: 600;">{{ $order->remarks }}</textarea>
                         </div>
                     @endif
 
@@ -89,7 +101,7 @@
                                     @forelse($displayItems as $item)
                                         @php
                                             $qty = (int)($item->quantity ?? 0);
-                                            $pickQty = isset($item->customer_selected_qty) && $item->customer_selected_qty !== null ? (int)$item->customer_selected_qty : $qty;
+                                            $pickQty = (!empty($item->customer_selected_qty) && (int)$item->customer_selected_qty > 0) ? (int)$item->customer_selected_qty : $qty;
                                             $unitPrice = (float)($item->unit_price ?? $item->price ?? 0);
                                             $itemSubtotal = ($isConsignment ? $pickQty : $qty) * $unitPrice;
                                             $grossSubtotal += $itemSubtotal;
@@ -156,30 +168,56 @@
                                     $finalTotalAmt = max(0, $grossSubtotal - $allDiscountsCombined + $freightChargesAmt);
                                 @endphp
                                 <tfoot>
+                                    <tr>
+                                        <td colspan="4" class="text-end text-uppercase"><strong>Gross Subtotal:</strong></td>
+                                        @if($isConsignment)
+                                            <td class="pick-qty-col d-print-none"></td>
+                                        @endif
+                                        <td class="text-end fw-bold">₱{{ number_format($grossSubtotal, 2) }}</td>
+                                    </tr>
                                     @if($totalItemDiscounts > 0)
                                     <tr>
-                                        <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-end text-uppercase"><strong>Items Discount Subtotal:</strong></td>
+                                        <td colspan="4" class="text-end text-uppercase"><strong>Items Discount Subtotal:</strong></td>
+                                        @if($isConsignment)
+                                            <td class="pick-qty-col d-print-none"></td>
+                                        @endif
                                         <td class="text-end fw-bold text-danger">- ₱{{ number_format($totalItemDiscounts, 2) }}</td>
                                     </tr>
                                     @endif
                                     @if($orderDiscountAmt > 0)
                                     <tr>
-                                        <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-end text-uppercase"><strong>Order Discount @if(($order->discount_percentage ?? 0) > 0)({{ (float)$order->discount_percentage }}%)@endif:</strong></td>
+                                        <td colspan="4" class="text-end text-uppercase"><strong>Order Discount @if(($order->discount_percentage ?? 0) > 0)({{ (float)$order->discount_percentage }}%)@endif:</strong></td>
+                                        @if($isConsignment)
+                                            <td class="pick-qty-col d-print-none"></td>
+                                        @endif
                                         <td class="text-end fw-bold text-danger">- ₱{{ number_format($orderDiscountAmt, 2) }}</td>
                                     </tr>
                                     @endif
                                     @if($allDiscountsCombined > 0)
                                     <tr style="background-color: #fff3cd;">
-                                        <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-end text-uppercase fw-bold text-dark">Total Discount:</td>
+                                        <td colspan="4" class="text-end text-uppercase fw-bold text-dark">Total Discount:</td>
+                                        @if($isConsignment)
+                                            <td class="pick-qty-col d-print-none"></td>
+                                        @endif
                                         <td class="text-end fw-bold text-danger" style="font-size: 15px;">- ₱{{ number_format($allDiscountsCombined, 2) }}</td>
                                     </tr>
                                     @endif
                                     @if($freightChargesAmt > 0)
                                     <tr>
-                                        <td colspan="{{ $isConsignment ? 5 : 4 }}" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                                        <td colspan="4" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                                        @if($isConsignment)
+                                            <td class="pick-qty-col d-print-none"></td>
+                                        @endif
                                         <td class="text-end fw-bold">₱{{ number_format($freightChargesAmt, 2) }}</td>
                                     </tr>
                                     @endif
+                                    <tr style="background-color: #f8f9fa;">
+                                        <td colspan="4" class="text-end text-uppercase fw-bold text-dark" style="font-size: 1rem;">Total Amount:</td>
+                                        @if($isConsignment)
+                                            <td class="pick-qty-col d-print-none"></td>
+                                        @endif
+                                        <td class="text-end fw-bold text-primary" style="font-size: 1.1rem;"><span id="drTotalAmountDisplayTable">₱{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</span></td>
+                                    </tr>
                                 </tfoot>
                             </table>
                         </div>
@@ -194,8 +232,8 @@
                         @endif
                     </form>
 
-                    <!-- Total Amount -->
-                    <div style="text-align: right; margin-bottom: 1.5rem; font-size: 1.1rem; font-weight: 600;">
+                    <!-- Total Amount (Screen Only) -->
+                    <div class="d-print-none" style="text-align: right; margin-bottom: 1.5rem; font-size: 1.1rem; font-weight: 600;">
                         <div class="small text-muted mb-1">Gross Subtotal: ₱{{ number_format($grossSubtotal, 2) }}</div>
                         @if($allDiscountsCombined > 0)
                             <div class="small text-danger mb-1">Total Discount (Books + Order): - ₱{{ number_format($allDiscountsCombined, 2) }}</div>
@@ -245,23 +283,41 @@
                     </div>
                 @endif
 
+                @php
+                    $preparedByName = 'System';
+                    if ($order) {
+                        if ($order->drPreparedBy) {
+                            $preparedByName = $order->drPreparedBy->name;
+                        } elseif ($order->preparedBy) {
+                            $preparedByName = $order->preparedBy->name;
+                        }
+                    } elseif (auth()->check()) {
+                        $preparedByName = auth()->user()->name;
+                    }
+
+                    $receivedByName = $order ? ($order->customer_representative ?: ($order->customer->customer_name ?? '')) : '';
+                @endphp
+
                 <!-- Signature Section -->
                 <div class="signature-section">
                     <div class="signature-box">
-                        <label>Prepared by:</label>
-                        <input type="text" id="preparedBy" placeholder="Enter name" value="{{ $order && $order->preparedBy ? $order->preparedBy->name : 'Johndoe' }}">
-                        <div style="text-align: center; padding-top: 2rem;">
-                            <div style="border-top: 1px solid #333; width: 200px; margin: 0 auto; padding-top: 0.5rem;">SIGNATURE</div>
+                        <label class="fw-bold">Prepared by:</label>
+                        <div class="signature-input-wrapper">
+                            <input type="text" id="preparedBy" class="form-control" placeholder="Enter name" value="{{ $preparedByName }}">
+                            <span class="signature-value-display" id="preparedByDisplay">{{ $preparedByName }}</span>
+                        </div>
+                        <div style="text-align: center; margin-top: 0.75rem;">
+                            <div style="border-top: 1px solid #000; width: 85%; margin: 0 auto; padding-top: 0.2rem; font-size: 0.75rem; font-weight: bold;">SIGNATURE</div>
                         </div>
                     </div>
                     <div class="signature-box">
-                        <label>Received by:</label>
+                        <label class="fw-bold">Received by:</label>
                         <div class="signature-input-wrapper">
-                            <input type="text" id="receivedBy" class="received-by-input" placeholder="Enter name" style="width: 100%; display: block;">
-                            <span class="signature-value-display" id="receivedByDisplay"></span>
+                            <input type="text" id="receivedBy" class="form-control received-by-input" placeholder="Enter name" value="{{ $receivedByName }}">
+                            <span class="signature-value-display" id="receivedByDisplay">{{ $receivedByName }}</span>
                         </div>
-                        <div style="text-align: center; padding-top: 2rem;">
-                            <div style="border-top: 1px solid #333; width: 200px; margin: 0 auto; padding-top: 0.5rem;">SIGNATURE</div>
+                        <div style="text-align: center; margin-top: 0.75rem;">
+                            <div style="border-top: 1px solid #000; width: 85%; margin: 0 auto; padding-top: 0.2rem; font-size: 0.75rem; font-weight: bold;">SIGNATURE</div>
                         </div>
                     </div>
                 </div>
@@ -680,7 +736,7 @@
 
         @page {
             size: letter portrait; /* Short bond paper (8.5in x 11in) */
-            margin: 0.35in 0.4in;
+            margin: 0.25in 0.35in;
         }
 
         @media print {
@@ -693,13 +749,13 @@
             body, html {
                 background: #ffffff !important;
                 color: #000000 !important;
-                font-size: 11px !important;
+                font-size: 10.5px !important;
                 line-height: 1.2 !important;
                 margin: 0 !important;
                 padding: 0 !important;
             }
 
-            /* Hide UI elements and buttons */
+            /* Hide UI elements, navigation, buttons, and helper bars */
             .sidebar,
             .header,
             .nav-header,
@@ -712,30 +768,44 @@
             button,
             .btn,
             div[style*="background: #e7f3ff"],
-            .card.p-3.my-3.border.bg-light {
+            .card.p-3.my-3.border.bg-light,
+            .d-flex.justify-content-between.align-items-center.mb-3,
+            .alert,
+            .toast,
+            no-print {
                 display: none !important;
             }
 
-            /* Make form inputs transparent but visible */
+            /* Make textareas and inputs look clean and transparent without borders or resize handles */
             .form-info-item input,
             .form-group input,
             .form-group textarea,
-            .signature-box input {
+            textarea,
+            input {
                 border: none !important;
                 padding: 0 !important;
+                margin: 0 !important;
                 background: transparent !important;
                 outline: none !important;
+                box-shadow: none !important;
                 color: #000 !important;
-                font-size: 11px !important;
+                font-size: 10.5px !important;
+                resize: none !important;
+                min-height: auto !important;
+                height: auto !important;
+                overflow: hidden !important;
+                -webkit-appearance: none !important;
+                appearance: none !important;
             }
 
-            /* Show the table and make input fields look like text */
+            /* Show the table cleanly */
             .receipt-table {
                 width: 100% !important;
-                page-break-inside: avoid;
+                page-break-inside: auto;
                 display: table !important;
-                margin-bottom: 0.75rem !important;
-                font-size: 11px !important;
+                margin-bottom: 0.5rem !important;
+                font-size: 10.5px !important;
+                border-collapse: collapse !important;
             }
 
             .receipt-table thead {
@@ -747,17 +817,22 @@
                 display: table-row-group !important;
             }
 
+            .receipt-table tfoot {
+                display: table-row-group !important;
+                page-break-inside: avoid !important;
+            }
+
             .receipt-table tr {
                 display: table-row !important;
-                page-break-inside: avoid;
+                page-break-inside: avoid !important;
             }
 
             .receipt-table th,
             .receipt-table td {
                 display: table-cell !important;
                 border: 1px solid #000 !important;
-                padding: 4px 6px !important;
-                font-size: 11px !important;
+                padding: 3px 5px !important;
+                font-size: 10.5px !important;
             }
 
             .receipt-table th {
@@ -782,7 +857,7 @@
                 color: #000 !important;
                 font-family: inherit;
                 width: auto;
-                font-size: 11px !important;
+                font-size: 10.5px !important;
                 text-align: inherit;
             }
 
@@ -792,7 +867,7 @@
                 display: none !important;
             }
 
-            /* Clean up receipt form */
+            /* Clean up receipt form container */
             .receipt-form,
             .card {
                 box-shadow: none !important;
@@ -804,8 +879,8 @@
             }
 
             .form-header {
-                margin-bottom: 0.75rem !important;
-                padding-bottom: 0.5rem !important;
+                margin-bottom: 0.5rem !important;
+                padding-bottom: 0.35rem !important;
                 border-bottom: 2px solid #000 !important;
                 text-align: center !important;
             }
@@ -815,13 +890,13 @@
                 align-items: center !important;
                 justify-content: center !important;
                 gap: 0.75rem !important;
-                margin-bottom: 0.35rem !important;
+                margin-bottom: 0.25rem !important;
                 text-align: left !important;
             }
 
             .form-header .company-logo-img {
                 display: block !important;
-                height: 48px !important;
+                height: 42px !important;
                 width: auto !important;
                 object-fit: contain !important;
             }
@@ -831,7 +906,7 @@
             }
 
             .form-header .company-name {
-                font-size: 1.05rem !important;
+                font-size: 1rem !important;
                 font-weight: bold !important;
                 margin-bottom: 2px !important;
                 color: #000 !important;
@@ -845,10 +920,10 @@
             }
 
             .document-title {
-                font-size: 1.25rem !important;
+                font-size: 1.15rem !important;
                 font-weight: bold !important;
-                margin-top: 0.35rem !important;
-                margin-bottom: 0.2rem !important;
+                margin-top: 0.25rem !important;
+                margin-bottom: 0.15rem !important;
                 letter-spacing: 1px !important;
                 color: #000 !important;
             }
@@ -856,8 +931,8 @@
             .form-info-row {
                 background: transparent !important;
                 border: none !important;
-                padding: 0.25rem 0 !important;
-                margin-bottom: 0.5rem !important;
+                padding: 0.15rem 0 !important;
+                margin-bottom: 0.35rem !important;
                 display: grid !important;
                 grid-template-columns: repeat(3, 1fr) !important;
                 gap: 0.5rem !important;
@@ -867,32 +942,41 @@
             .form-group label {
                 font-size: 0.75rem !important;
                 font-weight: bold !important;
-                margin-bottom: 2px !important;
+                margin-bottom: 0px !important;
+                display: block !important;
             }
 
             .form-group {
                 background: transparent !important;
                 border: none !important;
-                padding: 0.25rem 0 !important;
-                margin-bottom: 0.35rem !important;
+                padding: 0.15rem 0 !important;
+                margin-bottom: 0.25rem !important;
             }
 
             /* Signature section */
             .signature-section {
                 page-break-inside: avoid !important;
-                margin-top: 1.25rem !important;
-                border-top: 1.5px solid #000 !important;
-                padding-top: 0.75rem !important;
-                display: grid !important;
-                grid-template-columns: 1fr 1fr !important;
-                gap: 1.5rem !important;
+                break-inside: avoid !important;
+                margin-top: 0.75rem !important;
+                border-top: none !important;
+                padding-top: 0.25rem !important;
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: space-between !important;
+                width: 100% !important;
+            }
+
+            .signature-box {
+                width: 42% !important;
+                display: block !important;
+                text-align: left !important;
             }
 
             .signature-box label {
                 font-weight: bold !important;
                 display: block !important;
                 font-size: 0.75rem !important;
-                margin-bottom: 0.25rem !important;
+                margin-bottom: 0.15rem !important;
             }
 
             .signature-box input {
@@ -901,20 +985,21 @@
 
             .signature-input-wrapper {
                 display: block !important;
-                min-height: 25px !important;
-                margin-bottom: 0.5rem !important;
+                min-height: 18px !important;
+                margin-bottom: 0.25rem !important;
             }
 
             .signature-value-display {
                 display: block !important;
                 color: #000 !important;
+                font-weight: bold !important;
                 font-size: 0.85rem !important;
             }
 
             .signature-box div[style*="border-top"] {
                 border-top: 1px solid #000 !important;
                 text-align: center !important;
-                padding-top: 0.25rem !important;
+                padding-top: 0.15rem !important;
                 font-size: 0.75rem !important;
                 font-weight: bold !important;
             }
@@ -930,6 +1015,23 @@
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Live sync signature inputs to print display spans
+            const preparedInput = document.getElementById('preparedBy');
+            const preparedDisplay = document.getElementById('preparedByDisplay');
+            if (preparedInput && preparedDisplay) {
+                preparedInput.addEventListener('input', function() {
+                    preparedDisplay.textContent = this.value;
+                });
+            }
+
+            const receivedInput = document.getElementById('receivedBy');
+            const receivedDisplay = document.getElementById('receivedByDisplay');
+            if (receivedInput && receivedDisplay) {
+                receivedInput.addEventListener('input', function() {
+                    receivedDisplay.textContent = this.value;
+                });
+            }
+
             document.querySelectorAll('.pick-qty-input').forEach(input => {
                 input.addEventListener('input', function() {
                     const row = this.closest('tr');
@@ -968,9 +1070,14 @@
                         total += v * p;
                     });
 
+                    const formattedTotal = '₱' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     const totalElem = document.getElementById('drTotalAmountDisplay');
                     if (totalElem) {
-                        totalElem.textContent = '₱' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        totalElem.textContent = formattedTotal;
+                    }
+                    const totalTableElem = document.getElementById('drTotalAmountDisplayTable');
+                    if (totalTableElem) {
+                        totalTableElem.textContent = formattedTotal;
                     }
                 });
             });

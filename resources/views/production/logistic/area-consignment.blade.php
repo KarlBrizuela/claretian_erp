@@ -179,7 +179,11 @@
                                 <table class="table table-sm table-borderless">
                                     <tr>
                                         <td class="fw-bold text-dark" style="width:130px;">Customer Name:</td>
-                                        <td class="fw-bold text-black">{{ $order->customer?->customer_name ?? '—' }}</td>
+                                        <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->customer?->customer_name ?? '—') }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold text-dark">Contact:</td>
+                                        <td class="text-black">{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}</td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold text-dark">Area Sales Staff:</td>
@@ -197,6 +201,10 @@
                                     <tr>
                                         <td class="fw-bold text-dark">Terms:</td>
                                         <td class="text-black">{{ $order->terms ?? '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold text-dark">Remarks:</td>
+                                        <td class="text-black fw-bold text-primary">{{ $order->remarks ?: '—' }}</td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold text-dark">Total Amount:</td>

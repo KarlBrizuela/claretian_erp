@@ -1073,6 +1073,14 @@
                     <input type="text" id="detailRepresentative" readonly>
                 </div>
                 <div class="form-group">
+                    <label>Contact:</label>
+                    <input type="text" id="detailContact" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Remarks:</label>
+                    <textarea id="detailRemarks" class="form-control" style="background:#f8f9fa; font-weight:600;" readonly rows="2"></textarea>
+                </div>
+                <div class="form-group">
                     <label>SI Signed Date:</label>
                     <input type="text" id="siSignedDate" readonly>
                 </div>
@@ -1936,6 +1944,8 @@
                     setInputValue('detailOrderDate', new Date(order.created_at).toLocaleDateString());
                     setInputValue('detailCustomerName', order.customer?.customer_name || 'N/A');
                     setInputValue('detailRepresentative', order.customer_representative || 'N/A');
+                    setInputValue('detailContact', order.customer_contact || order.customer?.mobile || order.customer?.main_phone || 'N/A');
+                    setInputValue('detailRemarks', order.remarks || '—');
                     setInputValue('siSignedDate', order.signed_at ? new Date(order.signed_at).toLocaleDateString() : 'N/A');
 
                     // Get packing data from order

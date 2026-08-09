@@ -95,6 +95,10 @@
                                 <input type="text" class="form-control" value="{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'N/A') }}" readonly>
                             </div>
                             <div class="mb-2">
+                                <label class="form-label fw-bold">Contact:</label>
+                                <input type="text" class="form-control" value="{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}" readonly>
+                            </div>
+                            <div class="mb-2">
                                 <label class="form-label fw-bold">Address:</label>
                                 <textarea class="form-control" rows="2" readonly>{{ $order->billing_address ?? ($order->customer->address ?? '') }}</textarea>
                             </div>
@@ -119,6 +123,10 @@
                             <div class="mb-2">
                                 <label class="form-label fw-bold">Terms:</label>
                                 <input type="text" class="form-control" value="{{ $order->terms }}" readonly>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Remarks:</label>
+                                <textarea class="form-control" rows="2" readonly style="background:#f8f9fa; font-weight:600;">{{ $order->remarks ?: '—' }}</textarea>
                             </div>
                             @php
                                 $isComp = $order->type === 'complimentary';

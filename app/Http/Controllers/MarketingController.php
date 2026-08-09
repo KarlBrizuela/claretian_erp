@@ -1865,6 +1865,7 @@ class MarketingController extends Controller
         $so = \App\Models\SalesOrder::create([
             'customer_id' => $request->customer_id,
             'customer_representative' => $request->customer_representative,
+            'customer_contact' => $request->customer_contact,
             'area_sales_staff_id' => $request->type === 'area_sales_consignment' ? $request->area_sales_staff_id : null,
             'so_number' => $request->so_number,
             'type' => $request->type,
@@ -2180,6 +2181,7 @@ class MarketingController extends Controller
         $so->update([
             'customer_id' => $request->customer_id,
             'customer_representative' => $request->customer_representative,
+            'customer_contact' => $request->customer_contact,
             'area_sales_staff_id' => $request->type === 'area_sales_consignment' ? $request->area_sales_staff_id : null,
             'type' => $request->type,
             'remarks' => $request->remarks,

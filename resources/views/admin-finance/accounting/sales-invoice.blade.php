@@ -55,6 +55,18 @@
                                 <label for="siEndDate" class="form-label fw-bold text-dark"><i class="fas fa-calendar-alt me-1 text-primary"></i> End Date</label>
                                 <input type="date" id="siEndDate" class="form-control form-control-sm" style="height: 36px;">
                             </div>
+                            <div class="col-md-auto mb-2 mb-md-0">
+                                <label for="siEntriesSelect" class="form-label fw-bold text-dark"><i class="fas fa-list me-1 text-primary"></i> Show Entries</label>
+                                <select id="siEntriesSelect" class="form-select form-select-sm text-black" style="height: 36px; min-width: 95px;">
+                                    <option value="5" selected>5</option>
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="500">500</option>
+                                    <option value="all">All</option>
+                                </select>
+                            </div>
                             <div class="col-md-auto">
                                 <button id="clearFiltersBtn" class="btn btn-light btn-sm" style="border: 1px solid #ddd; height: 36px; min-width: 100px;"><i class="fas fa-undo me-1"></i> Reset</button>
                             </div>
@@ -240,7 +252,19 @@
                                     </table>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="normal-pagination">
-                                    <div class="text-muted small">Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</div>
+                                    <div class="d-flex align-items-center gap-2 text-muted small">
+                                        <span>Show</span>
+                                        <select class="form-select form-select-sm entries-per-page-select" style="width: auto; height: 30px; padding: 2px 24px 2px 8px; font-size: 12px;" data-pane="normal-pane">
+                                            <option value="5" selected>5</option>
+                                            <option value="10">10</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                            <option value="500">500</option>
+                                            <option value="all">All</option>
+                                        </select>
+                                        <span>entries | Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</span>
+                                    </div>
                                     <nav>
                                         <ul class="pagination pagination-sm mb-0"></ul>
                                     </nav>
@@ -362,7 +386,19 @@
                                     </table>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="ecom-pagination">
-                                    <div class="text-muted small">Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</div>
+                                    <div class="d-flex align-items-center gap-2 text-muted small">
+                                        <span>Show</span>
+                                        <select class="form-select form-select-sm entries-per-page-select" style="width: auto; height: 30px; padding: 2px 24px 2px 8px; font-size: 12px;" data-pane="ecom-pane">
+                                            <option value="5" selected>5</option>
+                                            <option value="10">10</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                            <option value="500">500</option>
+                                            <option value="all">All</option>
+                                        </select>
+                                        <span>entries | Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</span>
+                                    </div>
                                     <nav>
                                         <ul class="pagination pagination-sm mb-0"></ul>
                                     </nav>
@@ -455,7 +491,19 @@
                                     </table>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="completed-pagination">
-                                    <div class="text-muted small">Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</div>
+                                    <div class="d-flex align-items-center gap-2 text-muted small">
+                                        <span>Show</span>
+                                        <select class="form-select form-select-sm entries-per-page-select" style="width: auto; height: 30px; padding: 2px 24px 2px 8px; font-size: 12px;" data-pane="completed-pane">
+                                            <option value="5" selected>5</option>
+                                            <option value="10">10</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                            <option value="500">500</option>
+                                            <option value="all">All</option>
+                                        </select>
+                                        <span>entries | Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</span>
+                                    </div>
                                     <nav>
                                         <ul class="pagination pagination-sm mb-0"></ul>
                                     </nav>
@@ -503,6 +551,7 @@
         const platformSelect = document.getElementById('siPlatformSelect');
         const startDateInput = document.getElementById('siStartDate');
         const endDateInput = document.getElementById('siEndDate');
+        const entriesSelect = document.getElementById('siEntriesSelect');
         const clearBtn = document.getElementById('clearFiltersBtn');
 
         const pageState = {
@@ -510,13 +559,26 @@
             'ecom-pane': 1,
             'completed-pane': 1
         };
-        const pageSize = 10;
+        let currentPageSize = 5;
+
+        function getPageSize() {
+            const val = entriesSelect ? entriesSelect.value : (currentPageSize || 5);
+            return val === 'all' ? 999999 : (parseInt(val) || 5);
+        }
+
+        function syncEntriesDropdowns(val) {
+            if (entriesSelect) entriesSelect.value = val;
+            document.querySelectorAll('.entries-per-page-select').forEach(sel => {
+                sel.value = val;
+            });
+        }
 
         function filterAndPaginate() {
             const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
             const selectedType = typeSelect ? typeSelect.value : '';
             const platform = platformSelect ? platformSelect.value : '';
             const selectedPm = pmSelect ? pmSelect.value.toLowerCase() : '';
+            const pageSize = getPageSize();
 
             ['normal-pane', 'ecom-pane', 'completed-pane'].forEach(paneId => {
                 const pane = document.getElementById(paneId);
@@ -629,7 +691,7 @@
                         pagWrapper.style.display = 'none';
                     } else {
                         pagWrapper.style.display = 'flex';
-                        pagWrapper.querySelector('.page-start').textContent = startIndex + 1;
+                        pagWrapper.querySelector('.page-start').textContent = totalMatching === 0 ? 0 : startIndex + 1;
                         pagWrapper.querySelector('.page-end').textContent = endIndex;
                         pagWrapper.querySelector('.total-items').textContent = totalMatching;
 
@@ -693,6 +755,28 @@
         if (startDateInput) startDateInput.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
         if (endDateInput) endDateInput.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
 
+        if (entriesSelect) {
+            entriesSelect.addEventListener('change', function() {
+                currentPageSize = this.value;
+                syncEntriesDropdowns(this.value);
+                pageState['normal-pane'] = 1;
+                pageState['ecom-pane'] = 1;
+                pageState['completed-pane'] = 1;
+                filterAndPaginate();
+            });
+        }
+
+        document.querySelectorAll('.entries-per-page-select').forEach(sel => {
+            sel.addEventListener('change', function() {
+                currentPageSize = this.value;
+                syncEntriesDropdowns(this.value);
+                pageState['normal-pane'] = 1;
+                pageState['ecom-pane'] = 1;
+                pageState['completed-pane'] = 1;
+                filterAndPaginate();
+            });
+        });
+
         if (clearBtn) {
             clearBtn.addEventListener('click', function () {
                 if (searchInput) searchInput.value = '';
@@ -701,6 +785,9 @@
                 if (platformSelect) platformSelect.value = '';
                 if (startDateInput) startDateInput.value = '';
                 if (endDateInput) endDateInput.value = '';
+                if (entriesSelect) entriesSelect.value = '5';
+                currentPageSize = 5;
+                syncEntriesDropdowns('5');
                 pageState['normal-pane'] = 1;
                 pageState['ecom-pane'] = 1;
                 pageState['completed-pane'] = 1;

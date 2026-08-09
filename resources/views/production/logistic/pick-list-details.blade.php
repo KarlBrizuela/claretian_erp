@@ -28,10 +28,18 @@
                                 <label>Company:</label>
                                 <input type="text" value="{{ $pickList->salesOrder?->customer?->company_name ?: ($pickList->salesOrder?->customer?->customer_name ?? 'N/A') }}" readonly>
                             </div>
-                            <div class="form-group">
-                                <label>Customer Name:</label>
-                                <input type="text" value="{{ $pickList->salesOrder?->customer_representative ?: ($pickList->salesOrder?->customer?->customer_name ?? 'Unknown') }}" readonly>
-                            </div>
+                             <div class="form-group">
+                                 <label>Customer Name:</label>
+                                 <input type="text" value="{{ $pickList->salesOrder?->customer_representative ?: ($pickList->salesOrder?->customer?->customer_name ?? 'Unknown') }}" readonly>
+                             </div>
+                             <div class="form-group">
+                                 <label>Contact:</label>
+                                 <input type="text" value="{{ $pickList->salesOrder?->customer_contact ?: ($pickList->salesOrder?->customer?->mobile ?: ($pickList->salesOrder?->customer?->main_phone ?: 'N/A')) }}" readonly>
+                             </div>
+                             <div class="form-group">
+                                 <label>Remarks:</label>
+                                 <textarea class="form-control" style="background:#f8f9fa; font-weight:600;" readonly rows="2">{{ $pickList->salesOrder?->remarks ?: '—' }}</textarea>
+                             </div>
                         </div>
                         <div class="order-info-box">
                             <h5>Pick List Information</h5>

@@ -49,6 +49,10 @@
                                 <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown Customer') }}</td>
                             </tr>
                             <tr>
+                                <td class="fw-bold text-dark">Contact:</td>
+                                <td class="text-black">{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}</td>
+                            </tr>
+                            <tr>
                                 <td class="fw-bold text-dark">Account No:</td>
                                 <td class="text-black">{{ $order->customer->account_number ?? 'N/A' }}</td>
                             </tr>
@@ -72,6 +76,10 @@
                             <tr>
                                 <td class="fw-bold text-dark">Prepared By:</td>
                                 <td class="text-black">{{ $order->preparedBy->name ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-dark">Remarks:</td>
+                                <td class="text-black fw-bold text-primary">{{ $order->remarks ?: '—' }}</td>
                             </tr>
                         </table>
                     </div>
