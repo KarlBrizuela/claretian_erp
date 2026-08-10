@@ -74,6 +74,9 @@
                                                     <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                         <i class="las la-eye"></i>
                                                     </a>
+                                                    <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary shadow btn-xs sharp me-1" title="Shipping Label">
+                                                        <i class="las la-tag"></i>
+                                                    </a>
                                                     <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                         @csrf
                                                         <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
@@ -165,6 +168,9 @@
                                                             <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                                 <i class="las la-eye"></i>
                                                             </a>
+                                                            <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary shadow btn-xs sharp me-1" title="Shipping Label">
+                                                                <i class="las la-tag"></i>
+                                                            </a>
                                                             <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                                 @csrf
                                                                 <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
@@ -227,6 +233,9 @@
                                                         <div class="workflow-actions">
                                                             <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                                 <i class="las la-eye"></i>
+                                                            </a>
+                                                            <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary shadow btn-xs sharp me-1" title="Shipping Label">
+                                                                <i class="las la-tag"></i>
                                                             </a>
                                                             <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                                 @csrf
@@ -291,6 +300,9 @@
                                                             <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                                 <i class="las la-eye"></i>
                                                             </a>
+                                                            <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary shadow btn-xs sharp me-1" title="Shipping Label">
+                                                                <i class="las la-tag"></i>
+                                                            </a>
                                                             <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                                 @csrf
                                                                 <button type="submit" class="btn btn-success shadow btn-xs sharp me-1" title="Mark as Gathered">
@@ -353,6 +365,9 @@
                                                         <div class="workflow-actions">
                                                             <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                                 <i class="las la-eye"></i>
+                                                            </a>
+                                                            <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary shadow btn-xs sharp me-1" title="Shipping Label">
+                                                                <i class="las la-tag"></i>
                                                             </a>
                                                             <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered?');">
                                                                 @csrf
@@ -417,6 +432,9 @@
                                                 <div class="workflow-actions">
                                                     <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                         <i class="las la-eye"></i>
+                                                    </a>
+                                                    <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary shadow btn-xs sharp me-1" title="Shipping Label">
+                                                        <i class="las la-tag"></i>
                                                     </a>
                                                     <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark as gathered and send to Acknowledgement Receipt preparation?');">
                                                         @csrf

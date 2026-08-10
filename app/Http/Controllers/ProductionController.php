@@ -115,11 +115,10 @@ class ProductionController extends Controller
         $user = auth()->user();
         $pos = $user->position;
 
-        // 1. Pending Production Approvals
-        // Currently, only Foreign Sales Orders go to Production for approval
+        // 1. Pending Production / DR Approvals
         $salesOrders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->where('status', 'pending_prod_approval')
-            ->latest()
+            ->whereIn('status', ['pending_prod_approval', 'pending_dr_approval'])
+            ->orderBy('id', 'desc')
             ->get();
 
         // 2. Pending Cash Advances (Production Specific Authorization)
@@ -449,12 +448,18 @@ class ProductionController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         
-        // After Production approval, it goes to Logistics for Picking
-        $order->update([
+        $updateData = [
             'status' => 'picking',
             'approved_by_prod' => auth()->id(),
             'prod_approved_at' => now()
-        ]);
+        ];
+
+        if ($request->filled('remarks')) {
+            $userTitle = auth()->user()->name . ' (Production)';
+            $updateData['remarks'] = trim(($order->remarks ? $order->remarks . "\n" : '') . '[' . $userTitle . ']: ' . $request->remarks);
+        }
+
+        $order->update($updateData);
 
         return redirect()->route('production.approval-queue')->with('success', 'Sales Order #' . $order->so_number . ' has been approved and sent to Logistics for picking.');
     }
@@ -462,9 +467,12 @@ class ProductionController extends Controller
     public function rejectSalesOrder(Request $request, $id)
     {
         $order = \App\Models\SalesOrder::findOrFail($id);
+        $userTitle = auth()->user()->name . ' (Production Rejection)';
+        $remarksText = $request->remarks ? $request->remarks : 'Rejected by Production';
+        $newRemarks = trim(($order->remarks ? $order->remarks . "\n" : '') . '[' . $userTitle . ']: ' . $remarksText);
         $order->update([
             'status' => 'cancelled',
-            'remarks' => $request->remarks . ' (Rejected by Production)'
+            'remarks' => $newRemarks
         ]);
 
         return redirect()->route('production.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');

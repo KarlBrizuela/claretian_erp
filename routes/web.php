@@ -110,6 +110,8 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/mark-as-gathered/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'markAsGathered'])->name('mark-as-gathered');
       Route::get('/pick-list/{id}/delete', [App\Http\Controllers\Production\LogisticController::class, 'deletePickList'])->name('pick-list-delete');
       
+      Route::get('/shipping-label/{id}', [App\Http\Controllers\Production\LogisticController::class, 'shippingLabel'])->name('shipping-label');
+
       // Packing Management
       Route::get('/packing-management', [App\Http\Controllers\Production\LogisticController::class, 'packingManagement'])->name('packing-management');
       Route::get('/packing/{id}/data', [App\Http\Controllers\Production\LogisticController::class, 'getPackingOrderData'])->name('packing-order-data');

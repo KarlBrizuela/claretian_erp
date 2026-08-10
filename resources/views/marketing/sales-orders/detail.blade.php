@@ -153,7 +153,7 @@
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Remarks:</td>
-                                <td class="text-black">{{ $order->remarks ?? 'None' }}</td>
+                                <td class="text-black fw-bold text-primary" style="white-space: pre-wrap;">{!! e($order->remarks ?: 'None') !!}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Terms:</td>

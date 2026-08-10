@@ -428,6 +428,7 @@
                                     <tr>
                                         <th>Type</th>
                                         <th>Ref #</th>
+                                        <th>Customer Name</th>
                                         <th>User</th>
                                         <th>Date</th>
                                         <th>Amount/Info</th>
@@ -449,6 +450,7 @@
                                             <span class="document-type-badge {{ $typeClass }}">{{ $item['type'] }}</span>
                                         </td>
                                         <td><strong>{{ $item['reference_no'] }}</strong></td>
+                                        <td>{{ $item['customer_name'] ?? ($item['original']->customer?->customer_name ?? ($item['original']->customer_representative ?? 'N/A')) }}</td>
                                         <td>{{ $item['submitted_by'] }}</td>
                                         <td>{{ \Carbon\Carbon::parse($item['submitted_date'])->timezone('Asia/Manila')->format('Y-m-d h:i A') }}</td>
                                         <td>
@@ -518,6 +520,7 @@
                                     <tr>
                                         <th>Type</th>
                                         <th>Ref #</th>
+                                        <th>Customer Name</th>
                                         <th>Date</th>
                                         <th>Info / Amount</th>
                                         <th>Attachment</th>
@@ -538,6 +541,7 @@
                                             <span class="document-type-badge {{ $typeClass }}">{{ $submission['type'] }}</span>
                                         </td>
                                         <td><strong>{{ $submission['reference_no'] }}</strong></td>
+                                        <td>{{ $submission['customer_name'] ?? ($submission['original']->customer?->customer_name ?? ($submission['original']->customer_representative ?? 'N/A')) }}</td>
                                         <td>{{ \Carbon\Carbon::parse($submission['submitted_date'])->timezone('Asia/Manila')->format('Y-m-d h:i A') }}</td>
                                         <td>{{ $submission['detail'] }}</td>
                                         <td>
@@ -598,6 +602,7 @@
                                     <tr>
                                         <th>Type</th>
                                         <th>Ref #</th>
+                                        <th>Customer Name</th>
                                         <th>Submitted By</th>
                                         <th>Date</th>
                                         <th>Amount / Details</th>
@@ -625,6 +630,7 @@
                                                 </a>
                                             @endif
                                         </td>
+                                        <td>{{ $approved['customer_name'] ?? ($approved['original']->customer?->customer_name ?? ($approved['original']->customer_representative ?? 'N/A')) }}</td>
                                         <td>{{ $approved['submitted_by'] ?? auth()->user()->name }}</td>
                                         <td>{{ \Carbon\Carbon::parse($approved['submitted_date'])->timezone('Asia/Manila')->format('Y-m-d h:i A') }}</td>
                                         <td>
@@ -704,6 +710,7 @@
                                 <tr>
                                     <th>Type</th>
                                     <th>Reference #</th>
+                                    <th>Customer Name</th>
                                     <th>Submitted By</th>
                                     <th>Date</th>
                                     <th>Department</th>
@@ -716,6 +723,7 @@
                                 <tr data-type="Sales Order">
                                     <td><span class="document-type-badge type-sales-order">Sales Order</span></td>
                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                    <td>{{ $order->customer?->customer_name ?? ($order->customer_representative ?: 'N/A') }}</td>
                                     <td>{{ $order->preparedBy->name ?? 'N/A' }}</td>
                                     <td>{{ \Carbon\Carbon::parse($order->created_at)->timezone('Asia/Manila')->format('Y-m-d h:i A') }}</td>
                                     <td>Sales</td>
@@ -737,6 +745,7 @@
                                         </span>
                                     </td>
                                     <td><strong>{{ $approval['reference_no'] }}</strong></td>
+                                    <td>{{ $approval['customer_name'] ?? ($approval['original']->customer?->customer_name ?? ($approval['original']->customer_representative ?? 'N/A')) }}</td>
                                     <td>{{ $approval['submitted_by'] }}</td>
                                     <td>{{ $approval['submitted_date'] }}</td>
                                     <td>{{ $approval['department'] }}</td>
@@ -893,6 +902,10 @@
                                 <h6 class="fw-bold mb-0" style="color: #212529;">Request Details</h6>
                             </div>
                             <div id="modalDescription" class="p-3 rounded-2" style="background: #f8f9fa; min-height: 80px;"></div>
+                            <div class="mt-3">
+                                <label for="modalApprovalRemarks" class="form-label fw-bold small text-dark mb-1"><i class="las la-comment-alt text-primary me-1"></i> Add Action / Approval Remarks (Optional):</label>
+                                <textarea id="modalApprovalRemarks" class="form-control form-control-sm" rows="2" placeholder="Type optional remarks before approving or rejecting..."></textarea>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1075,7 +1088,7 @@
                     'approved_by_admin', 'admin_approved_at',
                     'approved_by_hr', 'hr_approved_at',
                     'approved_by_director', 'director_approved_at',
-                    'rejected_by', 'rejected_at', 'rejection_reason',
+                    'rejected_by', 'rejected_at',
                     'cctv_req_id', 'material_req_id', 'qb_req_id', 'service_req_id', 'undertime_req_id',
                     'prepared_by', 'signed_by_af_manager', 'customer_id', 'requested_by', 'requestor', 'items',
                     'from_site', 'to_site', 'book', 'created_by', 'approved_by', 'accounting_reviewed_by',
@@ -1112,8 +1125,10 @@
                             }
                         }
 
-                        // Formatting logic for booleans
-                        if ((typeof val === 'boolean' || val === 1 || val === 0) && !(key === 'supporting_documents' || key === 'attachment')) {
+                        // Formatting logic for remarks & text areas
+                        if (key === 'remarks' || key === 'notes' || key === 'rejection_reason' || key === 'full_description' || key === 'purpose') {
+                            displayVal = `<div class="text-start bg-white p-2 rounded border font-monospace text-dark" style="white-space: pre-wrap; font-size: 0.85rem;">${displayVal}</div>`;
+                        } else if ((typeof val === 'boolean' || val === 1 || val === 0) && !(key === 'supporting_documents' || key === 'attachment')) {
                             if (key.includes('is_') || key === 'hardcopy' || key === 'viewing') {
                                 displayVal = val ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-light text-dark">No</span>';
                             }
@@ -1180,7 +1195,11 @@
                 let method = 'PUT';
 
                 if (type === 'Sales Order') {
-                    approveUrl = `{{ url('admin-finance/sales-order') }}/${id}/approve`;
+                    if (status === 'pending_dr_approval') {
+                        approveUrl = `{{ url('production/logistic/approve-dr') }}/${id}`;
+                    } else {
+                        approveUrl = `{{ url('admin-finance/sales-order') }}/${id}/approve`;
+                    }
                     rejectUrl = `{{ url('admin-finance/sales-order') }}/${id}/reject`;
                     method = 'POST';
                 } else if (type === 'CCTV') {
@@ -1253,6 +1272,16 @@
                 } else {
                     $('#approveForm').show();
                     $('#rejectForm').show();
+                }
+                
+                $('#modalApprovalRemarks').val('');
+            });
+
+            $(document).on('submit', '#approveForm, #rejectForm', function() {
+                const remarksVal = $('#modalApprovalRemarks').val();
+                if (remarksVal) {
+                    $(this).find('input[name="remarks"]').remove();
+                    $(this).append(`<input type="hidden" name="remarks" value="${remarksVal.replace(/"/g, '&quot;')}">`);
                 }
             });
 

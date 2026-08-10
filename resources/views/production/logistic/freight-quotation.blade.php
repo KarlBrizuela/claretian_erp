@@ -249,11 +249,7 @@
                         <input type="number" name="estimated_freight" step="0.01" placeholder="0.00" id="freightAmount">
                         <input type="number" name="estimated_freight_total" id="freightTotal" readonly style="background: #f0f0f0;">
                     </div>
-                    <div class="rate-row">
-                        <label>Valuation Charge (1%)</label>
-                        <input type="number" name="valuation_percentage" value="1" step="0.01" placeholder="1" id="valuationPercent">
-                        <input type="number" name="valuation_charge_total" id="valuationTotal" readonly style="background: #f0f0f0;">
-                    </div>
+
                     <div class="rate-row">
                         <label id="serviceFeeLabel">Service Fee</label>
                         <div></div>
@@ -423,7 +419,6 @@
 
             function calculateTotals() {
                 const freight = parseFloat(freightInput.value) || 0;
-                const valuationPercent = parseFloat(valuationInput.value) || 0;
                 const isFreightCollect = freightOptionInput?.value === 'freight_collect';
 
                 // Service fee is fixed at 50 pesos only for freight collect
@@ -441,17 +436,14 @@
                 }
 
                 // Calculate totals
-                const valuationCharge = (freight * valuationPercent) / 100;
-                const total = freight + valuationCharge + serviceFee;
+                const total = freight + serviceFee;
 
                 document.getElementById('freightTotal').value = freight.toFixed(2);
-                document.getElementById('valuationTotal').value = valuationCharge.toFixed(2);
                 document.getElementById('serviceFeeTotal').value = serviceFee.toFixed(2);
                 document.getElementById('totalAmount').value = total.toFixed(2);
             }
 
             freightInput?.addEventListener('input', calculateTotals);
-            valuationInput?.addEventListener('input', calculateTotals);
             freightOptionInput?.addEventListener('change', calculateTotals);
             calculateTotals();
         });

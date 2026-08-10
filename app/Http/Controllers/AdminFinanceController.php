@@ -807,6 +807,7 @@ class AdminFinanceController extends Controller
         'type' => 'Sales Order',
         'id' => $req->id,
         'reference_no' => $req->so_number,
+        'customer_name' => $req->customer?->customer_name ?? ($req->customer_representative ?: 'N/A'),
         'submitted_by' => $req->preparedBy->name ?? 'Unknown',
         'submitted_date' => $req->created_at,
         'amount' => '₱' . number_format($req->total_amount, 2),
@@ -837,6 +838,7 @@ class AdminFinanceController extends Controller
         'type' => $req['type'],
         'id' => $req['id'],
         'reference_no' => $req['reference_no'],
+        'customer_name' => $req['customer_name'] ?? ($req['original']->customer?->customer_name ?? ($req['original']->customer_representative ?? 'N/A')),
         'submitted_by' => $req['submitted_by'],
         'submitted_date' => $req['original']->created_at,
         'amount' => $req['amount'] ?? 'N/A', // Use provided amount or default to N/A
@@ -869,6 +871,7 @@ class AdminFinanceController extends Controller
         'type' => 'Sales Order',
         'id' => $so->id,
         'reference_no' => $so->so_number,
+        'customer_name' => $so->customer?->customer_name ?? ($so->customer_representative ?: 'N/A'),
         'submitted_date' => $so->created_at,
         'detail' => '₱' . number_format($so->total_amount, 2),
         'status' => $so->status,
@@ -1113,7 +1116,7 @@ class AdminFinanceController extends Controller
     }
 
     // Sales Orders approved by user
-    $soApproved = \App\Models\SalesOrder::with('preparedBy')->where(function($q) use ($userId) {
+    $soApproved = \App\Models\SalesOrder::with('customer', 'preparedBy')->where(function($q) use ($userId) {
         $q->where('approved_by_acct', $userId)
           ->orWhere('signed_by_af_manager', $userId);
     })->get();
@@ -1122,6 +1125,7 @@ class AdminFinanceController extends Controller
             'type' => 'Sales Order',
             'id' => $so->id,
             'reference_no' => $so->so_number,
+            'customer_name' => $so->customer?->customer_name ?? ($so->customer_representative ?: 'N/A'),
             'submitted_by' => $so->preparedBy->name ?? 'Unknown',
             'submitted_date' => $so->created_at,
             'detail' => '₱' . number_format($so->total_amount, 2),
@@ -1246,25 +1250,25 @@ public function checkVoucher()
 
   public function salesInvoice()
   {
-    // 1. Get SalesOrders pending SI prep/approval (NOT YET signed and approved)
+    // 1. Get SalesOrders pending SI prep/approval (NOT YET signed and approved) ordered newest first
     $pendingOrders = \App\Models\SalesOrder::with('customer', 'preparedBy', 'siPreparedBy')
       ->whereNull('signed_by_af_manager')
       ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created', 'ar_created'])
-      ->latest()
+      ->orderBy('id', 'desc')
       ->get();
 
     $normalOrders = $pendingOrders->filter(function($order) {
         return $order->type !== 'ecom_direct';
-    });
+    })->sortByDesc('id')->values();
 
     $ecomOrders = $pendingOrders->filter(function($order) {
         return $order->type === 'ecom_direct';
-    });
+    })->sortByDesc('id')->values();
 
-    // 2. Get all Completed / Finalized Sales Invoices
+    // 2. Get all Completed / Finalized Sales Invoices ordered newest first
     $completedSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder', 'createdBy')
       ->where('status', 'approved')
-      ->latest()
+      ->orderBy('id', 'desc')
       ->get();
 
     // Ensure all signed/approved SalesOrders have a corresponding entry in $completedSIs (excluding complimentary orders)
@@ -1276,7 +1280,7 @@ public function checkVoucher()
             ->orWhereIn('status', ['ready_for_delivery', 'completed']);
       })
       ->whereNotIn('id', $existingSiSoIds)
-      ->latest()
+      ->orderBy('id', 'desc')
       ->get();
 
     foreach ($signedOrdersWithoutSI as $so) {
@@ -1298,7 +1302,7 @@ public function checkVoucher()
     if ($signedOrdersWithoutSI->count() > 0) {
         $completedSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder', 'createdBy')
           ->where('status', 'approved')
-          ->latest()
+          ->orderBy('id', 'desc')
           ->get();
     }
 
@@ -2650,12 +2654,19 @@ public function checkVoucher()
     \Log::info('Processing approval for SO #' . $order->so_number . ' with ' . $order->items->count() . ' items');
     
 
-    // Normal flow for other transaction types
-    $order->update([
+    $updateData = [
       'status' => 'picking',
       'approved_by_acct' => auth()->id(),
       'acct_approved_at' => now()
-    ]);
+    ];
+
+    if ($request->filled('remarks')) {
+      $userTitle = auth()->user()->name . ' (Admin/Finance)';
+      $updateData['remarks'] = trim(($order->remarks ? $order->remarks . "\n" : '') . '[' . $userTitle . ']: ' . $request->remarks);
+    }
+
+    // Normal flow for other transaction types
+    $order->update($updateData);
 
     // Automatically create a pick list after accounting approval
     try {
@@ -2697,9 +2708,12 @@ public function checkVoucher()
   public function rejectSalesOrder(Request $request, $id)
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
+    $userTitle = auth()->user()->name . ' (Admin/Finance Rejection)';
+    $remarksText = $request->remarks ? $request->remarks : 'Rejected by Admin/Finance';
+    $newRemarks = trim(($order->remarks ? $order->remarks . "\n" : '') . '[' . $userTitle . ']: ' . $remarksText);
     $order->update([
       'status' => 'cancelled',
-      'remarks' => $request->remarks . ' (Rejected by Finance)'
+      'remarks' => $newRemarks
     ]);
 
     return redirect()->route('admin-finance.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');

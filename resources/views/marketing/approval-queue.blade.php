@@ -302,6 +302,7 @@
                                     <tr>
                                         <th>Type</th>
                                         <th>Reference #</th>
+                                        <th>Customer Name</th>
                                         <th>Submitted By</th>
                                         <th>Date</th>
                                         <th>Amount</th>
@@ -315,6 +316,7 @@
                                     <tr>
                                         <td><span class="document-type-badge type-sales-order">Sales Order</span></td>
                                         <td><strong>{{ $order->so_number }}</strong></td>
+                                        <td>{{ $order->customer?->customer_name ?? ($order->customer_representative ?: 'N/A') }}</td>
                                         <td>{{ $order->preparedBy->name ?? 'N/A' }}</td>
                                         <td>{{ optional($order->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
@@ -340,6 +342,7 @@
                                     <tr>
                                         <td><span class="document-type-badge badge-info" style="background-color: #e3f2fd; color: #0d47a1;">Cash Advance</span></td>
                                         <td><strong>CA-{{ str_pad($advance->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                        <td><span class="text-muted">N/A</span></td>
                                         <td>{{ $advance->user->name ?? $advance->employee_name }}</td>
                                         <td>{{ optional($advance->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>₱{{ number_format($advance->amount, 2) }}</td>
@@ -365,6 +368,7 @@
                                     <tr>
                                         <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
                                         <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                        <td><span class="text-muted">N/A</span></td>
                                         <td>{{ $transfer->fromSite->name ?? 'N/A' }}</td>
                                         <td>{{ optional($transfer->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>{{ $transfer->quantity }} units</td>
@@ -390,6 +394,7 @@
                                     <tr>
                                         <td><span class="document-type-badge type-job-order">CCTV</span></td>
                                         <td><strong>CCTV-{{ str_pad($req->cctv_req_id, 4, '0', STR_PAD_LEFT) }}</strong></td>
+                                        <td><span class="text-muted">N/A</span></td>
                                         <td>{{ $req->user->name ?? $req->requested_by }}</td>
                                         <td>{{ optional($req->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>N/A</td>
@@ -430,6 +435,7 @@
                                     <tr>
                                         <th>Type</th>
                                         <th>Ref #</th>
+                                        <th>Customer Name</th>
                                         <th>Date</th>
                                         <th>Amount</th>
                                         <th>Status</th>
@@ -446,6 +452,7 @@
                                             <span class="document-type-badge {{ $typeClass }}">{{ $submission->type }}</span>
                                         </td>
                                         <td><strong>{{ $submission->reference_no }}</strong></td>
+                                        <td>{{ $submission->original->customer?->customer_name ?? ($submission->original->customer_representative ?? 'N/A') }}</td>
                                         <td>
                                             @php
                                                 if (isset($submission->submitted_date) && $submission->submitted_date instanceof \Carbon\Carbon) {
@@ -501,6 +508,7 @@
                                     <tr>
                                         <th>Type</th>
                                         <th>Ref #</th>
+                                        <th>Customer Name</th>
                                         <th>Submitted By</th>
                                         <th>Date</th>
                                         <th>Amount / Details</th>
@@ -513,6 +521,7 @@
                                     <tr>
                                         <td><span class="document-type-badge badge-info" style="background-color: #e3f2fd; color: #0d47a1;">{{ $approved->type }}</span></td>
                                         <td><strong>{{ $approved->reference_no }}</strong></td>
+                                        <td>{{ $approved->original->customer?->customer_name ?? ($approved->original->customer_representative ?? 'N/A') }}</td>
                                         <td>{{ $approved->submitted_by }}</td>
                                         <td>
                                             @php
@@ -587,6 +596,7 @@
                                 <tr>
                                     <th>Type</th>
                                     <th>Ref #</th>
+                                    <th>Customer Name</th>
                                     <th>User</th>
                                     <th>Date</th>
                                     <th>Amount</th>
@@ -599,6 +609,7 @@
                                 <tr data-type="Sales Order">
                                     <td><span class="document-type-badge type-sales-order">Sales Order</span></td>
                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                    <td>{{ $order->customer?->customer_name ?? ($order->customer_representative ?: 'N/A') }}</td>
                                     <td>{{ $order->preparedBy->name ?? 'N/A' }}</td>
                                     <td>{{ $order->created_at->format('Y-m-d h:i A') }}</td>
                                     <td>₱{{ number_format($order->total_amount, 2) }}</td>
@@ -613,6 +624,7 @@
                                 <tr data-type="Cash Advance">
                                     <td><span class="document-type-badge badge-info" style="background-color: #e3f2fd; color: #0d47a1;">Cash Advance</span></td>
                                     <td><strong>CA-{{ str_pad($advance->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                    <td><span class="text-muted">N/A</span></td>
                                     <td>{{ $advance->user->name ?? $advance->employee_name }}</td>
                                     <td>{{ $advance->created_at->format('Y-m-d h:i A') }}</td>
                                     <td>₱{{ number_format($advance->amount, 2) }}</td>
@@ -638,6 +650,7 @@
                                 <tr data-type="Stock Transfer">
                                     <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
                                     <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                    <td><span class="text-muted">N/A</span></td>
                                     <td>{{ $transfer->fromSite->name ?? 'N/A' }}</td>
                                     <td>{{ $transfer->created_at->format('Y-m-d h:i A') }}</td>
                                     <td>{{ $transfer->quantity }} units</td>

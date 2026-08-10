@@ -37,8 +37,13 @@
                                  <input type="text" value="{{ $pickList->salesOrder?->customer_contact ?: ($pickList->salesOrder?->customer?->mobile ?: ($pickList->salesOrder?->customer?->main_phone ?: 'N/A')) }}" readonly>
                              </div>
                              <div class="form-group">
-                                 <label>Remarks:</label>
-                                 <textarea class="form-control" style="background:#f8f9fa; font-weight:600;" readonly rows="2">{{ $pickList->salesOrder?->remarks ?: '—' }}</textarea>
+                                 <label>Remarks / Notes:</label>
+                                 <div class="d-flex flex-column gap-2">
+                                     <textarea id="pickListDetailsRemarks" class="form-control" style="background:#fff; font-weight:600;" rows="2" placeholder="Enter remarks or special instructions...">{{ $pickList->notes ?: ($pickList->salesOrder?->remarks ?: '') }}</textarea>
+                                     <button type="button" class="btn btn-sm btn-primary align-self-start" onclick="savePickListDetailsRemarks()" style="background:#0d6efd; border:none; border-radius:6px; font-weight:600; padding: 0.5rem 1.25rem;">
+                                         <i class="las la-save me-1"></i>Save Remarks
+                                     </button>
+                                 </div>
                              </div>
                         </div>
                         <div class="order-info-box">
@@ -154,6 +159,9 @@
                                 <i class="las la-check-circle me-2"></i>Mark as Gathered
                             </button>
                         </form>
+                        <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary" style="background: #0d6efd; border: none; color: white; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            <i class="las la-tag me-2"></i>Shipping Label
+                        </a>
                         <button type="button" class="btn btn-info" style="background: #17a2b8; border: none; color: white; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="window.print()">
                             <i class="las la-print me-2"></i>Print
                         </button>
@@ -230,6 +238,35 @@
     @endpush
 
     @push('scripts')
-   
+    <script>
+        function savePickListDetailsRemarks() {
+            const remarks = document.getElementById('pickListDetailsRemarks').value;
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            fetch('/production/logistic/pick-list/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    order_id: {{ $pickList->salesOrder?->id ?? 'null' }},
+                    so_number: '{{ $pickList->salesOrder?->so_number }}',
+                    remarks: remarks
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Remarks saved successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to save remarks'));
+                }
+            })
+            .catch(err => alert('Error saving remarks: ' + err.message));
+        }
+    </script>
     @endpush
 </x-app-layout>

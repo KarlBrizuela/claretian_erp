@@ -231,7 +231,14 @@
                                                 <span class="table-status-badge bg-warning text-dark text-nowrap">Reconsignment Pending</span>
                                             @endif
                                         </td>
-                                        <td>{{ $order->preparedBy->name ?? 'System' }}</td>
+                                        <td>
+                                            @if($order->drPreparedBy)
+                                                <span class="fw-bold text-dark">{{ $order->drPreparedBy->name }}</span>
+                                                <br><small class="text-muted">DR Approver</small>
+                                            @else
+                                                {{ $order->preparedBy->name ?? 'System' }}
+                                            @endif
+                                        </td>
                                         <td>
                                             <div class="d-flex gap-1">
                                                 <a href="{{ route('production.logistic.delivery-receipt', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View/Create DR">

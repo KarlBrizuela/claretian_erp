@@ -291,15 +291,15 @@
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold" style="font-size: 0.85rem;"> Number of Boxes: <span class="text-danger">*</span></label>
                                                 <input type="number" class="form-control form-control-sm @error('boxes_count') is-invalid @enderror" 
-                                                       name="boxes_count" min="1" value="{{ old('boxes_count', $quotation->boxes_count) }}" 
+                                                       name="boxes_count" min="0" value="{{ old('boxes_count', $quotation->boxes_count ?? 0) }}" 
                                                        required placeholder="e.g., 5" style="height: 1.75rem; font-size: 0.85rem;">
                                                 @error('boxes_count')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold" style="font-size: 0.85rem;"> Estimated Freight Charge (₱): <span class="text-danger">*</span></label>
                                                 <input type="number" class="form-control form-control-sm @error('estimated_freight') is-invalid @enderror" 
-                                                       name="estimated_freight" step="0.01" min="0.01" 
-                                                       value="{{ old('estimated_freight', $quotation->estimated_freight > 0 ? $quotation->estimated_freight : '') }}" required 
+                                                       name="estimated_freight" step="0.01" min="0" 
+                                                       value="{{ old('estimated_freight', $quotation->estimated_freight ?? 0) }}" required 
                                                        placeholder="e.g., 5000.00" style="height: 1.75rem; font-size: 0.85rem;">
                                                 @error('estimated_freight')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
                                             </div>
@@ -609,10 +609,10 @@
                 const freightInput = document.querySelector('input[name="estimated_freight"]');
                 const notesInput = document.querySelector('textarea[name="logistics_notes"]');
                 
-                if (boxesInput && boxesInput.value) {
+                if (boxesInput && boxesInput.value !== '') {
                     document.getElementById('cargo_boxes_count_hidden').value = boxesInput.value;
                 }
-                if (freightInput && freightInput.value) {
+                if (freightInput && freightInput.value !== '') {
                     document.getElementById('cargo_estimated_freight_hidden').value = freightInput.value;
                 }
                 if (notesInput && notesInput.value) {

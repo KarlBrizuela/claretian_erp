@@ -1077,8 +1077,13 @@
                     <input type="text" id="detailContact" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Remarks:</label>
-                    <textarea id="detailRemarks" class="form-control" style="background:#f8f9fa; font-weight:600;" readonly rows="2"></textarea>
+                    <label>Remarks / Special Instructions:</label>
+                    <div class="d-flex flex-column gap-2">
+                        <textarea id="detailRemarks" class="form-control" style="background:#fff; font-weight:600;" placeholder="Enter remarks or special instructions..." rows="2"></textarea>
+                        <button type="button" class="btn btn-sm btn-primary align-self-start mt-1" onclick="savePackingRemarksOnly()" style="background:#0d6efd; border:none; border-radius:6px; font-weight:600; padding: 0.4rem 1rem;">
+                            <i class="fas fa-save me-1"></i>Save Remarks
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>SI Signed Date:</label>
@@ -1179,6 +1184,11 @@
                 <div class="form-group">
                     <button type="button" class="btn btn-success" style="width: 100%; margin-bottom: 0.5rem; background: #ffc107; color: #000; border: none; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;" id="savePackingBtn" onclick="savePackingData()">
                         <i class="las la-save"></i> Save Packing
+                    </button>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-outline-primary" style="width: 100%; margin-bottom: 0.5rem; border: 1px solid #0d6efd; color: #0d6efd; background: #fff; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="openPackingShippingLabel()">
+                        <i class="fas fa-tag me-1"></i> Print / View Shipping Label
                     </button>
                 </div>
                 <div class="form-group">
@@ -1632,38 +1642,38 @@
         // Initialize DataTable and Event Listeners
         $(document).ready(function() {
             $('#packingTable').DataTable({
-                order: [[1, 'desc']],
+                order: [],
                 pageLength: 25,
                 responsive: true
             });
 
             // Initialize E-Com Packing Tables
             $('#lazadaPackingTable').DataTable({
-                order: [[1, 'desc']],
+                order: [],
                 pageLength: 25,
                 responsive: true
             });
 
             $('#shopeePackingTable').DataTable({
-                order: [[1, 'desc']],
+                order: [],
                 pageLength: 25,
                 responsive: true
             });
 
             $('#tiktokPackingTable').DataTable({
-                order: [[1, 'desc']],
+                order: [],
                 pageLength: 25,
                 responsive: true
             });
 
             $('#readyForPickupTableAll, #readyForPickupTableShopee, #readyForPickupTableTiktok, #readyForPickupTableLazada').DataTable({
-                order: [[1, 'desc']],
+                order: [],
                 pageLength: 25,
                 responsive: true
             });
 
             $('#complimentaryPackingTable').DataTable({
-                order: [[1, 'desc']],
+                order: [],
                 pageLength: 25,
                 responsive: true
             });
@@ -1945,11 +1955,10 @@
                     setInputValue('detailCustomerName', order.customer?.customer_name || 'N/A');
                     setInputValue('detailRepresentative', order.customer_representative || 'N/A');
                     setInputValue('detailContact', order.customer_contact || order.customer?.mobile || order.customer?.main_phone || 'N/A');
-                    setInputValue('detailRemarks', order.remarks || '—');
-                    setInputValue('siSignedDate', order.signed_at ? new Date(order.signed_at).toLocaleDateString() : 'N/A');
-
-                    // Get packing data from order
-                    const packingData = order.packing_data ? JSON.parse(order.packing_data) : {};
+                    const packingData = order.packing_data ? (typeof order.packing_data === 'string' ? JSON.parse(order.packing_data) : order.packing_data) : {};
+                    setInputValue('detailRemarks', order.remarks || (packingData.remarks || ''));
+                    const signedDate = order.signed_at ? new Date(order.signed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : (order.acct_approved_at ? new Date(order.acct_approved_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Not Signed Yet');
+                    setInputValue('siSignedDate', signedDate);
                     setInputValue('packingStatus', packingData.status || 'not_started');
                     setInputValue('packingBoxesCount', packingData.boxes_count || '');
 
@@ -2247,6 +2256,7 @@
                     order_id: currentOrderId,
                     packing_status: document.getElementById('packingStatus').value,
                     boxes_count: document.getElementById('packingBoxesCount').value,
+                    remarks: document.getElementById('detailRemarks') ? document.getElementById('detailRemarks').value : '',
                     items: packingItems,
                     attachments: {
                         photo_1: photo1Base64,
@@ -2611,6 +2621,44 @@
             }
         }
 
+        function openPackingShippingLabel() {
+            if (!currentOrderId) {
+                alert('Please select an order first.');
+                return;
+            }
+            window.open('/production/logistic/shipping-label/' + currentOrderId, '_blank');
+        }
+
+        function savePackingRemarksOnly() {
+            if (!currentOrderId) {
+                alert('No order selected');
+                return;
+            }
+            const remarks = document.getElementById('detailRemarks').value;
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+            fetch('/production/logistic/packing/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    order_id: currentOrderId,
+                    remarks: remarks,
+                    packing_status: document.getElementById('packingStatus')?.value || 'not_started'
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Packing remarks saved successfully!');
+                } else {
+                    alert('Error saving remarks: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Error saving remarks: ' + err.message));
+        }
     </script>
     @endpush
 

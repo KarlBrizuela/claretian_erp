@@ -79,7 +79,7 @@
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Remarks:</td>
-                                <td class="text-black fw-bold text-primary">{{ $order->remarks ?: '—' }}</td>
+                                <td class="text-black fw-bold text-primary" style="white-space: pre-wrap;">{!! e($order->remarks ?: '—') !!}</td>
                             </tr>
                         </table>
                     </div>
@@ -240,20 +240,27 @@
                             <i class="las la-arrow-left me-2"></i>Back to Queue
                         </button>
                     </div>
-                    <div class="d-flex gap-2">
-                        <form action="{{ route('production.sales-order.reject', $order->id) }}" method="POST" id="rejectForm">
-                            @csrf
-                            <input type="hidden" name="remarks" id="rejectRemarks">
-                            <button type="button" class="btn btn-outline-danger" onclick="confirmReject()">
-                                <i class="las la-times-circle me-2"></i>Reject Order
-                            </button>
-                        </form>
-                        <form action="{{ route('production.sales-order.approve', $order->id) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="btn btn-success">
-                                <i class="las la-check-circle me-2"></i>Approve Order
-                            </button>
-                        </form>
+                    <div class="d-flex flex-column align-items-end gap-2 w-100 ms-3">
+                        <div class="w-100 text-start" style="max-width: 400px;">
+                            <label class="form-label fw-bold text-dark small mb-1"><i class="las la-comment-alt text-primary me-1"></i> Action / Approval Remarks (Optional):</label>
+                            <textarea id="prodApprovalRemarks" class="form-control form-control-sm" rows="2" placeholder="Enter optional notes before approving or rejecting..."></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <form action="{{ route('production.sales-order.reject', $order->id) }}" method="POST" id="rejectForm">
+                                @csrf
+                                <input type="hidden" name="remarks" id="rejectRemarks">
+                                <button type="button" class="btn btn-outline-danger" onclick="confirmReject()">
+                                    <i class="las la-times-circle me-2"></i>Reject Order
+                                </button>
+                            </form>
+                            <form action="{{ route('production.sales-order.approve', $order->id) }}" method="POST" onsubmit="document.getElementById('approveProdRemarksInput').value = document.getElementById('prodApprovalRemarks').value;">
+                                @csrf
+                                <input type="hidden" name="remarks" id="approveProdRemarksInput">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="las la-check-circle me-2"></i>Approve Order
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>

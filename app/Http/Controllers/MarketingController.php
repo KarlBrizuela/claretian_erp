@@ -2000,11 +2000,18 @@ class MarketingController extends Controller
         // All other SO types proceed to Accounting approval after Marketing Manager approval
         $nextStatus = $order->type === 'ecom_direct' ? 'pending_si_prep' : 'pending_acct_approval';
         
-        $order->update([
+        $updateData = [
             'status' => $nextStatus,
             'approved_by_mkt' => auth()->id(),
             'mkt_approved_at' => now()
-        ]);
+        ];
+
+        if ($request->filled('remarks')) {
+            $userTitle = auth()->user()->name . ' (Marketing)';
+            $updateData['remarks'] = trim(($order->remarks ? $order->remarks . "\n" : '') . '[' . $userTitle . ']: ' . $request->remarks);
+        }
+        
+        $order->update($updateData);
 
         $successMsg = 'Sales Order #' . $order->so_number . ' has been approved by Marketing.';
         if ($order->type === 'ecom_direct') {
@@ -2023,10 +2030,12 @@ class MarketingController extends Controller
         }
 
         $order = \App\Models\SalesOrder::findOrFail($id);
-        $remarksText = $request->remarks ? ($request->remarks . ' (Rejected by Marketing)') : 'Rejected by Marketing';
+        $userTitle = auth()->user()->name . ' (Marketing Rejection)';
+        $remarksText = $request->remarks ? $request->remarks : 'Rejected by Marketing';
+        $newRemarks = trim(($order->remarks ? $order->remarks . "\n" : '') . '[' . $userTitle . ']: ' . $remarksText);
         $order->update([
             'status' => 'cancelled',
-            'remarks' => $remarksText
+            'remarks' => $newRemarks
         ]);
 
         return redirect()->route('marketing.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');

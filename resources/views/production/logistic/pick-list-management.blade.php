@@ -70,6 +70,9 @@
                                                     style="background: #ffc107; border: none; color: #000;">
                                                 <i class="las la-redo me-1"></i> Recreate
                                             </button>
+                                            <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-sm btn-outline-primary ms-1" title="Print Shipping Label">
+                                                <i class="las la-tag me-1"></i> Label
+                                            </a>
                                         </td>
                                     </tr>
                                     @endforeach
@@ -150,6 +153,9 @@
                                                     style="background: #ff0000; border: none;">
                                                 <i class="las la-eye me-1"></i> View Items
                                             </button>
+                                            <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-sm btn-outline-primary ms-1" title="Print Shipping Label">
+                                                <i class="las la-tag me-1"></i> Label
+                                            </a>
                                             @if(optional($pickList->salesOrder)->ecom_platform)
                                             <button type="button" class="btn btn-sm link-to-pack-btn"
                                                     data-order-id="{{ $pickList->salesOrder->id ?? '' }}"
@@ -212,6 +218,10 @@
                                     <label>Prepared By:</label>
                                     <input type="text" id="preparedBy" value="{{ auth()->user()->name ?? 'N/A' }}" readonly>
                                 </div>
+                                <div class="form-group">
+                                     <label>Remarks / Notes:</label>
+                                     <textarea id="pickListRemarks" class="form-control" rows="2" placeholder="Enter remarks or special instructions..."></textarea>
+                                 </div>
                             </div>
                         </div>
 
@@ -262,6 +272,11 @@
                                 <div class="form-group">
                                     <button type="button" class="btn btn-secondary-custom" style="width: 100%; margin-bottom: 0.5rem;" onclick="printPickList()">
                                         <i class="las la-print"></i> Print Pick List
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-outline-primary" style="width: 100%; margin-bottom: 0.5rem; border: 1px solid #0d6efd; color: #0d6efd; background: #fff; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="openPickListShippingLabel()">
+                                        <i class="las la-tag me-1"></i> Print / View Shipping Label
                                     </button>
                                 </div>
                                 <div class="form-group" id="packManagementLinkGroup" style="display: none;">
@@ -915,11 +930,14 @@
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i class="las la-spinner la-spin"></i> Saving...';
 
+            const remarksValue = document.getElementById('pickListRemarks')?.value || '';
+
             // Send to backend
             console.log('Sending request to /production/logistic/pick-list/save with data:', {
                 order_id: orderId,
                 so_number: soNumber,
-                picked_items: pickedItems
+                picked_items: pickedItems,
+                remarks: remarksValue
             });
             
             fetch('/production/logistic/pick-list/save', {
@@ -931,7 +949,8 @@
                 body: JSON.stringify({
                     order_id: orderId,
                     so_number: soNumber,
-                    picked_items: pickedItems
+                    picked_items: pickedItems,
+                    remarks: remarksValue
                 })
             })
             .then(response => {
@@ -1207,6 +1226,16 @@
                 }
             });
         });
+
+        function openPickListShippingLabel() {
+            const detailPanel = document.getElementById('orderDetailPanel');
+            const orderId = detailPanel?.dataset?.orderId || document.getElementById('pickListIdHidden')?.value;
+            if (!orderId) {
+                alert('Please select a pick list to print first.');
+                return;
+            }
+            window.open(`/production/logistic/shipping-label/${orderId}`, '_blank');
+        }
     </script>
     @endpush
 </x-app-layout>

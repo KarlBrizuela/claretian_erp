@@ -1444,7 +1444,7 @@ class LogisticController extends Controller
             $request->validate([
                 'order_id' => 'required|exists:sales_orders,id',
                 'so_number' => 'required|string',
-                'picked_items' => 'required|array|min:1'
+                'picked_items' => 'nullable|array'
             ]);
 
             $order = \App\Models\SalesOrder::findOrFail($request->order_id);
@@ -1458,50 +1458,58 @@ class LogisticController extends Controller
                 // Generate unique pick list number only if creating new
                 $pickListNumber = 'PL-' . $request->so_number . '-' . now()->format('YmdHis');
                 
+                $remarks = $request->input('remarks', $request->input('notes', null));
                 // Create the PickList record
                 $pickList = \App\Models\PickList::create([
                     'sales_order_id' => $order->id,
                     'pick_list_number' => $pickListNumber,
                     'status' => 'in_progress',
                     'prepared_by' => auth()->id(),
-                    'notes' => $request->input('notes', null),
+                    'notes' => $remarks,
                 ]);
             } else {
+                $remarks = $request->input('remarks', $request->input('notes', $pickList->notes));
                 // Update existing pick list
                 $pickList->update([
-                    'notes' => $request->input('notes', null),
+                    'notes' => $remarks,
                 ]);
                 // Delete old items so we can recreate them
                 $pickList->pickListItems()->delete();
             }
 
+            if ($request->has('remarks') || $request->has('notes')) {
+                $order->update(['remarks' => $remarks]);
+            }
+
             // Get the sales order items for matching
             $soItems = $order->items()->get();
 
-            // Create PickListItem records for each picked item
-            foreach ($request->picked_items as $pickedItem) {
-                // Try to match by item_index first, then by product name
-                $matchedItem = null;
-                
-                // If item_index is provided, use it directly
-                if (isset($pickedItem['item_index'])) {
-                    $matchedItem = $soItems[$pickedItem['item_index']] ?? null;
-                } else {
-                    // Fallback: match by product name
-                    $matchedItem = $soItems->first(function ($item) use ($pickedItem) {
-                        return $item->book->name === $pickedItem['product'];
-                    });
-                }
+            // Create PickListItem records for each picked item if provided
+            if ($request->has('picked_items') && is_array($request->picked_items)) {
+                foreach ($request->picked_items as $pickedItem) {
+                    // Try to match by item_index first, then by product name
+                    $matchedItem = null;
+                    
+                    // If item_index is provided, use it directly
+                    if (isset($pickedItem['item_index'])) {
+                        $matchedItem = $soItems[$pickedItem['item_index']] ?? null;
+                    } else {
+                        // Fallback: match by product name
+                        $matchedItem = $soItems->first(function ($item) use ($pickedItem) {
+                            return $item->book->name === $pickedItem['product'];
+                        });
+                    }
 
-                if ($matchedItem) {
-                    \App\Models\PickListItem::create([
-                        'pick_list_id' => $pickList->id,
-                        'sales_order_item_id' => $matchedItem->id,
-                        'requested_qty' => $matchedItem->quantity,
-                        'picked_qty' => floatval($pickedItem['picked_qty']),
-                        'status' => $pickedItem['status'] ?? 'pending',
-                        'notes' => $pickedItem['notes'] ?? null,
-                    ]);
+                    if ($matchedItem) {
+                        \App\Models\PickListItem::create([
+                            'pick_list_id' => $pickList->id,
+                            'sales_order_item_id' => $matchedItem->id,
+                            'requested_qty' => $matchedItem->quantity,
+                            'picked_qty' => floatval($pickedItem['picked_qty']),
+                            'status' => $pickedItem['status'] ?? 'pending',
+                            'notes' => $pickedItem['notes'] ?? null,
+                        ]);
+                    }
                 }
             }
 
@@ -1523,8 +1531,8 @@ class LogisticController extends Controller
                 'reference_id' => $pickList->id,
                 'details' => json_encode([
                     'pick_list_number' => $pickList->pick_list_number,
-                    'items_count' => count($request->picked_items),
-                    'total_picked' => array_sum(array_column($request->picked_items, 'picked_qty'))
+                    'items_count' => is_array($request->picked_items) ? count($request->picked_items) : 0,
+                    'total_picked' => is_array($request->picked_items) ? array_sum(array_column($request->picked_items, 'picked_qty')) : 0
                 ])
             ]);
 
@@ -1541,6 +1549,28 @@ class LogisticController extends Controller
         }
     }
 
+    public function shippingLabel($id, Request $request)
+    {
+        $order = \App\Models\SalesOrder::with('customer', 'items.book')->find($id);
+        if (!$order) {
+            $pickList = \App\Models\PickList::with('salesOrder.customer', 'salesOrder.items.book')->find($id);
+            if ($pickList && $pickList->salesOrder) {
+                $order = $pickList->salesOrder;
+            } else {
+                abort(404, 'Order or Pick List not found');
+            }
+        }
+
+        $address = $request->query('address')
+            ? urldecode($request->query('address'))
+            : ($order->shipping_address ?: ($order->customer->shipping_address ?? ($order->customer->billing_address ?? 'N/A')));
+
+        return view('production.logistic.shipping-label', [
+            'order' => $order,
+            'address' => $address
+        ]);
+    }
+
     public function packingManagement(Request $request)
     {
         // Get orders ready for packing - EXCLUDING ecom_direct and complimentary
@@ -1554,7 +1584,7 @@ class LogisticController extends Controller
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
             })
-            ->orderByRaw('COALESCE(signed_at, created_at) DESC')
+            ->orderBy('id', 'desc')
             ->get();
 
         // Get complimentary orders ready for packing
@@ -1568,7 +1598,7 @@ class LogisticController extends Controller
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
             })
-            ->orderByRaw('COALESCE(signed_at, created_at) DESC')
+            ->orderBy('id', 'desc')
             ->get();
 
         // Get e-commerce direct orders ready for packing
@@ -1582,7 +1612,7 @@ class LogisticController extends Controller
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
             })
-            ->orderByRaw('COALESCE(signed_at, created_at) DESC')
+            ->orderBy('id', 'desc')
             ->get();
 
         // Organize e-com packing orders by platform
@@ -1612,7 +1642,7 @@ class LogisticController extends Controller
                 $query->whereNull('packing_data->gathered_at')
                       ->orWhere('packing_data->gathered_at', '=', null);
             })
-            ->orderBy('updated_at', 'desc')
+            ->orderBy('id', 'desc')
             ->get();
 
         // Organize ready for pickup orders by platform
@@ -1641,7 +1671,7 @@ class LogisticController extends Controller
             ->where('status', 'completed')
             ->whereNotNull('packing_data')
             ->where('packing_data->status', '=', 'gathered')
-            ->orderBy('updated_at', 'desc')
+            ->orderBy('id', 'desc')
             ->get();
 
         // Organize completed drop-off orders by platform
@@ -1792,6 +1822,11 @@ class LogisticController extends Controller
                 $packingData['attachments'] = $attachmentData;
             }
 
+            $remarks = $request->input('remarks');
+            if ($remarks !== null) {
+                $packingData['remarks'] = $remarks;
+            }
+
             if ($isCompleted) {
                 if ($order->type === 'ecom_direct') {
                     $packingData['ready_for_pickup_at'] = now()->toDateTimeString();
@@ -1807,6 +1842,10 @@ class LogisticController extends Controller
                 'packing_data' => json_encode($packingData),
                 'packing_prepared_by' => auth()->user()->name,
             ];
+
+            if ($remarks !== null) {
+                $updateData['remarks'] = $remarks;
+            }
 
             if ($isCompleted && $order->type !== 'ecom_direct') {
                 $isPickup = in_array($order->delivery_method, ['pickup']) || in_array($order->shipping_method, ['pickup']);
@@ -2070,10 +2109,10 @@ class LogisticController extends Controller
                 'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
                 'service_carrier' => 'nullable|string|max:255',
                 'service_remarks' => 'nullable|string',
-                'estimated_freight' => 'required|numeric|min:0.01',
+                'estimated_freight' => 'required|numeric|min:0',
                 'valuation_percentage' => 'nullable|numeric|min:0|max:100',
                 'handling_percentage' => 'nullable|numeric|min:0|max:100',
-                'total_amount' => 'required|numeric|min:0.01',
+                'total_amount' => 'required|numeric|min:0',
             ], [
                 'quote_number.required' => 'Quote number is required',
                 'quote_number.unique' => 'This quote number already exists',
@@ -2082,9 +2121,9 @@ class LogisticController extends Controller
                 'validity_days.required' => 'Validity days is required',
                 'validity_days.min' => 'Validity days must be at least 1',
                 'estimated_freight.required' => 'Estimated freight amount is required',
-                'estimated_freight.min' => 'Estimated freight must be greater than 0',
+                'estimated_freight.min' => 'Estimated freight cannot be negative',
                 'total_amount.required' => 'Total amount is required',
-                'total_amount.min' => 'Total amount must be greater than 0',
+                'total_amount.min' => 'Total amount cannot be negative',
             ]);
 
             // Build cargo items array
@@ -2105,7 +2144,7 @@ class LogisticController extends Controller
 
             // Calculate charges
             $estimatedFreight = (float) $validated['estimated_freight'];
-            $valuationPercent = (float) ($validated['valuation_percentage'] ?? 1);
+            $valuationPercent = (float) ($validated['valuation_percentage'] ?? 0);
             $isFreightCollect = ($validated['freight_option'] ?? null) === 'freight_collect';
             $handlingPercent = $isFreightCollect ? (float) ($validated['handling_percentage'] ?? 20) : 0;
 
@@ -2205,19 +2244,21 @@ class LogisticController extends Controller
         try {
 
             $validated = $request->validate([
-                'estimated_freight' => 'required|numeric|min:0.01',
+                'estimated_freight' => 'required|numeric|min:0',
                 'valuation_percentage' => 'nullable|numeric|min:0|max:100',
                 'handling_percentage' => 'nullable|numeric|min:0|max:100',
-                'boxes_count' => 'required|integer|min:1',
+                'boxes_count' => 'required|integer|min:0',
                 'logistics_notes' => 'nullable|string',
             ], [
                 'estimated_freight.required' => 'Estimated freight is required',
+                'estimated_freight.min' => 'Estimated freight cannot be negative',
                 'boxes_count.required' => 'Number of boxes is required',
+                'boxes_count.min' => 'Number of boxes cannot be negative',
             ]);
 
             // Calculate charges
             $estimatedFreight = (float) $validated['estimated_freight'];
-            $valuationPercent = (float) ($validated['valuation_percentage'] ?? 1);
+            $valuationPercent = (float) ($validated['valuation_percentage'] ?? 0);
             $isFreightCollect = $freightQuotation->freight_option === 'freight_collect';
             $handlingPercent = $isFreightCollect ? (float) ($validated['handling_percentage'] ?? 20) : 0;
 
@@ -2248,7 +2289,7 @@ class LogisticController extends Controller
                         'freight_charges' => $totalAmount,
                         'freight_option' => $freightQuotation->freight_option,
                         'freight_notes' => 'Freight approved: ₱' . number_format($estimatedFreight, 2) . 
-                                         ' (Valuation: ₱' . number_format($valuationCharge, 2) . ', Handling: ₱' . number_format($handlingFee, 2) . ')',
+                                         ' (Handling: ₱' . number_format($handlingFee, 2) . ')',
                     ]);
                     $itemsSubtotal = $salesOrder->items()->sum('subtotal');
                     $serviceFee = $freightQuotation->freight_option === 'freight_collect' ? 50.00 : 0;
@@ -2342,13 +2383,13 @@ class LogisticController extends Controller
                 'cargo_items' => json_encode($cargoItems),
             ];
 
-            if ($request->has('boxes_count') && filled($request->input('boxes_count'))) {
+            if ($request->has('boxes_count') && $request->input('boxes_count') !== null && $request->input('boxes_count') !== '') {
                 $updateData['boxes_count'] = (int) $request->input('boxes_count');
             }
 
-            if ($request->has('estimated_freight') && filled($request->input('estimated_freight'))) {
+            if ($request->has('estimated_freight') && $request->input('estimated_freight') !== null && $request->input('estimated_freight') !== '') {
                 $estimatedFreight = (float) $request->input('estimated_freight');
-                $valuationPercent = (float) ($freightQuotation->valuation_percentage ?? 1);
+                $valuationPercent = (float) ($freightQuotation->valuation_percentage ?? 0);
                 $isFreightCollect = $freightQuotation->freight_option === 'freight_collect';
                 $handlingPercent = $isFreightCollect ? (float) ($freightQuotation->handling_percentage ?? 20) : 0;
 

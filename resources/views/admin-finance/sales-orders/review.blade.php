@@ -125,7 +125,7 @@
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Remarks:</td>
-                                <td class="text-black fw-bold text-primary">{{ $order->remarks ?: '—' }}</td>
+                                <td class="text-black fw-bold text-primary" style="white-space: pre-wrap;">{!! e($order->remarks ?: '—') !!}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Payment Method:</td>
@@ -425,6 +425,10 @@
                                 <span class="badge fs-14 p-2" style="background-color: #6f42c1; color: #fff;"><i class="las la-check-circle me-1"></i>Complimentary Order (Sent to Packing / Logistics)</span>
                             @endif
                         @elseif($order->status === 'pending_acct_approval')
+                            <div class="w-100 mb-3 text-start">
+                                <label class="form-label fw-bold text-dark"><i class="las la-comment-alt text-primary me-1"></i> Add Approval / Action Remarks (Optional):</label>
+                                <textarea name="remarks" id="financeApprovalRemarks" class="form-control" rows="2" placeholder="Enter optional notes before approving or rejecting..."></textarea>
+                            </div>
                             <form action="{{ route('admin-finance.sales-order.reject', $order->id) }}" method="POST" id="rejectForm">
                                 @csrf
                                 <input type="hidden" name="remarks" id="rejectRemarks">
@@ -432,8 +436,9 @@
                                     <i class="las la-times-circle me-2"></i>Reject Order
                                 </button>
                             </form>
-                            <form action="{{ route('admin-finance.sales-order.approve', $order->id) }}" method="POST">
+                            <form action="{{ route('admin-finance.sales-order.approve', $order->id) }}" method="POST" onsubmit="document.getElementById('approveRemarksInput').value = document.getElementById('financeApprovalRemarks').value;">
                                 @csrf
+                                <input type="hidden" name="remarks" id="approveRemarksInput">
                                 <button type="submit" class="btn btn-success">
                                     <i class="las la-check-circle me-2"></i>Approve Order
                                 </button>
