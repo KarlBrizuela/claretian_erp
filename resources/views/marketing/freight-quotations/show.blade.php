@@ -420,13 +420,28 @@
                             </a>
 
                             <div>
-                                @if($quotation->workflow_status === 'approved' && !$quotation->sales_order_id)
-                                    <form method="POST" action="{{ route('marketing.freight-quotations.create-so-directly', $quotation->id) }}" style="display: inline;">
-                                        @csrf
-                                        <button type="submit" class="btn btn-success btn-lg">
-                                            <i class="bi bi-plus-circle me-1"></i>Create Sales Order
-                                        </button>
-                                    </form>
+                                @if(in_array($quotation->workflow_status, ['approved', 'linked_to_so']))
+                                    @if(!$quotation->sales_order_id)
+                                        <form method="POST" action="{{ route('marketing.freight-quotations.create-so-directly', $quotation->id) }}" style="display: inline;">
+                                            @csrf
+                                            <button type="submit" class="btn btn-success btn-lg">
+                                                <i class="bi bi-plus-circle me-1"></i>Create Sales Order
+                                            </button>
+                                        </form>
+                                    @else
+                                        @if($quotation->salesOrder && $quotation->salesOrder->status === 'draft')
+                                            <form method="POST" action="{{ route('marketing.sales-orders.proceed-to-final', $quotation->sales_order_id) }}" style="display: inline;">
+                                                @csrf
+                                                <button type="submit" class="btn btn-success btn-lg">
+                                                    <i class="bi bi-arrow-right-circle me-1"></i>Proceed Sales Order (SO #{{ $quotation->salesOrder->so_number }})
+                                                </button>
+                                            </form>
+                                        @else
+                                            <a href="{{ route('marketing.sales-orders.detail', $quotation->sales_order_id) }}" class="btn btn-info btn-lg">
+                                                <i class="bi bi-box-arrow-up-right me-1"></i>View Sales Order (SO #{{ $quotation->salesOrder->so_number ?? '' }})
+                                            </a>
+                                        @endif
+                                    @endif
                                 @elseif($quotation->workflow_status === 'draft')
                                     <p class="text-muted mb-0">
                                         <i class="bi bi-info-circle me-1"></i>

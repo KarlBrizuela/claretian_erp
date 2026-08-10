@@ -160,7 +160,8 @@
                                                 $displayStatus = 'Picklist Pend';
                                                 $badgeClass = 'status-picking';
                                             } elseif ($order->status == 'draft') {
-                                                if ($order->freight_charges && $order->freight_charges > 0) {
+                                                $isFreightApproved = $order->freight_charges !== null || ($order->freightQuotation && in_array($order->freightQuotation->workflow_status, ['approved', 'linked_to_so']));
+                                                if ($isFreightApproved) {
                                                     $displayStatus = 'Draft (Freight Approved)';
                                                 } else {
                                                     $displayStatus = 'Draft (Pending Freight)';

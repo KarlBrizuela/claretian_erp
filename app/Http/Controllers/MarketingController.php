@@ -1428,8 +1428,8 @@ class MarketingController extends Controller
 
             $displayStatus = str_replace('_', ' ', $order->status);
             if ($order->status === 'draft') {
-                $displayStatus = ($order->freight_charges && $order->freight_charges > 0)
-                    ? 'Draft (Freight Approved)' : 'Draft (Pending Freight)';
+                $isFreightApproved = $order->freight_charges !== null || ($order->freightQuotation && in_array($order->freightQuotation->workflow_status, ['approved', 'linked_to_so']));
+                $displayStatus = $isFreightApproved ? 'Draft (Freight Approved)' : 'Draft (Pending Freight)';
             }
             if ($order->status === 'pending_si_prep')       $displayStatus = 'Gathered (In SI Prep)';
             if ($order->status === 'si_created')            $displayStatus = 'SI Created';
@@ -1673,6 +1673,7 @@ class MarketingController extends Controller
                 $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
                 $fullName = $b->name . $typeSuffix;
                 $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
+                $mainStock = (int) ($b->main_stock ?? $b->stock ?? 0);
 
                 return (object)[
                     'id' => 'book_' . $b->id,
@@ -1681,10 +1682,11 @@ class MarketingController extends Controller
                     'book_id' => $b->id,
                     'name' => $fullName,
                     'category' => $isNonBook ? 'Non-Books' : 'Books',
-                    'display_name' => $prefix . $b->name,
+                    'display_name' => $prefix . $b->name . ' (Stock: ' . $mainStock . ')',
                     'price' => (float) $b->price,
                     'isbn' => $b->isbn ?? $b->barcode ?? $b->sku ?? '',
-                    'stock' => (int) ($b->main_stock ?? 0),
+                    'stock' => $mainStock,
+                    'main_stock' => $mainStock,
                     'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg'),
                 ];
             });
@@ -1696,6 +1698,7 @@ class MarketingController extends Controller
                 $fullName = $bookName . ' (' . $idx->index_value . ')';
                 $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
                 $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
+                $mainStock = (int) ($idx->main_stock ?? $idx->stock ?? 0);
                 return (object)[
                     'id' => 'index_' . $idx->id,
                     'type' => 'index',
@@ -1703,10 +1706,11 @@ class MarketingController extends Controller
                     'book_id' => $idx->book_id,
                     'name' => $fullName,
                     'category' => 'Book Indices',
-                    'display_name' => '[Index] ' . $fullName,
+                    'display_name' => '[Index] ' . $fullName . ' (Stock: ' . $mainStock . ')',
                     'price' => $price,
                     'isbn' => $idx->book?->isbn ?? '',
-                    'stock' => (int) ($idx->main_stock ?? 0),
+                    'stock' => $mainStock,
+                    'main_stock' => $mainStock,
                     'image' => $img,
                 ];
             });
@@ -1716,6 +1720,7 @@ class MarketingController extends Controller
             ->get()
             ->map(function($bun) {
                 $fullName = $bun->name . ' (bundle)';
+                $mainStock = (int) ($bun->main_stock ?? $bun->stock ?? 0);
                 return (object)[
                     'id' => 'bundle_' . $bun->id,
                     'type' => 'bundle',
@@ -1723,10 +1728,11 @@ class MarketingController extends Controller
                     'book_id' => null,
                     'name' => $fullName,
                     'category' => 'Book Bundles',
-                    'display_name' => '[Bundle] ' . $bun->name,
+                    'display_name' => '[Bundle] ' . $bun->name . ' (Stock: ' . $mainStock . ')',
                     'price' => (float) $bun->price,
                     'isbn' => $bun->sku ?? '',
-                    'stock' => (int) ($bun->main_stock ?? 0),
+                    'stock' => $mainStock,
+                    'main_stock' => $mainStock,
                     'image' => asset('images/no-book-cover.svg'),
                 ];
             });
@@ -2054,7 +2060,8 @@ class MarketingController extends Controller
             return redirect()->back()->with('error', 'Only draft sales orders can be finalized.');
         }
 
-        if (!$so->freight_charges || $so->freight_charges <= 0) {
+        $isFreightApproved = $so->freight_charges !== null || ($so->freightQuotation && in_array($so->freightQuotation->workflow_status, ['approved', 'linked_to_so']));
+        if (!$isFreightApproved) {
             return redirect()->back()->with('error', 'Freight charges must be approved before proceeding.');
         }
 
@@ -2069,7 +2076,14 @@ class MarketingController extends Controller
         ]);
 
 
-        $message = 'Sales Order #' . $so->so_number . ' has been finalized with freight charges (₱' . number_format($so->freight_charges, 2) . ') and routed for approval.';
+        if ($so->freightQuotation) {
+            $so->freightQuotation->update([
+                'workflow_status' => 'linked_to_so',
+                'status' => 'approved',
+            ]);
+        }
+
+        $message = 'Sales Order #' . $so->so_number . ' has been finalized with freight charges (₱' . number_format($so->freight_charges ?? 0, 2) . ') and routed for approval.';
         return redirect()->route('marketing.sales-orders.list')->with('success', $message);
     }
 

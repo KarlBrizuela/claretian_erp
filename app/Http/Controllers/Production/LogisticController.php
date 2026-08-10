@@ -2200,13 +2200,13 @@ class LogisticController extends Controller
     {
         $status = $request->query('status', 'all');
 
-        $query = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy'])
-            ->where('workflow_status', 'draft')
-            ->whereNull('responded_by');
+        $query = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy']);
 
-        if ($status === 'responded') {
-            $query = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy'])
-                ->where('workflow_status', 'approved')
+        if ($status === 'pending') {
+            $query->whereIn('workflow_status', ['draft', 'pending_logistics'])
+                ->whereNull('responded_by');
+        } elseif ($status === 'responded') {
+            $query->whereIn('workflow_status', ['approved', 'linked_to_so'])
                 ->whereNotNull('responded_by');
         }
 
@@ -2276,6 +2276,7 @@ class LogisticController extends Controller
                 'total_amount' => $totalAmount,
                 'boxes_count' => $validated['boxes_count'],
                 'logistics_notes' => $validated['logistics_notes'] ?? null,
+                'status' => 'approved',
                 'workflow_status' => 'approved',
                 'responded_by' => auth()->id(),
                 'responded_at' => now(),

@@ -422,6 +422,23 @@
 
                     <!-- My Approvals Tab Content -->
                     <div id="my-approvals-content" class="tab-section">
+                        <!-- SO Transaction Type Filter (Dropdown) -->
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; padding: 0.65rem 1rem; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                            <i class="las la-filter" style="color: #cc0000; font-size: 1.1rem;"></i>
+                            <label for="afSoTypeDropdown" style="font-weight: 600; color: #555; font-size: 0.9rem; margin: 0; white-space: nowrap;">Transaction Type:</label>
+                            <select id="afSoTypeDropdown" onchange="filterAFBySOType(this.value)"
+                                style="padding: 0.4rem 0.85rem; border-radius: 6px; border: 2px solid #cc0000; color: #333; font-weight: 600; font-size: 0.875rem; background: #fff; cursor: pointer; min-width: 200px;">
+                                <option value="">— All Types —</option>
+                                <option value="paid">Paid</option>
+                                <option value="area_sales_consignment">Area Sales</option>
+                                <option value="area_consignment">Area Consignment</option>
+                                <option value="direct_consignment">Direct Consignment</option>
+                                <option value="charge">Charge</option>
+                                <option value="complimentary">Complimentary</option>
+                                <option value="ecom_direct">E-Com Direct</option>
+                                <option value="calculator_pos">Calculator / POS</option>
+                            </select>
+                        </div>
                         <div class="table-responsive">
                             <table id="myApprovalsTable" class="display table table-bordered" style="width: 100%">
                                 <thead>
@@ -439,15 +456,41 @@
                                 </thead>
                                 <tbody>
                                     @foreach($myApprovals as $item)
-                                    <tr>
+                                    @php
+                                        $afItemSoType = ($item['type'] === 'Sales Order' && isset($item['original']->type)) ? $item['original']->type : '';
+                                        $afSOTypeLabels = [
+                                            'paid' => 'Paid',
+                                            'area_sales_consignment' => 'Area Sales',
+                                            'area_consignment' => 'Area Consignment',
+                                            'direct_consignment' => 'Direct Consignment',
+                                            'charge' => 'Charge',
+                                            'complimentary' => 'Complimentary',
+                                            'ecom_direct' => 'E-Com Direct',
+                                            'calculator_pos' => 'Calculator / POS',
+                                        ];
+                                        $afSOTypeLabel = $afSOTypeLabels[$afItemSoType] ?? ucwords(str_replace('_', ' ', $afItemSoType));
+                                        $afSOTypeColors = [
+                                            'paid' => ['bg' => '#d1e7dd', 'color' => '#0a3622'],
+                                            'area_sales_consignment' => ['bg' => '#cfe2ff', 'color' => '#084298'],
+                                            'area_consignment' => ['bg' => '#e0d7ff', 'color' => '#3d0a91'],
+                                            'direct_consignment' => ['bg' => '#ffe5d0', 'color' => '#7d3807'],
+                                            'charge' => ['bg' => '#f8d7da', 'color' => '#58151c'],
+                                            'complimentary' => ['bg' => '#e2e3e5', 'color' => '#41464b'],
+                                            'ecom_direct' => ['bg' => '#cff4fc', 'color' => '#055160'],
+                                            'calculator_pos' => ['bg' => '#fff3cd', 'color' => '#664d03'],
+                                        ];
+                                        $afSOColor = $afSOTypeColors[$afItemSoType] ?? null;
+                                        $typeClass = 'type-sales-order';
+                                        if($item['type'] === 'Stock Transfer') $typeClass = 'type-stock-transfer';
+                                        elseif($item['type'] === 'Payment Request') $typeClass = 'type-payment-request';
+                                        elseif($item['type'] !== 'Sales Order') $typeClass = 'type-job-order';
+                                    @endphp
+                                    <tr data-so-type="{{ $afItemSoType }}">
                                         <td>
-                                            @php
-                                                $typeClass = 'type-sales-order';
-                                                if($item['type'] === 'Stock Transfer') $typeClass = 'type-stock-transfer';
-                                                elseif($item['type'] === 'Payment Request') $typeClass = 'type-payment-request';
-                                                elseif($item['type'] !== 'Sales Order') $typeClass = 'type-job-order';
-                                            @endphp
                                             <span class="document-type-badge {{ $typeClass }}">{{ $item['type'] }}</span>
+                                            @if($afItemSoType && $afSOColor)
+                                            <br><span style="display: inline-block; margin-top: 3px; padding: 2px 7px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; background: {{ $afSOColor['bg'] }}; color: {{ $afSOColor['color'] }};">{{ $afSOTypeLabel }}</span>
+                                            @endif
                                         </td>
                                         <td><strong>{{ $item['reference_no'] }}</strong></td>
                                         <td>{{ $item['customer_name'] ?? ($item['original']->customer?->customer_name ?? ($item['original']->customer_representative ?? 'N/A')) }}</td>
@@ -973,6 +1016,24 @@
                 } else {
                     queueTable.column(0).search(filterValue).draw();
                 }
+            }
+        }
+
+        // Filter For Approval table by SO transaction type (reads data-so-type on <tr>)
+        let afCurrentSOTypeFilter = '';
+
+        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, row, counter) {
+            if (settings.nTable.id !== 'myApprovalsTable') return true;
+            if (!afCurrentSOTypeFilter) return true;
+            var nTr = settings.aoData[dataIndex] ? settings.aoData[dataIndex].nTr : null;
+            var soType = nTr ? ($(nTr).attr('data-so-type') || '') : '';
+            return soType === afCurrentSOTypeFilter;
+        });
+
+        function filterAFBySOType(typeValue) {
+            afCurrentSOTypeFilter = typeValue;
+            if (myApprovalsTable) {
+                myApprovalsTable.draw();
             }
         }
 

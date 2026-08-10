@@ -285,14 +285,21 @@
 
                 @php
                     $preparedByName = 'System';
+                    $approvedByName = 'Pending Approval';
                     if ($order) {
                         if ($order->drPreparedBy) {
                             $preparedByName = $order->drPreparedBy->name;
+                            $approvedByName = $order->drPreparedBy->name;
                         } elseif ($order->preparedBy) {
                             $preparedByName = $order->preparedBy->name;
                         }
+
+                        if (!$approvedByName || $approvedByName === 'Pending Approval') {
+                            $approvedByName = $order->signedBy->name ?? ($order->acctApprovedBy->name ?? ($order->mktApprovedBy->name ?? 'Pending Approval'));
+                        }
                     } elseif (auth()->check()) {
                         $preparedByName = auth()->user()->name;
+                        $approvedByName = auth()->user()->name;
                     }
 
                     $receivedByName = $order ? ($order->customer_representative ?: ($order->customer->customer_name ?? '')) : '';
@@ -306,8 +313,18 @@
                             <input type="text" id="preparedBy" class="form-control" placeholder="Enter name" value="{{ $preparedByName }}">
                             <span class="signature-value-display" id="preparedByDisplay">{{ $preparedByName }}</span>
                         </div>
-                        <div style="text-align: center; margin-top: 0.75rem;">
-                            <div style="border-top: 1px solid #000; width: 85%; margin: 0 auto; padding-top: 0.2rem; font-size: 0.75rem; font-weight: bold;">SIGNATURE</div>
+                        <div style="text-align: center; margin-top: 0.5rem;">
+                            <div style="border-top: 1px solid #000; width: 85%; margin: 0 auto; padding-top: 0.2rem; font-size: 0.75rem; font-weight: bold;">SIGNATURE OVER PRINTED NAME</div>
+                        </div>
+                    </div>
+                    <div class="signature-box">
+                        <label class="fw-bold">Approved by:</label>
+                        <div class="signature-input-wrapper">
+                            <input type="text" id="approvedBy" class="form-control" placeholder="Enter name" value="{{ $approvedByName }}">
+                            <span class="signature-value-display" id="approvedByDisplay">{{ $approvedByName }}</span>
+                        </div>
+                        <div style="text-align: center; margin-top: 0.5rem;">
+                            <div style="border-top: 1px solid #000; width: 85%; margin: 0 auto; padding-top: 0.2rem; font-size: 0.75rem; font-weight: bold;">SIGNATURE OVER PRINTED NAME</div>
                         </div>
                     </div>
                     <div class="signature-box">
@@ -316,8 +333,8 @@
                             <input type="text" id="receivedBy" class="form-control received-by-input" placeholder="Enter name" value="{{ $receivedByName }}">
                             <span class="signature-value-display" id="receivedByDisplay">{{ $receivedByName }}</span>
                         </div>
-                        <div style="text-align: center; margin-top: 0.75rem;">
-                            <div style="border-top: 1px solid #000; width: 85%; margin: 0 auto; padding-top: 0.2rem; font-size: 0.75rem; font-weight: bold;">SIGNATURE</div>
+                        <div style="text-align: center; margin-top: 0.5rem;">
+                            <div style="border-top: 1px solid #000; width: 85%; margin: 0 auto; padding-top: 0.2rem; font-size: 0.75rem; font-weight: bold;">SIGNATURE OVER PRINTED NAME</div>
                         </div>
                     </div>
                 </div>
@@ -957,7 +974,8 @@
             .signature-section {
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
-                margin-top: 0.75rem !important;
+                page-break-before: auto !important;
+                margin-top: 0.5rem !important;
                 border-top: none !important;
                 padding-top: 0.25rem !important;
                 display: flex !important;
@@ -967,7 +985,7 @@
             }
 
             .signature-box {
-                width: 42% !important;
+                width: 30% !important;
                 display: block !important;
                 text-align: left !important;
             }
@@ -1021,6 +1039,14 @@
             if (preparedInput && preparedDisplay) {
                 preparedInput.addEventListener('input', function() {
                     preparedDisplay.textContent = this.value;
+                });
+            }
+
+            const approvedInput = document.getElementById('approvedBy');
+            const approvedDisplay = document.getElementById('approvedByDisplay');
+            if (approvedInput && approvedDisplay) {
+                approvedInput.addEventListener('input', function() {
+                    approvedDisplay.textContent = this.value;
                 });
             }
 

@@ -434,7 +434,10 @@
                     @endif
 
                     <!-- Proceed to Final SO Button (for draft with freight) -->
-                    @if($order->status === 'draft' && $order->freight_charges && $order->freight_charges > 0)
+                    @php
+                        $isFreightApproved = $order->freight_charges !== null || ($order->freightQuotation && in_array($order->freightQuotation->workflow_status, ['approved', 'linked_to_so']));
+                    @endphp
+                    @if($order->status === 'draft' && $isFreightApproved)
                     <form action="{{ route('marketing.sales-orders.proceed-to-final', $order->id) }}" method="POST" id="proceedForm">
                         @csrf
                         <button type="submit" class="btn btn-success">

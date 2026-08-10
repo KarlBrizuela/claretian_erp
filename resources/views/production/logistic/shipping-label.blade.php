@@ -27,7 +27,7 @@
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
             width: 100vw;
-            height: 100vh;
+            height: calc(100vh - 58px);
             max-width: 8.5in;
             max-height: 11in;
             margin: 0 auto;
@@ -186,8 +186,8 @@
                 margin: 0 !important;
             }
             html, body {
-                width: 100% !important;
-                height: 100% !important;
+                width: 215.9mm !important;
+                height: 279.4mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 overflow: hidden !important;
@@ -197,14 +197,18 @@
                 display: none !important;
             }
             .container {
-                width: 100vw !important;
-                height: 100vh !important;
-                max-width: 100% !important;
-                max-height: 100% !important;
-                padding: 0.15in !important;
-                gap: 0.12in !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 215.9mm !important;
+                height: 279.4mm !important;
+                max-width: 215.9mm !important;
+                max-height: 279.4mm !important;
+                padding: 6mm !important;
+                gap: 4mm !important;
                 page-break-after: avoid !important;
                 page-break-inside: avoid !important;
+                margin: 0 !important;
             }
             .label {
                 border-color: #000 !important;

@@ -19,9 +19,9 @@
         .order-table th, .order-table td { padding: 0.75rem; border: 1px solid #ddd; }
         .order-table tfoot { background: #f8f9fa; font-weight: 600; }
         
-        .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; margin-top: 3rem; }
+        .signature-section { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem; margin-top: 2rem; page-break-inside: avoid; }
         .signature-box { text-align: center; }
-        .signature-line { border-top: 1px solid #333; margin-top: 3rem; padding-top: 0.5rem; font-weight: 600; color: #333; }
+        .signature-line { border-top: 1px solid #333; margin-top: 2rem; padding-top: 0.5rem; font-weight: 600; color: #333; }
         
         @page {
             size: letter portrait; /* Short bond paper (8.5in x 11in) */
@@ -46,8 +46,8 @@
             .order-table { width: 100% !important; border-collapse: collapse !important; margin-bottom: 0.75rem !important; font-size: 11px !important; }
             .order-table th, .order-table td { padding: 4px 6px !important; border: 1px solid #000 !important; font-size: 11px !important; }
             .order-table thead { background: #e9ecef !important; color: #000 !important; font-weight: 700 !important; }
-            .signature-section { margin-top: 1.25rem !important; gap: 2rem !important; page-break-inside: avoid !important; }
-            .signature-line { border-top: 1px solid #000 !important; margin-top: 1.5rem !important; padding-top: 0.25rem !important; font-size: 0.75rem !important; }
+            .signature-section { margin-top: 0.75rem !important; gap: 1.5rem !important; display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; page-break-inside: avoid !important; break-inside: avoid !important; page-break-before: auto !important; }
+            .signature-line { border-top: 1px solid #000 !important; margin-top: 1.25rem !important; padding-top: 0.25rem !important; font-size: 0.75rem !important; }
         }
     </style>
     @endpush
@@ -252,14 +252,23 @@
                 @endif
 
                 <!-- Signatures -->
+                @php
+                    $preparedName = $order->drPreparedBy->name ?? ($order->preparedBy->name ?? 'System');
+                    $approvedName = $order->drPreparedBy->name ?? ($order->signedBy->name ?? ($order->acctApprovedBy->name ?? ($order->mktApprovedBy->name ?? 'Authorized Signatory')));
+                    $receivedName = $order->customer_representative ?: ($order->customer->customer_name ?? 'Customer');
+                @endphp
                 <div class="signature-section">
                     <div class="signature-box">
-                        <div class="signature-line">RELEASED BY / DRIVER</div>
-                        <div class="small text-muted">{{ auth()->user()->name }}</div>
+                        <div class="signature-line">PREPARED BY</div>
+                        <div class="small text-muted fw-bold">{{ $preparedName }}</div>
+                    </div>
+                    <div class="signature-box">
+                        <div class="signature-line">APPROVED BY</div>
+                        <div class="small text-muted fw-bold">{{ $approvedName }}</div>
                     </div>
                     <div class="signature-box">
                         <div class="signature-line">RECEIVED BY / CUSTOMER</div>
-                        <div class="small text-muted">Signature over Printed Name</div>
+                        <div class="small text-muted fw-bold">{{ $receivedName }}</div>
                     </div>
                 </div>
             </div>

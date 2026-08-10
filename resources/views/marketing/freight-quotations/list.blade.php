@@ -93,7 +93,9 @@
                                                 </td>
                                                 <td>{{ $quotation->service_mode }}</td>
                                                 <td>
-                                                    @if($quotation->total_amount > 0)
+                                                    @if(in_array($quotation->workflow_status, ['approved', 'linked_to_so']))
+                                                        <strong class="text-success">₱ {{ number_format($quotation->total_amount, 2) }}</strong>
+                                                    @elseif($quotation->total_amount > 0)
                                                         <strong class="text-danger">₱ {{ number_format($quotation->total_amount, 2) }}</strong>
                                                     @else
                                                         <span class="text-muted">Pending quote</span>
