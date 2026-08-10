@@ -29,7 +29,7 @@
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-white border-0 d-block d-sm-flex justify-content-between align-items-center pt-4 pb-3">
+                <div class="card-header bg-white border-0 d-block d-sm-flex justify-content-between align-items-center pt-4 pb-3 flex-wrap gap-2">
                     <div class="d-flex align-items-center gap-3">
                         <div class="rounded-circle d-flex align-items-center justify-content-center text-primary" style="width: 48px; height: 48px; background: #eef2ff;">
                             <i class="las la-truck-loading fs-24 text-primary"></i>
@@ -39,6 +39,25 @@
                             <small class="text-muted">Workflow: Create SO &rarr; Approvals &rarr; Picklist &rarr; Delivery Receipt (AR / CR / SI Link)</small>
                         </div>
                     </div>
+
+                    <!-- Search Form -->
+                    <form action="{{ route('production.logistic.area-consignment') }}" method="GET" class="d-flex align-items-center gap-1">
+                        <div style="width: 240px; height: 32px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; padding: 0 10px; box-sizing: border-box;">
+                            <i class="fas fa-search text-muted me-2" style="font-size: 0.85rem;"></i>
+                            <input type="text" name="search" class="form-control" 
+                                   placeholder="Search SO #, staff, customer..." value="{{ request('search') }}" 
+                                   style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.82rem; color: #333; outline: none !important; box-shadow: none !important;">
+                            @if(request('search'))
+                                <a href="{{ route('production.logistic.area-consignment') }}" class="text-muted d-inline-flex align-items-center ms-1" title="Clear search" style="text-decoration: none;">
+                                    <i class="fas fa-times-circle" style="color: #999; font-size: 0.9rem; cursor: pointer;"></i>
+                                </a>
+                            @endif
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-danger text-white rounded d-inline-flex align-items-center justify-content-center gap-1" style="height: 32px; padding: 0 12px; font-size: 0.8rem; background-color: #D9251C; border: none;">
+                            <i class="fas fa-search" style="font-size: 0.8rem;"></i>
+                            <span>Search</span>
+                        </button>
+                    </form>
                 </div>
                 <div class="card-body">
 
@@ -139,6 +158,16 @@
                                 @endforelse
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                        <div class="text-muted small">
+                            Showing {{ $orders->firstItem() ?? 0 }} to {{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} entries
+                        </div>
+                        <div>
+                            {{ $orders->links() }}
+                        </div>
                     </div>
                 </div>
             </div>

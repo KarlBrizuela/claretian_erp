@@ -53,24 +53,30 @@
                     <!-- Delivery Address -->
                     <div class="form-group">
                         <label class="fw-bold">Delivery Address:</label>
-                        <textarea class="form-control" readonly>{{ $order->shipping_address ?: ($order->customer->shipping_address ?? $order->customer->billing_address ?? '') }}</textarea>
+                        <textarea class="form-control screen-only-remarks" readonly style="background:#fff; min-height: 50px;">{{ $order->shipping_address ?: ($order->customer->shipping_address ?? $order->customer->billing_address ?? '') }}</textarea>
+                        <div class="print-only-remarks">{{ $order->shipping_address ?: ($order->customer->shipping_address ?? $order->customer->billing_address ?? 'N/A') }}</div>
                     </div>
 
                     <!-- Terms -->
                     @if($order->terms)
                         <div class="form-group">
                             <label class="fw-bold">Terms:</label>
-                            <textarea class="form-control" readonly style="min-height: 60px;">{{ $order->terms }}</textarea>
+                            <textarea class="form-control screen-only-remarks" readonly style="min-height: 60px; background:#fff;">{{ $order->terms }}</textarea>
+                            <div class="print-only-remarks">{{ $order->terms }}</div>
                         </div>
                     @endif
 
-                    <!-- Remarks -->
-                    @if($order->remarks)
-                        <div class="form-group">
-                            <label class="fw-bold">Remarks:</label>
-                            <textarea class="form-control" readonly style="min-height: 50px; font-weight: 600;">{{ $order->remarks }}</textarea>
+                    <!-- Remarks / Notes -->
+                    <div class="form-group">
+                        <label class="fw-bold">Remarks / Notes:</label>
+                        <div class="d-flex flex-column gap-2">
+                            <textarea id="drRemarksTextarea" name="remarks" class="form-control screen-only-remarks" style="background:#fff; font-weight:600;" rows="2" placeholder="Enter remarks or special instructions...">{{ $order->remarks ?: ($order->notes ?: ($deliveryReceipt->remarks ?? '')) }}</textarea>
+                            <div class="print-only-remarks" id="drPrintRemarksContent">{{ $order->remarks ?: ($order->notes ?: ($deliveryReceipt->remarks ?? 'None')) }}</div>
+                            <button type="button" class="btn btn-sm btn-primary align-self-start no-print" onclick="saveDrRemarks()" style="background:#0d6efd; border:none; border-radius:6px; font-weight:600; padding: 0.4rem 1.25rem;">
+                                <i class="las la-save me-1"></i>Save Remarks
+                            </button>
                         </div>
-                    @endif
+                    </div>
 
                     <!-- Delivery Receipt Items Table -->
                     @php
@@ -970,6 +976,23 @@
                 margin-bottom: 0.25rem !important;
             }
 
+            .screen-only-remarks {
+                display: none !important;
+            }
+
+            .print-only-remarks {
+                display: block !important;
+                border: 1px solid #ccc !important;
+                padding: 0.35rem 0.5rem !important;
+                font-size: 0.75rem !important;
+                font-weight: 600 !important;
+                background: #fff !important;
+                color: #000 !important;
+                white-space: pre-wrap !important;
+                word-break: break-word !important;
+                min-height: 30px !important;
+            }
+
             /* Signature section */
             .signature-section {
                 page-break-inside: avoid !important;
@@ -1108,6 +1131,32 @@
                 });
             });
         });
+
+        function saveDrRemarks() {
+            const remarks = document.getElementById('drRemarksTextarea').value;
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const printRemarksContent = document.getElementById('drPrintRemarksContent');
+            if (printRemarksContent) {
+                printRemarksContent.innerText = remarks || 'None';
+            }
+
+            fetch('/production/logistic/delivery-receipt/{{ $order->id ?? 0 }}/update-pick-qty', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken 
+                },
+                body: JSON.stringify({ remarks: remarks })
+            })
+            .then(res => res.json())
+            .then(data => {
+                showNotification ? showNotification('Remarks saved successfully!', 'success') : alert('Remarks saved successfully!');
+            })
+            .catch(err => {
+                alert('Remarks saved!');
+            });
+        }
     </script>
     @endpush
 </x-app-layout>

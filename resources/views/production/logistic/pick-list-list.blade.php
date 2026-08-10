@@ -15,18 +15,23 @@
                     <!-- Main Tabs Navigation -->
                     <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="all-pick-lists-tab" data-bs-toggle="tab" data-bs-target="#all-pick-lists" type="button" role="tab" aria-controls="all-pick-lists" aria-selected="true">
+                            <button class="nav-link active" id="all-pick-lists-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#all-pick-lists" data-target="#all-pick-lists" type="button" role="tab" aria-controls="all-pick-lists" aria-selected="true">
                                 All Pick Lists
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-direct" type="button" role="tab" aria-controls="ecom-direct" aria-selected="false">
+                            <button class="nav-link" id="ecom-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#ecom-direct" data-target="#ecom-direct" type="button" role="tab" aria-controls="ecom-direct" aria-selected="false">
                                 E-Commerce Direct <span class="badge bg-info ms-2">{{ $ecomByPlatform['lazada']->count() + $ecomByPlatform['shopee']->count() + $ecomByPlatform['tiktok']->count() + ($ecomByPlatform['cob']?->count() ?? 0) }}</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="complimentary-tab" data-bs-toggle="tab" data-bs-target="#complimentary-pick-lists" type="button" role="tab" aria-controls="complimentary-pick-lists" aria-selected="false">
+                            <button class="nav-link" id="complimentary-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#complimentary-pick-lists" data-target="#complimentary-pick-lists" type="button" role="tab" aria-controls="complimentary-pick-lists" aria-selected="false">
                                 Complimentary <span class="badge ms-2" style="background-color: #6f42c1; color: #fff;">{{ $complimentaryPickLists->count() }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="team-stocks-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#team-stocks-pick-lists" data-target="#team-stocks-pick-lists" type="button" role="tab" aria-controls="team-stocks-pick-lists" aria-selected="false">
+                                Team Stock Transfers <span class="badge bg-danger ms-2">{{ isset($teamStockPickLists) ? $teamStockPickLists->count() : 0 }}</span>
                             </button>
                         </li>
                     </ul>
@@ -457,6 +462,51 @@
                                 </table>
                             </div>
                         </div>
+
+                        <!-- Team Stock Transfers Tab -->
+                        <div class="tab-pane fade" id="team-stocks-pick-lists" role="tabpanel" aria-labelledby="team-stocks-tab">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle mb-0" style="width: 100%">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Transfer #</th>
+                                            <th>Target Team</th>
+                                            <th>Transferred By</th>
+                                            <th class="text-center">Items Count</th>
+                                            <th class="text-center">Total Pcs</th>
+                                            <th>Date Created</th>
+                                            <th>Status</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($teamStockPickLists ?? [] as $tt)
+                                        <tr>
+                                            <td class="fw-bold">{{ $tt->transfer_number }}</td>
+                                            <td><span class="badge bg-danger">{{ $tt->team_name }}</span></td>
+                                            <td>{{ $tt->transferredByUser->name ?? 'N/A' }}</td>
+                                            <td class="text-center">{{ $tt->items->count() }} item(s)</td>
+                                            <td class="text-center fw-bold text-success">{{ number_format($tt->items->sum('quantity')) }} pcs</td>
+                                            <td>{{ $tt->created_at->format('M d, Y h:i A') }}</td>
+                                            <td><span class="badge bg-warning text-dark">{{ ucwords(str_replace('_', ' ', $tt->status)) }}</span></td>
+                                            <td class="text-end">
+                                                <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-success fw-bold">
+                                                        <i class="las la-check me-1"></i>Complete Pick & Transfer
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="8" class="text-center py-4 text-muted">No pending team stock transfers ready for picking.</td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -467,6 +517,12 @@
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/bootstrap-select/dist/css/bootstrap-select.min.css') }}" rel="stylesheet">
     <style>
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active, .tab-pane.show.active {
+            display: block !important;
+        }
         .dataTables_wrapper {
             font-size: 13px;
         }
@@ -559,57 +615,32 @@
         $(document).ready(function() {
             console.log('Document ready - initializing DataTables');
             
-            try {
-                // Initialize main pick lists table
-                const mainTable = $('#pickListsTable').DataTable({
-                    order: [[3, 'desc']],
-                    pageLength: 25,
-                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
-                });
-                console.log('Main table initialized:', mainTable);
+            // Safely initialize DataTables on all tables with class .display
+            $('table.display').each(function() {
+                if ($.fn.DataTable.isDataTable(this)) return;
+                try {
+                    $(this).DataTable({
+                        order: [],
+                        pageLength: 25,
+                        responsive: true,
+                        autoWidth: false
+                    });
+                } catch(e) {
+                    console.warn('DataTable init warning in pick-list-list for:', this.id, e);
+                }
+            });
 
-                // Initialize Lazada table
-                const lazadaTable = $('#lazadaTable').DataTable({
-                    order: [[3, 'desc']],
-                    pageLength: 25,
-                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
-                });
-                console.log('Lazada table initialized:', lazadaTable);
-
-                // Initialize Shopee table
-                const shopeeTable = $('#shopeeTable').DataTable({
-                    order: [[3, 'desc']],
-                    pageLength: 25,
-                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
-                });
-                console.log('Shopee table initialized:', shopeeTable);
-
-                // Initialize TikTok table
-                const tiktokTable = $('#tiktokTable').DataTable({
-                    order: [[3, 'desc']],
-                    pageLength: 25,
-                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
-                });
-                console.log('TikTok table initialized:', tiktokTable);
-
-                // Initialize Complimentary table
-                const complimentaryTable = $('#complimentaryPickListsTable').DataTable({
-                    order: [[3, 'desc']],
-                    pageLength: 25,
-                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
-                });
-                console.log('Complimentary table initialized:', complimentaryTable);
-
-            } catch (error) {
-                console.error('Error initializing DataTables:', error);
-                console.error('Error message:', error.message);
-                console.error('Error stack:', error.stack);
-            }
-            
-            // Log all pick list data
-            console.log('Pick list data:', {!! json_encode($pickLists ?? []) !!});
-            console.log('E-com by platform:', {!! json_encode($ecomByPlatform ?? []) !!});
-        });
+            // Fail-safe manual tab switching for mainTabs
+            $(document).on('click', '#mainTabs .nav-link', function(e) {
+                e.preventDefault();
+                $('#mainTabs .nav-link').removeClass('active');
+                $(this).addClass('active');
+                const target = $(this).attr('data-bs-target') || $(this).attr('data-target');
+                if (target) {
+                    $('#mainTabsContent > .tab-pane').removeClass('show active').css('display', 'none');
+                    $(target).addClass('show active').css('display', 'block');
+                }
+            });
     </script>
     @endpush
 </x-app-layout>

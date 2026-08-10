@@ -92,6 +92,58 @@
 
                     <hr style="margin: 2rem 0;">
 
+                    <!-- Team Stock Transfers Ready for Picking Queue -->
+                    <div class="team-transfers-queue-section mb-4">
+                        <h5 style="font-weight: 700; color: #333; margin-bottom: 1rem;">
+                            <i class="las la-boxes me-2 text-danger"></i>Team Stock Transfers Ready for Picking
+                            <span class="badge bg-danger rounded-pill ms-2">{{ isset($teamStockPickLists) ? $teamStockPickLists->count() : 0 }}</span>
+                        </h5>
+
+                        @if(isset($teamStockPickLists) && $teamStockPickLists->count() > 0)
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" style="border: 1px solid #dee2e6;">
+                                <thead style="background: linear-gradient(135deg, #d9251c, #ff4d4d); color: #fff;">
+                                    <tr>
+                                        <th style="padding: 0.75rem;">Transfer #</th>
+                                        <th>Target Team</th>
+                                        <th>Requested By</th>
+                                        <th>Total Items</th>
+                                        <th>Total Pcs</th>
+                                        <th>Date</th>
+                                        <th>Remarks</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($teamStockPickLists as $tList)
+                                    <tr>
+                                        <td class="fw-bold">{{ $tList->transfer_number }}</td>
+                                        <td><span class="badge bg-danger">{{ $tList->team_name }}</span></td>
+                                        <td>{{ $tList->transferredByUser->name ?? 'N/A' }}</td>
+                                        <td><span class="badge bg-light text-dark">{{ $tList->items->count() }} item(s)</span></td>
+                                        <td class="fw-bold text-success">{{ number_format($tList->items->sum('quantity')) }} pcs</td>
+                                        <td>{{ $tList->created_at->format('M d, Y') }}</td>
+                                        <td class="small text-muted">{{ $tList->notes ?: '—' }}</td>
+                                        <td class="text-end">
+                                            <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tList->id) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success fw-bold">
+                                                    <i class="las la-check me-1"></i>Complete Pick & Transfer
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @else
+                        <div class="alert alert-light text-muted small border mb-4">
+                            No team stock transfers awaiting picking.
+                        </div>
+                        @endif
+                    </div>
+
                     <!-- Orders Ready for Picking Queue -->
                     <div class="picking-queue-section mb-4">
                         <h5 style="font-weight: 700; color: #333; margin-bottom: 1rem;">
@@ -148,6 +200,8 @@
                                                     data-so-number="{{ $pickList->salesOrder?->so_number ?? 'N/A' }}"
                                                     data-customer="{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}"
                                                     data-date="{{ $pickList->created_at?->format('Y-m-d') ?? '' }}"
+                                                    data-freight-option="{{ $pickList->salesOrder->freight_option ?? '' }}"
+                                                    data-forwarder="{{ $pickList->salesOrder->forwarder ?? '' }}"
                                                     data-items='{{ $pickListItemsJson }}'
                                                     data-ecom-platform="{{ $pickList->salesOrder->ecom_platform ?? '' }}"
                                                     style="background: #ff0000; border: none;">
@@ -198,6 +252,14 @@
                                 <div class="form-group">
                                     <label>Customer:</label>
                                     <input type="text" id="detailCustomerName" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Freight Option:</label>
+                                    <input type="text" id="detailFreightOption" readonly>
+                                </div>
+                                <div class="form-group" id="detailForwarderGroup" style="display: none;">
+                                    <label>Forwarder:</label>
+                                    <input type="text" id="detailForwarder" class="fw-bold text-primary" readonly>
                                 </div>
                             </div>
                             <div class="order-info-box">
@@ -687,6 +749,18 @@
                         document.getElementById('detailSONumber').value = soNumber;
                         document.getElementById('detailOrderDate').value = date;
                         document.getElementById('detailCustomerName').value = customer;
+                        const freightOpt = this.dataset.freightOption || '';
+                        const fwdVal = this.dataset.forwarder || '';
+                        document.getElementById('detailFreightOption').value = freightOpt ? (freightOpt.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())) : 'N/A';
+                        const fwdGroup = document.getElementById('detailForwarderGroup');
+                        if (fwdGroup) {
+                            if (freightOpt === 'bill_client' || fwdVal) {
+                                fwdGroup.style.display = 'block';
+                                document.getElementById('detailForwarder').value = fwdVal || 'N/A';
+                            } else {
+                                fwdGroup.style.display = 'none';
+                            }
+                        }
                         document.getElementById('pickListNumber').value = 'PL-' + soNumber;
 
                         // Store order data for saving

@@ -31,6 +31,7 @@ class User extends Authenticatable
         'department',
         'position',
         'permissions',
+        'sales_team',
         'status',
     ];
 
@@ -43,7 +44,6 @@ class User extends Authenticatable
     {
         return trim("{$this->first_name} {$this->middle_initial} {$this->last_name}");
     }
-
     /**
      * The attributes that should be hidden for arrays.
      *

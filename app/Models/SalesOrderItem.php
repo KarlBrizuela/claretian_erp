@@ -65,9 +65,7 @@ class SalesOrderItem extends Model
         }
 
         if ($this->book_index_id && $this->bookIndex) {
-            $bookName = $this->bookIndex->book ? $this->bookIndex->book->name : '';
-            $indexVal = $this->bookIndex->index_value ?? '';
-            return trim(($bookName ? $bookName . ' ' : '') . ($indexVal ? 'Index (' . $indexVal . ')' : 'Index'));
+            return $this->bookIndex->display_name;
         }
 
         if ($this->book_id && $this->book) {

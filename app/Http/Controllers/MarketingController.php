@@ -250,23 +250,36 @@ class MarketingController extends Controller
             : collect();
 
         // 3. Pending Stock Transfers (Marketing Manager approves Marketing-origin requests)
+        $batchData = [];  // keyed by first-transfer->id: ['items'=>[], 'total_quantity'=>N, 'items_count'=>N]
+
         $pendingTransfers = $isAuthorized
             ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'bookIndex.book', 'bookBundle', 'createdBy')
                 ->where('status', 'pending')
-                ->where(function ($query) {
-                    $query->where('approval_division', 'Marketing')
-                        ->orWhere(function ($legacyQuery) {
-                            $legacyQuery->whereNull('approval_division')
-                                ->whereHas('createdBy', function ($creatorQuery) {
-                                    $creatorQuery->where('division', 'like', '%Marketing%')
-                                        ->orWhereHas('divisions', function ($divisionQuery) {
-                                            $divisionQuery->where('division', 'like', '%Marketing%');
-                                        });
-                                });
-                        });
-                })
                 ->latest()
                 ->get()
+                ->groupBy(function ($item) {
+                    return $item->batch_id ?: ('single_' . $item->id);
+                })
+                ->map(function ($items) use (&$batchData) {
+                    $first = $items->first();
+                    $batchItems = $items->map(function($i) {
+                        return [
+                            'id'       => $i->id,
+                            'name'     => (string) $i->item_name,
+                            'type'     => (string) $i->item_type,
+                            'quantity' => (int)    $i->quantity,
+                        ];
+                    })->values()->toArray();
+
+                    $batchData[$first->id] = [
+                        'items'          => $batchItems,
+                        'total_quantity' => (int) $items->sum('quantity'),
+                        'items_count'    => (int) $items->count(),
+                    ];
+
+                    return $first;
+                })
+                ->values()
             : collect();
 
         $pendingCctvRequests = $isAuthorized
@@ -381,6 +394,7 @@ class MarketingController extends Controller
             'salesOrders' => $salesOrders,
             'pendingCashAdvances' => $pendingCashAdvances,
             'pendingTransfers' => $pendingTransfers,
+            'batchData' => $batchData,
             'pendingCctvRequests' => $pendingCctvRequests,
             'pendingMaterials' => $pendingMaterials,
             'mySubmissions' => $mySubmissions,
@@ -568,6 +582,7 @@ class MarketingController extends Controller
         $validated = $request->validate([
             'book_id' => 'required|exists:books,id',
             'index_value' => 'required|string|max:255',
+            'custom_name' => 'nullable|string|max:255',
             'article' => 'nullable|string|max:255',
             'barcode' => 'nullable|string|max:255',
             'nbs_barcode' => 'nullable|string|max:255',
@@ -619,6 +634,7 @@ class MarketingController extends Controller
         $validated = $request->validate([
             'book_id' => 'required|exists:books,id',
             'index_value' => 'required|string|max:255',
+            'custom_name' => 'nullable|string|max:255',
             'article' => 'nullable|string|max:255',
             'barcode' => 'nullable|string|max:255',
             'nbs_barcode' => 'nullable|string|max:255',
@@ -1694,8 +1710,7 @@ class MarketingController extends Controller
         $indices = \App\Models\BookIndex::with('book')
             ->get()
             ->map(function($idx) {
-                $bookName = $idx->book ? $idx->book->name : 'Book Index';
-                $fullName = $bookName . ' (' . $idx->index_value . ')';
+                $fullName = $idx->display_name;
                 $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
                 $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
                 $mainStock = (int) ($idx->main_stock ?? $idx->stock ?? 0);
@@ -1759,7 +1774,7 @@ class MarketingController extends Controller
         } elseif (str_starts_with($pidStr, 'index_')) {
             $id = (int) str_replace('index_', '', $pidStr);
             $index = \App\Models\BookIndex::with('book')->find($id);
-            $name = $index ? (($index->book?->name ?? 'Book') . ' (' . $index->index_value . ')') : "Index #{$id}";
+            $name = $index ? $index->display_name : "Index #{$id}";
             return [
                 'type' => 'index',
                 'name' => $name,
@@ -1818,7 +1833,8 @@ class MarketingController extends Controller
             'billing_address' => 'nullable',
             'attachment' => 'nullable|file|max:5120', // 5MB Limit
             'proof_of_payment' => 'nullable|file|max:5120', // 5MB Limit
-            'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
+            'freight_option' => 'nullable|string|in:freight_collect,freight_billing,bill_client',
+            'forwarder' => 'nullable|string|max:255',
             'discount_value' => 'nullable|numeric|min:0',
             'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
@@ -1886,6 +1902,7 @@ class MarketingController extends Controller
             'attachment' => $attachmentPath,
             'proof_of_payment' => $proofOfPaymentPath,
             'freight_option' => $validated['freight_option'] ?? null,
+            'forwarder' => ($validated['freight_option'] ?? null) === 'bill_client' ? ($request->forwarder ?? null) : null,
         ]);
 
         // Clean up any orphaned items that might reuse this order ID (in case of auto-increment reuse)
@@ -2120,7 +2137,8 @@ class MarketingController extends Controller
             }
 
             $validated = $request->validate([
-                'freight_option' => 'nullable|string|in:,freight_collect,freight_billing'
+                'freight_option' => 'nullable|string|in:,freight_collect,freight_billing,bill_client',
+                'forwarder' => 'nullable|string|max:255'
             ]);
 
             // Calculate items subtotal (sum of all line items)
@@ -2132,6 +2150,7 @@ class MarketingController extends Controller
 
             $so->update([
                 'freight_option' => $validated['freight_option'],
+                'forwarder' => $validated['freight_option'] === 'bill_client' ? ($request->forwarder ?? null) : null,
                 'total_amount' => $newTotal
             ]);
 
@@ -2163,7 +2182,8 @@ class MarketingController extends Controller
             'billing_address' => 'nullable',
             'attachment' => 'nullable|file|max:5120',
             'proof_of_payment' => 'nullable|file|max:5120',
-            'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
+            'freight_option' => 'nullable|string|in:freight_collect,freight_billing,bill_client',
+            'forwarder' => 'nullable|string|max:255',
             'discount_value' => 'nullable|numeric|min:0',
             'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
@@ -2213,6 +2233,7 @@ class MarketingController extends Controller
             'billing_address' => $request->billing_address,
             'shipping_address' => $request->billing_address,
             'freight_option' => $validated['freight_option'] ?? null,
+            'forwarder' => ($validated['freight_option'] ?? null) === 'bill_client' ? ($request->forwarder ?? null) : null,
         ]);
 
 
@@ -3476,6 +3497,93 @@ class MarketingController extends Controller
             $book->delete();
 
             return response()->json(['message' => 'Non-Book is referenced in transactions and has been safely archived. SKU is now free to be reused.']);
+        }
+    }
+
+    /**
+     * Area Sales - Team Stocks Index Page
+     */
+    public function teamStocksIndex()
+    {
+        $teamStocks = \App\Models\TeamStock::with(['book', 'bookIndex', 'bookBundle'])->get();
+        $transfers = \App\Models\TeamStockTransfer::with(['transferredByUser', 'items.book', 'items.bookIndex', 'items.bookBundle'])
+            ->latest()
+            ->get();
+        $teamUsers = \App\Models\User::whereNotNull('sales_team')->get();
+        $mainProducts = $this->getUnifiedProducts();
+
+        return view('marketing.area-sales.team-stocks', compact('teamStocks', 'transfers', 'teamUsers', 'mainProducts'));
+    }
+
+    /**
+     * Area Sales - Execute Stock Transfer to Team
+     */
+    public function storeTeamStockTransfer(Request $request)
+    {
+        $request->validate([
+            'team_name' => 'required|string|in:Team A,Team B,Team C,Book Sales,MIBF',
+            'notes' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|string',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        \DB::beginTransaction();
+        try {
+            $transferNumber = 'TST-' . date('Ymd') . '-' . strtoupper(\Str::random(4));
+            $transfer = \App\Models\TeamStockTransfer::create([
+                'transfer_number' => $transferNumber,
+                'team_name' => $request->team_name,
+                'transferred_by' => auth()->id(),
+                'notes' => $request->notes,
+                'status' => 'pending_prod_approval',
+            ]);
+
+            foreach ($request->items as $itemData) {
+                $target = $this->resolveItemTarget($itemData['product_id']);
+                $qty = (int) $itemData['quantity'];
+
+                // Check Main Warehouse stock availability
+                if ($target['book_index_id']) {
+                    $index = \App\Models\BookIndex::find($target['book_index_id']);
+                    $availableStock = (int) ($index->stock ?? $index->quantity ?? 0);
+                    if (!$index || $availableStock < $qty) {
+                        throw new \Exception("Insufficient stock in Main Warehouse for " . ($index ? $index->display_name : 'selected item') . ". Available: " . $availableStock);
+                    }
+                } elseif ($target['book_id']) {
+                    $book = \App\Models\Book::find($target['book_id']);
+                    $availableStock = (int) ($book->stock ?? 0);
+                    if (!$book || $availableStock < $qty) {
+                        throw new \Exception("Insufficient stock in Main Warehouse for " . ($book ? $book->name : 'selected item') . ". Available: " . $availableStock);
+                    }
+                } elseif ($target['bundle_id']) {
+                    $bundle = \App\Models\BookBundle::find($target['bundle_id']);
+                    $availableStock = (int) ($bundle->stock ?? $bundle->quantity ?? 0);
+                    if (!$bundle || $availableStock < $qty) {
+                        throw new \Exception("Insufficient stock in Main Warehouse for " . ($bundle ? $bundle->name : 'selected item') . ". Available: " . $availableStock);
+                    }
+                }
+
+                // Record transfer item
+                \App\Models\TeamStockTransferItem::create([
+                    'team_stock_transfer_id' => $transfer->id,
+                    'book_id' => $target['book_id'],
+                    'book_index_id' => $target['book_index_id'],
+                    'book_bundle_id' => $target['bundle_id'],
+                    'quantity' => $qty,
+                ]);
+            }
+
+            \DB::commit();
+
+            return redirect()->route('marketing.area-sales.team-stocks.index')
+                ->with('success', 'Stock transfer request #' . $transferNumber . ' submitted! Sent to Production Approval Queue.');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to execute stock transfer: ' . $e->getMessage());
         }
     }
 }

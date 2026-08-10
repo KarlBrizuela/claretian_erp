@@ -198,8 +198,13 @@
                                     <option value="">Select Freight Option</option>
                                     <option value="freight_collect" {{ old('freight_option') === 'freight_collect' ? 'selected' : '' }}>Freight Collect</option>
                                     <option value="freight_billing" {{ old('freight_option') === 'freight_billing' ? 'selected' : '' }}>Freight Billing</option>
+                                    <option value="bill_client" {{ old('freight_option') === 'bill_client' ? 'selected' : '' }}>Bill Client</option>
                                 </select>
                                 @error('freight_option')<div class="error-text">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="field" id="forwarderField" style="display: {{ old('freight_option') === 'bill_client' ? 'block' : 'none' }};">
+                                <label>Forwarder <span class="text-danger">*</span>:</label>
+                                <input type="text" name="forwarder" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO, AP Cargo)" value="{{ old('forwarder') }}">
                             </div>
                             <div class="field">
                                 <label>Carrier:</label>
@@ -398,12 +403,12 @@
                         document.querySelector('input[name="quote_date"]').classList.add('is-invalid');
                         return false;
                     }
-                    if (!estimatedFreight || parseFloat(estimatedFreight) <= 0) {
+                    if (estimatedFreight === '' || parseFloat(estimatedFreight) < 0) {
                         e.preventDefault();
                         document.getElementById('freightAmount').classList.add('is-invalid');
                         return false;
                     }
-                    if (!totalAmount || parseFloat(totalAmount) <= 0) {
+                    if (totalAmount === '' || parseFloat(totalAmount) < 0) {
                         e.preventDefault();
                         document.getElementById('totalAmount').classList.add('is-invalid');
                         return false;
@@ -413,7 +418,6 @@
             }
 
             const freightInput = document.getElementById('freightAmount');
-            const valuationInput = document.getElementById('valuationPercent');
             const freightOptionInput = document.getElementById('freightOption');
             const serviceFeeLabel = document.getElementById('serviceFeeLabel');
 
@@ -440,13 +444,15 @@
 
                 document.getElementById('freightTotal').value = freight.toFixed(2);
                 document.getElementById('serviceFeeTotal').value = serviceFee.toFixed(2);
-                document.getElementById('totalAmount').value = total.toFixed(2);
-            }
+                const forwarderField = document.getElementById('forwarderField');
+                if (forwarderField) {
+                    forwarderField.style.display = freightOptionInput?.value === 'bill_client' ? 'block' : 'none';
+                }
 
-            freightInput?.addEventListener('input', calculateTotals);
-            freightOptionInput?.addEventListener('change', calculateTotals);
-            calculateTotals();
-        });
+                freightInput?.addEventListener('input', calculateTotals);
+                freightOptionInput?.addEventListener('change', calculateTotals);
+                calculateTotals();
+            });
 
         function viewQuotation(id) {
             alert('View quotation feature coming soon for ID: ' + id);

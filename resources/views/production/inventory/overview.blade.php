@@ -1,5 +1,6 @@
 <x-app-layout :title="'Inventory Overview'" :sidebar="'production'">
 @push('styles')
+    <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
         /* Site Inventory Modal Extra Large & Single Scrollbar Enforcement */
@@ -1036,7 +1037,7 @@
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
-                                    <table class="table table-responsive-md align-middle">
+                                    <table class="table table-responsive-md align-middle" id="stockTransferWorkflowTable">
                                         <thead>
                                             <tr>
                                                 <th><strong>REF</strong></th>
@@ -1051,16 +1052,30 @@
                                         </thead>
                                         <tbody>
                                             @forelse($stockTransferWorkflow ?? [] as $transfer)
+                                            @php
+                                                $itemCount = $transfer->items_count ?? 1;
+                                                $totQty = $transfer->total_quantity ?? $transfer->quantity;
+                                            @endphp
                                             <tr>
                                                 <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                                 <td>
                                                     <div>{{ $transfer->fromSite->name ?? 'N/A' }}</div>
                                                     <small class="text-muted">to {{ $transfer->toSite->name ?? 'N/A' }}</small>
                                                 </td>
-                                                <td>{{ $transfer->item_name ?? 'N/A' }}</td>
-                                                <td><strong>{{ $transfer->quantity }}</strong></td>
+                                                <td>
+                                                    @if($itemCount > 1)
+                                                        <strong>Multiple Books</strong> <small class="text-muted">({{ $itemCount }} titles)</small>
+                                                    @else
+                                                        {{ $transfer->item_name ?? 'N/A' }}
+                                                    @endif
+                                                </td>
+                                                <td><strong>{{ number_format($totQty) }}</strong></td>
                                                 <td>{{ $transfer->createdBy->name ?? 'N/A' }}</td>
-                                                <td>{{ $transfer->logisticsAssignedTo->name ?? 'Not assigned' }}</td>
+                                                <td>
+                                                    @if($transfer->logisticsAssignedTo && $transfer->logistics_assigned_to != $transfer->created_by)
+                                                        {{ $transfer->logisticsAssignedTo->name }}
+                                                    @endif
+                                                </td>
                                                 <td>
                                                     @if($transfer->status === 'pending')
                                                         <span class="badge light badge-warning">Manager/Supervisor Approval</span>
@@ -1077,38 +1092,43 @@
                                                     @endif
                                                 </td>
                                                 <td style="min-width: 220px;">
-                                                    @if($transfer->status === 'pending' && $transfer->canBeApprovedBy(auth()->user()))
-                                                        <button class="btn btn-xs btn-success mb-1" onclick="approveTransfer({{ $transfer->id }})">
-                                                            <i class="las la-check"></i> Approve
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <button type="button" 
+                                                                class="btn btn-xs btn-outline-info" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#viewWorkflowTransferModal" 
+                                                                data-id="{{ $transfer->id }}"
+                                                                data-ref="ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}"
+                                                                data-from="{{ $transfer->fromSite->name ?? 'N/A' }}"
+                                                                data-to="{{ $transfer->toSite->name ?? 'N/A' }}"
+                                                                data-requested="{{ $transfer->createdBy->name ?? 'N/A' }}"
+                                                                data-assigned="{{ ($transfer->logisticsAssignedTo && $transfer->logistics_assigned_to != $transfer->created_by) ? $transfer->logisticsAssignedTo->name : 'Unassigned' }}"
+                                                                data-date="{{ optional($transfer->created_at)->format('M. d, Y h:i A') }}"
+                                                                data-status="{{ ucfirst(str_replace('_', ' ', $transfer->status)) }}"
+                                                                data-notes="{{ $transfer->notes ?? '' }}">
+                                                            <i class="las la-eye"></i> View
                                                         </button>
-                                                        <button class="btn btn-xs btn-danger mb-1" onclick="rejectTransfer({{ $transfer->id }})">
-                                                            <i class="las la-times"></i> Reject
-                                                        </button>
-                                                    @elseif($transfer->status === 'accounting_review' && ($isAccountingReviewer ?? false))
-                                                        <button class="btn btn-xs btn-info" onclick="accountingApproveTransfer({{ $transfer->id }})">
-                                                            <i class="las la-file-invoice"></i> Accounting Approve
-                                                        </button>
-                                                    @elseif($transfer->status === 'logistics_assigned' && $transfer->canBeCompletedBy(auth()->user()))
-                                                        <button class="btn btn-xs btn-success" onclick="completeLogisticsTransfer({{ $transfer->id }})">
-                                                            <i class="las la-check-double"></i> Mark Completed
-                                                        </button>
-                                                    @elseif(in_array($transfer->status, ['logistics_assignment', 'logistics_assigned']) && ($isLogisticsAssigner ?? false))
-                                                        <div class="d-flex gap-1">
-                                                            <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
-                                                                <option value="">Select staff</option>
-                                                                @foreach($logisticsUsers ?? [] as $logisticsUser)
-                                                                    <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
-                                                                        {{ $logisticsUser->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                            <button class="btn btn-xs btn-primary" onclick="assignLogisticsTransfer({{ $transfer->id }})">
-                                                                Assign
+
+                                                        @if($transfer->status === 'logistics_assigned' && $transfer->canBeCompletedBy(auth()->user()))
+                                                            <button class="btn btn-xs btn-success" onclick="completeLogisticsTransfer({{ $transfer->id }})">
+                                                                <i class="las la-check-double"></i> Mark Completed
                                                             </button>
-                                                        </div>
-                                                    @else
-                                                        <span class="text-muted small">No action available</span>
-                                                    @endif
+                                                        @elseif($transfer->status === 'logistics_assignment' && ($isLogisticsAssigner ?? false))
+                                                            <div class="d-flex gap-1">
+                                                                <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
+                                                                    <option value="">Select staff</option>
+                                                                    @foreach($logisticsUsers ?? [] as $logisticsUser)
+                                                                        <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
+                                                                            {{ $logisticsUser->name }}
+                                                                        </option>
+                                                                    @endforeach
+                                                                </select>
+                                                                <button class="btn btn-xs btn-primary" onclick="assignLogisticsTransfer({{ $transfer->id }})">
+                                                                    Assign
+                                                                </button>
+                                                            </div>
+                                                        @endif
+                                                    </div>
                                                 </td>
                                             </tr>
                                             @empty
@@ -1602,21 +1622,23 @@
                         <!-- Multiple Books to Transfer Section -->
                         <div class="mb-4">
                             <label class="form-label font-w600">Items to Transfer</label>
-                            <table class="table table-bordered" id="transferBooksTable" style="width:100%;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 40%;">Item</th>
-                                        <th style="width: 25%;">Quantity</th>
-                                        <th style="width: 25%;">Available</th>
-                                        <th style="width: 10%;" class="text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="transferBooksBody">
-                                    <tr id="emptyBooksRow">
-                                        <td colspan="4" class="text-center text-muted py-3">Select a source site above, then click an Add button to start.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            <div class="table-responsive" style="max-height: 250px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px;">
+                                <table class="table table-bordered mb-0" id="transferBooksTable" style="width:100%;">
+                                    <thead class="table-light" style="position: sticky; top: 0; z-index: 2; background-color: #f8f9fa;">
+                                        <tr>
+                                            <th style="width: 40%;">Item</th>
+                                            <th style="width: 25%;">Quantity</th>
+                                            <th style="width: 25%;">Available</th>
+                                            <th style="width: 10%;" class="text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="transferBooksBody">
+                                        <tr id="emptyBooksRow">
+                                            <td colspan="4" class="text-center text-muted py-3">Select a source site above, then click an Add button to start.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <!-- Add Item Buttons -->
@@ -1761,11 +1783,153 @@
         </div>
     </div>
 
+    <!-- View Workflow Stock Transfer Modal -->
+    <div class="modal fade" id="viewWorkflowTransferModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <div>
+                        <h5 class="modal-title text-white fw-bold"><i class="las la-boxes me-2"></i>Stock Transfer Request Details</h5>
+                        <small class="text-white-50" id="wf-modal-ref-sub">Ref: ST-00000</small>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
+                    <!-- Info Cards Grid -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border">
+                                <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">REQUESTED BY</small>
+                                <span class="fw-bold text-dark fs-14" id="wf-modal-requested">N/A</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border">
+                                <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">TRANSFER ROUTE</small>
+                                <span class="fw-bold text-dark fs-14" id="wf-modal-route">N/A -> N/A</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border">
+                                <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">ASSIGNED LOGISTICS</small>
+                                <span class="fw-bold text-primary fs-14" id="wf-modal-assigned">Unassigned</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border">
+                                <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">DATE SUBMITTED</small>
+                                <span class="fw-semibold text-dark" id="wf-modal-date">N/A</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border">
+                                <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem;">STATUS</small>
+                                <div><span class="badge bg-secondary fs-13" id="wf-modal-status-badge">Pending</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Books Table -->
+                    <div class="card border mb-3">
+                        <div class="card-header bg-white py-2">
+                            <h6 class="mb-0 fw-bold text-dark"><i class="las la-book me-1 text-danger"></i>Books / Items Included (<span id="wf-modal-total-summary">0 items</span>)</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                                        <tr>
+                                            <th>Book Title / Code</th>
+                                            <th>Type</th>
+                                            <th class="text-center">Quantity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="wf-modal-items-body">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes Row -->
+                    <div id="wf-modal-notes-container" style="display: none;">
+                        <h6 class="fw-bold fs-13 text-muted mb-1">NOTES / REMARKS</h6>
+                        <div class="p-2 rounded bg-light border font-monospace fs-13" id="wf-modal-notes"></div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px;"></div>
 @push('scripts')
+    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
+        var workflowBatchData = @json($batchData ?? []);
+
+        $(document).on('show.bs.modal', '#viewWorkflowTransferModal', function (event) {
+            var button = $(event.relatedTarget);
+            var id = button.data('id');
+            var ref = button.data('ref') || ('ST-' + String(id).padStart(5, '0'));
+            var from = button.data('from') || 'N/A';
+            var to = button.data('to') || 'N/A';
+            var requested = button.data('requested') || 'N/A';
+            var assigned = button.data('assigned') || 'Unassigned';
+            var date = button.data('date') || 'N/A';
+            var status = button.data('status') || 'Pending';
+            var notes = button.data('notes') || '';
+
+            var modal = $(this);
+            modal.find('#wf-modal-ref-sub').text('Ref: ' + ref);
+            modal.find('#wf-modal-requested').text(requested);
+            modal.find('#wf-modal-route').text(from + ' → ' + to);
+            modal.find('#wf-modal-assigned').text(assigned);
+            modal.find('#wf-modal-date').text(date);
+            modal.find('#wf-modal-status-badge').text(status);
+
+            var itemsData = [];
+            var batchInfo = workflowBatchData[id];
+            if (batchInfo && Array.isArray(batchInfo.items) && batchInfo.items.length > 0) {
+                itemsData = batchInfo.items;
+            } else {
+                itemsData = [{ name: 'Stock Item', type: 'Book', quantity: 1 }];
+            }
+
+            var rowsHtml = '';
+            var totalQty = 0;
+            itemsData.forEach(function(item) {
+                var qty = parseInt(item.quantity) || 0;
+                totalQty += qty;
+                var typeColor = item.type === 'Book' ? 'success' : (item.type === 'Bundle' ? 'warning' : 'secondary');
+                rowsHtml += `<tr>
+                    <td class="fw-semibold text-dark">${item.name || 'Unknown Item'}</td>
+                    <td><span class="badge bg-${typeColor}">${item.type || 'Item'}</span></td>
+                    <td class="text-center fw-bold text-success">${qty} pcs</td>
+                </tr>`;
+            });
+            if (itemsData.length > 1) {
+                rowsHtml += `<tr class="table-light fw-bold">
+                    <td colspan="2" class="text-end small">Total Batch Units:</td>
+                    <td class="text-center text-success">${totalQty} pcs</td>
+                </tr>`;
+            }
+
+            modal.find('#wf-modal-items-body').html(rowsHtml);
+            modal.find('#wf-modal-total-summary').text(itemsData.length + ' title(s) · ' + totalQty + ' pcs total');
+
+            if (notes && notes.trim() !== '') {
+                modal.find('#wf-modal-notes').text(notes);
+                modal.find('#wf-modal-notes-container').show();
+            } else {
+                modal.find('#wf-modal-notes-container').hide();
+            }
+        });
         function showNotification(message, type = 'success') {
             let toastContainer = document.getElementById('toastContainer');
             if (!toastContainer) {
@@ -3368,14 +3532,34 @@
             document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
                 tab.addEventListener('shown.bs.tab', function(e) {
                     const titleEl = document.getElementById('registryHeaderTitle');
-                    if (!titleEl) return;
-                    const titleMap = {
-                        'registry-allsites-tab': 'All Sites Breakdown',
-                        'registry-consignment-tab': 'Consignment Inventory',
-                    };
-                    titleEl.textContent = titleMap[e.target.id] || 'Master Registry';
+                    if (titleEl) {
+                        const titleMap = {
+                            'registry-allsites-tab': 'All Sites Breakdown',
+                            'registry-consignment-tab': 'Consignment Inventory',
+                        };
+                        titleEl.textContent = titleMap[e.target.id] || 'Master Registry';
+                    }
                 });
             });
+
+            // Initialize Stock Transfer Workflow DataTable (with search and pagination)
+            if ($('#stockTransferWorkflowTable').length > 0 && typeof $.fn.DataTable !== 'undefined') {
+                if (!$.fn.DataTable.isDataTable('#stockTransferWorkflowTable')) {
+                    const stwTable = $('#stockTransferWorkflowTable').DataTable({
+                        order: [[0, 'desc']],
+                        pageLength: 10,
+                        columnDefs: [{ orderable: false, targets: -1 }]
+                    });
+
+                    document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+                        tab.addEventListener('shown.bs.tab', function(e) {
+                            if (e.target.id === 'transfer-workflow-tab' || e.target.getAttribute('href') === '#transfer-workflow-content') {
+                                stwTable.columns.adjust().draw();
+                            }
+                        });
+                    });
+                }
+            }
         });
     </script>
 @endpush

@@ -11,6 +11,7 @@ class BookIndex extends Model
     protected $fillable = [
         'book_id',
         'index_value',
+        'custom_name',
         'article',
         'barcode',
         'nbs_barcode',
@@ -32,10 +33,13 @@ class BookIndex extends Model
     }
 
     /**
-     * Accessor for full display name: book name + index_value.
+     * Accessor for full display name: custom_name or book name + index_value.
      */
     public function getDisplayNameAttribute()
     {
+        if (!empty($this->custom_name)) {
+            return $this->custom_name;
+        }
         if (!$this->book) {
             return $this->index_value;
         }

@@ -61,8 +61,27 @@
                             <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-hand-holding-usd me-2 text-primary"></i>Consignment Management</h5>
                             <p class="text-muted small mb-0">Manage third-party book owners, assign markups, and track settlements.</p>
                         </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-primary btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#addOwnerModal">
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <!-- Search Form -->
+                            <form action="{{ route('marketing.consignment.index') }}" method="GET" class="d-flex align-items-center gap-1">
+                                <div style="width: 220px; height: 32px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; padding: 0 10px; box-sizing: border-box;">
+                                    <span class="fas fa-search text-muted me-2" style="font-size: 0.85rem; line-height: 1;"></span>
+                                    <input type="text" name="search" class="form-control" 
+                                           placeholder="Search owner, book..." value="{{ request('search') }}" 
+                                           style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.82rem; color: #333; outline: none !important; box-shadow: none !important;">
+                                    @if(request('search'))
+                                        <a href="{{ route('marketing.consignment.index') }}" class="text-muted d-inline-flex align-items-center ms-1" title="Clear search" style="text-decoration: none;">
+                                            <span class="fas fa-times-circle" style="color: #999; font-size: 0.9rem; cursor: pointer;"></span>
+                                        </a>
+                                    @endif
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-danger text-white rounded d-inline-flex align-items-center justify-content-center gap-1" style="height: 32px; padding: 0 12px; font-size: 0.8rem; background-color: #D9251C; border: none;">
+                                    <i class="fas fa-search" style="font-size: 0.8rem;"></i>
+                                    <span>Search</span>
+                                </button>
+                            </form>
+
+                            <button class="btn btn-primary btn-sm px-3 shadow-sm d-inline-flex align-items-center justify-content-center" style="height: 32px; font-size: 0.8rem;" data-bs-toggle="modal" data-bs-target="#addOwnerModal">
                                 <i class="fas fa-plus-circle me-1"></i> Add New Owner
                             </button>
                         </div>

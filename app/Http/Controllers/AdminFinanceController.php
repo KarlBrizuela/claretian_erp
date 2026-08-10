@@ -517,6 +517,24 @@ class AdminFinanceController extends Controller
       ->where('status', 'accounting_review')
       ->orderBy('created_at', 'desc')
       ->get()
+      ->groupBy(function ($item) {
+          return $item->batch_id ?: ('single_' . $item->id);
+      })
+      ->map(function ($items) {
+          $first = $items->first();
+          $first->batch_items = $items->map(function($i) {
+              return [
+                  'id' => $i->id,
+                  'name' => $i->item_name,
+                  'type' => $i->item_type,
+                  'quantity' => $i->quantity
+              ];
+          })->values()->toArray();
+          $first->total_quantity = $items->sum('quantity');
+          $first->items_count = $items->count();
+          return $first;
+      })
+      ->values()
       ->filter(function ($transfer) use ($user) {
         return $transfer->canBeReviewedByAccounting($user);
       });

@@ -162,22 +162,26 @@ class ProductionController extends Controller
         $pendingTransfers = $isAuthorized
             ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'bookIndex.book', 'bookBundle', 'createdBy', 'logisticsAssignedTo')
                 ->whereIn('status', ['pending', 'logistics_assignment', 'logistics_assigned', 'completed'])
-                ->where(function ($query) use ($user) {
-                    $query->where('created_by', $user->id)
-                        ->orWhere('approval_division', 'Production')
-                        ->orWhere(function ($legacyQuery) {
-                            $legacyQuery->whereNull('approval_division')
-                                ->whereHas('createdBy', function ($creatorQuery) {
-                                    $creatorQuery->where('division', 'like', '%Production%')
-                                        ->orWhere('position', 'like', '%Logistic%')
-                                        ->orWhereHas('divisions', function ($divisionQuery) {
-                                            $divisionQuery->where('division', 'like', '%Production%');
-                                        });
-                                });
-                        });
-                })
                 ->latest()
                 ->get()
+                ->groupBy(function ($item) {
+                    return $item->batch_id ?: ('single_' . $item->id);
+                })
+                ->map(function ($items) {
+                    $first = $items->first();
+                    $first->batch_items = $items->map(function($i) {
+                        return [
+                            'id' => $i->id,
+                            'name' => $i->item_name,
+                            'type' => $i->item_type,
+                            'quantity' => $i->quantity
+                        ];
+                    })->values()->toArray();
+                    $first->total_quantity = $items->sum('quantity');
+                    $first->items_count = $items->count();
+                    return $first;
+                })
+                ->values()
             : collect();
 
         $autoDebitQuery = \App\Models\AutoDebit::with('preparer');
@@ -276,6 +280,26 @@ class ProductionController extends Controller
                     'original' => $transfer
                 ];
             }
+        }
+
+        $pendingTeamTransfers = \App\Models\TeamStockTransfer::with('transferredByUser', 'items')
+            ->where('status', 'pending_prod_approval')
+            ->latest()
+            ->get();
+
+        foreach ($pendingTeamTransfers as $tt) {
+            $myApprovals[] = [
+                'type' => 'Team Stock Transfer',
+                'id' => $tt->id,
+                'reference_no' => $tt->transfer_number,
+                'submitted_by' => $tt->transferredByUser->name ?? 'N/A',
+                'submitted_date' => $tt->created_at,
+                'amount' => $tt->items->sum('quantity') . ' pcs (' . $tt->team_name . ')',
+                'attachment' => null,
+                'status' => 'pending_prod_approval',
+                'url' => route('production.team-stock-transfer.approve', $tt->id),
+                'original' => $tt
+            ];
         }
 
         foreach ($pendingAutoDebits as $debit) {
@@ -396,11 +420,21 @@ class ProductionController extends Controller
             'myApprovals' => collect($myApprovals)->sortByDesc('submitted_date'),
             'mySubmissions' => $mySubmissions->sortByDesc('submitted_date'),
             'myApprovedRequests' => $myApprovedRequests->sortByDesc('submitted_date'),
-            'logisticsUsers' => \App\Models\User::where('position', 'like', '%Logistic%')
-                ->where('status', true)
+            'logisticsUsers' => \App\Models\User::where('status', true)
+                ->where(function($q) {
+                    $q->where('position', 'like', '%Logistic%')
+                      ->orWhere('position', 'like', '%Rider%')
+                      ->orWhere('position', 'like', '%Driver%')
+                      ->orWhere('position', 'like', '%Delivery%')
+                      ->orWhere('position', 'like', '%Warehouse%')
+                      ->orWhere('position', 'like', '%Staff%')
+                      ->orWhere('position', 'like', '%Admin%')
+                      ->orWhere('division', 'like', '%Production%')
+                      ->orWhere('division', 'like', '%Logistic%');
+                })
                 ->orderBy('first_name')
                 ->get(),
-            'isLogisticsAssigner' => ($user && ($user->isSuperAdmin() || (str_contains(strtolower($user->position ?? ''), 'logistic') && (str_contains(strtolower($user->position ?? ''), 'manager') || str_contains(strtolower($user->position ?? ''), 'supervisor') || str_contains(strtolower($user->position ?? ''), 'senior')))))
+            'isLogisticsAssigner' => ($user && ($user->isSuperAdmin() || str_contains(strtolower($user->position ?? ''), 'logistic') || str_contains(strtolower($user->position ?? ''), 'production') || str_contains(strtolower($user->position ?? ''), 'warehouse') || str_contains(strtolower($user->division ?? ''), 'production') || str_contains(strtolower($user->division ?? ''), 'logistic') || str_contains(strtolower($user->position ?? ''), 'manager') || str_contains(strtolower($user->position ?? ''), 'supervisor')))
         ]);
     }
 
@@ -865,6 +899,16 @@ class ProductionController extends Controller
             'payrollList' => $payrollList,
             'donationIncomeList' => $donationIncomeList,
         ]);
+    }
+
+    public function approveTeamStockTransfer($id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
+        $transfer->update([
+            'status' => 'pending_picklist'
+        ]);
+
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' approved! Sent to Pick List Queue.');
     }
 }
 

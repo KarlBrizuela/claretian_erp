@@ -171,10 +171,18 @@
                                             <option value="">Select Freight Option</option>
                                             <option value="freight_collect" {{ $order->freight_option === 'freight_collect' ? 'selected' : '' }}>Freight Collect</option>
                                             <option value="freight_billing" {{ $order->freight_option === 'freight_billing' ? 'selected' : '' }}>Freight Billing</option>
+                                            <option value="bill_client" {{ $order->freight_option === 'bill_client' ? 'selected' : '' }}>Bill Client</option>
                                         </select>
+                                        <div id="forwarderContainer" class="mt-2" style="display: {{ $order->freight_option === 'bill_client' ? 'block' : 'none' }};">
+                                            <label class="small fw-bold text-dark mb-1">Forwarder <span class="text-danger">*</span>:</label>
+                                            <input type="text" id="forwarderInput" class="form-control form-control-sm" placeholder="e.g. LBC, J&T, 2GO, AP Cargo" value="{{ $order->forwarder }}">
+                                        </div>
                                     @else
                                         @if($order->freight_option)
                                             <span class="badge bg-primary">{{ ucfirst(str_replace('_', ' ', $order->freight_option)) }}</span>
+                                            @if($order->freight_option === 'bill_client' && $order->forwarder)
+                                                <div class="small fw-bold text-dark mt-1"><i class="las la-shipping-fast me-1 text-primary"></i>Forwarder: {{ $order->forwarder }}</div>
+                                            @endif
                                         @else
                                             <span class="text-muted">-</span>
                                         @endif
@@ -217,8 +225,8 @@
                                 $isIndex = true;
                                 $indexVal = $item->bookIndex->index_value;
                                 $parentBook = $item->bookIndex->book;
-                                $displayTitle = $parentBook ? $parentBook->name : 'Book Index Item';
-                                $displayIsbn = $parentBook?->isbn ?? $displayIsbn;
+                                $displayTitle = $item->bookIndex->display_name;
+                                $displayIsbn = $item->bookIndex->barcode ?? ($parentBook?->isbn ?? $displayIsbn);
                                 if ($parentBook && $parentBook->image) {
                                     $displayImage = asset('storage/' . $parentBook->image);
                                 }
@@ -639,22 +647,31 @@
             if (freightOptionSelect) {
                 freightOptionSelect.addEventListener('change', function() {
                     const serviceFeeRow = document.getElementById('serviceFeeRow');
+                    const forwarderContainer = document.getElementById('forwarderContainer');
                     if (this.value === 'freight_collect') {
                         serviceFeeRow.style.display = '';
                     } else {
                         serviceFeeRow.style.display = 'none';
                     }
+                    if (forwarderContainer) {
+                        forwarderContainer.style.display = this.value === 'bill_client' ? 'block' : 'none';
+                    }
                 });
                 
-                // Check on page load if freight collect is selected
+                // Check on page load
                 if (freightOptionSelect.value === 'freight_collect') {
                     document.getElementById('serviceFeeRow').style.display = '';
+                }
+                const forwarderContainer = document.getElementById('forwarderContainer');
+                if (forwarderContainer) {
+                    forwarderContainer.style.display = freightOptionSelect.value === 'bill_client' ? 'block' : 'none';
                 }
             }
         });
 
         function saveOrderChanges(orderId) {
             const freightOption = document.getElementById('freightOptionSelect')?.value || '';
+            const forwarderVal = document.getElementById('forwarderInput')?.value || '';
 
             const saveBtn = document.getElementById('saveChangesBtn');
             saveBtn.disabled = true;
@@ -667,7 +684,8 @@
                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 },
                 body: JSON.stringify({
-                    freight_option: freightOption
+                    freight_option: freightOption,
+                    forwarder: forwarderVal
                 })
             })
             .then(response => response.json())

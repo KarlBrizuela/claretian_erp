@@ -48,6 +48,9 @@
                                                         };
                                                     @endphp
                                                     <span class="badge light {{ $badgeClass }}">{{ $user->position ?? 'N/A' }}</span>
+                                                    @if($user->sales_team)
+                                                        <span class="badge light badge-primary ms-1"><i class="fas fa-users me-1"></i>{{ $user->sales_team }}</span>
+                                                    @endif
                                                 </td>
                                                 <td>
                                                     @foreach($user->divisions as $userDiv)
@@ -156,6 +159,17 @@
                                 @foreach($positions as $posOption)
                                     <option value="{{ $posOption }}" {{ $user->position == $posOption ? 'selected' : '' }}>{{ $posOption }}</option>
                                 @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label font-w600">Sales Team / Area Team</label>
+                            <select name="sales_team" class="form-control default-select">
+                                <option value="" {{ empty($user->sales_team) ? 'selected' : '' }}>None (No Team)</option>
+                                <option value="Team A" {{ $user->sales_team === 'Team A' ? 'selected' : '' }}>Team A</option>
+                                <option value="Team B" {{ $user->sales_team === 'Team B' ? 'selected' : '' }}>Team B</option>
+                                <option value="Team C" {{ $user->sales_team === 'Team C' ? 'selected' : '' }}>Team C</option>
+                                <option value="Book Sales" {{ $user->sales_team === 'Book Sales' ? 'selected' : '' }}>Book Sales</option>
+                                <option value="MIBF" {{ $user->sales_team === 'MIBF' ? 'selected' : '' }}>MIBF</option>
                             </select>
                         </div>
                         <div class="form-group mt-4">

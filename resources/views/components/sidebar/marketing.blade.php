@@ -81,9 +81,7 @@
 			@endif
 
 			@if($user->hasPermission('marketing.area_sales.freight_quotations'))
-			<a href="{{ route('marketing.freight-quotations.list') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.freight-quotations.*') ? 'active' : '' }}">
-				<i class="bi bi-truck me-1"></i>Freight Quotations
-			</a>
+			<a href="{{ route('marketing.freight-quotations.list') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.freight-quotations.*') ? 'active' : '' }}">Freight Quotations</a>
 			@endif
 
 			@if($user->hasPermission('marketing.area_sales.direct_invoice_website'))
@@ -101,6 +99,7 @@
 			@if($user->hasPermission('marketing.area_sales.proof_of_payment'))
 			<a href="{{ route('marketing.proof-of-payment') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.proof-of-payment') ? 'active' : '' }}">Proof of Payment</a>
 			@endif
+			<a href="{{ route('marketing.area-sales.team-stocks.index') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.area-sales.team-stocks.*') ? 'active' : '' }}">Team Stocks</a>
 			<!-- Sales Reports and Territory Management removed -->
 		</div>
 	</div>

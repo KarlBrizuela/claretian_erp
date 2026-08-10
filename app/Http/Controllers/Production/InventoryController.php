@@ -159,10 +159,13 @@ class InventoryController extends Controller
             ->latest()
             ->get();
 
+        $batchData = [];
         $stockTransferWorkflow = StockTransfer::with([
                 'fromSite',
                 'toSite',
                 'book',
+                'bookIndex.book',
+                'bookBundle',
                 'createdBy',
                 'approvedBy',
                 'accountingReviewedBy',
@@ -171,6 +174,8 @@ class InventoryController extends Controller
                 'completedBy',
             ])
             ->whereIn('status', [
+                'pending',
+                'accounting_review',
                 'logistics_assignment',
                 'logistics_assigned',
                 'completed',
@@ -195,10 +200,43 @@ class InventoryController extends Controller
                 });
             })
             ->latest()
-            ->get();
+            ->get()
+            ->groupBy(function ($item) {
+                return $item->batch_id ?: ('single_' . $item->id);
+            })
+            ->map(function ($items) use (&$batchData) {
+                $first = $items->first();
+                $batchItems = $items->map(function($i) {
+                    return [
+                        'id'       => $i->id,
+                        'name'     => (string) $i->item_name,
+                        'type'     => (string) $i->item_type,
+                        'quantity' => (int)    $i->quantity,
+                    ];
+                })->values()->toArray();
 
-        $logisticsUsers = User::where('position', 'like', '%Logistic%')
-            ->where('status', true)
+                $batchData[$first->id] = [
+                    'items'          => $batchItems,
+                    'total_quantity' => (int) $items->sum('quantity'),
+                    'items_count'    => (int) $items->count(),
+                ];
+
+                return $first;
+            })
+            ->values();
+
+        $logisticsUsers = User::where('status', true)
+            ->where(function($q) {
+                $q->where('position', 'like', '%Logistic%')
+                  ->orWhere('position', 'like', '%Rider%')
+                  ->orWhere('position', 'like', '%Driver%')
+                  ->orWhere('position', 'like', '%Delivery%')
+                  ->orWhere('position', 'like', '%Warehouse%')
+                  ->orWhere('position', 'like', '%Staff%')
+                  ->orWhere('position', 'like', '%Admin%')
+                  ->orWhere('division', 'like', '%Production%')
+                  ->orWhere('division', 'like', '%Logistic%');
+            })
             ->orderBy('first_name')
             ->get();
 
@@ -281,7 +319,8 @@ class InventoryController extends Controller
             'isLogisticsAssigner',
             'indices',
             'bundles',
-            'consignmentStaff'
+            'consignmentStaff',
+            'batchData'
         ));
     }
 
@@ -314,10 +353,13 @@ class InventoryController extends Controller
             return true;
         }
 
-        $position = strtolower($user->position ?? '');
+        $position   = strtolower($user->position ?? '');
+        $division   = strtolower($user->division ?? '');
+        $department = strtolower($user->department ?? '');
 
-        return str_contains($position, 'logistic')
-            && (str_contains($position, 'manager') || str_contains($position, 'supervisor') || str_contains($position, 'senior'));
+        return str_contains($position, 'logistic') || str_contains($position, 'production') || str_contains($position, 'warehouse') || str_contains($position, 'admin') || str_contains($position, 'manager') || str_contains($position, 'supervisor')
+            || str_contains($division, 'logistic') || str_contains($division, 'production') || str_contains($division, 'warehouse')
+            || str_contains($department, 'logistic') || str_contains($department, 'production') || str_contains($department, 'warehouse');
     }
 
     public function addStock()

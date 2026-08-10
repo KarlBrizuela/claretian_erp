@@ -1,0 +1,452 @@
+<x-app-layout :title="'Area Sales - Team Stocks'" :sidebar="'marketing'">
+    <style>
+        .team-stocks-tabs-container {
+            background: #f8f9fa;
+            padding: 10px 10px 0 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .nav-tabs.modern-tabs {
+            border-bottom: none;
+            gap: 10px;
+        }
+        .nav-tabs.modern-tabs .nav-link {
+            border: none;
+            color: #6c757d;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            padding: 12px 25px;
+            border-radius: 10px 10px 0 0;
+            transition: all 0.3s ease;
+            position: relative;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .nav-tabs.modern-tabs .nav-link:hover {
+            color: #D9251C;
+            background: rgba(217, 37, 28, 0.05);
+        }
+        .nav-tabs.modern-tabs .nav-link.active {
+            color: #D9251C;
+            background: #fff;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+        }
+        .nav-tabs.modern-tabs .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: #D9251C;
+            border-radius: 3px 3px 0 0;
+        }
+    </style>
+
+    <div class="container-fluid py-4">
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+                <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>{{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        <!-- Team Summary Cards -->
+        <div class="row mb-4">
+            @foreach(['Team A', 'Team B', 'Team C', 'Book Sales', 'MIBF'] as $team)
+            @php
+                $teamCount = $teamStocks->where('team_name', $team)->sum('quantity');
+                $teamItemsCount = $teamStocks->where('team_name', $team)->where('quantity', '>', 0)->count();
+                $staffCount = $teamUsers->where('sales_team', $team)->count();
+                $teamBadgeClass = 'bg-danger text-white';
+            @endphp
+            <div class="col-md-6 col-lg-4 col-xl-2-4 mb-3">
+                <div class="card shadow-sm border-0" style="border-radius: 10px; background: #fff;">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge {{ $teamBadgeClass }} px-3 py-2 fw-bold" style="font-size: 0.85rem;">{{ $team }}</span>
+                            <span class="text-muted small fw-bold">{{ $staffCount }} Staff</span>
+                        </div>
+                        <div class="mt-3">
+                            <h3 class="fw-bold mb-0 text-dark">{{ number_format($teamCount) }} <span class="fs-14 text-muted fw-normal">pcs in stock</span></h3>
+                            <small class="text-muted">{{ $teamItemsCount }} distinct item title(s)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+
+        <!-- Main Card with Header & Tabs -->
+        <div class="card shadow-sm border-0 overflow-hidden" style="border-radius: 10px;">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-0 flex-wrap gap-2">
+                <div>
+                    <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-boxes me-2 text-danger"></i>Area Sales — Team Stocks</h5>
+                    <p class="text-muted small mb-0">Manage stock balances and transfers from Main Warehouse to Sales Teams (Team A, Team B, Team C, Book Sales, MIBF).</p>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-danger btn-sm px-3 shadow-sm d-inline-flex align-items-center justify-content-center gap-1" 
+                            style="height: 36px; font-size: 0.85rem; background-color: #D9251C; border: none; font-weight: 600;" 
+                            data-bs-toggle="modal" data-bs-target="#newTransferModal">
+                        <i class="fas fa-exchange-alt me-1"></i> Transfer Stock to Team
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="team-stocks-tabs-container">
+                    <ul class="nav nav-tabs modern-tabs" id="teamStockTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold" id="inventory-tab" data-bs-toggle="tab" data-bs-target="#inventoryContent" type="button" role="tab">
+                                <i class="fas fa-boxes"></i> TEAM STOCK INVENTORY
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold" id="history-tab" data-bs-toggle="tab" data-bs-target="#historyContent" type="button" role="tab">
+                                <i class="fas fa-history"></i> STOCK TRANSFER HISTORY
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="tab-content p-4" id="teamStockTabContent">
+                    <!-- Team Stock Inventory Tab -->
+                    <div class="tab-pane fade show active" id="inventoryContent" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="fw-bold text-dark me-2 small">FILTER BY TEAM:</span>
+                                <div class="btn-group btn-group-sm flex-wrap" role="group" id="teamFilterGroup">
+                                    <button type="button" class="btn btn-outline-danger active" data-filter="all">All Teams</button>
+                                    <button type="button" class="btn btn-outline-danger" data-filter="Team A">Team A</button>
+                                    <button type="button" class="btn btn-outline-danger" data-filter="Team B">Team B</button>
+                                    <button type="button" class="btn btn-outline-danger" data-filter="Team C">Team C</button>
+                                    <button type="button" class="btn btn-outline-danger" data-filter="Book Sales">Book Sales</button>
+                                    <button type="button" class="btn btn-outline-danger" data-filter="MIBF">MIBF</button>
+                                </div>
+                            </div>
+                            <div style="width: 240px; height: 32px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; padding: 0 10px; box-sizing: border-box;">
+                                <i class="fas fa-search text-muted me-2" style="font-size: 0.85rem;"></i>
+                                <input type="text" id="inventorySearch" class="form-control" placeholder="Search product name..." style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.82rem; color: #333; outline: none !important; box-shadow: none !important;">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover align-middle mb-0" id="teamStockTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 120px;">TEAM</th>
+                                        <th>PRODUCT DESCRIPTION</th>
+                                        <th class="text-center" style="width: 160px;">QTY IN STOCK</th>
+                                        <th class="text-end" style="width: 140px;">ACTIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($teamStocks as $stock)
+                                    @php
+                                        $tBadgeClass = 'bg-danger text-white';
+                                    @endphp
+                                    <tr class="stock-row" data-team="{{ $stock->team_name }}" data-name="{{ strtolower($stock->product_name) }}">
+                                        <td>
+                                            <span class="badge {{ $tBadgeClass }} font-w600">{{ $stock->team_name }}</span>
+                                        </td>
+                                        <td class="fw-bold text-dark">
+                                            {{ $stock->product_name }}
+                                            @if($stock->bookIndex)
+                                                <small class="d-block text-muted fw-normal">ISBN/Article: {{ $stock->bookIndex->article_number ?: ($stock->bookIndex->isbn ?: 'N/A') }}</small>
+                                            @elseif($stock->book)
+                                                <small class="d-block text-muted fw-normal">Item Code: {{ $stock->book->item_code ?: 'N/A' }}</small>
+                                            @endif
+                                        </td>
+                                        <td class="text-center fw-bold">
+                                            @if($stock->quantity > 0)
+                                                <span class="text-success">{{ number_format($stock->quantity) }} pcs</span>
+                                            @else
+                                                <span class="text-danger">0 pcs</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-xs btn-outline-danger" 
+                                                    onclick="openQuickTransferModal('{{ $stock->team_name }}', '{{ $stock->book_id }}', '{{ $stock->book_index_id }}', '{{ $stock->book_bundle_id }}', '{{ e($stock->product_name) }}')">
+                                                + Add Stock
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4 text-muted">
+                                            No stock record found for any team. Click <strong>Transfer Stock to Team</strong> above to transfer stock from Main Warehouse.
+                                        </td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Stock Transfer History Tab -->
+                    <div class="tab-pane fade" id="historyContent" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>TRANSFER #</th>
+                                        <th>TARGET TEAM</th>
+                                        <th>TRANSFERRED BY</th>
+                                        <th class="text-center">ITEMS COUNT</th>
+                                        <th>DATE & TIME</th>
+                                        <th>REMARKS</th>
+                                        <th class="text-end">ACTION</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($transfers as $tr)
+                                    @php
+                                        $tBadgeClass = 'bg-danger text-white';
+                                    @endphp
+                                    <tr>
+                                        <td class="fw-bold text-dark">{{ $tr->transfer_number }}</td>
+                                        <td><span class="badge {{ $tBadgeClass }}">{{ $tr->team_name }}</span></td>
+                                        <td>{{ $tr->transferredByUser->name ?? 'System' }}</td>
+                                        <td class="text-center">{{ $tr->items->count() }} item(s)</td>
+                                        <td>{{ $tr->created_at->format('M d, Y h:i A') }}</td>
+                                        <td>{{ $tr->notes ?: '—' }}</td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-xs btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#transferDetailModal{{ $tr->id }}">
+                                                View Details
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">No stock transfers recorded yet.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Transfer Modal -->
+    <div class="modal fade" id="newTransferModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form action="{{ route('marketing.area-sales.team-stocks.transfer') }}" method="POST">
+                    @csrf
+                    <div class="modal-header border-bottom">
+                        <h5 class="modal-title text-dark fw-bold">Transfer Stock from Main Warehouse to Team</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Target Sales Team <span class="text-danger">*</span></label>
+                                <select name="team_name" id="modalTargetTeam" class="form-select" required>
+                                    <option value="" disabled selected>Select Sales Team...</option>
+                                    <option value="Team A">Team A</option>
+                                    <option value="Team B">Team B</option>
+                                    <option value="Team C">Team C</option>
+                                    <option value="Book Sales">Book Sales</option>
+                                    <option value="MIBF">MIBF</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Transfer Notes / Remarks</label>
+                                <input type="text" name="notes" class="form-control" placeholder="Optional transfer details or purpose...">
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h6 class="fw-bold text-dark mb-3">Select Items to Transfer</h6>
+
+                        <div id="transferItemsContainer" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                            <div class="transfer-item-row row g-2 mb-2 align-items-end">
+                                <div class="col-md-7">
+                                    <label class="form-label small fw-bold mb-1">Product Title / Code (Main Warehouse Stock)</label>
+                                    <select name="items[0][product_id]" class="form-select product-select" required onchange="updateMaxQty(this)">
+                                        <option value="" disabled selected>Select product...</option>
+                                        @foreach($mainProducts as $prod)
+                                        @php
+                                            $pId = is_object($prod) ? $prod->id : ($prod['id'] ?? '');
+                                            $pName = is_object($prod) ? $prod->name : ($prod['name'] ?? '');
+                                            $pStock = is_object($prod) ? ($prod->stock ?? $prod->main_stock ?? 0) : ($prod['stock'] ?? $prod['main_stock'] ?? 0);
+                                        @endphp
+                                        <option value="{{ $pId }}" data-stock="{{ $pStock }}">
+                                            {{ $pName }} (Main Stock: {{ number_format($pStock) }} pcs)
+                                        </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold mb-1">Quantity to Transfer</label>
+                                    <input type="number" name="items[0][quantity]" class="form-control qty-input" min="1" placeholder="Qty" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-outline-danger w-100 remove-row-btn" onclick="removeTransferRow(this)" disabled>
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addTransferRow()">
+                            + Add Another Item
+                        </button>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger fw-bold" style="background-color: #D9251C; border: none;">Execute Stock Transfer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transfer Detail Modals -->
+    @foreach($transfers as $tr)
+    <div class="modal fade" id="transferDetailModal{{ $tr->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-md">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold text-dark">Transfer Details: {{ $tr->transfer_number }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="mb-1"><strong>Target Team:</strong> <span class="badge bg-secondary">{{ $tr->team_name }}</span></p>
+                    <p class="mb-1"><strong>Transferred By:</strong> {{ $tr->transferredByUser->name ?? 'System' }}</p>
+                    <p class="mb-1"><strong>Date:</strong> {{ $tr->created_at->format('M d, Y h:i A') }}</p>
+                    <p class="mb-3"><strong>Notes:</strong> {{ $tr->notes ?: 'None' }}</p>
+                    
+                    <h6 class="fw-bold border-bottom pb-2">Items Transferred</h6>
+                    <ul class="list-group list-group-flush">
+                        @foreach($tr->items as $tItem)
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="fw-bold text-dark">{{ $tItem->product_name }}</span>
+                            <span class="badge bg-success rounded-pill px-3 py-2">+{{ number_format($tItem->quantity) }} pcs</span>
+                        </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
+    @push('scripts')
+    <script>
+        let transferRowIndex = 1;
+
+        function updateMaxQty(selectElem) {
+            const selectedOption = selectElem.options[selectElem.selectedIndex];
+            const stock = parseInt(selectedOption.dataset.stock || 0);
+            const row = selectElem.closest('.transfer-item-row');
+            const qtyInput = row.querySelector('.qty-input');
+            if (qtyInput) {
+                qtyInput.max = stock;
+                qtyInput.placeholder = `Max: ${stock}`;
+            }
+        }
+
+        function addTransferRow() {
+            const container = document.getElementById('transferItemsContainer');
+            const firstRow = container.querySelector('.transfer-item-row');
+            const newRow = firstRow.cloneNode(true);
+
+            // Update field names & reset inputs
+            const select = newRow.querySelector('.product-select');
+            select.name = `items[${transferRowIndex}][product_id]`;
+            select.selectedIndex = 0;
+
+            const qty = newRow.querySelector('.qty-input');
+            qty.name = `items[${transferRowIndex}][quantity]`;
+            qty.value = '';
+            qty.removeAttribute('max');
+            qty.placeholder = 'Qty';
+
+            const removeBtn = newRow.querySelector('.remove-row-btn');
+            removeBtn.removeAttribute('disabled');
+
+            container.appendChild(newRow);
+            transferRowIndex++;
+            updateRemoveButtons();
+        }
+
+        function removeTransferRow(btn) {
+            const row = btn.closest('.transfer-item-row');
+            const container = document.getElementById('transferItemsContainer');
+            if (container.querySelectorAll('.transfer-item-row').length > 1) {
+                row.remove();
+                updateRemoveButtons();
+            }
+        }
+
+        function updateRemoveButtons() {
+            const rows = document.querySelectorAll('.transfer-item-row');
+            rows.forEach((r, idx) => {
+                const btn = r.querySelector('.remove-row-btn');
+                if (rows.length === 1) {
+                    btn.setAttribute('disabled', 'true');
+                } else {
+                    btn.removeAttribute('disabled');
+                }
+            });
+        }
+
+        function openQuickTransferModal(teamName, bookId, bookIndexId, bookBundleId, prodName) {
+            document.getElementById('modalTargetTeam').value = teamName;
+            const modal = new bootstrap.Modal(document.getElementById('newTransferModal'));
+            modal.show();
+        }
+
+        // Filter functionality for Team Inventory Table
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterBtns = document.querySelectorAll('#teamFilterGroup button');
+            const rows = document.querySelectorAll('#teamStockTable .stock-row');
+            const searchInput = document.getElementById('inventorySearch');
+
+            function filterRows() {
+                const activeBtn = document.querySelector('#teamFilterGroup button.active');
+                const selectedTeam = activeBtn ? activeBtn.dataset.filter : 'all';
+                const searchVal = searchInput.value.toLowerCase().trim();
+
+                rows.forEach(row => {
+                    const rowTeam = row.dataset.team;
+                    const rowName = row.dataset.name;
+
+                    const matchTeam = (selectedTeam === 'all' || rowTeam === selectedTeam);
+                    const matchSearch = (!searchVal || rowName.includes(searchVal));
+
+                    if (matchTeam && matchSearch) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    filterRows();
+                });
+            });
+
+            if (searchInput) {
+                searchInput.addEventListener('input', filterRows);
+            }
+        });
+    </script>
+    @endpush
+</x-app-layout>

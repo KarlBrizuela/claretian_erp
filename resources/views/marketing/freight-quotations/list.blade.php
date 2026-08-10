@@ -10,28 +10,50 @@
                         </a>
                     </div>
                     <div class="card-body">
-                        <!-- Status Filters -->
-                        <div class="mb-3 d-flex gap-2 flex-wrap">
-                            <a href="{{ route('marketing.freight-quotations.list', ['status' => 'all']) }}" 
-                               class="btn btn-sm {{ $currentStatus === 'all' ? 'btn-danger' : 'btn-outline-secondary' }}">
-                                All
-                            </a>
-                            <a href="{{ route('marketing.freight-quotations.list', ['status' => 'draft']) }}" 
-                               class="btn btn-sm {{ $currentStatus === 'draft' ? 'btn-primary' : 'btn-outline-secondary' }}">
-                                <i class="bi bi-pencil-square me-1"></i>Draft
-                            </a>
-                            <a href="{{ route('marketing.freight-quotations.list', ['status' => 'pending_logistics']) }}" 
-                               class="btn btn-sm {{ $currentStatus === 'pending_logistics' ? 'btn-warning' : 'btn-outline-secondary' }}">
-                                <i class="bi bi-hourglass-split me-1"></i>Pending Review
-                            </a>
-                            <a href="{{ route('marketing.freight-quotations.list', ['status' => 'approved']) }}" 
-                               class="btn btn-sm {{ $currentStatus === 'approved' ? 'btn-success' : 'btn-outline-secondary' }}">
-                                <i class="bi bi-check-circle me-1"></i>Approved
-                            </a>
-                            <a href="{{ route('marketing.freight-quotations.list', ['status' => 'linked_to_so']) }}" 
-                               class="btn btn-sm {{ $currentStatus === 'linked_to_so' ? 'btn-info' : 'btn-outline-secondary' }}">
-                                <i class="bi bi-link-45deg me-1"></i>Linked to SO
-                            </a>
+                        <!-- Status Filters & Search Bar -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="d-flex gap-1 flex-wrap">
+                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'all'])) }}" 
+                                   class="btn btn-sm {{ $currentStatus === 'all' ? 'btn-danger' : 'btn-outline-secondary' }}">
+                                    All
+                                </a>
+                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'draft'])) }}" 
+                                   class="btn btn-sm {{ $currentStatus === 'draft' ? 'btn-primary' : 'btn-outline-secondary' }}">
+                                    <i class="bi bi-pencil-square me-1"></i>Draft
+                                </a>
+                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'pending_logistics'])) }}" 
+                                   class="btn btn-sm {{ $currentStatus === 'pending_logistics' ? 'btn-warning' : 'btn-outline-secondary' }}">
+                                    <i class="bi bi-hourglass-split me-1"></i>Pending Review
+                                </a>
+                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'approved'])) }}" 
+                                   class="btn btn-sm {{ $currentStatus === 'approved' ? 'btn-success' : 'btn-outline-secondary' }}">
+                                    <i class="bi bi-check-circle me-1"></i>Approved
+                                </a>
+                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'linked_to_so'])) }}" 
+                                   class="btn btn-sm {{ $currentStatus === 'linked_to_so' ? 'btn-info' : 'btn-outline-secondary' }}">
+                                    <i class="bi bi-link-45deg me-1"></i>Linked to SO
+                                </a>
+                            </div>
+
+                            <!-- Search Form -->
+                            <form action="{{ route('marketing.freight-quotations.list') }}" method="GET" class="d-flex align-items-center gap-1">
+                                <input type="hidden" name="status" value="{{ $currentStatus }}">
+                                <div style="width: 220px; height: 32px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; padding: 0 10px; box-sizing: border-box;">
+                                    <i class="fas fa-search text-muted me-2" style="font-size: 0.85rem;"></i>
+                                    <input type="text" name="search" class="form-control" 
+                                           placeholder="Search..." value="{{ request('search') }}" 
+                                           style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.82rem; color: #333; outline: none !important; box-shadow: none !important;">
+                                    @if(request('search'))
+                                        <a href="{{ route('marketing.freight-quotations.list', ['status' => $currentStatus]) }}" class="text-muted d-inline-flex align-items-center ms-1" title="Clear search" style="text-decoration: none;">
+                                            <i class="fas fa-times-circle" style="color: #999; font-size: 0.9rem; cursor: pointer;"></i>
+                                        </a>
+                                    @endif
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-danger text-white rounded d-inline-flex align-items-center justify-content-center gap-1" style="height: 32px; padding: 0 12px; font-size: 0.8rem; background-color: #D9251C; border: none;">
+                                    <i class="fas fa-search" style="font-size: 0.8rem;"></i>
+                                    <span>Search</span>
+                                </button>
+                            </form>
                         </div>
 
                         @if(session('success'))
@@ -139,8 +161,13 @@
                             </div>
 
                             <!-- Pagination -->
-                            <div class="d-flex justify-content-center mt-3">
-                                {{ $quotations->links() }}
+                            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $quotations->firstItem() ?? 0 }} to {{ $quotations->lastItem() ?? 0 }} of {{ $quotations->total() }} entries
+                                </div>
+                                <div>
+                                    {{ $quotations->links() }}
+                                </div>
                             </div>
                         @endif
                     </div>

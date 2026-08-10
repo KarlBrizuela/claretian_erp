@@ -133,7 +133,13 @@
                                     <option value="">Select Freight Option</option>
                                     <option value="freight_collect" {{ ($isEdit && $order->freight_option == 'freight_collect') ? 'selected' : '' }}>Freight Collect</option>
                                     <option value="freight_billing" {{ ($isEdit && $order->freight_option == 'freight_billing') ? 'selected' : '' }}>Freight Billing</option>
+                                    <option value="bill_client" {{ ($isEdit && $order->freight_option == 'bill_client') ? 'selected' : '' }}>Bill Client</option>
                                 </select>
+                            </div>
+
+                            <div class="form-group" id="forwarderGroup" style="display: {{ ($isEdit && $order->freight_option == 'bill_client') ? 'block' : 'none' }};">
+                                <label>Forwarder <span class="text-danger">*</span>:</label>
+                                <input type="text" class="form-control" name="forwarder" id="forwarderInput" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO, AP Cargo)" value="{{ $isEdit ? ($order->forwarder ?? '') : '' }}">
                             </div>
 
                             <div class="form-group" id="serviceFeeGroup" style="display: none;">
@@ -479,6 +485,7 @@
             const freightOptionSelect = document.querySelector('select[name="freight_option"]');
             const serviceFeeGroup = document.getElementById('serviceFeeGroup');
             const serviceFeeTotalRow = document.getElementById('serviceFeeTotalRow');
+            const forwarderGroup = document.getElementById('forwarderGroup');
 
             function toggleServiceFee() {
                 const shouldShowServiceFee = freightOptionSelect?.value === 'freight_collect';
@@ -487,6 +494,10 @@
                 }
                 if (serviceFeeTotalRow) {
                     serviceFeeTotalRow.style.display = shouldShowServiceFee ? '' : 'none';
+                }
+                const isBillClient = freightOptionSelect?.value === 'bill_client';
+                if (forwarderGroup) {
+                    forwarderGroup.style.display = isBillClient ? 'block' : 'none';
                 }
             }
             

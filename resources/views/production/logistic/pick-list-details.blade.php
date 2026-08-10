@@ -4,9 +4,16 @@
             <div class="col-12">
                 <div class="card pick-list-form">
                     <div class="form-header">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <h2 class="document-title">PICK LIST DETAILS</h2>
-                            <a href="{{ route('production.logistic.pick-list-list') }}" class="btn btn-secondary" style="background: #6c757d; border: none; color: white;">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <div class="d-flex align-items-center gap-3">
+                                <img src="{{ asset('images/claeritian_logo.png') }}" alt="Claretian Logo" class="header-logo-img" style="height: 52px; width: auto; object-fit: contain; flex-shrink: 0;">
+                                <div>
+                                    <div class="company-brand" style="font-size: 1.1rem; font-weight: 800; color: #cc0000; letter-spacing: 0.5px; line-height: 1.2;">CLARETIAN COMMUNICATIONS FOUNDATION INC.</div>
+                                    <div class="company-sub" style="font-size: 0.8rem; color: #555; font-weight: 500;">8 Mayumi St., U.P. Village, Diliman, Quezon City</div>
+                                    <h2 class="document-title" style="margin-top: 4px; margin-bottom: 0; font-size: 1.35rem; font-weight: 800; color: #111; letter-spacing: 1px;">PICK LIST DETAILS</h2>
+                                </div>
+                            </div>
+                            <a href="{{ route('production.logistic.pick-list-list') }}" class="btn btn-secondary no-print" style="background: #6c757d; border: none; color: white;">
                                 <i class="las la-arrow-left me-2"></i>Back to List
                             </a>
                         </div>
@@ -45,10 +52,21 @@
                                 <input type="text" value="{{ $pickList->salesOrder?->customer_contact ?: ($pickList->salesOrder?->customer?->mobile ?: ($pickList->salesOrder?->customer?->main_phone ?: 'N/A')) }}" readonly>
                             </div>
                             <div class="form-group">
+                                <label>Freight Option:</label>
+                                <input type="text" value="{{ $pickList->salesOrder?->freight_option ? ucfirst(str_replace('_', ' ', $pickList->salesOrder->freight_option)) : 'N/A' }}" readonly>
+                            </div>
+                            @if($pickList->salesOrder?->freight_option === 'bill_client' || $pickList->salesOrder?->forwarder)
+                            <div class="form-group">
+                                <label>Forwarder:</label>
+                                <input type="text" class="fw-bold text-primary" value="{{ $pickList->salesOrder?->forwarder ?? 'N/A' }}" readonly>
+                            </div>
+                            @endif
+                            <div class="form-group">
                                 <label>Remarks / Notes:</label>
                                 <div class="d-flex flex-column gap-2">
-                                    <textarea id="pickListDetailsRemarks" class="form-control" style="background:#fff; font-weight:600;" rows="2" placeholder="Enter remarks or special instructions...">{{ $pickList->notes ?: ($pickList->salesOrder?->remarks ?: '') }}</textarea>
-                                    <button type="button" class="btn btn-sm btn-primary align-self-start" onclick="savePickListDetailsRemarks()" style="background:#0d6efd; border:none; border-radius:6px; font-weight:600; padding: 0.5rem 1.25rem;">
+                                    <textarea id="pickListDetailsRemarks" class="form-control screen-only-remarks" style="background:#fff; font-weight:600;" rows="2" placeholder="Enter remarks or special instructions...">{{ $pickList->notes ?: ($pickList->salesOrder?->remarks ?: '') }}</textarea>
+                                    <div class="print-only-remarks" id="printRemarksContent">{{ $pickList->notes ?: ($pickList->salesOrder?->remarks ?: 'None') }}</div>
+                                    <button type="button" class="btn btn-sm btn-primary align-self-start no-print" onclick="savePickListDetailsRemarks()" style="background:#0d6efd; border:none; border-radius:6px; font-weight:600; padding: 0.5rem 1.25rem;">
                                         <i class="las la-save me-1"></i>Save Remarks
                                     </button>
                                 </div>
@@ -151,7 +169,7 @@
                     </div>
 
                     <!-- Summary Section -->
-                    <div class="order-info-section" style="margin-top: 1rem;">
+                    <div class="order-info-section summary-info-section" style="margin-top: 1rem;">
                         <div class="order-info-box">
                             <h5>Summary</h5>
                             <div class="form-group">
@@ -171,7 +189,7 @@
                             <h5>Financial Summary</h5>
                             <div class="form-group">
                                 <label>Total Amount:</label>
-                                <input type="text" value="₱{{ number_format($pickList->pickListItems->sum('salesOrderItem.subtotal'), 2) }}" readonly style="font-weight: bold; font-size: 1.1rem;">
+                                <input type="text" value="₱{{ number_format($pickList->pickListItems->sum('salesOrderItem.subtotal'), 2) }}" readonly style="font-weight: bold; font-size: 1.1rem; color: #111;">
                             </div>
                             <div class="form-group">
                                 <label>Date Created:</label>
@@ -181,7 +199,7 @@
                     </div>
 
                     <!-- Actions -->
-                    <div style="margin-top: 1.5rem; padding: 0 1.5rem 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="no-print" style="margin-top: 1.5rem; padding: 0 1.5rem 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
                         @php
                             $isConsignmentOrder = $pickList->salesOrder && in_array($pickList->salesOrder->type, ['area_consignment', 'area_sales_consignment']);
                             $targetQueueText = $isConsignmentOrder ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
@@ -212,21 +230,22 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .form-header {
-            background: linear-gradient(135deg, #cc0000, #ff0000);
-            color: white;
-            padding: 1.5rem;
+            background: #ffffff;
+            color: #333;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 3px solid #cc0000;
             border-radius: 8px 8px 0 0;
         }
         .document-title {
             margin: 0;
-            font-size: 1.5rem;
-            font-weight: 700;
+            font-size: 1.35rem;
+            font-weight: 800;
             letter-spacing: 1px;
         }
         .order-info-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 2rem;
+            gap: 1.5rem;
             padding: 1.5rem;
             border-top: 1px solid #dee2e6;
         }
@@ -234,28 +253,33 @@
             padding: 1rem;
             background: #f8f9fa;
             border-radius: 6px;
+            border: 1px solid #e9ecef;
         }
         .order-info-box h5 {
-            font-weight: 600;
-            margin-bottom: 1rem;
-            color: #333;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: #cc0000;
+            font-size: 1rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.4rem;
         }
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
         .form-group label {
             display: block;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            color: #555;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #444;
+            font-size: 0.85rem;
         }
         .form-group input,
         .form-group select {
             width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid #ced4da;
             border-radius: 4px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
         .picked-qty:focus, .status-select:focus, .notes-input:focus {
             border-color: #cc0000 !important;
@@ -265,11 +289,214 @@
         #pickListItemsBody tr:hover {
             background: #fff8f8;
         }
+
+        .print-only-remarks {
+            display: none;
+        }
+
+        /* Print Specific Styles */
+        @media print {
+            @page {
+                size: portrait;
+                margin: 8mm;
+            }
+
+            nav, header, .deznav, .nav-header, .header, .sidebar, .ez-sidebar,
+            .btn, button, a.btn, .no-print, .alert, #savePickedBtn {
+                display: none !important;
+            }
+
+            body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                color: #000000 !important;
+            }
+
+            .container-fluid, .content-body, .row, .col-12 {
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .pick-list-form {
+                position: relative !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+
+            .form-header {
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding: 0.5rem 0 1rem 0 !important;
+                border-bottom: 2px solid #cc0000 !important;
+                border-radius: 0 !important;
+                margin-bottom: 0.75rem !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                display: block !important;
+            }
+
+            .document-title {
+                color: #000000 !important;
+                font-size: 1.3rem !important;
+                font-weight: 800 !important;
+                margin-top: 2px !important;
+            }
+
+            .company-brand {
+                color: #cc0000 !important;
+                font-size: 1rem !important;
+                font-weight: 800 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .company-sub {
+                color: #555555 !important;
+                font-size: 0.75rem !important;
+            }
+
+            .header-logo-img {
+                height: 46px !important;
+            }
+
+            .order-info-section {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 1rem !important;
+                padding: 0.5rem 0 !important;
+                border-top: 1px solid #ddd !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .summary-info-section {
+                margin-top: 0.75rem !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .order-info-box {
+                background: #ffffff !important;
+                border: 1px solid #ccc !important;
+                padding: 0.6rem !important;
+                border-radius: 4px !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .order-info-box h5 {
+                font-size: 0.85rem !important;
+                margin-bottom: 0.4rem !important;
+                color: #cc0000 !important;
+                border-bottom: 1px solid #ddd !important;
+                padding-bottom: 0.2rem !important;
+            }
+
+            .form-group {
+                margin-bottom: 0.35rem !important;
+            }
+
+            .form-group label {
+                font-size: 0.75rem !important;
+                margin-bottom: 0.1rem !important;
+                font-weight: 700 !important;
+                color: #222 !important;
+            }
+
+            .form-group input {
+                border: 1px solid #ccc !important;
+                padding: 0.2rem 0.4rem !important;
+                font-size: 0.8rem !important;
+                background: #fff !important;
+                color: #000 !important;
+                height: auto !important;
+            }
+
+            /* Remarks print formatting */
+            .screen-only-remarks {
+                display: none !important;
+            }
+
+            .print-only-remarks {
+                display: block !important;
+                border: 1px solid #ccc !important;
+                padding: 0.4rem 0.5rem !important;
+                font-size: 0.8rem !important;
+                font-weight: 600 !important;
+                background: #fff !important;
+                color: #000 !important;
+                white-space: pre-wrap !important;
+                word-break: break-word !important;
+                min-height: 40px !important;
+            }
+
+            .table-responsive {
+                overflow: visible !important;
+            }
+
+            .pick-list-table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                page-break-inside: auto !important;
+            }
+
+            .pick-list-table tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .pick-list-table thead tr th {
+                background: #cc0000 !important;
+                color: #ffffff !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                font-size: 0.75rem !important;
+                padding: 0.35rem 0.4rem !important;
+                border: 1px solid #aa0000 !important;
+            }
+
+            .pick-list-table tbody tr td {
+                padding: 0.35rem 0.4rem !important;
+                font-size: 0.75rem !important;
+                border: 1px solid #ddd !important;
+            }
+
+            .pick-list-table input,
+            .pick-list-table select {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                font-size: 0.75rem !important;
+                box-shadow: none !important;
+                -webkit-appearance: none !important;
+                -moz-appearance: none !important;
+                appearance: none !important;
+                text-align: inherit !important;
+            }
+        }
     </style>
     @endpush
 
     @push('scripts')
     <script>
+        const remarksEl = document.getElementById('pickListDetailsRemarks');
+        const printRemarksContent = document.getElementById('printRemarksContent');
+        if (remarksEl && printRemarksContent) {
+            remarksEl.addEventListener('input', function() {
+                printRemarksContent.innerText = remarksEl.value || 'None';
+            });
+        }
+
         // Live update total picked qty as user types
         document.querySelectorAll('.picked-qty').forEach(input => {
             input.addEventListener('input', updateTotalPicked);

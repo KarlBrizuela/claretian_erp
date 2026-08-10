@@ -195,6 +195,11 @@
                             <p class="text-muted small mt-1">This will be appended as 'Book Name + Index Value'.</p>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label small fw-bold">CUSTOM RESULTING NAME (Optional)</label>
+                            <input type="text" class="form-control" name="custom_name" id="index_custom_name_field" placeholder="e.g. Mang Inasal Index 2">
+                            <p class="text-muted small mt-1">Leave empty to keep default 'Book Name + Index Value'. Does NOT change original Book Name.</p>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label small fw-bold">ARTICLE</label>
                             <input type="text" class="form-control" name="article" id="index_article_field" placeholder="e.g. ART-001">
                         </div>
@@ -323,6 +328,8 @@
                 isEditingIndexMode = false;
                 document.getElementById('modal_index_id').value = '';
                 document.getElementById('addIndexForm').reset();
+                document.getElementById('index_value_field').value = '';
+                document.getElementById('index_custom_name_field').value = '';
                 document.getElementById('index_article_field').value = '';
                 document.getElementById('index_barcode_field').value = '';
                 document.getElementById('index_nbs_barcode_field').value = '';
@@ -354,6 +361,7 @@
                 const payload = {
                     book_id: formData.get('book_id'),
                     index_value: formData.get('index_value'),
+                    custom_name: formData.get('custom_name'),
                     article: formData.get('article'),
                     barcode: formData.get('barcode'),
                     nbs_barcode: formData.get('nbs_barcode'),
@@ -406,6 +414,7 @@
                         document.getElementById('modal_index_id').value = data.id;
                         $('#index_book_id').val(data.book_id).trigger('change');
                         document.getElementById('index_value_field').value = data.index_value;
+                        document.getElementById('index_custom_name_field').value = data.custom_name || '';
                         document.getElementById('index_article_field').value = data.article || '';
                         document.getElementById('index_barcode_field').value = data.barcode || '';
                         document.getElementById('index_nbs_barcode_field').value = data.nbs_barcode || '';

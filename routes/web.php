@@ -49,6 +49,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/production/sales-order/{id}/review', [App\Http\Controllers\ProductionController::class, 'reviewSalesOrder'])->name('production.sales-order.detail');
     Route::post('/production/sales-order/{id}/approve', [App\Http\Controllers\ProductionController::class, 'approveSalesOrder'])->name('production.sales-order.approve');
     Route::post('/production/sales-order/{id}/reject', [App\Http\Controllers\ProductionController::class, 'rejectSalesOrder'])->name('production.sales-order.reject');
+    Route::match(['get', 'post'], '/production/team-stock-transfer/{id}/approve', [App\Http\Controllers\ProductionController::class, 'approveTeamStockTransfer'])->name('production.team-stock-transfer.approve');
     
     // Production Inventory Management
     Route::prefix('production/inventory')->name('production.inventory.')->group(function () {
@@ -172,6 +173,10 @@ Route::middleware(['auth'])->group(function () {
       
       // Delivery Form View
       Route::get('/delivery-form/{id}', [App\Http\Controllers\Production\LogisticController::class, 'viewDeliveryForm'])->name('view-delivery-form');
+
+      // Team Stock Transfer Fulfillment Routes
+      Route::match(['get', 'post'], '/team-stock-transfer/{id}/complete-pick', [App\Http\Controllers\Production\LogisticController::class, 'completeTeamStockPickList'])->name('team-stock-transfer.complete-pick');
+      Route::match(['get', 'post'], '/team-stock-transfer/{id}/complete-pack', [App\Http\Controllers\Production\LogisticController::class, 'completeTeamStockPacking'])->name('team-stock-transfer.complete-pack');
 
       // Acknowledgement Receipt (Area Sales Consignment import)
       Route::get('/acknowledgement-receipt', [App\Http\Controllers\Production\LogisticController::class, 'acknowledgementReceipt'])->name('acknowledgement-receipt');
@@ -371,6 +376,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/acknowledgement-receipt', [MarketingController::class, 'acknowledgementReceipt'])->name('marketing.acknowledgement-receipt');
     Route::get('/marketing/credit-memo', [MarketingController::class, 'creditMemo'])->name('marketing.credit-memo');
     Route::get('/marketing/proof-of-payment', [MarketingController::class, 'proofOfPayment'])->name('marketing.proof-of-payment');
+
+    // Area Sales Team Stocks Routes
+    Route::get('/marketing/area-sales/team-stocks', [MarketingController::class, 'teamStocksIndex'])->name('marketing.area-sales.team-stocks.index');
+    Route::post('/marketing/area-sales/team-stocks/transfer', [MarketingController::class, 'storeTeamStockTransfer'])->name('marketing.area-sales.team-stocks.transfer');
     Route::get('/marketing/sales-invoice', [MarketingController::class, 'salesInvoice'])->name('marketing.sales-invoice');
     Route::get('/marketing/pick-list-management', [MarketingController::class, 'pickListManagement'])->name('marketing.pick-list.management');
     Route::get('/marketing/pick-lists', [MarketingController::class, 'pickLists'])->name('marketing.pick-lists');

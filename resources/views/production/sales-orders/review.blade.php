@@ -78,6 +78,22 @@
                                 <td class="text-black">{{ $order->preparedBy->name ?? 'N/A' }}</td>
                             </tr>
                             <tr>
+                                <td class="fw-bold text-dark">Freight Option:</td>
+                                <td class="text-black">
+                                    @if($order->freight_option)
+                                        <span class="badge bg-primary">{{ ucfirst(str_replace('_', ' ', $order->freight_option)) }}</span>
+                                    @else
+                                        <span class="text-muted">N/A</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @if($order->freight_option === 'bill_client' || $order->forwarder)
+                            <tr>
+                                <td class="fw-bold text-dark">Forwarder:</td>
+                                <td class="fw-bold text-primary"><i class="las la-shipping-fast me-1"></i>{{ $order->forwarder ?? 'N/A' }}</td>
+                            </tr>
+                            @endif
+                            <tr>
                                 <td class="fw-bold text-dark">Remarks:</td>
                                 <td class="text-black fw-bold text-primary" style="white-space: pre-wrap;">{!! e($order->remarks ?: '—') !!}</td>
                             </tr>

@@ -409,13 +409,29 @@
                                     @endforeach
 
                                     @foreach($pendingTransfers as $transfer)
+                                    @php
+                                        $__bd = $batchData[$transfer->id] ?? null;
+                                        $bItems = $__bd ? $__bd['items'] : [[
+                                            'id' => $transfer->id,
+                                            'name' => $transfer->item_name,
+                                            'type' => $transfer->item_type,
+                                            'quantity' => (int)$transfer->quantity
+                                        ]];
+                                        $totQty = $__bd ? $__bd['total_quantity'] : (int)$transfer->quantity;
+                                        $itemCount = $__bd ? $__bd['items_count'] : 1;
+                                    @endphp
                                     <tr>
                                         <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
-                                        <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                        <td>
+                                            <strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong>
+                                            @if($itemCount > 1)
+                                                <span class="badge bg-secondary ms-1">{{ $itemCount }} items</span>
+                                            @endif
+                                        </td>
                                         <td><span class="text-muted">N/A</span></td>
                                         <td>{{ $transfer->fromSite->name ?? 'N/A' }}</td>
                                         <td>{{ optional($transfer->created_at)->format('Y-m-d h:i A') }}</td>
-                                        <td>{{ $transfer->quantity }} units</td>
+                                        <td>{{ number_format($totQty) }} units @if($itemCount > 1)<small class="text-muted">({{ $itemCount }} titles)</small>@endif</td>
                                         <td><span class="text-muted">None</span></td>
                                         <td><span class="status-badge status-pending">Pending Approval</span></td>
                                         <td>
@@ -424,10 +440,12 @@
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#stockTransferApprovalModal"
                                                     data-id="{{ $transfer->id }}"
-                                                    data-from-site="{{ $transfer->fromSite->name }}"
-                                                    data-to-site="{{ $transfer->toSite->name }}"
-                                                    data-book-name="{{ $transfer->item_name }}"
-                                                    data-quantity="{{ $transfer->quantity }}">
+                                                    data-from-site="{{ $transfer->fromSite->name ?? 'N/A' }}"
+                                                    data-to-site="{{ $transfer->toSite->name ?? 'N/A' }}"
+                                                    data-submitted-by="{{ $transfer->createdBy->name ?? 'N/A' }}"
+                                                    data-date="{{ optional($transfer->created_at)->format('M. d, Y h:i A') }}"
+                                                    data-notes="{{ $transfer->notes ?? '' }}"
+                                                    data-items="{{ e(json_encode($bItems)) }}">
                                                 <i class="las la-eye"></i> Review
                                             </button>
                                         </td>
@@ -691,13 +709,29 @@
                                 @endforeach
 
                                 @foreach($pendingTransfers as $transfer)
+                                @php
+                                    $__bdDQ = $batchData[$transfer->id] ?? null;
+                                    $bItemsDQ = $__bdDQ ? $__bdDQ['items'] : [[
+                                        'id' => $transfer->id,
+                                        'name' => $transfer->item_name,
+                                        'type' => $transfer->item_type,
+                                        'quantity' => (int)$transfer->quantity
+                                    ]];
+                                    $totQtyDQ = $__bdDQ ? $__bdDQ['total_quantity'] : (int)$transfer->quantity;
+                                    $itemCountDQ = $__bdDQ ? $__bdDQ['items_count'] : 1;
+                                @endphp
                                 <tr data-type="Stock Transfer">
                                     <td><span class="document-type-badge" style="background-color: #d4edda; color: #155724;">Stock Transfer</span></td>
-                                    <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                    <td>
+                                        <strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong>
+                                        @if($itemCountDQ > 1)
+                                            <span class="badge bg-secondary ms-1">{{ $itemCountDQ }} items</span>
+                                        @endif
+                                    </td>
                                     <td><span class="text-muted">N/A</span></td>
                                     <td>{{ $transfer->fromSite->name ?? 'N/A' }}</td>
                                     <td>{{ $transfer->created_at->format('Y-m-d h:i A') }}</td>
-                                    <td>{{ $transfer->quantity }} units</td>
+                                    <td>{{ number_format($totQtyDQ) }} units @if($itemCountDQ > 1)<small class="text-muted">({{ $itemCountDQ }} titles)</small>@endif</td>
                                     <td><span class="status-badge status-pending">Pending Approval</span></td>
                                     <td>
                                         <button type="button" 
@@ -705,10 +739,12 @@
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#stockTransferApprovalModal"
                                                 data-id="{{ $transfer->id }}"
-                                                data-from-site="{{ $transfer->fromSite->name }}"
-                                                data-to-site="{{ $transfer->toSite->name }}"
-                                                data-book-name="{{ $transfer->item_name }}"
-                                                data-quantity="{{ $transfer->quantity }}">
+                                                data-from-site="{{ $transfer->fromSite->name ?? 'N/A' }}"
+                                                data-to-site="{{ $transfer->toSite->name ?? 'N/A' }}"
+                                                data-submitted-by="{{ $transfer->createdBy->name ?? 'N/A' }}"
+                                                data-date="{{ optional($transfer->created_at)->format('M. d, Y h:i A') }}"
+                                                data-notes="{{ $transfer->notes ?? '' }}"
+                                                data-items="{{ e(json_encode($bItemsDQ)) }}">
                                             <i class="las la-eye"></i> Review
                                         </button>
                                     </td>
@@ -863,81 +899,162 @@
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg">
                 <!-- Header -->
-                <div class="modal-header border-0 text-white position-relative" style="background: #28a745; padding: 1.5rem 2rem;">
+                <div class="modal-header border-0 text-white position-relative" style="background: #dc3545; padding: 1.5rem 2rem;">
                     <div>
                         <h5 class="modal-title text-white fw-bold mb-1" id="stockTransferApprovalModalLabel">
-                            <i class="las la-exchange-alt me-2"></i>Stock Transfer Approval
+                            <i class="las la-exchange-alt me-2"></i>Request Details
                         </h5>
                         <p class="mb-0 opacity-75 small" id="st-modal-reference-header"></p>
                     </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <!-- Body -->
-                <div class="modal-body p-4">
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold text-uppercase">From Site:</label>
-                                <div class="p-2 bg-light rounded">
-                                    <span id="st-from-site" class="fw-bold text-dark"></span>
+                <div class="modal-body p-0" style="background: #f8f9fa; overflow-y: auto;">
+
+                    <!-- Info Cards -->
+                    <div class="p-3" style="background: #f8f9fa;">
+                        <div class="row g-2">
+                            <!-- Submitted By -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-user" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">Submitted By</label>
+                                            <p id="st-submitted-by" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold text-uppercase">To Site:</label>
-                                <div class="p-2 bg-light rounded">
-                                    <span id="st-to-site" class="fw-bold text-dark"></span>
+                            <!-- Request Type -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-tag" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">Request Type</label>
+                                            <p class="mb-0 small fw-semibold" style="color:#212529;">Stock Transfer Request</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- From Site -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-warehouse" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">From Site</label>
+                                            <p id="st-from-site" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- To Site -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-map-marker" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">To Site</label>
+                                            <p id="st-to-site" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Date Submitted -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-calendar" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">Date Submitted</label>
+                                            <p id="st-modal-date" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Total Items -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-box" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">Total Items / Qty</label>
+                                            <p id="st-modal-total" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold text-uppercase">Book:</label>
-                                <div class="p-2 bg-light rounded">
-                                    <span id="st-book-name" class="fw-bold text-dark"></span>
+                    <!-- Items Table Section -->
+                    <div class="px-3 pb-3" style="background:#f8f9fa;">
+                        <div class="details-section p-3 rounded-3 bg-white border">
+                            <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
+                                <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#dc3545;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                    <i class="las la-books text-white" style="font-size:1.1rem;"></i>
                                 </div>
+                                <h6 class="fw-bold mb-0" style="color:#212529;">Books Included in Transfer</h6>
+                            </div>
+                            <div class="table-responsive" style="max-height:280px;overflow-y:auto;">
+                                <table class="table table-bordered table-hover align-middle mb-0 small">
+                                    <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+                                        <tr>
+                                            <th style="width:55%">Book Title / Code</th>
+                                            <th style="width:20%">Type</th>
+                                            <th class="text-center" style="width:25%">Quantity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="st-items-body"></tbody>
+                                </table>
+                            </div>
+                            <!-- Notes -->
+                            <div id="st-notes-row" class="mt-3" style="display:none;">
+                                <label class="form-label fw-bold small text-dark mb-1"><i class="las la-sticky-note text-warning me-1"></i>Notes:</label>
+                                <div id="st-notes-text" class="p-2 rounded" style="background:#fffbe6;border:1px solid #ffe58f;font-size:0.875rem;color:#555;"></div>
+                            </div>
+                            <!-- Approval Remarks -->
+                            <div class="mt-3">
+                                <label class="form-label fw-bold small text-dark mb-1"><i class="las la-comment-alt text-primary me-1"></i>Add Action / Approval Remarks (Optional):</label>
+                                <textarea id="st-approval-remarks" class="form-control form-control-sm" rows="2" placeholder="Type optional remarks before approving or rejecting..."></textarea>
                             </div>
                         </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold text-uppercase">Quantity:</label>
-                                <div class="p-2 bg-light rounded">
-                                    <span id="st-quantity" class="fw-bold text-success" style="font-size: 1.2rem;"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-info small">
-                        <i class="las la-info-circle me-2"></i>
-                        <strong>Note:</strong> This transfer will be automatically processed when approved. The stock will be deducted from the "From Site" and added to the "To Site".
                     </div>
                 </div>
 
                 <!-- Footer -->
-                <div class="modal-footer border-top bg-white" style="padding: 1.25rem 2rem;">
+                <div class="modal-footer border-top bg-white" style="padding:1.25rem 2rem;">
                     <div class="d-flex justify-content-between w-100 align-items-center">
                         <button type="button" class="btn btn-light px-4 py-2 fw-semibold border" data-bs-dismiss="modal">
                             <i class="las la-times me-1"></i>Close
                         </button>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 position-relative">
                             <button type="button" class="btn btn-danger px-4 py-2 fw-semibold" onclick="toggleStRejection()" id="st-reject-btn">
                                 <i class="las la-times-circle me-1"></i>Reject
                             </button>
-                            <div id="st-rejection-reason-container" class="mt-2" style="display:none; position: absolute; background: white; border: 1px solid #ccc; padding: 15px; z-index: 1000; width: 300px; bottom: 80px; right: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                            <div id="st-rejection-reason-container" class="mt-2" style="display:none;position:absolute;background:white;border:1px solid #ccc;padding:15px;z-index:1000;width:300px;bottom:60px;right:0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
                                 <label class="fw-bold mb-2 small">Reason for Rejection:</label>
-                                <textarea name="rejection_reason" class="form-control mb-3" rows="3" placeholder="Enter reason..."></textarea>
+                                <textarea name="rejection_reason" id="st-rejection-reason-text" class="form-control mb-3" rows="3" placeholder="Enter reason..."></textarea>
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-danger btn-sm flex-grow-1" id="st-confirm-reject-btn">Confirm Reject</button>
                                     <button type="button" class="btn btn-light btn-sm flex-grow-1 border" onclick="toggleStRejection()">Cancel</button>
                                 </div>
                             </div>
-                            
                             <button type="button" class="btn btn-success px-4 py-2 fw-semibold" id="st-approve-btn">
                                 <i class="las la-check-circle me-1"></i>Approve Transfer
                             </button>
@@ -951,6 +1068,9 @@
     @push('scripts')
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
+        // PHP batch data injected directly — 100% reliable, no HTML encoding issues
+        var stockTransferBatchData = @json($batchData);
+
         // Global variables to hold table instances
         var queueTable;
         var myApprovalsTable;
@@ -973,16 +1093,14 @@
 
         // Global function for top card filtering
         function filterQueue(btn, filterValue) {
-            // Update active state
             $('.filter-trigger').removeClass('active');
             $(btn).addClass('active');
 
-            // Apply filter using DataTables
             if (queueTable) {
-                if (filterValue === '') {
-                    queueTable.search('').columns().search('').draw();
+                if (!filterValue) {
+                    queueTable.column(0).search('').draw();
                 } else {
-                    queueTable.column(0).search(filterValue).draw();
+                    queueTable.column(0).search(filterValue, false, true).draw();
                 }
             }
         }
@@ -1120,26 +1238,71 @@
                 var button = $(event.relatedTarget);
                 var id = button.data('id');
                 var fromSite = button.data('from-site');
-                var toSite = button.data('to-site');
-                var bookName = button.data('book-name');
-                var quantity = button.data('quantity');
+                var toSite   = button.data('to-site');
+                var submittedBy = button.data('submitted-by') || 'N/A';
+                var dateSubmitted = button.data('date') || 'N/A';
+                var notes = button.data('notes') || '';
                 var reference = 'ST-' + String(id).padStart(5, '0');
 
+                var itemsData = [];
+                // Look up items from the PHP-injected JS object (100% reliable)
+                var batchInfo = stockTransferBatchData[id];
+                if (batchInfo && Array.isArray(batchInfo.items) && batchInfo.items.length > 0) {
+                    itemsData = batchInfo.items;
+                } else {
+                    // Fallback: try parsing data-items attribute
+                    var itemsRaw = button.attr('data-items');
+                    if (itemsRaw) {
+                        try { itemsData = JSON.parse(itemsRaw); } catch(e) { itemsData = []; }
+                    }
+                    if (!Array.isArray(itemsData) || itemsData.length === 0) {
+                        itemsData = [{ name: button.attr('data-book-name') || 'Unknown Item', type: 'Book', quantity: 1 }];
+                    }
+                }
+
                 var modal = $(this);
-                modal.find('#st-from-site').text(fromSite);
-                modal.find('#st-to-site').text(toSite);
-                modal.find('#st-book-name').text(bookName);
-                modal.find('#st-quantity').text(quantity + ' units');
-                modal.find('#st-modal-reference-header').text(reference);
 
-                // Store transfer ID for button handlers
+                // Populate info cards
+                modal.find('#st-submitted-by').text(submittedBy);
+                modal.find('#st-from-site').text(fromSite || 'N/A');
+                modal.find('#st-to-site').text(toSite || 'N/A');
+                modal.find('#st-modal-date').text(dateSubmitted);
+                modal.find('#st-modal-reference-header').text(reference + (itemsData.length > 1 ? ' (' + itemsData.length + ' items)' : ''));
+
+                // Build items table
+                var rowsHtml = '';
+                var totalQty = 0;
+                itemsData.forEach(function(item) {
+                    var qty = parseInt(item.quantity) || 0;
+                    totalQty += qty;
+                    var typeColor = item.type === 'Book' ? 'success' : (item.type === 'Bundle' ? 'warning' : 'secondary');
+                    rowsHtml += `<tr>
+                        <td class="fw-semibold text-dark">${item.name || 'Unknown Item'}</td>
+                        <td><span class="badge bg-${typeColor}">${item.type || 'Item'}</span></td>
+                        <td class="text-center fw-bold text-success">${qty} pcs</td>
+                    </tr>`;
+                });
+                if (itemsData.length > 1) {
+                    rowsHtml += `<tr class="table-light fw-bold">
+                        <td colspan="2" class="text-end small">Total Batch Units:</td>
+                        <td class="text-center text-success">${totalQty} pcs</td>
+                    </tr>`;
+                }
+                modal.find('#st-items-body').html(rowsHtml);
+                modal.find('#st-modal-total').text(itemsData.length + ' title(s) · ' + totalQty + ' pcs total');
+
+                // Show notes if present
+                if (notes && notes.trim() !== '') {
+                    modal.find('#st-notes-text').text(notes);
+                    modal.find('#st-notes-row').show();
+                } else {
+                    modal.find('#st-notes-row').hide();
+                }
+
                 modal.data('transfer-id', id);
-
-                // Reset rejection container
                 $('#st-rejection-reason-container').hide();
-
-                // Clear rejection reason textarea
-                $('textarea[name="rejection_reason"]').val('');
+                $('#st-rejection-reason-text').val('');
+                $('#st-approval-remarks').val('');
             });
 
             // Stock Transfer Approve Button Handler

@@ -291,16 +291,16 @@
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold" style="font-size: 0.85rem;"> Number of Boxes: <span class="text-danger">*</span></label>
                                                 <input type="number" class="form-control form-control-sm @error('boxes_count') is-invalid @enderror" 
-                                                       name="boxes_count" min="0" value="{{ old('boxes_count', $quotation->boxes_count ?? 0) }}" 
-                                                       required placeholder="e.g., 5" style="height: 1.75rem; font-size: 0.85rem;">
+                                                       name="boxes_count" min="0" value="{{ old('boxes_count', $quotation->boxes_count ? $quotation->boxes_count : '') }}" 
+                                                       required placeholder="Enter number of boxes (e.g., 5)" style="height: 1.75rem; font-size: 0.85rem;">
                                                 @error('boxes_count')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold" style="font-size: 0.85rem;"> Estimated Freight Charge (₱): <span class="text-danger">*</span></label>
                                                 <input type="number" class="form-control form-control-sm @error('estimated_freight') is-invalid @enderror" 
                                                        name="estimated_freight" step="0.01" min="0" 
-                                                       value="{{ old('estimated_freight', $quotation->estimated_freight ?? 0) }}" required 
-                                                       placeholder="e.g., 5000.00" style="height: 1.75rem; font-size: 0.85rem;">
+                                                       value="{{ old('estimated_freight', $quotation->estimated_freight > 0 ? $quotation->estimated_freight : ($quotation->workflow_status === 'approved' && $quotation->estimated_freight !== null ? $quotation->estimated_freight : '')) }}" required 
+                                                       placeholder="Enter freight charge (e.g., 500.00)" style="height: 1.75rem; font-size: 0.85rem;">
                                                 @error('estimated_freight')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
                                             </div>
                                         </div>
@@ -536,7 +536,7 @@
                                                     @endphp
                                                     <tr>
                                                         <td>{{ $item->quantity }}</td>
-                                                        <td>{{ $item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? $item->bookIndex?->index_value ?? 'N/A' }}</td>
+                                                        <td>{{ $item->bookIndex ? $item->bookIndex->display_name : ($item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'N/A') }}</td>
                                                         <td class="text-end">₱ {{ number_format($item->price, 2) }}</td>
                                                         <td class="text-end text-danger">
                                                             @if($discVal > 0)

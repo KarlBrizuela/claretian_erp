@@ -19,19 +19,36 @@ class FreightQuotationController extends Controller
     public function list(Request $request)
     {
         $status = $request->query('status', 'all');
+        $search = $request->query('search');
         
-        $query = FreightQuotation::with(['createdBy', 'respondedBy', 'salesOrder'])
-            ->where('created_by', auth()->id())
-            ->orWhere(function ($q) {
-                $q->whereNull('created_by');
+        $query = FreightQuotation::with(['createdBy', 'respondedBy', 'salesOrder']);
+
+        if (auth()->user()->position !== 'Super Admin' && !str_contains(auth()->user()->position, 'Manager')) {
+            $query->where(function($q) {
+                $q->where('created_by', auth()->id())
+                  ->orWhereNull('created_by');
             });
+        }
 
         // Filter by workflow status
         if ($status !== 'all') {
             $query->where('workflow_status', $status);
         }
 
-        $quotations = $query->latest()->paginate(20);
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('quote_number', 'like', '%' . $search . '%')
+                  ->orWhere('origin_province', 'like', '%' . $search . '%')
+                  ->orWhere('destination_province', 'like', '%' . $search . '%')
+                  ->orWhere('service_mode', 'like', '%' . $search . '%')
+                  ->orWhere('customer_representative', 'like', '%' . $search . '%')
+                  ->orWhereHas('createdBy', function($u) use ($search) {
+                      $u->where('name', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        $quotations = $query->latest()->paginate(10)->withQueryString();
 
         return view('marketing.freight-quotations.list', [
             'title' => 'Freight Quotations',
@@ -39,6 +56,7 @@ class FreightQuotationController extends Controller
             'sidebar' => 'marketing',
             'quotations' => $quotations,
             'currentStatus' => $status,
+            'search' => $search,
         ]);
     }
 
@@ -77,7 +95,8 @@ class FreightQuotationController extends Controller
                 'service_mode' => 'required|string|max:255',
                 'freight_mode' => 'nullable|string|max:255',
                 'forwarder' => 'nullable|string|max:255',
-                'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
+                'freight_option' => 'nullable|string|in:freight_collect,freight_billing,bill_client',
+            'forwarder' => 'nullable|string|max:255',
                 'cargo_qty' => 'nullable|array',
                 'cargo_qty.*' => 'nullable|integer|min:1',
                 'cargo_package_type' => 'nullable|array',
@@ -186,7 +205,8 @@ class FreightQuotationController extends Controller
                         'type' => $validated['transaction_type'] ?? 'paid',
                         'status' => 'draft',
                         'total_amount' => $itemsTotal,
-                        'freight_option' => $validated['freight_option'] ?? null,
+                        'freight_option' => $validated['freight_option'] ?? ($quotation->freight_option ?? null),
+                        'forwarder' => $validated['forwarder'] ?? ($quotation->forwarder ?? null),
                         'prepared_by' => auth()->id(),
                         'remarks' => 'Created from Freight Quotation #' . $quoteNumber,
                     ]);

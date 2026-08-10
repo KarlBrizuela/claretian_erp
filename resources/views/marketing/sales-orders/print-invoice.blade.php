@@ -552,7 +552,7 @@
                     @forelse($itemsToPrint as $item)
                         @php
                             if ($item->bookIndex) {
-                                $desc = '[INDEX ' . $item->bookIndex->index_value . '] ' . ($item->bookIndex->book?->name ?? 'Book Index Item');
+                                $desc = $item->bookIndex->display_name;
                             } elseif ($item->bundle) {
                                 $desc = '[BUNDLE] ' . $item->bundle->name;
                             } else {

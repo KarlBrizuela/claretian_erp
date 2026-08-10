@@ -217,10 +217,10 @@
                             </div>
                         @endif
 
-                        <!-- Logistics Response (if approved) -->
-                        @if($quotation->workflow_status === 'approved')
+                        <!-- Logistics Response (if approved or linked) -->
+                        @if(in_array($quotation->workflow_status, ['approved', 'linked_to_so']) || $quotation->status === 'approved')
                             @php
-                                $calcTotal = $quotation->estimated_freight + ($quotation->handling_fee ?? 0);
+                                $displayTotal = $quotation->total_amount ?? ($quotation->estimated_freight + ($quotation->handling_fee ?? 0));
                             @endphp
                             <div style="background: #f0fdf4; padding: 1rem; border-radius: 6px; border: 2px solid #10b981; margin-bottom: 1.5rem;">
                                 <h5 class="mb-3"><i class="bi bi-check-circle me-2"></i><strong>Logistics Quotation</strong></h5>
@@ -249,7 +249,7 @@
                                 <div class="row">
                                     <div class="col-12">
                                         <small class="text-muted d-block mb-1"><strong>Total Amount</strong></small>
-                                        <p class="mb-0 fs-4"><strong class="text-danger">₱ {{ number_format($calcTotal, 2) }}</strong></p>
+                                        <p class="mb-0 fs-4"><strong class="text-danger">₱ {{ number_format($displayTotal, 2) }}</strong></p>
                                     </div>
                                 </div>
 
@@ -341,7 +341,7 @@
                                                 @endphp
                                                 <tr>
                                                     <td>{{ $quantity }}</td>
-                                                    <td>{{ $product?->name ?? $item->product_name ?? 'N/A' }}</td>
+                                                    <td>{{ $item->bookIndex ? $item->bookIndex->display_name : ($product?->name ?? $item->product_name ?? 'N/A') }}</td>
                                                     <td class="text-center">
                                                         @if($weight > 0)
                                                             {{ number_format($weight, 2) }}

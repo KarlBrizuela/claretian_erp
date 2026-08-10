@@ -148,8 +148,13 @@
                                     <option value="">Select Freight Option</option>
                                     <option value="freight_collect" {{ old('freight_option') === 'freight_collect' ? 'selected' : '' }}>Freight Collect</option>
                                     <option value="freight_billing" {{ old('freight_option') === 'freight_billing' ? 'selected' : '' }}>Freight Billing</option>
+                                    <option value="bill_client" {{ old('freight_option') === 'bill_client' ? 'selected' : '' }}>Bill Client</option>
                                 </select>
                                 @error('freight_option')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="mb-3" id="forwarderGroup" style="display: {{ old('freight_option') === 'bill_client' ? 'block' : 'none' }};">
+                                <label class="form-label">Forwarder <span class="text-danger">*</span>:</label>
+                                <input type="text" class="form-control" name="forwarder" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO, AP Cargo)" value="{{ old('forwarder') }}">
                             </div>
                             <div class="alert alert-info py-2 mb-3" id="serviceFeeNotice" style="display: none;">
                                 <strong>Service Fee:</strong> ₱ 50.00
@@ -559,6 +564,16 @@
                 fqRepresentativeSelect.addEventListener('change', function() {
                     if (isAutofillEnabled) {
                         performAutofill();
+                    }
+                });
+            }
+
+            const freightOptionSelect = document.getElementById('freightOption');
+            const forwarderGroup = document.getElementById('forwarderGroup');
+            if (freightOptionSelect) {
+                freightOptionSelect.addEventListener('change', function() {
+                    if (forwarderGroup) {
+                        forwarderGroup.style.display = this.value === 'bill_client' ? 'block' : 'none';
                     }
                 });
             }

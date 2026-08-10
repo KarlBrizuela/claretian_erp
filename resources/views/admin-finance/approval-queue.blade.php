@@ -1154,7 +1154,10 @@
                     'prepared_by', 'signed_by_af_manager', 'customer_id', 'requested_by', 'requestor', 'items',
                     'from_site', 'to_site', 'book', 'created_by', 'approved_by', 'accounting_reviewed_by',
                     'logistics_assigned_to', 'logistics_assigned_by', 'completed_by',
-                    'approved_at', 'accounting_reviewed_at', 'logistics_assigned_at', 'completed_at'
+                    'approved_at', 'accounting_reviewed_at', 'logistics_assigned_at', 'completed_at',
+                    'from_site_id', 'to_site_id', 'book_id', 'book_index_id', 'book_bundle_id', 'quantity',
+                    'approval_division', 'initial_approval_division', 'batch_id', 'batch_items',
+                    'total_quantity', 'items_count', 'item_name', 'item_type'
                 ];
 
                 let descriptionHtml = `<div class="table-responsive"><table class="table table-sm table-borderless mb-0"><tbody>`;
@@ -1229,19 +1232,55 @@
                     });
                     descriptionHtml += `</tbody></table></div></div>`;
                 } else if (type === 'Stock Transfer') {
+                    var itemsList = original.batch_items;
+                    if (!Array.isArray(itemsList) || itemsList.length === 0) {
+                        var bName = original.book?.name || original.item_name || 'Book';
+                        if (original.book_index && original.book_index.book) {
+                            bName = original.book_index.book.name + ' ' + (original.book_index.index_value || '');
+                        } else if (original.book_bundle) {
+                            bName = original.book_bundle.name;
+                        }
+                        itemsList = [{ name: bName, type: original.item_type || 'Book', quantity: original.quantity || 1 }];
+                    }
+
+                    var itemsRows = '';
+                    var totQty = 0;
+                    itemsList.forEach(function(it) {
+                        var q = parseInt(it.quantity) || 0;
+                        totQty += q;
+                        itemsRows += `<tr>
+                            <td class="fw-semibold text-dark">${it.name || 'Unknown Item'}</td>
+                            <td><span class="badge bg-secondary">${it.type || 'Item'}</span></td>
+                            <td class="text-center fw-bold text-success">${q} pcs</td>
+                        </tr>`;
+                    });
+                    if (itemsList.length > 1) {
+                        itemsRows += `<tr class="table-light fw-bold">
+                            <td colspan="2" class="text-end small">Total Batch Units:</td>
+                            <td class="text-center text-success">${totQty} pcs</td>
+                        </tr>`;
+                    }
+
                     descriptionHtml += `</tbody></table></div>
                         <div class="mt-3 pt-2 border-top">
-                            <h6 class="fw-bold fs-12 text-muted mb-2">TRANSFER DETAILS</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered mb-0 small">
+                            <h6 class="fw-bold fs-12 text-muted mb-2"><i class="las la-books text-danger me-1"></i>BOOKS INCLUDED IN TRANSFER (${itemsList.length} titles · ${totQty} pcs total)</h6>
+                            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                                <table class="table table-sm table-bordered align-middle mb-0 small">
+                                    <thead class="table-light" style="position: sticky; top: 0;">
+                                        <tr>
+                                            <th style="width: 60%;">Book Title / Code</th>
+                                            <th style="width: 20%;">Type</th>
+                                            <th class="text-center" style="width: 20%;">Quantity</th>
+                                        </tr>
+                                    </thead>
                                     <tbody>
-                                        <tr><th>From Site</th><td>${original.from_site?.name || 'N/A'}</td></tr>
-                                        <tr><th>To Site</th><td>${original.to_site?.name || 'N/A'}</td></tr>
-                                        <tr><th>Book</th><td>${original.book?.name || 'N/A'}</td></tr>
-                                        <tr><th>Quantity</th><td>${original.quantity || 'N/A'} units</td></tr>
-                                        <tr><th>Approved By</th><td>${original.approved_by?.name || 'N/A'}</td></tr>
+                                        ${itemsRows}
                                     </tbody>
                                 </table>
+                            </div>
+                            <div class="mt-2 p-2 rounded bg-light border small text-muted">
+                                <strong>From Site:</strong> ${original.from_site?.name || 'N/A'} &nbsp;&nbsp;|&nbsp;&nbsp; 
+                                <strong>To Site:</strong> ${original.to_site?.name || 'N/A'}
                             </div>
                         </div>`;
                 } else {

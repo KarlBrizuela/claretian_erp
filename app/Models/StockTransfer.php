@@ -168,7 +168,7 @@ class StockTransfer extends Model
         }
 
         $position = strtolower($user->position ?? '');
-        $isApprover = str_contains($position, 'manager') || str_contains($position, 'supervisor');
+        $isApprover = str_contains($position, 'manager') || str_contains($position, 'supervisor') || str_contains($position, 'director') || str_contains($position, 'head');
 
         if (!$isApprover) {
             return false;
@@ -215,10 +215,13 @@ class StockTransfer extends Model
             return true;
         }
 
-        $position = strtolower($user->position ?? '');
+        $position   = strtolower($user->position ?? '');
+        $division   = strtolower($user->division ?? '');
+        $department = strtolower($user->department ?? '');
 
-        return str_contains($position, 'logistic')
-            && (str_contains($position, 'manager') || str_contains($position, 'supervisor') || str_contains($position, 'senior'));
+        return str_contains($position, 'logistic') || str_contains($position, 'production') || str_contains($position, 'warehouse') || str_contains($position, 'admin') || str_contains($position, 'manager') || str_contains($position, 'supervisor')
+            || str_contains($division, 'logistic') || str_contains($division, 'production') || str_contains($division, 'warehouse')
+            || str_contains($department, 'logistic') || str_contains($department, 'production') || str_contains($department, 'warehouse');
     }
 
     public function canBeCompletedBy(?User $user): bool

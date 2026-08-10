@@ -47,12 +47,18 @@ class LogisticController extends Controller
             $preloadOrder = \App\Models\SalesOrder::with('customer', 'items.book')->find($preloadOrderId);
         }
 
+        $teamStockPickLists = \App\Models\TeamStockTransfer::with('transferredByUser', 'items')
+            ->whereIn('status', ['pending_picklist', 'picking'])
+            ->latest()
+            ->get();
+
         return view('production.logistic.pick-list-management', [
             'pickLists' => $pickLists,
             'completedPickLists' => $completedPickLists,
             'pendingOrders' => $pendingOrders,
             'preloadPickListId' => $preloadPickListId,
             'preloadOrder' => $preloadOrder,
+            'teamStockPickLists' => $teamStockPickLists,
         ]);
     }
 
@@ -115,14 +121,21 @@ class LogisticController extends Controller
             \Illuminate\Support\Facades\Log::debug('First pick list: ' . $pickLists->first()->pick_list_number);
         }
 
+        $teamStockPickLists = \App\Models\TeamStockTransfer::with('transferredByUser', 'items')
+            ->whereIn('status', ['pending_picklist', 'picking'])
+            ->latest()
+            ->get();
+
         return view('production.logistic.pick-list-list', [
             'title' => 'Pick Lists',
             'role' => 'Logistics Staff',
             'sidebar' => 'production',
             'pickLists' => $pickLists,
+            'ecomPickLists' => $ecomPickLists,
             'ecomByPlatform' => $ecomByPlatform,
             'complimentaryPickLists' => $complimentaryPickLists,
-            'pendingOrders' => $pendingOrders
+            'pendingOrders' => $pendingOrders,
+            'teamStockPickLists' => $teamStockPickLists,
         ]);
     }
 
@@ -204,31 +217,77 @@ class LogisticController extends Controller
                 ->with('pickListItems.salesOrderItem.book')
                 ->get();
 
+            $soCreator = $order->preparedBy ?: auth()->user();
+            $salesTeam = $soCreator ? $soCreator->sales_team : null;
+
             foreach ($pendingPickLists as $pl) {
                 foreach ($pl->pickListItems as $plItem) {
                     $soItem = $plItem->salesOrderItem;
-                    if ($soItem && $soItem->book) {
-                        $book = $soItem->book;
+                    if ($soItem) {
                         $deductedQty = $plItem->picked_qty;
                         if ($deductedQty > 0) {
-                            $book->stock -= $deductedQty;
-                            $book->save();
+                            if ($salesTeam) {
+                                // Deduct from assigned Sales Team Stock
+                                $teamStock = \App\Models\TeamStock::where('team_name', $salesTeam)
+                                    ->where(function($q) use ($soItem) {
+                                        if ($soItem->book_index_id) $q->where('book_index_id', $soItem->book_index_id);
+                                        elseif ($soItem->book_id) $q->where('book_id', $soItem->book_id);
+                                        elseif ($soItem->bundle_id) $q->where('book_bundle_id', $soItem->bundle_id);
+                                    })->first();
+
+                                if ($teamStock) {
+                                    $teamStock->quantity = max(0, $teamStock->quantity - $deductedQty);
+                                    $teamStock->save();
+                                }
+
+                                // Also deduct from Team SiteInventory
+                                $teamSite = \App\Models\Site::where('name', $salesTeam)->first();
+                                if ($teamSite) {
+                                    $teamSiteInv = \App\Models\SiteInventory::where('site_id', $teamSite->id)
+                                        ->where(function($q) use ($soItem) {
+                                            if ($soItem->book_index_id) $q->where('book_index_id', $soItem->book_index_id);
+                                            elseif ($soItem->book_id) $q->where('book_id', $soItem->book_id);
+                                            elseif ($soItem->bundle_id) $q->where('book_bundle_id', $soItem->bundle_id);
+                                        })->first();
+
+                                    if ($teamSiteInv) {
+                                        $teamSiteInv->quantity = max(0, $teamSiteInv->quantity - $deductedQty);
+                                        $teamSiteInv->save();
+                                    }
+                                }
+                            } else if ($soItem->book) {
+                                // Deduct Main Warehouse stock if no team assigned
+                                $book = $soItem->book;
+                                $book->stock = max(0, $book->stock - $deductedQty);
+                                $book->save();
+
+                                // Deduct Main Warehouse SiteInventory
+                                $mainSiteInv = \App\Models\SiteInventory::where('site_id', 1)
+                                    ->where('book_id', $book->id)
+                                    ->first();
+                                if ($mainSiteInv) {
+                                    $mainSiteInv->quantity = max(0, $mainSiteInv->quantity - $deductedQty);
+                                    $mainSiteInv->save();
+                                }
+                            }
 
                             // Record Inventory Transaction for audit trail
-                            \App\Models\InventoryTransaction::create([
-                                'book_id' => $book->id,
-                                'type' => 'out',
-                                'quantity' => $deductedQty,
-                                'location' => 'Main Warehouse',
-                                'source' => 'Sales Order Picklist',
-                                'reference_number' => $order->so_number,
-                                'unit_cost' => $book->cost ?? 0,
-                                'total_cost' => $deductedQty * ($book->cost ?? 0),
-                                'notes' => 'Sales Order #' . $order->so_number . ' - Picked from Picklist #' . $pl->pick_list_number,
-                                'status' => 'completed',
-                                'transaction_date' => now(),
-                                'user_id' => auth()->id()
-                            ]);
+                            if ($soItem->book) {
+                                \App\Models\InventoryTransaction::create([
+                                    'book_id' => $soItem->book->id,
+                                    'type' => 'out',
+                                    'quantity' => $deductedQty,
+                                    'location' => $salesTeam ? ($salesTeam . ' Stock') : 'Main Warehouse',
+                                    'source' => 'Sales Order Picklist',
+                                    'reference_number' => $order->so_number,
+                                    'unit_cost' => $soItem->book->cost ?? 0,
+                                    'total_cost' => $deductedQty * ($soItem->book->cost ?? 0),
+                                    'notes' => 'Sales Order #' . $order->so_number . ' - Picked from Picklist #' . $pl->pick_list_number . ($salesTeam ? ' (' . $salesTeam . ')' : ''),
+                                    'status' => 'completed',
+                                    'transaction_date' => now(),
+                                    'user_id' => auth()->id()
+                                ]);
+                            }
                         }
                     }
                 }
@@ -1034,23 +1093,39 @@ class LogisticController extends Controller
     /**
      * Consignment Receipt Tab in Logistics.
      */
-    public function areaConsignment()
+    public function areaConsignment(Request $request)
     {
-        $orders = \App\Models\SalesOrder::with(['areaSalesStaff', 'items.book', 'customer', 'preparedBy'])
+        $search = $request->query('search');
+
+        $query = \App\Models\SalesOrder::with(['areaSalesStaff', 'items.book', 'customer', 'preparedBy'])
             ->whereIn('type', ['area_consignment', 'area_sales_consignment'])
-            ->where(function($query) {
-                $query->whereNotNull('cr_prepared_at')
-                      ->orWhere('status', 'cr_created');
+            ->where(function($q) {
+                $q->whereNotNull('cr_prepared_at')
+                  ->orWhere('status', 'cr_created');
             })
-            ->whereNotIn('status', ['draft', 'pending_mkt_approval', 'picking', 'cancelled'])
-            ->latest()
-            ->get();
+            ->whereNotIn('status', ['draft', 'pending_mkt_approval', 'picking', 'cancelled']);
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('so_number', 'like', '%' . $search . '%')
+                  ->orWhere('status', 'like', '%' . $search . '%')
+                  ->orWhereHas('areaSalesStaff', function($sq) use ($search) {
+                      $sq->where('name', 'like', '%' . $search . '%');
+                  })
+                  ->orWhereHas('customer', function($cq) use ($search) {
+                      $cq->where('customer_name', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        $orders = $query->latest()->paginate(10)->withQueryString();
 
         return view('production.logistic.area-consignment', [
             'title'   => 'Consignment Receipt',
             'role'    => auth()->user()->position,
             'sidebar' => 'production',
             'orders'  => $orders,
+            'search'  => $search,
         ]);
     }
 
@@ -1132,6 +1207,10 @@ class LogisticController extends Controller
     {
         $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
 
+        if ($request->has('remarks')) {
+            $order->update(['remarks' => $request->remarks]);
+        }
+
         if ($request->has('pick_qty') && is_array($request->pick_qty)) {
             foreach ($request->pick_qty as $itemId => $qty) {
                 $item = $order->items->where('id', $itemId)->first();
@@ -1142,7 +1221,11 @@ class LogisticController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', "Pick quantities updated successfully for SO {$order->so_number}.");
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Delivery receipt updated successfully.']);
+        }
+
+        return redirect()->back()->with('success', "Delivery receipt updated successfully for SO {$order->so_number}.");
     }
 
     /**
@@ -1705,6 +1788,11 @@ class LogisticController extends Controller
             }
         }
 
+        $teamStockPackingTransfers = \App\Models\TeamStockTransfer::with('transferredByUser', 'items')
+            ->whereIn('status', ['packing', 'completed'])
+            ->latest()
+            ->get();
+
         return view('production.logistic.packing-management', [
             'packingOrders' => $packingOrders,
             'complimentaryPackingOrders' => $complimentaryPackingOrders,
@@ -1715,6 +1803,7 @@ class LogisticController extends Controller
             'completedByPlatform' => $completedByPlatform,
             'preloadOrder' => $preloadOrder,
             'preloadOrderId' => $preloadOrderId,
+            'teamStockPackingTransfers' => $teamStockPackingTransfers,
             'title' => 'Packing Management',
             'role' => 'Warehouse Staff',
             'sidebar' => 'production'
@@ -2106,7 +2195,8 @@ class LogisticController extends Controller
                 'destination_address' => 'nullable|string',
                 'destination_province' => 'nullable|string|max:255',
                 'service_mode' => 'nullable|string|max:255',
-                'freight_option' => 'nullable|string|in:freight_collect,freight_billing',
+                'freight_option' => 'nullable|string|in:freight_collect,freight_billing,bill_client',
+                'forwarder' => 'nullable|string|max:255',
                 'service_carrier' => 'nullable|string|max:255',
                 'service_remarks' => 'nullable|string',
                 'estimated_freight' => 'required|numeric|min:0',
@@ -2144,13 +2234,13 @@ class LogisticController extends Controller
 
             // Calculate charges
             $estimatedFreight = (float) $validated['estimated_freight'];
-            $valuationPercent = (float) ($validated['valuation_percentage'] ?? 0);
+            $valuationPercent = 0;
             $isFreightCollect = ($validated['freight_option'] ?? null) === 'freight_collect';
             $handlingPercent = $isFreightCollect ? (float) ($validated['handling_percentage'] ?? 20) : 0;
 
-            $valuationCharge = ($estimatedFreight * $valuationPercent) / 100;
+            $valuationCharge = 0;
             $handlingFee = ($estimatedFreight * $handlingPercent) / 100;
-            $totalAmount = $estimatedFreight + $valuationCharge + $handlingFee;
+            $totalAmount = $estimatedFreight + $handlingFee;
 
             // Create freight quotation record
             $quotation = \App\Models\FreightQuotation::create([
@@ -2199,6 +2289,7 @@ class LogisticController extends Controller
     public function pendingFreightQuotations(Request $request)
     {
         $status = $request->query('status', 'all');
+        $search = $request->query('search');
 
         $query = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy']);
 
@@ -2210,13 +2301,27 @@ class LogisticController extends Controller
                 ->whereNotNull('responded_by');
         }
 
-        $quotations = $query->latest()->paginate(20);
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('quote_number', 'like', '%' . $search . '%')
+                  ->orWhere('origin_province', 'like', '%' . $search . '%')
+                  ->orWhere('destination_province', 'like', '%' . $search . '%')
+                  ->orWhere('service_mode', 'like', '%' . $search . '%')
+                  ->orWhere('customer_representative', 'like', '%' . $search . '%')
+                  ->orWhereHas('createdBy', function($u) use ($search) {
+                      $u->where('name', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        $quotations = $query->latest()->paginate(10)->withQueryString();
 
         return view('production.logistic.pending-freight-quotations', [
             'title' => 'Pending Freight Quotations',
             'sidebar' => 'production',
             'quotations' => $quotations,
             'currentStatus' => $status,
+            'search' => $search,
         ]);
     }
 
@@ -2258,13 +2363,13 @@ class LogisticController extends Controller
 
             // Calculate charges
             $estimatedFreight = (float) $validated['estimated_freight'];
-            $valuationPercent = (float) ($validated['valuation_percentage'] ?? 0);
+            $valuationPercent = 0;
             $isFreightCollect = $freightQuotation->freight_option === 'freight_collect';
             $handlingPercent = $isFreightCollect ? (float) ($validated['handling_percentage'] ?? 20) : 0;
 
-            $valuationCharge = ($estimatedFreight * $valuationPercent) / 100;
+            $valuationCharge = 0;
             $handlingFee = ($estimatedFreight * $handlingPercent) / 100;
-            $totalAmount = $estimatedFreight + $valuationCharge + $handlingFee;
+            $totalAmount = $estimatedFreight + $handlingFee;
 
             // Update quotation with logistics response
             $freightQuotation->update([
@@ -2289,6 +2394,7 @@ class LogisticController extends Controller
                     $salesOrder->update([
                         'freight_charges' => $totalAmount,
                         'freight_option' => $freightQuotation->freight_option,
+                        'forwarder' => $freightQuotation->forwarder,
                         'freight_notes' => 'Freight approved: ₱' . number_format($estimatedFreight, 2) . 
                                          ' (Handling: ₱' . number_format($handlingFee, 2) . ')',
                     ]);
@@ -2390,13 +2496,13 @@ class LogisticController extends Controller
 
             if ($request->has('estimated_freight') && $request->input('estimated_freight') !== null && $request->input('estimated_freight') !== '') {
                 $estimatedFreight = (float) $request->input('estimated_freight');
-                $valuationPercent = (float) ($freightQuotation->valuation_percentage ?? 0);
+                $valuationPercent = 0;
                 $isFreightCollect = $freightQuotation->freight_option === 'freight_collect';
                 $handlingPercent = $isFreightCollect ? (float) ($freightQuotation->handling_percentage ?? 20) : 0;
 
-                $valuationCharge = ($estimatedFreight * $valuationPercent) / 100;
+                $valuationCharge = 0;
                 $handlingFee = ($estimatedFreight * $handlingPercent) / 100;
-                $totalAmount = $estimatedFreight + $valuationCharge + $handlingFee;
+                $totalAmount = $estimatedFreight + $handlingFee;
 
                 $updateData['estimated_freight'] = $estimatedFreight;
                 $updateData['valuation_charge'] = $valuationCharge;
@@ -2756,6 +2862,92 @@ class LogisticController extends Controller
             \Illuminate\Support\Facades\Log::error('Error moving order to SI: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Error moving order to SI: ' . $e->getMessage());
         }
+    }
+
+    public function completeTeamStockPickList($id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::with('items')->findOrFail($id);
+        
+        \DB::beginTransaction();
+        try {
+            foreach ($transfer->items as $tItem) {
+                $qty = $tItem->quantity;
+
+                // 1. Deduct Main Warehouse Stock
+                if ($tItem->book_index_id) {
+                    $index = \App\Models\BookIndex::find($tItem->book_index_id);
+                    if ($index) {
+                        $index->stock = max(0, ($index->stock ?? $index->quantity ?? 0) - $qty);
+                        $index->save();
+                    }
+                } elseif ($tItem->book_id) {
+                    $book = \App\Models\Book::find($tItem->book_id);
+                    if ($book) {
+                        $book->stock = max(0, ($book->stock ?? 0) - $qty);
+                        $book->save();
+                    }
+                } elseif ($tItem->book_bundle_id) {
+                    $bundle = \App\Models\BookBundle::find($tItem->book_bundle_id);
+                    if ($bundle) {
+                        $bundle->stock = max(0, ($bundle->stock ?? $bundle->quantity ?? 0) - $qty);
+                        $bundle->save();
+                    }
+                }
+
+                // 2. Sync Main Warehouse SiteInventory (site_id = 1)
+                $mainSiteInv = \App\Models\SiteInventory::where('site_id', 1)
+                    ->where(function($q) use ($tItem) {
+                        if ($tItem->book_index_id) $q->where('book_index_id', $tItem->book_index_id);
+                        elseif ($tItem->book_id) $q->where('book_id', $tItem->book_id);
+                        elseif ($tItem->book_bundle_id) $q->where('book_bundle_id', $tItem->book_bundle_id);
+                    })->first();
+                if ($mainSiteInv) {
+                    $mainSiteInv->quantity = max(0, $mainSiteInv->quantity - $qty);
+                    $mainSiteInv->save();
+                }
+
+                // 3. Credit Team Stock balance
+                $teamStock = \App\Models\TeamStock::firstOrNew([
+                    'team_name' => $transfer->team_name,
+                    'book_id' => $tItem->book_id,
+                    'book_index_id' => $tItem->book_index_id,
+                    'book_bundle_id' => $tItem->book_bundle_id,
+                ]);
+                $teamStock->quantity = ($teamStock->quantity ?? 0) + $qty;
+                $teamStock->save();
+
+                // 4. Sync Target Team SiteInventory
+                $targetSite = \App\Models\Site::firstOrCreate(
+                    ['name' => $transfer->team_name],
+                    ['code' => strtolower(str_replace(' ', '_', $transfer->team_name)), 'location' => 'Area Sales', 'description' => 'Area Sales ' . $transfer->team_name . ' Inventory', 'is_active' => true]
+                );
+
+                $siteInv = \App\Models\SiteInventory::firstOrNew([
+                    'site_id' => $targetSite->id,
+                    'book_id' => $tItem->book_id,
+                    'book_index_id' => $tItem->book_index_id,
+                    'book_bundle_id' => $tItem->book_bundle_id,
+                ]);
+                $siteInv->quantity = ($siteInv->quantity ?? 0) + $qty;
+                $siteInv->save();
+            }
+
+            $transfer->update(['status' => 'packing']);
+            \DB::commit();
+
+            return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' pick list completed! Stock deducted from Main Warehouse and credited to ' . $transfer->team_name . '. Sent to Packing Queue.');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to complete team stock pick list: ' . $e->getMessage());
+        }
+    }
+
+    public function completeTeamStockPacking($id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
+        $transfer->update(['status' => 'completed']);
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' packing completed!');
     }
 }
 

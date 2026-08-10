@@ -223,6 +223,7 @@ class SuperAdminController extends Controller
                 'marketing.area_sales.acknowledgement_receipt' => '— Acknowledgement Receipt',
                 'marketing.area_sales.credit_memo' => '— Credit Memo Form',
                 'marketing.area_sales.proof_of_payment' => '— Proof of Payment',
+                'marketing.area_sales.team_stocks' => '— Team Stocks',
                 'marketing.direct_sales' => 'Direct Sales',
                 'marketing.direct_sales.pos' => '— POS System',
                 'marketing.direct_sales.products' => '— POS Products',
@@ -354,6 +355,11 @@ class SuperAdminController extends Controller
         // Update position if provided
         if ($request->has('position')) {
             $user->position = $request->input('position');
+        }
+
+        // Update sales_team if provided
+        if ($request->has('sales_team')) {
+            $user->sales_team = $request->input('sales_team') ?: null;
         }
 
         // Update User-Level Permissions (Manual Override)

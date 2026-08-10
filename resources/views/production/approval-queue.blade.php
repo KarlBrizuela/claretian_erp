@@ -347,6 +347,11 @@
                                         <td>
                                             @if($approval['type'] === 'Sales Order')
                                                 <a href="{{ $approval['url'] }}" class="btn btn-primary btn-sm"><i class="las la-eye"></i> Review</a>
+                                            @elseif($approval['type'] === 'Team Stock Transfer')
+                                                <form action="{{ route('production.team-stock-transfer.approve', $approval['id']) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve Transfer</button>
+                                                </form>
                                             @elseif($approval['type'] === 'CCTV')
                                                 <form action="{{ route('user.cctv-requests.update', $approval['id']) }}" method="POST" class="d-inline">
                                                     @csrf
@@ -606,7 +611,9 @@
                                     <td>
                                         <div class="d-flex flex-column">
                                             <span>{{ $transfer->quantity }} units</span>
-                                            <small class="text-muted">Logistics: {{ $transfer->logisticsAssignedTo->name ?? 'Not assigned' }}</small>
+                                            @if($transfer->logisticsAssignedTo && $transfer->logistics_assigned_to != $transfer->created_by)
+                                                <small class="text-muted">Logistics: {{ $transfer->logisticsAssignedTo->name }}</small>
+                                            @endif
                                         </div>
                                     </td>
                                     <td>
@@ -636,11 +643,30 @@
                                             <button class="btn btn-info btn-sm" onclick="accountingApproveTransfer({{ $transfer->id }})">
                                                 <i class="las la-file-invoice"></i> Accounting Approve
                                             </button>
-                                        @elseif($transfer->status === 'logistics_assigned' && $transfer->canBeCompletedBy(auth()->user()))
-                                            <button class="btn btn-success btn-sm" onclick="completeLogisticsTransfer({{ $transfer->id }})">
-                                                <i class="las la-check-double"></i> Mark Completed
-                                            </button>
-                                        @elseif(in_array($transfer->status, ['logistics_assignment', 'logistics_assigned']) && ($isLogisticsAssigner ?? false))
+                                        @elseif($transfer->status === 'logistics_assigned')
+                                            <div class="d-flex flex-column gap-1">
+                                                @if($transfer->canBeCompletedBy(auth()->user()))
+                                                    <button class="btn btn-success btn-sm" onclick="completeLogisticsTransfer({{ $transfer->id }})">
+                                                        <i class="las la-check-double"></i> Mark Completed
+                                                    </button>
+                                                @endif
+                                                @if($isLogisticsAssigner ?? false)
+                                                    <div class="d-flex gap-1 mt-1">
+                                                        <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
+                                                            <option value="">Re-assign staff</option>
+                                                            @foreach($logisticsUsers ?? [] as $logisticsUser)
+                                                                <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
+                                                                    {{ $logisticsUser->name }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                        <button class="btn btn-outline-primary btn-sm" onclick="assignLogisticsTransfer({{ $transfer->id }})">
+                                                            Re-assign
+                                                        </button>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @elseif($transfer->status === 'logistics_assignment' && ($isLogisticsAssigner ?? false))
                                             <div class="d-flex gap-1">
                                                 <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
                                                     <option value="">Select staff</option>

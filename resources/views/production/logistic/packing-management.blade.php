@@ -59,23 +59,28 @@
                     <!-- Tabs Navigation -->
                     <ul class="nav nav-tabs" id="packingTabs" role="tablist" style="border-bottom: 2px solid #ddd; margin-bottom: 2rem;">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="packing-queue-tab" data-bs-toggle="tab" data-bs-target="#packing-queue-content" type="button" role="tab" aria-controls="packing-queue-content" aria-selected="true" style="font-weight: 600; color: #333;">
+                            <button class="nav-link active" id="packing-queue-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#packing-queue-content" data-target="#packing-queue-content" type="button" role="tab" aria-controls="packing-queue-content" aria-selected="true" style="font-weight: 600; color: #333;">
                                 <i class="fas fa-boxes" style="margin-right: 0.5rem;"></i>Packing Queue
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-direct-content" type="button" role="tab" aria-controls="ecom-direct-content" aria-selected="false" style="font-weight: 600; color: #666;">
+                            <button class="nav-link" id="ecom-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#ecom-direct-content" data-target="#ecom-direct-content" type="button" role="tab" aria-controls="ecom-direct-content" aria-selected="false" style="font-weight: 600; color: #666;">
                                 <i class="fas fa-shopping-bag" style="margin-right: 0.5rem;"></i>E-Commerce Direct <span class="badge bg-info" style="margin-left: 0.5rem;">{{ $ecomByPlatform['lazada']->count() + $ecomByPlatform['shopee']->count() + $ecomByPlatform['tiktok']->count() + ($ecomByPlatform['cob']?->count() ?? 0) }}</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="ready-pickup-tab" data-bs-toggle="tab" data-bs-target="#ready-pickup-content" type="button" role="tab" aria-controls="ready-pickup-content" aria-selected="false" style="font-weight: 600; color: #666;">
+                            <button class="nav-link" id="ready-pickup-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#ready-pickup-content" data-target="#ready-pickup-content" type="button" role="tab" aria-controls="ready-pickup-content" aria-selected="false" style="font-weight: 600; color: #666;">
                                 <i class="fas fa-truck" style="margin-right: 0.5rem;"></i>Ready for Pickup/Drop-off <span class="badge bg-success" style="margin-left: 0.5rem;">{{ count($readyForPickupOrders) }}</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="complimentary-tab" data-bs-toggle="tab" data-bs-target="#complimentary-content" type="button" role="tab" aria-controls="complimentary-content" aria-selected="false" style="font-weight: 600; color: #666;">
+                            <button class="nav-link" id="complimentary-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#complimentary-content" data-target="#complimentary-content" type="button" role="tab" aria-controls="complimentary-content" aria-selected="false" style="font-weight: 600; color: #666;">
                                 <i class="fas fa-gift" style="margin-right: 0.5rem; color: #6f42c1;"></i>Complimentary <span class="badge" style="margin-left: 0.5rem; background-color: #6f42c1; color: #fff;">{{ $complimentaryPackingOrders->count() }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="team-stocks-packing-tab" data-bs-toggle="tab" data-toggle="tab" data-bs-target="#team-stocks-packing-content" data-target="#team-stocks-packing-content" type="button" role="tab" aria-controls="team-stocks-packing-content" aria-selected="false" style="font-weight: 600; color: #666;">
+                                <i class="fas fa-boxes text-danger" style="margin-right: 0.5rem;"></i>Team Stock Transfers <span class="badge bg-danger" style="margin-left: 0.5rem;">{{ isset($teamStockPackingTransfers) ? $teamStockPackingTransfers->count() : 0 }}</span>
                             </button>
                         </li>
                     </ul>
@@ -908,6 +913,7 @@
                                                 @endforelse
                                             </tbody>
                                         </table>
+                                    </div>
                                 </div>
 
                                 <!-- Completed Drop-off Sub-tab Content -->
@@ -1024,6 +1030,61 @@
                             </div>
                         </div>
 
+                        <!-- Team Stock Transfers Packing Tab -->
+                        <div class="tab-pane fade" id="team-stocks-packing-content" role="tabpanel" aria-labelledby="team-stocks-packing-tab">
+                            <div class="table-responsive">
+                                <table id="teamStockPackingTable" class="display table table-bordered table-hover align-middle mb-0" style="width: 100%">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Transfer #</th>
+                                            <th>Target Team</th>
+                                            <th>Transferred By</th>
+                                            <th class="text-center">Items Count</th>
+                                            <th class="text-center">Total Pcs</th>
+                                            <th>Date Created</th>
+                                            <th>Status</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($teamStockPackingTransfers ?? [] as $tt)
+                                        <tr>
+                                            <td class="fw-bold">{{ $tt->transfer_number }}</td>
+                                            <td><span class="badge bg-danger">{{ $tt->team_name }}</span></td>
+                                            <td>{{ $tt->transferredByUser->name ?? 'N/A' }}</td>
+                                            <td class="text-center">{{ $tt->items->count() }} item(s)</td>
+                                            <td class="text-center fw-bold text-success">{{ number_format($tt->items->sum('quantity')) }} pcs</td>
+                                            <td>{{ $tt->created_at->format('M d, Y h:i A') }}</td>
+                                            <td>
+                                                @if($tt->status === 'completed')
+                                                    <span class="badge bg-success text-white"><i class="fas fa-check me-1"></i>Packed & Completed</span>
+                                                @else
+                                                    <span class="badge bg-info text-white">Ready for Packing</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end">
+                                                @if($tt->status === 'completed')
+                                                    <span class="text-success fw-bold small"><i class="fas fa-check-circle me-1"></i>Completed</span>
+                                                @else
+                                                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-sm btn-success fw-bold" style="background-color: #28a745; border: none;">
+                                                            <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="8" class="text-center py-4 text-muted">No team stock transfers found.</td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -1088,6 +1149,14 @@
                 <div class="form-group">
                     <label>SI Signed Date:</label>
                     <input type="text" id="siSignedDate" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Freight Option:</label>
+                    <input type="text" id="detailFreightOptionPack" readonly>
+                </div>
+                <div class="form-group" id="detailForwarderPackContainer" style="display: none;">
+                    <label>Forwarder:</label>
+                    <input type="text" id="detailForwarderPack" class="fw-bold text-primary" readonly>
                 </div>
                 <div class="form-group">
                     <label>Packing Status:</label>
@@ -1204,6 +1273,12 @@
 
     @push('styles')
     <style>
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active, .tab-pane.show.active {
+            display: block !important;
+        }
         /* Modal Styles */
         .modal-backdrop-packing {
             position: fixed;
@@ -1641,41 +1716,70 @@
 
         // Initialize DataTable and Event Listeners
         $(document).ready(function() {
-            $('#packingTable').DataTable({
-                order: [],
-                pageLength: 25,
-                responsive: true
+            // Safely initialize DataTables on all tables with class .display
+            $('table.display').each(function() {
+                if ($.fn.DataTable.isDataTable(this)) return;
+                try {
+                    $(this).DataTable({
+                        order: [],
+                        pageLength: 25,
+                        responsive: true,
+                        autoWidth: false
+                    });
+                } catch(e) {
+                    console.warn('DataTable init warning for:', this.id, e);
+                }
             });
 
-            // Initialize E-Com Packing Tables
-            $('#lazadaPackingTable').DataTable({
-                order: [],
-                pageLength: 25,
-                responsive: true
+            // Fail-safe manual tab switching for packingTabs
+            $(document).on('click', '#packingTabs .nav-link', function(e) {
+                e.preventDefault();
+                $('#packingTabs .nav-link').removeClass('active');
+                $(this).addClass('active');
+                const target = $(this).attr('data-bs-target') || $(this).attr('data-target');
+                if (target) {
+                    $('#packingTabContent > .tab-pane').removeClass('show active').css('display', 'none');
+                    $(target).addClass('show active').css('display', 'block');
+                    setTimeout(function() {
+                        if ($.fn.DataTable) {
+                            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+                        }
+                    }, 50);
+                }
             });
 
-            $('#shopeePackingTable').DataTable({
-                order: [],
-                pageLength: 25,
-                responsive: true
+            // Sub-tabs switching for Ecom Tabs
+            $(document).on('click', '#ecomTabs .nav-link', function(e) {
+                e.preventDefault();
+                $('#ecomTabs .nav-link').removeClass('active');
+                $(this).addClass('active');
+                const target = $(this).attr('data-bs-target') || $(this).attr('data-target');
+                if (target) {
+                    $('#ecomTabsContent > .tab-pane').removeClass('show active').css('display', 'none');
+                    $(target).addClass('show active').css('display', 'block');
+                    setTimeout(function() {
+                        if ($.fn.DataTable) {
+                            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+                        }
+                    }, 50);
+                }
             });
 
-            $('#tiktokPackingTable').DataTable({
-                order: [],
-                pageLength: 25,
-                responsive: true
-            });
-
-            $('#readyForPickupTableAll, #readyForPickupTableShopee, #readyForPickupTableTiktok, #readyForPickupTableLazada').DataTable({
-                order: [],
-                pageLength: 25,
-                responsive: true
-            });
-
-            $('#complimentaryPackingTable').DataTable({
-                order: [],
-                pageLength: 25,
-                responsive: true
+            // Sub-tabs switching for Ready Pickup Tabs
+            $(document).on('click', '#readyPickupPlatformTabs .nav-link', function(e) {
+                e.preventDefault();
+                $('#readyPickupPlatformTabs .nav-link').removeClass('active');
+                $(this).addClass('active');
+                const target = $(this).attr('data-bs-target') || $(this).attr('data-target');
+                if (target) {
+                    $('#ready-pickup-content .tab-pane').removeClass('show active').css('display', 'none');
+                    $(target).addClass('show active').css('display', 'block');
+                    setTimeout(function() {
+                        if ($.fn.DataTable) {
+                            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+                        }
+                    }, 50);
+                }
             });
 
             // If preloadOrderId is set, auto-load that order
@@ -1959,6 +2063,17 @@
                     setInputValue('detailRemarks', order.remarks || (packingData.remarks || ''));
                     const signedDate = order.signed_at ? new Date(order.signed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : (order.acct_approved_at ? new Date(order.acct_approved_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Not Signed Yet');
                     setInputValue('siSignedDate', signedDate);
+                    const freightOptStr = order.freight_option ? (order.freight_option.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())) : 'N/A';
+                    setInputValue('detailFreightOptionPack', freightOptStr);
+                    const forwarderPackContainer = document.getElementById('detailForwarderPackContainer');
+                    if (forwarderPackContainer) {
+                        if (order.freight_option === 'bill_client' || order.forwarder) {
+                            forwarderPackContainer.style.display = 'block';
+                            setInputValue('detailForwarderPack', order.forwarder || 'N/A');
+                        } else {
+                            forwarderPackContainer.style.display = 'none';
+                        }
+                    }
                     setInputValue('packingStatus', packingData.status || 'not_started');
                     setInputValue('packingBoxesCount', packingData.boxes_count || '');
 

@@ -71,6 +71,7 @@ class SalesOrder extends Model
         'freight_charges',
         'freight_notes',
         'freight_option',
+        'forwarder',
         'ecom_payout_status',
     ];
 

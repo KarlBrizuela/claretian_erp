@@ -11,18 +11,46 @@ use App\Models\ConsignmentSettlement;
 
 class ConsignmentController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $owners = ConsignmentOwner::withCount('books')->orderBy('name', 'asc')->get();
+        $search = $request->query('search');
+
+        $ownersQuery = ConsignmentOwner::withCount('books')->orderBy('name', 'asc');
+        if (!empty($search)) {
+            $ownersQuery->where(function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('contact_person', 'like', '%' . $search . '%')
+                  ->orWhere('email', 'like', '%' . $search . '%')
+                  ->orWhere('phone', 'like', '%' . $search . '%');
+            });
+        }
+        $owners = $ownersQuery->get();
         
         // Fetch all books marked as Consignment
-        $consignmentBooks = Book::where('book_type', 'Consignment')
+        $booksQuery = Book::where('book_type', 'Consignment')
             ->with('consignmentOwner')
-            ->orderBy('name', 'asc')
-            ->get();
+            ->orderBy('name', 'asc');
+        if (!empty($search)) {
+            $booksQuery->where(function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('sku', 'like', '%' . $search . '%')
+                  ->orWhere('author', 'like', '%' . $search . '%')
+                  ->orWhereHas('consignmentOwner', function($oq) use ($search) {
+                      $oq->where('name', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+        $consignmentBooks = $booksQuery->get();
     
         // Compile settlement data (Only for unsettled sales)
-        $settlements = ConsignmentOwner::all()->map(function($owner) {
+        $settlementOwnersQuery = ConsignmentOwner::query();
+        if (!empty($search)) {
+            $settlementOwnersQuery->where(function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('contact_person', 'like', '%' . $search . '%');
+            });
+        }
+        $settlements = $settlementOwnersQuery->get()->map(function($owner) {
             $query = SalesOrderItem::whereHas('book', function($q) use ($owner) {
                 $q->where('consignment_owner_id', $owner->id);
             });
@@ -48,7 +76,13 @@ class ConsignmentController extends Controller
         });
     
         // Fetch history
-        $history = ConsignmentSettlement::with('owner')->latest()->get();
+        $historyQuery = ConsignmentSettlement::with('owner')->latest();
+        if (!empty($search)) {
+            $historyQuery->whereHas('owner', function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%');
+            });
+        }
+        $history = $historyQuery->get();
     
         return view('marketing.consignment.index', [
             'title' => 'Consignment Management',
@@ -57,7 +91,8 @@ class ConsignmentController extends Controller
             'owners' => $owners,
             'books' => $consignmentBooks,
             'settlements' => $settlements,
-            'history' => $history
+            'history' => $history,
+            'search' => $search
         ]);
     }
     
