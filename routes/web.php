@@ -51,6 +51,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/production/sales-order/{id}/approve', [App\Http\Controllers\ProductionController::class, 'approveSalesOrder'])->name('production.sales-order.approve');
     Route::post('/production/sales-order/{id}/reject', [App\Http\Controllers\ProductionController::class, 'rejectSalesOrder'])->name('production.sales-order.reject');
     Route::match(['get', 'post'], '/production/team-stock-transfer/{id}/approve', [App\Http\Controllers\ProductionController::class, 'approveTeamStockTransfer'])->name('production.team-stock-transfer.approve');
+    Route::post('/production/team-stock-transfer/{id}/reject', [App\Http\Controllers\ProductionController::class, 'rejectTeamStockTransfer'])->name('production.team-stock-transfer.reject');
     
     // Production Inventory Management
     Route::prefix('production/inventory')->name('production.inventory.')->group(function () {
@@ -557,6 +558,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/accounts-payable/payments', [App\Http\Controllers\AdminFinanceController::class, 'storeSupplierPayment'])->name('admin-finance.accounting.accounts-payable.payment.store');
     Route::delete('/accounts-payable/payments/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroySupplierPayment'])->name('admin-finance.accounting.accounts-payable.payment.destroy');
     Route::post('/customers/{id}/update-rep', [App\Http\Controllers\AdminFinanceController::class, 'updateCustomerRep'])->name('admin-finance.customers.update-rep');
+
+    Route::match(['get', 'post'], '/team-stocks/{id}/approve', [App\Http\Controllers\AdminFinanceController::class, 'approveTeamStockTransferByAdminFinance'])->name('admin-finance.team-stocks.approve');
+    Route::match(['get', 'post'], '/team-stocks/{id}/reject', [App\Http\Controllers\AdminFinanceController::class, 'rejectTeamStockTransferByAdminFinance'])->name('admin-finance.team-stocks.reject');
 
     // Credit Collection
     Route::prefix('credit-collection')->group(function () {

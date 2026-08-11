@@ -4374,10 +4374,10 @@ class MarketingController extends Controller
         }
 
         $transfer->update([
-            'status' => 'pending_prod_approval',
+            'status' => 'pending_af_approval',
         ]);
 
-        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' approved by Marketing! Moved to Production Approval Queue.');
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' approved by Marketing! Moved to Admin & Finance Approval Queue.');
     }
 
     /**

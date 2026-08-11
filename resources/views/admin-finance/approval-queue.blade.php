@@ -1347,6 +1347,11 @@
                     rejectUrl = approveUrl;
                     method = 'POST';
                     approveStatus = 'logistics_assignment';
+                } else if (type === 'Team Stock Transfer') {
+                    approveUrl = `{{ url('admin-finance/team-stocks') }}/${id}/approve`;
+                    rejectUrl  = `{{ url('admin-finance/team-stocks') }}/${id}/reject`;
+                    method = 'POST';
+                    approveStatus = 'pending_prod_approval';
                 } else {
                     approveUrl = rejectUrl = `{{ url('admin-finance/mis') }}/${type.toLowerCase()}-requests/${id}`;
                     method = 'PUT';

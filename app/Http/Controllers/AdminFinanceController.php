@@ -838,7 +838,32 @@ class AdminFinanceController extends Controller
       ];
     }
 
-    // 2. All MIS Requests awaiting current user's approval
+    // 2. Team Stock Transfers awaiting Admin & Finance approval
+    $teamStockTransfers = \App\Models\TeamStockTransfer::with(['transferredByUser', 'items.book', 'items.bookIndex.book', 'items.bookBundle'])
+        ->where('status', 'pending_af_approval')
+        ->latest()
+        ->get();
+
+    foreach ($teamStockTransfers as $tt) {
+      $myApprovals[] = [
+        'type' => 'Team Stock Transfer',
+        'id' => $tt->id,
+        'reference_no' => $tt->transfer_number,
+        'customer_name' => $tt->team_name,
+        'submitted_by' => $tt->transferredByUser->name ?? 'Unknown',
+        'submitted_date' => $tt->created_at,
+        'amount' => $tt->items->sum('quantity') . ' pcs (' . $tt->team_name . ')',
+        'description' => 'Team Stock Transfer for ' . $tt->team_name,
+        'full_description' => 'Team Stock Transfer of ' . $tt->items->sum('quantity') . ' total items to ' . $tt->team_name,
+        'department' => 'Marketing',
+        'status' => 'pending_af_approval',
+        'url' => '#',
+        'attachment' => null,
+        'original' => $tt
+      ];
+    }
+
+    // 3. All MIS Requests awaiting current user's approval
     foreach ($pendingApprovals as $req) {
       $orig = $req['original'] ?? null;
       $attachment = null;
@@ -1238,10 +1263,29 @@ class AdminFinanceController extends Controller
 
 public function checkVoucher()
 {
+  $vendors   = \App\Models\Vendor::where('status', 'active')->orderBy('vendor_name')->get(['id', 'vendor_name', 'vendor_code']);
+  $suppliers = \App\Models\Supplier::orderBy('company_name')->get(['id', 'company_name', 'supplier_code']);
+  $employees = \App\Models\User::whereNotNull('first_name')
+                ->orderBy('first_name')
+                ->select('id', 'first_name', 'last_name', 'employee_number')
+                ->get()
+                ->map(function($u) {
+                    $u->full_name = trim($u->first_name . ' ' . $u->last_name);
+                    return $u;
+                });
+  $accounts  = \App\Models\ChartOfAccount::where('name', 'not like', '%Inventory%')
+                ->where('category', 'not like', '%Inventory%')
+                ->orderBy('code')
+                ->get();
+
   return view('admin-finance.check-voucher.create', [
-    'title' => 'Create Check Voucher',
-    'role' => 'Finance Manager',
-    'sidebar' => 'admin-finance'
+    'title'     => 'Create Check Voucher',
+    'role'      => 'Finance Manager',
+    'sidebar'   => 'admin-finance',
+    'vendors'   => $vendors,
+    'suppliers' => $suppliers,
+    'employees' => $employees,
+    'accounts'  => $accounts,
   ]);
 }
 
@@ -5361,6 +5405,43 @@ public function checkVoucher()
                 'net_profit' => $netProfit,
             ],
         ]);
+    }
+
+    /**
+     * Approve Team Stock Transfer by Admin & Finance (moves to Production approval queue)
+     */
+    public function approveTeamStockTransferByAdminFinance($id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
+        if ($transfer->status !== 'pending_af_approval') {
+            return redirect()->back()->with('error', 'This transfer is not pending Admin & Finance approval.');
+        }
+
+        $transfer->update([
+            'status' => 'pending_prod_approval',
+            'approved_by_af' => auth()->id(),
+        ]);
+
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' approved by Admin & Finance! Moved to Production Approval Queue.');
+    }
+
+    /**
+     * Reject Team Stock Transfer by Admin & Finance
+     */
+    public function rejectTeamStockTransferByAdminFinance(Request $request, $id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
+        if ($transfer->status !== 'pending_af_approval') {
+            return redirect()->back()->with('error', 'This transfer is not pending Admin & Finance approval.');
+        }
+
+        $reason = $request->input('rejection_reason');
+        $transfer->update([
+            'status' => 'rejected',
+            'notes' => ($transfer->notes ? $transfer->notes . ' | ' : '') . 'Rejected by Admin & Finance: ' . ($reason ?: 'No reason specified'),
+        ]);
+
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' rejected.');
     }
 }
 

@@ -309,12 +309,17 @@ class AccountingService
                         }
                     }
 
+                    if (!$account) {
+                        $account = ChartOfAccount::first();
+                    }
+
                     JournalEntryItem::create([
                         'journal_entry_id' => $entry->id,
-                        'chart_of_account_id' => $account->id,
+                        'chart_of_account_id' => $account ? $account->id : 1,
                         'debit' => $debit,
                         'credit' => $credit,
                         'memo' => $name, // PRESERVE user input
+                        'name' => $data['payee'] ?? null,
                     ]);
                 }
             } else {

@@ -911,5 +911,17 @@ class ProductionController extends Controller
 
         return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' approved! Sent to Pick List Queue.');
     }
+
+    public function rejectTeamStockTransfer(Request $request, $id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
+        $reason = $request->input('rejection_reason');
+        $transfer->update([
+            'status' => 'rejected',
+            'notes' => ($transfer->notes ? $transfer->notes . ' | ' : '') . 'Rejected by Production: ' . ($reason ?: 'No reason specified'),
+        ]);
+
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' rejected.');
+    }
 }
 
