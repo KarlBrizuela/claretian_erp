@@ -203,6 +203,14 @@
 	</a>
 	@endif
 
+	<!-- Vendor Management -->
+	<a href="{{ route('vendor-management.index') }}" class="modern-nav-item {{ request()->routeIs('vendor-management.*') ? 'active' : '' }}" data-page="vendor-management">
+		<div class="modern-nav-icon">
+			<i class="las la-store"></i>
+		</div>
+		<span class="modern-nav-label">Vendor Management</span>
+	</a>
+
 	<!-- Finance -->
     @if($hasPettyCashVoucher || $hasFreightVoucher)
 	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*', 'admin-finance/freight-voucher*') ? 'active' : '' }}">

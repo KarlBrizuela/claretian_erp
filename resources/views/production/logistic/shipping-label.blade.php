@@ -75,12 +75,13 @@
             flex-grow: 1;
         }
         .company-name {
-            font-size: 10.5pt;
+            font-size: 9.5pt;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             margin: 0;
             color: #cc0000;
+            line-height: 1.15;
         }
         .company-sub {
             font-size: 7.5pt;
@@ -112,18 +113,20 @@
         .buyer-name {
             font-size: 14pt;
             font-weight: 900;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             text-transform: uppercase;
             line-height: 1.1;
             color: #000;
         }
         .buyer-address {
-            font-size: 10pt;
-            margin-bottom: 10px;
-            line-height: 1.3;
-            font-weight: 500;
-            color: #333;
-            min-height: 2.5em;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #111;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            word-break: break-word;
+            overflow: hidden;
         }
         .contact-row {
             display: flex;
@@ -265,13 +268,27 @@
         </div>
     </div>
 
+        @php
+            $finalAddr = trim($address ?? ($order->shipping_address ?: ($order->customer->shipping_address ?? ($order->customer->billing_address ?? ''))));
+            $addrLen = strlen($finalAddr);
+            if ($addrLen > 140) {
+                $addrFontSize = '11.5pt';
+                $addrLineHeight = '1.2';
+            } elseif ($addrLen > 90) {
+                $addrFontSize = '13.5pt';
+                $addrLineHeight = '1.25';
+            } else {
+                $addrFontSize = '16pt';
+                $addrLineHeight = '1.3';
+            }
+        @endphp
     <div class="container">
         @for($i = 0; $i < 4; $i++)
         <div class="label">
             <div class="header">
                 <img src="{{ asset('images/claeritian_logo.png') }}" class="logo-img">
                 <div class="company-info-block">
-                    <p class="company-name">Clarentian Communications</p>
+                    <p class="company-name">Claretian Communications Foundation, Inc.</p>
                     <p class="company-sub">8 Mayumi St., UP Village, Diliman, QC</p>
                     <p class="company-sub">Mobile: 0908 886 1897</p>
                 </div>
@@ -279,8 +296,8 @@
             <div class="body">
                 <div class="section-title">Ship To</div>
                 <div class="buyer-name">{{ $order->customer->customer_name ?? ($order->customer_representative ?: 'N/A') }}</div>
-                <div class="buyer-address">
-                    {{ $address ?? ($order->shipping_address ?: ($order->customer->shipping_address ?? ($order->customer->billing_address ?? 'N/A'))) }}
+                <div class="buyer-address" style="font-size: {{ $addrFontSize }}; line-height: {{ $addrLineHeight }};">
+                    {{ $finalAddr ?: 'N/A' }}
                 </div>
                 
                 <div class="contact-row">

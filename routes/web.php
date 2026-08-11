@@ -7,6 +7,7 @@ use App\Http\Controllers\MarketingController;
 use App\Http\Controllers\Marketing\SupplierController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\VendorController;
 use App\Http\Controllers\Production\InventoryController;
 use App\Http\Controllers\Production\SiteController;
 use App\Http\Controllers\FileController;
@@ -735,4 +736,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/daily-report', [App\Http\Controllers\Accounting\CashierPaymentController::class, 'dailyReport'])->name('daily-report');
     Route::get('/export', [App\Http\Controllers\Accounting\CashierPaymentController::class, 'exportForAccounting'])->name('export');
   });
+});
+
+// Vendor Management Routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('vendor-management', VendorController::class)->names([
+        'index'   => 'vendor-management.index',
+        'store'   => 'vendor-management.store',
+        'show'    => 'vendor-management.show',
+        'update'  => 'vendor-management.update',
+        'destroy' => 'vendor-management.destroy',
+    ])->except(['create', 'edit']);
 });

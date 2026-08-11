@@ -145,13 +145,35 @@ class LogisticController extends Controller
             \Log::info('Loading pick list with ID: ' . $id);
             
             $pickList = \App\Models\PickList::with([
-                'salesOrder', 
+                'salesOrder.items.book', 
+                'salesOrder.items.bundle', 
+                'salesOrder.items.bookIndex.book', 
                 'salesOrder.customer', 
                 'pickListItems.salesOrderItem.book', 
                 'pickListItems.salesOrderItem.bundle', 
                 'pickListItems.salesOrderItem.bookIndex.book', 
                 'preparedByUser'
             ])->findOrFail($id);
+
+            // Auto-heal: If pickListItems is empty but SalesOrder has items, auto-generate PickListItems
+            if ($pickList->pickListItems->isEmpty() && $pickList->salesOrder && $pickList->salesOrder->items->count() > 0) {
+                \DB::transaction(function() use ($pickList) {
+                    foreach ($pickList->salesOrder->items as $soItem) {
+                        \App\Models\PickListItem::create([
+                            'pick_list_id' => $pickList->id,
+                            'sales_order_item_id' => $soItem->id,
+                            'requested_qty' => $soItem->quantity,
+                            'picked_qty' => 0,
+                            'status' => 'pending',
+                        ]);
+                    }
+                });
+                $pickList->load([
+                    'pickListItems.salesOrderItem.book', 
+                    'pickListItems.salesOrderItem.bundle', 
+                    'pickListItems.salesOrderItem.bookIndex.book'
+                ]);
+            }
 
             \Log::info('Pick List loaded successfully:', [
                 'id' => $pickList->id,
@@ -2878,18 +2900,21 @@ class LogisticController extends Controller
                 if ($tItem->book_index_id) {
                     $index = \App\Models\BookIndex::find($tItem->book_index_id);
                     if ($index) {
+                        $index->main_stock = max(0, ($index->main_stock ?? $index->stock ?? 0) - $qty);
                         $index->stock = max(0, ($index->stock ?? $index->quantity ?? 0) - $qty);
                         $index->save();
                     }
                 } elseif ($tItem->book_id) {
                     $book = \App\Models\Book::find($tItem->book_id);
                     if ($book) {
+                        $book->main_stock = max(0, ($book->main_stock ?? $book->stock ?? 0) - $qty);
                         $book->stock = max(0, ($book->stock ?? 0) - $qty);
                         $book->save();
                     }
                 } elseif ($tItem->book_bundle_id) {
                     $bundle = \App\Models\BookBundle::find($tItem->book_bundle_id);
                     if ($bundle) {
+                        $bundle->main_stock = max(0, ($bundle->main_stock ?? $bundle->stock ?? 0) - $qty);
                         $bundle->stock = max(0, ($bundle->stock ?? $bundle->quantity ?? 0) - $qty);
                         $bundle->save();
                     }

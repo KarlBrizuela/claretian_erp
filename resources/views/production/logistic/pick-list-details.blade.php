@@ -124,14 +124,18 @@
                                 <tbody id="pickListItemsBody">
                                     @forelse($pickList->pickListItems as $item)
                                     @php
-                                        $book = $item->salesOrderItem?->book;
-                                        $isbn = $book?->sku ?? '';
-                                        $barcode = $book?->barcode ?? '';
+                                        $soItem = $item->salesOrderItem;
+                                        $book = $soItem?->book;
+                                        $bookIndex = $soItem?->bookIndex;
+                                        $bundle = $soItem?->bundle;
+                                        $prodName = $bookIndex ? $bookIndex->display_name : ($book ? $book->name : ($bundle ? $bundle->name : ($soItem?->item_name ?? 'Unknown Product')));
+                                        $isbn = $bookIndex ? ($bookIndex->book?->isbn ?? $bookIndex->book?->sku) : ($book ? ($book->isbn ?? $book->sku) : ($bundle ? ($bundle->sku ?? '') : ''));
+                                        $barcode = $bookIndex ? ($bookIndex->book?->barcode) : ($book ? ($book->barcode ?? '') : '');
                                         $pickedQtyInt = (int) $item->picked_qty;
                                     @endphp
-                                    <tr data-product="{{ $item->salesOrderItem?->item_name ?? ($item->salesOrderItem?->book?->name ?? 'Unknown') }}">
+                                    <tr data-product="{{ $prodName }}">
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center;">{{ $loop->iteration }}</td>
-                                        <td style="padding: 0.6rem; border: 1px solid #ddd;">{{ $item->salesOrderItem?->item_name ?? ($item->salesOrderItem?->book?->name ?? 'Unknown') }}</td>
+                                        <td style="padding: 0.6rem; border: 1px solid #ddd;">{{ $prodName }}</td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center; font-size: 0.8rem; font-family: monospace;">{{ $isbn ?: '—' }}</td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center; font-size: 0.8rem; font-family: monospace;">{{ $barcode ?: '—' }}</td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center;">{{ (int) $item->requested_qty }}</td>

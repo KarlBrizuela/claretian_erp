@@ -2688,6 +2688,7 @@ public function checkVoucher()
 
     // Automatically create a pick list after accounting approval
     try {
+      $order->load('items');
       // Check if SO has items
       if (!$order->items || $order->items->count() === 0) {
         \Log::warning('SO #' . $order->so_number . ' has NO items - cannot create pick list');
