@@ -78,6 +78,48 @@
             border-bottom-color: #D9251C;
             background: transparent !important;
         }
+
+        /* Export Excel Button Styling */
+        .btn-export-excel {
+            background-color: #28a745;
+            border-color: #28a745;
+            color: #fff !important;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(40, 167, 69, 0.2);
+            height: 38px;
+            min-height: 38px;
+            box-sizing: border-box;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            padding: 0 1rem;
+            font-size: 0.85rem;
+            gap: 0.5rem;
+        }
+
+        .btn-export-excel:hover {
+            background-color: #218838;
+            box-shadow: 0 6px 8px rgba(40, 167, 69, 0.3);
+            transform: translateY(-1px);
+            color: #fff !important;
+        }
+
+        .btn-export-excel i {
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            font-size: 1.1rem !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: auto !important;
+            height: 1.1rem !important;
+            line-height: 1 !important;
+            color: #fff !important;
+        }
     </style>
     @endpush
 
@@ -136,6 +178,10 @@
                             </button>
                         </form>
 
+                        <a href="{{ route('marketing.bundles.export', ['bundle_search' => request('bundle_search')]) }}" class="btn btn-export-excel rounded" title="Export all book bundles to Excel">
+                            <i class="las la-file-excel"></i>
+                            <span>Export Excel</span>
+                        </a>
                         <a href="javascript:void(0);" id="addNewBundleBtn"
                             class="btn btn-primary rounded d-flex align-items-center"
                             style="gap: 0.5rem; padding: 0.5rem 1rem; height: 38px; min-height: 38px; line-height: 1.5; box-sizing: border-box; border: none; background: #ff0000; color: #ffffff; font-weight: 500;">

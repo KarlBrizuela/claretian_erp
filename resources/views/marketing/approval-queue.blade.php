@@ -310,7 +310,8 @@
                                 <option value="charge">Charge</option>
                                 <option value="complimentary">Complimentary</option>
                                 <option value="ecom_direct">E-Com Direct</option>
-                                <option value="calculator_pos">Calculator / POS</option>
+                                 <option value="calculator_pos">Calculator / POS</option>
+                                <option value="team_stock_transfer">Team Stock Transfer</option>
                             </select>
                         </div>
                         <div class="table-responsive">
@@ -362,7 +363,7 @@
                                         <td><strong>{{ $order->so_number }}</strong></td>
                                         <td>{{ $order->customer?->customer_name ?? ($order->customer_representative ?: 'N/A') }}</td>
                                         <td>{{ $order->preparedBy->name ?? 'N/A' }}</td>
-                                        <td>{{ optional($order->created_at)->format('Y-m-d h:i A') }}</td>
+                                        <td data-order="{{ optional($order->created_at)->timestamp }}">{{ optional($order->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td>
                                             @if($order->attachment)
@@ -388,7 +389,7 @@
                                         <td><strong>CA-{{ str_pad($advance->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                         <td><span class="text-muted">N/A</span></td>
                                         <td>{{ $advance->user->name ?? $advance->employee_name }}</td>
-                                        <td>{{ optional($advance->created_at)->format('Y-m-d h:i A') }}</td>
+                                        <td data-order="{{ optional($advance->created_at)->timestamp }}">{{ optional($advance->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>₱{{ number_format($advance->amount, 2) }}</td>
                                         <td><span class="text-muted">None</span></td>
                                         <td><span class="status-badge status-pending">Pending Manager</span></td>
@@ -430,7 +431,7 @@
                                         </td>
                                         <td><span class="text-muted">N/A</span></td>
                                         <td>{{ $transfer->fromSite->name ?? 'N/A' }}</td>
-                                        <td>{{ optional($transfer->created_at)->format('Y-m-d h:i A') }}</td>
+                                        <td data-order="{{ optional($transfer->created_at)->timestamp }}">{{ optional($transfer->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>{{ number_format($totQty) }} units @if($itemCount > 1)<small class="text-muted">({{ $itemCount }} titles)</small>@endif</td>
                                         <td><span class="text-muted">None</span></td>
                                         <td><span class="status-badge status-pending">Pending Approval</span></td>
@@ -452,13 +453,31 @@
                                     </tr>
                                     @endforeach
 
-                                    @foreach($pendingCctvRequests as $req)
+                                     @foreach($pendingTeamStockTransfers as $teamTransfer)
+                                     <tr data-so-type="team_stock_transfer">
+                                         <td><span class="document-type-badge" style="background-color: #ffe5d0; color: #7d3807;">Team Stock Transfer</span></td>
+                                         <td><strong>{{ $teamTransfer->transfer_number }}</strong></td>
+                                         <td><span class="badge bg-danger">{{ $teamTransfer->team_name }}</span></td>
+                                         <td>{{ $teamTransfer->transferredByUser->name ?? 'N/A' }}</td>
+                                         <td data-order="{{ optional($teamTransfer->created_at)->timestamp }}">{{ optional($teamTransfer->created_at)->format('Y-m-d h:i A') }}</td>
+                                         <td>{{ number_format($teamTransfer->items->sum('quantity')) }} pcs ({{ $teamTransfer->items->count() }} items)</td>
+                                         <td><span class="text-muted">None</span></td>
+                                         <td><span class="status-badge status-pending">Pending Marketing Approval</span></td>
+                                         <td>
+                                             <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#teamStockTransferModal{{ $teamTransfer->id }}">
+                                                 <i class="las la-eye"></i> Review
+                                             </button>
+                                         </td>
+                                     </tr>
+                                     @endforeach
+
+                                     @foreach($pendingCctvRequests as $req)
                                     <tr>
                                         <td><span class="document-type-badge type-job-order">CCTV</span></td>
                                         <td><strong>CCTV-{{ str_pad($req->cctv_req_id, 4, '0', STR_PAD_LEFT) }}</strong></td>
                                         <td><span class="text-muted">N/A</span></td>
                                         <td>{{ $req->user->name ?? $req->requested_by }}</td>
-                                        <td>{{ optional($req->created_at)->format('Y-m-d h:i A') }}</td>
+                                        <td data-order="{{ optional($req->created_at)->timestamp }}">{{ optional($req->created_at)->format('Y-m-d h:i A') }}</td>
                                         <td>N/A</td>
                                         <td>
                                             @if($req->attachment)
@@ -745,6 +764,23 @@
                                                 data-date="{{ optional($transfer->created_at)->format('M. d, Y h:i A') }}"
                                                 data-notes="{{ $transfer->notes ?? '' }}"
                                                 data-items="{{ e(json_encode($bItemsDQ)) }}">
+                                            <i class="las la-eye"></i> Review
+                                        </button>
+                                    </td>
+                                </tr>
+                                @endforeach
+
+                                @foreach($pendingTeamStockTransfers as $teamTransfer)
+                                <tr data-type="Stock Transfer">
+                                    <td><span class="document-type-badge" style="background-color: #ffe5d0; color: #7d3807;">Team Stock Transfer</span></td>
+                                    <td><strong>{{ $teamTransfer->transfer_number }}</strong></td>
+                                    <td><span class="badge bg-danger">{{ $teamTransfer->team_name }}</span></td>
+                                    <td>{{ $teamTransfer->transferredByUser->name ?? 'N/A' }}</td>
+                                    <td>{{ optional($teamTransfer->created_at)->format('Y-m-d h:i A') }}</td>
+                                    <td>{{ number_format($teamTransfer->items->sum('quantity')) }} pcs</td>
+                                    <td><span class="status-badge status-pending">Pending Marketing Approval</span></td>
+                                    <td>
+                                        <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#teamStockTransferModal{{ $teamTransfer->id }}">
                                             <i class="las la-eye"></i> Review
                                         </button>
                                     </td>
@@ -1065,6 +1101,92 @@
         </div>
     </div>
 
+    @foreach($pendingTeamStockTransfers as $teamTransfer)
+    <div class="modal fade" id="teamStockTransferModal{{ $teamTransfer->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>Review Team Stock Transfer ({{ $teamTransfer->transfer_number }})</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
+                            <span class="badge bg-danger fs-6">{{ $teamTransfer->team_name }}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Requested By:</small>
+                            <strong>{{ $teamTransfer->transferredByUser->name ?? 'N/A' }}</strong>
+                            <small class="d-block text-muted">{{ $teamTransfer->created_at->format('M d, Y h:i A') }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
+                            <span class="fw-semibold text-dark">{{ $teamTransfer->notes ?: 'None' }}</span>
+                        </div>
+                    </div>
+
+                    @if($teamTransfer->notes)
+                    <div class="alert alert-warning border border-warning mb-3 py-2">
+                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $teamTransfer->notes }}
+                    </div>
+                    @else
+                    <div class="alert alert-light border mb-3 py-2 text-muted">
+                        <i class="las la-info-circle me-1"></i>No remarks or notes specified for this transfer.
+                    </div>
+                    @endif
+
+                    <h6 class="fw-bold mb-2">Requested Items (Main Warehouse Transfer):</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Item Title</th>
+                                    <th>Type</th>
+                                    <th class="text-center">Quantity to Transfer</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($teamTransfer->items as $tItem)
+                                @php
+                                    $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
+                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+                                @endphp
+                                <tr>
+                                    <td class="fw-bold text-dark">{{ $itemName }}</td>
+                                    <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
+                                    <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <form action="{{ route('marketing.area-sales.team-stocks.reject', $teamTransfer->id) }}" method="POST" id="rejectTeamTransferForm{{ $teamTransfer->id }}" class="mb-3" style="display: none;">
+                        @csrf
+                        <label class="form-label text-danger fw-bold">Reason for Rejection:</label>
+                        <textarea name="rejection_reason" class="form-control mb-2" rows="2" placeholder="Specify reason for rejection..." required></textarea>
+                        <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times-circle me-1"></i>Confirm Rejection</button>
+                        <button type="button" class="btn btn-light btn-sm ms-1" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').hide()">Cancel</button>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-outline-danger" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').toggle()">
+                        <i class="las la-times me-1"></i> Reject Request
+                    </button>
+                    <form action="{{ route('marketing.area-sales.team-stocks.approve', $teamTransfer->id) }}" method="POST" class="d-inline">
+                        @csrf
+                        <button type="submit" class="btn btn-success">
+                            <i class="las la-check me-1"></i> Approve & Send to Production
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
     @push('scripts')
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
@@ -1126,25 +1248,25 @@
         $(document).ready(function() {
             // Initialize Tables
             queueTable = $('#approvalQueueTable').DataTable({
-                order: [[3, 'desc']],
+                order: [[4, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             myApprovalsTable = $('#myApprovalsTable').DataTable({
-                order: [[3, 'desc']],
+                order: [[4, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             mySubmissionsTable = $('#mySubmissionsTable').DataTable({
-                order: [[2, 'desc']],
+                order: [[3, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             myApprovedTable = $('#myApprovedTable').DataTable({
-                order: [[3, 'desc']],
+                order: [[4, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });

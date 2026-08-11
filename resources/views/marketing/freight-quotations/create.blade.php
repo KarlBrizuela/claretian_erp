@@ -152,9 +152,9 @@
                                 </select>
                                 @error('freight_option')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
-                            <div class="mb-3" id="forwarderGroup" style="display: {{ old('freight_option') === 'bill_client' ? 'block' : 'none' }};">
-                                <label class="form-label">Forwarder <span class="text-danger">*</span>:</label>
-                                <input type="text" class="form-control" name="forwarder" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO, AP Cargo)" value="{{ old('forwarder') }}">
+                            <div class="mb-3" id="forwarderGroup" style="display: {{ old('freight_option') ? 'block' : 'none' }};">
+                                <label class="form-label">Forwarder (Carrier):</label>
+                                <input type="text" class="form-control" name="forwarder" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO, AP Cargo, FedEx)" value="{{ old('forwarder') }}">
                             </div>
                             <div class="alert alert-info py-2 mb-3" id="serviceFeeNotice" style="display: none;">
                                 <strong>Service Fee:</strong> ₱ 50.00
@@ -567,19 +567,6 @@
                     }
                 });
             }
-
-            const freightOptionSelect = document.getElementById('freightOption');
-            const forwarderGroup = document.getElementById('forwarderGroup');
-            if (freightOptionSelect) {
-                freightOptionSelect.addEventListener('change', function() {
-                    if (forwarderGroup) {
-                        forwarderGroup.style.display = this.value === 'bill_client' ? 'block' : 'none';
-                    }
-                });
-            }
-
-            if (toggleAutofillBtn) {
-                toggleAutofillBtn.addEventListener('click', function() {
                     isAutofillEnabled = !isAutofillEnabled;
                     if (isAutofillEnabled) {
                         this.className = 'btn btn-sm btn-outline-danger shadow-sm';

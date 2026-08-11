@@ -171,11 +171,11 @@
             line-height: 1 !important;
         }
 
-        /* Import Excel Button Styling */
-        .btn-import-excel {
+        /* Import & Export Excel Button Styling */
+        .btn-import-excel, .btn-export-excel {
             background-color: #28a745;
             border-color: #28a745;
-            color: #fff;
+            color: #fff !important;
             transition: all 0.3s ease;
             box-shadow: 0 4px 6px rgba(40, 167, 69, 0.2);
             height: 38px;
@@ -191,14 +191,14 @@
             gap: 0.5rem;
         }
 
-        .btn-import-excel:hover {
+        .btn-import-excel:hover, .btn-export-excel:hover {
             background-color: #218838;
             box-shadow: 0 6px 8px rgba(40, 167, 69, 0.3);
             transform: translateY(-1px);
-            color: #fff;
+            color: #fff !important;
         }
 
-        .btn-import-excel i {
+        .btn-import-excel i, .btn-export-excel i {
             background: transparent !important;
             padding: 0 !important;
             margin: 0 !important;
@@ -210,6 +210,7 @@
             width: auto !important;
             height: 1.1rem !important;
             line-height: 1 !important;
+            color: #fff !important;
         }
 
         #manageCategoriesModal .nav-tabs {
@@ -298,6 +299,10 @@
                                     </button>
                                 </form>
 
+                                <a href="{{ route('marketing.books.export', ['search' => request('search')]) }}" class="btn btn-export-excel rounded" title="Export all books to Excel">
+                                    <i class="las la-file-excel"></i>
+                                    <span>Export Excel</span>
+                                </a>
                                 <a href="javascript:void(0);" class="btn btn-import-excel rounded"
                                     data-bs-toggle="modal" data-bs-target="#importBooksModal">
                                     <i class="las la-file-excel"></i>

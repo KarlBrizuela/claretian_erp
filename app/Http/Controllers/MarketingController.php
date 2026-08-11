@@ -294,6 +294,11 @@ class MarketingController extends Controller
                 ->latest()
                 ->get()
             : collect();
+
+        $pendingTeamStockTransfers = \App\Models\TeamStockTransfer::with(['transferredByUser', 'items.book', 'items.bookIndex.book', 'items.bookBundle'])
+            ->where('status', 'pending_mkt_approval')
+            ->latest()
+            ->get();
         
 
 
@@ -397,6 +402,7 @@ class MarketingController extends Controller
             'batchData' => $batchData,
             'pendingCctvRequests' => $pendingCctvRequests,
             'pendingMaterials' => $pendingMaterials,
+            'pendingTeamStockTransfers' => $pendingTeamStockTransfers,
             'mySubmissions' => $mySubmissions,
             'myApprovedRequests' => $myApprovedRequests->sortByDesc('submitted_date')
         ]);
@@ -1677,8 +1683,81 @@ class MarketingController extends Controller
         ]);
     }
 
-    public function getUnifiedProducts()
+    public function getUnifiedProducts($teamName = null)
     {
+        if (!empty($teamName)) {
+            $teamStocks = \App\Models\TeamStock::with(['book', 'bookIndex.book', 'bookBundle'])
+                ->where('team_name', $teamName)
+                ->where('quantity', '>', 0)
+                ->get();
+
+            return $teamStocks->map(function($ts) {
+                if ($ts->book_index_id && $ts->bookIndex) {
+                    $idx = $ts->bookIndex;
+                    $fullName = $idx->display_name;
+                    $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+                    $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
+                    $stock = (int) $ts->quantity;
+                    return (object)[
+                        'id' => 'index_' . $idx->id,
+                        'type' => 'index',
+                        'real_id' => $idx->id,
+                        'book_id' => $idx->book_id,
+                        'name' => $fullName,
+                        'category' => 'Book Indices',
+                        'display_name' => '[Index] ' . $fullName . ' (Stock: ' . $stock . ')',
+                        'price' => $price,
+                        'isbn' => $idx->book?->isbn ?? '',
+                        'stock' => $stock,
+                        'main_stock' => $stock,
+                        'image' => $img,
+                    ];
+                } elseif ($ts->book_bundle_id && $ts->bookBundle) {
+                    $bun = $ts->bookBundle;
+                    $fullName = $bun->name . ' (bundle)';
+                    $stock = (int) $ts->quantity;
+                    return (object)[
+                        'id' => 'bundle_' . $bun->id,
+                        'type' => 'bundle',
+                        'real_id' => $bun->id,
+                        'book_id' => null,
+                        'name' => $fullName,
+                        'category' => 'Book Bundles',
+                        'display_name' => '[Bundle] ' . $bun->name . ' (Stock: ' . $stock . ')',
+                        'price' => (float) $bun->price,
+                        'isbn' => $bun->sku ?? '',
+                        'stock' => $stock,
+                        'main_stock' => $stock,
+                        'image' => asset('images/no-book-cover.svg'),
+                    ];
+                } elseif ($ts->book_id && $ts->book) {
+                    $b = $ts->book;
+                    $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
+                                 (isset($b->category) && strtolower($b->category) === 'non-book') ||
+                                 (isset($b->book_type) && strtolower($b->book_type) === 'non-book');
+                    $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
+                    $fullName = $b->name . $typeSuffix;
+                    $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
+                    $stock = (int) $ts->quantity;
+                    return (object)[
+                        'id' => 'book_' . $b->id,
+                        'type' => 'book',
+                        'real_id' => $b->id,
+                        'book_id' => $b->id,
+                        'name' => $fullName,
+                        'category' => $isNonBook ? 'Non-Books' : 'Books',
+                        'display_name' => $prefix . $b->name . ' (Stock: ' . $stock . ')',
+                        'price' => (float) $b->price,
+                        'isbn' => $b->isbn ?? $b->barcode ?? $b->sku ?? '',
+                        'stock' => $stock,
+                        'main_stock' => $stock,
+                        'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg'),
+                    ];
+                }
+                return null;
+            })->filter()->values();
+        }
+
         $books = \App\Models\Book::where('is_active', true)
             ->orderBy('name')
             ->get()
@@ -1801,10 +1880,25 @@ class MarketingController extends Controller
         }
     }
 
+    public function getProductsByTeam(\Illuminate\Http\Request $request)
+    {
+        $teamName = $request->input('team_name');
+        if (empty($teamName) && auth()->check()) {
+            $teamName = auth()->user()->sales_team ?? null;
+        }
+
+        $products = $this->getUnifiedProducts($teamName);
+        return response()->json([
+            'team_name' => $teamName ?: 'Main Warehouse',
+            'products' => $products
+        ]);
+    }
+
     public function createSalesOrder()
     {
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
-        $products = $this->getUnifiedProducts();
+        $userTeam = auth()->user()->sales_team ?? null;
+        $products = $this->getUnifiedProducts($userTeam);
         $areaSalesStaff = \App\Models\User::where('department', 'Area Sales')->get();
 
         return view('marketing.sales-orders.create', [
@@ -1813,7 +1907,8 @@ class MarketingController extends Controller
             'sidebar' => 'marketing',
             'customers' => $customers,
             'products' => $products,
-            'areaSalesStaff' => $areaSalesStaff
+            'areaSalesStaff' => $areaSalesStaff,
+            'userTeam' => $userTeam
         ]);
     }
 
@@ -1841,6 +1936,15 @@ class MarketingController extends Controller
 
         // Validate stock & quantity for all items
         $itemErrors = [];
+        $userTeam = auth()->user()->sales_team ?? null;
+
+        if ($request->type === 'area_sales_consignment' && $request->filled('area_sales_staff_id')) {
+            $staff = \App\Models\User::find($request->area_sales_staff_id);
+            if ($staff && $staff->sales_team) {
+                $userTeam = $staff->sales_team;
+            }
+        }
+
         foreach ($request->items ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $qty = (int) ($item['quantity'] ?? 0);
@@ -1849,6 +1953,26 @@ class MarketingController extends Controller
 
             if ($qty <= 0) {
                 $itemErrors[] = "<strong>{$productName}</strong>: Quantity must be at least 1.";
+                continue;
+            }
+
+            if (!empty($userTeam)) {
+                $ts = \App\Models\TeamStock::where('team_name', $userTeam)
+                    ->where(function($q) use ($target) {
+                        if (!empty($target['book_index_id'])) $q->where('book_index_id', $target['book_index_id']);
+                        elseif (!empty($target['book_id'])) $q->where('book_id', $target['book_id']);
+                        elseif (!empty($target['bundle_id'])) $q->where('book_bundle_id', $target['bundle_id']);
+                    })->first();
+
+                $availableStock = $ts ? (int) $ts->quantity : 0;
+                if ($qty > $availableStock) {
+                    $itemErrors[] = "<strong>{$productName}</strong>: Requested {$qty} pcs, but <strong>{$userTeam}</strong> stock only has <strong>{$availableStock} pcs</strong> available.";
+                }
+            } else {
+                $availableStock = (int) $target['stock'];
+                if ($qty > $availableStock) {
+                    $itemErrors[] = "<strong>{$productName}</strong>: Requested {$qty} pcs, but <strong>Main Warehouse</strong> stock only has <strong>{$availableStock} pcs</strong> available.";
+                }
             }
         }
 
@@ -1902,7 +2026,7 @@ class MarketingController extends Controller
             'attachment' => $attachmentPath,
             'proof_of_payment' => $proofOfPaymentPath,
             'freight_option' => $validated['freight_option'] ?? null,
-            'forwarder' => ($validated['freight_option'] ?? null) === 'bill_client' ? ($request->forwarder ?? null) : null,
+            'forwarder' => $request->forwarder ?? null,
         ]);
 
         // Clean up any orphaned items that might reuse this order ID (in case of auto-increment reuse)
@@ -2150,7 +2274,7 @@ class MarketingController extends Controller
 
             $so->update([
                 'freight_option' => $validated['freight_option'],
-                'forwarder' => $validated['freight_option'] === 'bill_client' ? ($request->forwarder ?? null) : null,
+                'forwarder' => $request->forwarder ?? $so->forwarder,
                 'total_amount' => $newTotal
             ]);
 
@@ -2233,7 +2357,7 @@ class MarketingController extends Controller
             'billing_address' => $request->billing_address,
             'shipping_address' => $request->billing_address,
             'freight_option' => $validated['freight_option'] ?? null,
-            'forwarder' => ($validated['freight_option'] ?? null) === 'bill_client' ? ($request->forwarder ?? null) : null,
+            'forwarder' => $request->forwarder ?? null,
         ]);
 
 
@@ -3516,6 +3640,300 @@ class MarketingController extends Controller
     }
 
     /**
+     * Download blank Excel Template for Team Stock Transfers (Title, Barcode, Quantity to Transfer)
+     */
+    public function downloadTeamStockTransferTemplate()
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Stock Transfer Template');
+
+        // Title & Instructions
+        $sheet->setCellValue('A1', 'CLARETIAN ERP — TEAM STOCK TRANSFER TEMPLATE');
+        $sheet->mergeCells('A1:C1');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFD9251C']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT],
+        ]);
+
+        $sheet->setCellValue('A2', 'Instructions: Enter the Title or Barcode (or Item Code / ISBN) and Quantity to Transfer for each item. Save and upload this file in the Transfer Stock modal.');
+        $sheet->mergeCells('A2:C2');
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => ['italic' => true, 'size' => 10, 'color' => ['argb' => 'FF555555']],
+        ]);
+
+        // Table Headers (Row 4)
+        $headers = [
+            'A4' => 'Title',
+            'B4' => 'Barcode',
+            'C4' => 'Quantity to Transfer',
+        ];
+
+        foreach ($headers as $cell => $label) {
+            $sheet->setCellValue($cell, $label);
+        }
+
+        $sheet->getStyle('A4:C4')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFD9251C']
+            ],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['argb' => 'FFCCCCCC']
+                ]
+            ],
+        ]);
+
+        // 10 Blank rows ready for user input
+        for ($row = 5; $row <= 15; $row++) {
+            $sheet->setCellValue("A{$row}", '');
+            $sheet->setCellValue("B{$row}", '');
+            $sheet->setCellValue("C{$row}", '');
+
+            $sheet->getStyle("A{$row}:C{$row}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => 'FFE0E0E0']
+                    ]
+                ]
+            ]);
+            $sheet->getStyle("B{$row}:C{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        }
+
+        $sheet->getColumnDimension('A')->setWidth(50);
+        $sheet->getColumnDimension('B')->setWidth(30);
+        $sheet->getColumnDimension('C')->setWidth(25);
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->stream(
+            function () use ($writer) {
+                $writer->save('php://output');
+            },
+            200,
+            [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="Team_Stock_Transfer_Template.xlsx"',
+                'Cache-Control' => 'max-age=0',
+            ]
+        );
+    }
+
+    /**
+     * Parse uploaded Excel file and match products by Barcode/Title for team stock transfer
+     */
+    public function parseTeamStockTransferExcel(Request $request)
+    {
+        try {
+            $request->validate([
+                'excel_file' => 'required|file|mimes:xlsx,xls,csv,txt',
+            ]);
+
+            $file = $request->file('excel_file');
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
+
+            $allProducts = $this->getUnifiedProducts();
+            
+            // Build lookups for Barcode and Title matching
+            $productMapByBarcode = [];
+            $productMapByName = [];
+
+            foreach ($allProducts as $p) {
+                $pId = is_object($p) ? $p->id : ($p['id'] ?? '');
+                $pName = is_object($p) ? $p->name : ($p['name'] ?? '');
+                $pStock = (int) (is_object($p) ? ($p->stock ?? $p->main_stock ?? 0) : ($p['stock'] ?? $p['main_stock'] ?? 0));
+                $pIsbn = is_object($p) ? ($p->isbn ?? '') : ($p['isbn'] ?? '');
+
+                $itemObj = [
+                    'id' => $pId,
+                    'name' => $pName,
+                    'stock' => $pStock,
+                ];
+
+                $cleanBaseName = strtolower(trim(preg_replace('/\s*\((book|non-book|bundle)\)\s*$/i', '', $pName)));
+                $cleanFullName = strtolower(trim(preg_replace('/\s+/', ' ', $pName)));
+
+                if (!empty($cleanBaseName)) $productMapByName[$cleanBaseName] = $itemObj;
+                if (!empty($cleanFullName)) $productMapByName[$cleanFullName] = $itemObj;
+
+                if (!empty($pIsbn)) {
+                    $productMapByBarcode[strtolower(trim((string)$pIsbn))] = $itemObj;
+                }
+
+                // Check actual model records for extra barcodes/item codes/article numbers
+                if (str_starts_with($pId, 'book_')) {
+                    $realId = str_replace('book_', '', $pId);
+                    $bookModel = \App\Models\Book::find($realId);
+                    if ($bookModel) {
+                        foreach (['isbn', 'barcode', 'item_code', 'sku'] as $attr) {
+                            if (!empty($bookModel->$attr)) {
+                                $productMapByBarcode[strtolower(trim((string)$bookModel->$attr))] = $itemObj;
+                            }
+                        }
+                    }
+                } elseif (str_starts_with($pId, 'index_')) {
+                    $realId = str_replace('index_', '', $pId);
+                    $indexModel = \App\Models\BookIndex::with('book')->find($realId);
+                    if ($indexModel) {
+                        foreach (['article_number', 'isbn', 'barcode'] as $attr) {
+                            if (!empty($indexModel->$attr)) {
+                                $productMapByBarcode[strtolower(trim((string)$indexModel->$attr))] = $itemObj;
+                            }
+                        }
+                        if ($indexModel->book) {
+                            foreach (['isbn', 'barcode', 'item_code', 'sku'] as $attr) {
+                                if (!empty($indexModel->book->$attr) && !isset($productMapByBarcode[strtolower(trim((string)$indexModel->book->$attr))])) {
+                                    $productMapByBarcode[strtolower(trim((string)$indexModel->book->$attr))] = $itemObj;
+                                }
+                            }
+                        }
+                    }
+                } elseif (str_starts_with($pId, 'bundle_')) {
+                    $realId = str_replace('bundle_', '', $pId);
+                    $bundleModel = \App\Models\BookBundle::find($realId);
+                    if ($bundleModel) {
+                        foreach (['sku', 'barcode'] as $attr) {
+                            if (!empty($bundleModel->$attr)) {
+                                $productMapByBarcode[strtolower(trim((string)$bundleModel->$attr))] = $itemObj;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Dynamically locate table headers and column mapping
+            $titleCol = 0;
+            $barcodeCol = 1;
+            $qtyCol = 2;
+            $startRowIndex = 0;
+
+            foreach ($rows as $idx => $row) {
+                if (!is_array($row)) continue;
+                $foundHeader = false;
+                foreach ($row as $colIdx => $val) {
+                    $str = strtolower(trim((string)$val));
+                    if (str_contains($str, 'title') || str_contains($str, 'product')) {
+                        $titleCol = $colIdx;
+                        $foundHeader = true;
+                    }
+                    if (str_contains($str, 'barcode') || str_contains($str, 'isbn') || str_contains($str, 'code')) {
+                        $barcodeCol = $colIdx;
+                        $foundHeader = true;
+                    }
+                    if (str_contains($str, 'quantity') || str_contains($str, 'qty') || str_contains($str, 'transfer')) {
+                        $qtyCol = $colIdx;
+                        $foundHeader = true;
+                    }
+                }
+                if ($foundHeader) {
+                    $startRowIndex = $idx + 1;
+                    break;
+                }
+            }
+
+            $importedItems = [];
+            $unmatched = [];
+
+            for ($i = $startRowIndex; $i < count($rows); $i++) {
+                $row = $rows[$i];
+                if (!is_array($row)) continue;
+
+                $titleVal = trim((string)($row[$titleCol] ?? ''));
+                $barcodeVal = trim((string)($row[$barcodeCol] ?? ''));
+                $qtyVal = trim((string)($row[$qtyCol] ?? ''));
+
+                // Extract numeric quantity
+                $qty = 0;
+                if (is_numeric($qtyVal) && (int)$qtyVal > 0) {
+                    $qty = (int)$qtyVal;
+                } else {
+                    foreach ($row as $cVal) {
+                        if (is_numeric(trim((string)$cVal)) && (int)trim((string)$cVal) > 0) {
+                            $qty = (int)trim((string)$cVal);
+                            break;
+                        }
+                    }
+                }
+
+                if ($qty <= 0) continue;
+
+                $matched = null;
+
+                // 1. Match by Barcode / ISBN / Item Code
+                if (!empty($barcodeVal)) {
+                    $cleanBc = strtolower(trim($barcodeVal));
+                    if (isset($productMapByBarcode[$cleanBc])) {
+                        $matched = $productMapByBarcode[$cleanBc];
+                    }
+                }
+
+                // 2. Match by Title
+                if (!$matched && !empty($titleVal)) {
+                    $cleanTitle = strtolower(trim(preg_replace('/\s+/', ' ', $titleVal)));
+                    $cleanTitleBase = strtolower(trim(preg_replace('/\s*\((book|non-book|bundle)\)\s*$/i', '', $cleanTitle)));
+
+                    if (isset($productMapByName[$cleanTitleBase])) {
+                        $matched = $productMapByName[$cleanTitleBase];
+                    } elseif (isset($productMapByName[$cleanTitle])) {
+                        $matched = $productMapByName[$cleanTitle];
+                    } else {
+                        foreach ($productMapByName as $nameKey => $prodObj) {
+                            if (!empty($nameKey) && (str_contains($cleanTitleBase, $nameKey) || str_contains($nameKey, $cleanTitleBase))) {
+                                $matched = $prodObj;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 3. Fallback: match by product ID if present
+                if (!$matched && !empty($titleVal) && isset($allProducts[$titleVal])) {
+                    $matched = $allProducts[$titleVal];
+                }
+
+                if ($matched) {
+                    $importedItems[] = [
+                        'product_id' => $matched['id'],
+                        'product_name' => $matched['name'],
+                        'stock' => $matched['stock'],
+                        'quantity' => $qty,
+                    ];
+                } else {
+                    $unmatched[] = !empty($titleVal) ? $titleVal : $barcodeVal;
+                }
+            }
+
+            if (empty($importedItems)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No matching products with positive "Quantity to Transfer" were found in the uploaded file.',
+                ], 422);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'items' => $importedItems,
+                'count' => count($importedItems),
+                'skipped' => count($unmatched),
+                'message' => 'Successfully imported ' . count($importedItems) . ' item(s) from Excel file.',
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to process Excel file: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Area Sales - Execute Stock Transfer to Team
      */
     public function storeTeamStockTransfer(Request $request)
@@ -3536,7 +3954,7 @@ class MarketingController extends Controller
                 'team_name' => $request->team_name,
                 'transferred_by' => auth()->id(),
                 'notes' => $request->notes,
-                'status' => 'pending_prod_approval',
+                'status' => 'pending_mkt_approval',
             ]);
 
             foreach ($request->items as $itemData) {
@@ -3577,7 +3995,7 @@ class MarketingController extends Controller
             \DB::commit();
 
             return redirect()->route('marketing.area-sales.team-stocks.index')
-                ->with('success', 'Stock transfer request #' . $transferNumber . ' submitted! Sent to Production Approval Queue.');
+                ->with('success', 'Stock transfer request #' . $transferNumber . ' submitted! Sent to Marketing Approval Queue.');
 
         } catch (\Exception $e) {
             \DB::rollBack();
@@ -3585,5 +4003,399 @@ class MarketingController extends Controller
                 ->withInput()
                 ->with('error', 'Failed to execute stock transfer: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Export Book List (Master Registry) to Excel
+     */
+    public function exportBooks(Request $request)
+    {
+        $search = $request->input('search');
+        $query = \App\Models\Book::where('is_active', true);
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('isbn', 'like', "%{$search}%")
+                  ->orWhere('item_code', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%");
+            });
+        }
+
+        $books = $query->orderBy('name')->get();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Book List');
+
+        // Title
+        $sheet->setCellValue('A1', 'CLARETIAN ERP — BOOK LIST (MASTER REGISTRY)');
+        $sheet->mergeCells('A1:H1');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFD9251C']],
+        ]);
+
+        $sheet->setCellValue('A2', 'Exported on ' . date('M d, Y h:i A') . ' | Total Records: ' . $books->count());
+        $sheet->mergeCells('A2:H2');
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => ['italic' => true, 'size' => 10, 'color' => ['argb' => 'FF666666']],
+        ]);
+
+        // Headers
+        $headers = [
+            'A4' => 'Item Code',
+            'B4' => 'ISBN / Barcode',
+            'C4' => 'Book Title / Name',
+            'D4' => 'Category',
+            'E4' => 'Price (₱)',
+            'F4' => 'Main Warehouse Stock (pcs)',
+            'G4' => 'Status',
+            'H4' => 'Description',
+        ];
+
+        foreach ($headers as $cell => $label) {
+            $sheet->setCellValue($cell, $label);
+        }
+
+        $sheet->getStyle('A4:H4')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFD9251C']
+            ],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['argb' => 'FFCCCCCC']
+                ]
+            ],
+        ]);
+
+        $row = 5;
+        foreach ($books as $b) {
+            $stock = (int) ($b->main_stock ?? $b->stock ?? 0);
+            $status = $b->is_active ? 'Active' : 'Inactive';
+
+            $sheet->setCellValue("A{$row}", $b->item_code ?: '—');
+            $sheet->setCellValue("B{$row}", $b->isbn ?: $b->barcode ?: '—');
+            $sheet->setCellValue("C{$row}", $b->name);
+            $sheet->setCellValue("D{$row}", $b->category ?: 'Books');
+            $sheet->setCellValue("E{$row}", (float)$b->price);
+            $sheet->setCellValue("F{$row}", $stock);
+            $sheet->setCellValue("G{$row}", $status);
+            $sheet->setCellValue("H{$row}", $b->description ?: '—');
+
+            $sheet->getStyle("A{$row}:H{$row}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => 'FFE0E0E0']
+                    ]
+                ]
+            ]);
+            $sheet->getStyle("E{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("F{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("G{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            $row++;
+        }
+
+        $sheet->getColumnDimension('A')->setWidth(15);
+        $sheet->getColumnDimension('B')->setWidth(20);
+        $sheet->getColumnDimension('C')->setWidth(45);
+        $sheet->getColumnDimension('D')->setWidth(20);
+        $sheet->getColumnDimension('E')->setWidth(15);
+        $sheet->getColumnDimension('F')->setWidth(25);
+        $sheet->getColumnDimension('G')->setWidth(15);
+        $sheet->getColumnDimension('H')->setWidth(35);
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->stream(
+            function () use ($writer) {
+                $writer->save('php://output');
+            },
+            200,
+            [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="Book_List_Master.xlsx"',
+                'Cache-Control' => 'max-age=0',
+            ]
+        );
+    }
+
+    /**
+     * Export Book Indices Mapping to Excel
+     */
+    public function exportBookIndices(Request $request)
+    {
+        $search = $request->input('search');
+        $query = \App\Models\BookIndex::with('book');
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('display_name', 'like', "%{$search}%")
+                  ->orWhere('article_number', 'like', "%{$search}%")
+                  ->orWhere('isbn', 'like', "%{$search}%")
+                  ->orWhereHas('book', function($bq) use ($search) {
+                      $bq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $indices = $query->orderBy('display_name')->get();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Book Indices');
+
+        // Title
+        $sheet->setCellValue('A1', 'CLARETIAN ERP — BOOK INDICES MAPPING');
+        $sheet->mergeCells('A1:F1');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFD9251C']],
+        ]);
+
+        $sheet->setCellValue('A2', 'Exported on ' . date('M d, Y h:i A') . ' | Total Records: ' . $indices->count());
+        $sheet->mergeCells('A2:F2');
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => ['italic' => true, 'size' => 10, 'color' => ['argb' => 'FF666666']],
+        ]);
+
+        // Headers
+        $headers = [
+            'A4' => 'Article / ISBN Number',
+            'B4' => 'Index Display Name',
+            'C4' => 'Parent Book Title',
+            'D4' => 'Price (₱)',
+            'E4' => 'Main Warehouse Stock (pcs)',
+            'F4' => 'Status',
+        ];
+
+        foreach ($headers as $cell => $label) {
+            $sheet->setCellValue($cell, $label);
+        }
+
+        $sheet->getStyle('A4:F4')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFD9251C']
+            ],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['argb' => 'FFCCCCCC']
+                ]
+            ],
+        ]);
+
+        $row = 5;
+        foreach ($indices as $idx) {
+            $stock = (int) ($idx->main_stock ?? $idx->stock ?? 0);
+            $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+            $article = $idx->article_number ?: ($idx->isbn ?: '—');
+            $status = ($idx->is_active ?? true) ? 'Active' : 'Inactive';
+
+            $sheet->setCellValue("A{$row}", $article);
+            $sheet->setCellValue("B{$row}", $idx->display_name);
+            $sheet->setCellValue("C{$row}", $idx->book?->name ?: '—');
+            $sheet->setCellValue("D{$row}", $price);
+            $sheet->setCellValue("E{$row}", $stock);
+            $sheet->setCellValue("F{$row}", $status);
+
+            $sheet->getStyle("A{$row}:F{$row}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => 'FFE0E0E0']
+                    ]
+                ]
+            ]);
+            $sheet->getStyle("D{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("E{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("F{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            $row++;
+        }
+
+        $sheet->getColumnDimension('A')->setWidth(25);
+        $sheet->getColumnDimension('B')->setWidth(45);
+        $sheet->getColumnDimension('C')->setWidth(45);
+        $sheet->getColumnDimension('D')->setWidth(15);
+        $sheet->getColumnDimension('E')->setWidth(25);
+        $sheet->getColumnDimension('F')->setWidth(15);
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->stream(
+            function () use ($writer) {
+                $writer->save('php://output');
+            },
+            200,
+            [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="Book_Indices_Mapping.xlsx"',
+                'Cache-Control' => 'max-age=0',
+            ]
+        );
+    }
+
+    /**
+     * Export Book Bundles List to Excel
+     */
+    public function exportBookBundles(Request $request)
+    {
+        $search = $request->input('bundle_search') ?: $request->input('search');
+        $query = \App\Models\BookBundle::with('books');
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $bundles = $query->orderBy('name')->get();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Book Bundles');
+
+        // Title
+        $sheet->setCellValue('A1', 'CLARETIAN ERP — BOOK BUNDLES LIST');
+        $sheet->mergeCells('A1:G1');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFD9251C']],
+        ]);
+
+        $sheet->setCellValue('A2', 'Exported on ' . date('M d, Y h:i A') . ' | Total Records: ' . $bundles->count());
+        $sheet->mergeCells('A2:G2');
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => ['italic' => true, 'size' => 10, 'color' => ['argb' => 'FF666666']],
+        ]);
+
+        // Headers
+        $headers = [
+            'A4' => 'SKU / Barcode',
+            'B4' => 'Bundle Name',
+            'C4' => 'Included Books',
+            'D4' => 'Price (₱)',
+            'E4' => 'Stock (pcs)',
+            'F4' => 'Status',
+            'G4' => 'Description',
+        ];
+
+        foreach ($headers as $cell => $label) {
+            $sheet->setCellValue($cell, $label);
+        }
+
+        $sheet->getStyle('A4:G4')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFD9251C']
+            ],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['argb' => 'FFCCCCCC']
+                ]
+            ],
+        ]);
+
+        $row = 5;
+        foreach ($bundles as $bun) {
+            $stock = (int) ($bun->main_stock ?? $bun->stock ?? 0);
+            $status = $bun->is_active ? 'Active' : 'Inactive';
+
+            $included = $bun->books->map(function($b) {
+                return $b->name . ' (x' . ($b->pivot->quantity ?? 1) . ')';
+            })->implode(', ');
+
+            $sheet->setCellValue("A{$row}", $bun->sku ?: '—');
+            $sheet->setCellValue("B{$row}", $bun->name);
+            $sheet->setCellValue("C{$row}", $included ?: 'None');
+            $sheet->setCellValue("D{$row}", (float)$bun->price);
+            $sheet->setCellValue("E{$row}", $stock);
+            $sheet->setCellValue("F{$row}", $status);
+            $sheet->setCellValue("G{$row}", $bun->description ?: '—');
+
+            $sheet->getStyle("A{$row}:G{$row}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => 'FFE0E0E0']
+                    ]
+                ]
+            ]);
+            $sheet->getStyle("D{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("E{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("F{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            $row++;
+        }
+
+        $sheet->getColumnDimension('A')->setWidth(20);
+        $sheet->getColumnDimension('B')->setWidth(40);
+        $sheet->getColumnDimension('C')->setWidth(55);
+        $sheet->getColumnDimension('D')->setWidth(15);
+        $sheet->getColumnDimension('E')->setWidth(15);
+        $sheet->getColumnDimension('F')->setWidth(15);
+        $sheet->getColumnDimension('G')->setWidth(35);
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->stream(
+            function () use ($writer) {
+                $writer->save('php://output');
+            },
+            200,
+            [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="Book_Bundles_List.xlsx"',
+                'Cache-Control' => 'max-age=0',
+            ]
+        );
+    }
+
+    /**
+     * Approve Team Stock Transfer by Marketing (moves to Production approval queue)
+     */
+    public function approveTeamStockTransferByMarketing($id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
+        if ($transfer->status !== 'pending_mkt_approval') {
+            return redirect()->back()->with('error', 'This transfer is not pending Marketing approval.');
+        }
+
+        $transfer->update([
+            'status' => 'pending_prod_approval',
+        ]);
+
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' approved by Marketing! Moved to Production Approval Queue.');
+    }
+
+    /**
+     * Reject Team Stock Transfer by Marketing
+     */
+    public function rejectTeamStockTransferByMarketing(Request $request, $id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
+        if ($transfer->status !== 'pending_mkt_approval') {
+            return redirect()->back()->with('error', 'This transfer is not pending Marketing approval.');
+        }
+
+        $reason = $request->input('rejection_reason');
+        $transfer->update([
+            'status' => 'rejected',
+            'notes' => ($transfer->notes ? $transfer->notes . ' | ' : '') . 'Rejected by Marketing: ' . ($reason ?: 'No reason specified'),
+        ]);
+
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' rejected.');
     }
 }

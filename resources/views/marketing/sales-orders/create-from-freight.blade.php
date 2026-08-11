@@ -18,6 +18,7 @@
                                     <p class="mb-0">
                                         <strong>Service:</strong> {{ $quotation->service_mode }} |
                                         <strong>Freight Option:</strong> {{ $quotation->freight_option ? ucwords(str_replace('_', ' ', $quotation->freight_option)) : 'N/A' }} |
+                                        <strong>Forwarder:</strong> {{ $quotation->forwarder ?? $quotation->freight_mode ?? 'N/A' }} |
                                         <strong>Boxes:</strong> {{ $quotation->boxes_count }}
                                     </p>
                                 </div>

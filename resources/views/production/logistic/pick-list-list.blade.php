@@ -475,6 +475,7 @@
                                             <th class="text-center">Items Count</th>
                                             <th class="text-center">Total Pcs</th>
                                             <th>Date Created</th>
+                                            <th>Remarks</th>
                                             <th>Status</th>
                                             <th class="text-end">Actions</th>
                                         </tr>
@@ -484,23 +485,29 @@
                                         <tr>
                                             <td class="fw-bold">{{ $tt->transfer_number }}</td>
                                             <td><span class="badge bg-danger">{{ $tt->team_name }}</span></td>
-                                            <td>{{ $tt->transferredByUser->name ?? 'N/A' }}</td>
+                                                    <td>{{ $tt->transferredByUser->name ?? 'N/A' }}</td>
                                             <td class="text-center">{{ $tt->items->count() }} item(s)</td>
                                             <td class="text-center fw-bold text-success">{{ number_format($tt->items->sum('quantity')) }} pcs</td>
                                             <td>{{ $tt->created_at->format('M d, Y h:i A') }}</td>
+                                            <td><span class="text-dark fw-semibold">{{ $tt->notes ?: '—' }}</span></td>
                                             <td><span class="badge bg-warning text-dark">{{ ucwords(str_replace('_', ' ', $tt->status)) }}</span></td>
-                                            <td class="text-end">
-                                                <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" method="POST" class="d-inline">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-success fw-bold">
-                                                        <i class="las la-check me-1"></i>Complete Pick & Transfer
+                                            <td class="text-end" style="white-space: nowrap;">
+                                                <div class="d-flex align-items-center justify-content-end gap-1">
+                                                    <button type="button" class="btn btn-xs btn-outline-danger" data-bs-toggle="modal" data-bs-target="#teamStockPickModal{{ $tt->id }}">
+                                                        <i class="las la-eye me-1"></i>View Items
                                                     </button>
-                                                </form>
+                                                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" method="POST" class="d-inline m-0">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-xs btn-success fw-bold" style="background-color: #28a745; border: none;">
+                                                            <i class="las la-check me-1"></i>Complete Pick
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-4 text-muted">No pending team stock transfers ready for picking.</td>
+                                            <td colspan="9" class="text-center py-4 text-muted">No pending team stock transfers ready for picking.</td>
                                         </tr>
                                         @endforelse
                                     </tbody>
@@ -511,7 +518,80 @@
                 </div>
             </div>
         </div>
+    @foreach($teamStockPickLists ?? [] as $tt)
+    <div class="modal fade" id="teamStockPickModal{{ $tt->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>Team Stock Transfer Items ({{ $tt->transfer_number }})</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
+                            <span class="badge bg-danger fs-6">{{ $tt->team_name }}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Requested By:</small>
+                            <strong>{{ $tt->transferredByUser->name ?? 'N/A' }}</strong>
+                            <small class="d-block text-muted">{{ $tt->created_at->format('M d, Y h:i A') }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
+                            <span class="fw-semibold text-dark">{{ $tt->notes ?: 'None' }}</span>
+                        </div>
+                    </div>
+
+                    @if($tt->notes)
+                    <div class="alert alert-warning border border-warning mb-3 py-2">
+                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $tt->notes }}
+                    </div>
+                    @else
+                    <div class="alert alert-light border mb-3 py-2 text-muted">
+                        <i class="las la-info-circle me-1"></i>No remarks or notes specified for this transfer.
+                    </div>
+                    @endif
+
+                    <h6 class="fw-bold mb-2">Items to Pick from Main Warehouse:</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Item Title</th>
+                                    <th>Type</th>
+                                    <th class="text-center">Quantity to Pick & Transfer</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($tt->items as $tItem)
+                                @php
+                                    $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
+                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+                                @endphp
+                                <tr>
+                                    <td class="fw-bold text-dark">{{ $itemName }}</td>
+                                    <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
+                                    <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" method="POST" class="d-inline">
+                        @csrf
+                        <button type="submit" class="btn btn-success fw-bold">
+                            <i class="las la-check me-1"></i>Complete Pick & Transfer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
+    @endforeach
 
     @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">

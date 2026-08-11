@@ -137,8 +137,8 @@
                                 </select>
                             </div>
 
-                            <div class="form-group" id="forwarderGroup" style="display: {{ ($isEdit && $order->freight_option == 'bill_client') ? 'block' : 'none' }};">
-                                <label>Forwarder <span class="text-danger">*</span>:</label>
+                            <div class="form-group" id="forwarderGroup" style="display: {{ ($isEdit && $order->freight_option) ? 'block' : 'none' }};">
+                                <label>Forwarder / Carrier:</label>
                                 <input type="text" class="form-control" name="forwarder" id="forwarderInput" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO, AP Cargo)" value="{{ $isEdit ? ($order->forwarder ?? '') : '' }}">
                             </div>
 
@@ -495,9 +495,9 @@
                 if (serviceFeeTotalRow) {
                     serviceFeeTotalRow.style.display = shouldShowServiceFee ? '' : 'none';
                 }
-                const isBillClient = freightOptionSelect?.value === 'bill_client';
+                const hasFreightOption = !!freightOptionSelect?.value;
                 if (forwarderGroup) {
-                    forwarderGroup.style.display = isBillClient ? 'block' : 'none';
+                    forwarderGroup.style.display = hasFreightOption ? 'block' : 'none';
                 }
             }
             

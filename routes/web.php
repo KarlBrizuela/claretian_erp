@@ -278,6 +278,7 @@ Route::middleware(['auth'])->group(function () {
     
     // Book Management (Master Registry)
     Route::get('/marketing/book-list', [MarketingController::class, 'products'])->name('marketing.products');
+    Route::get('/marketing/book-list/export', [MarketingController::class, 'exportBooks'])->name('marketing.books.export');
     Route::get('/marketing/book-bundles', [MarketingController::class, 'bundles'])->name('marketing.bundles');
     Route::get('/marketing/book-list/check-sku', [MarketingController::class, 'checkSku'])->name('marketing.books.check-sku');
     Route::get('/marketing/book-list/import-template', [MarketingController::class, 'downloadTemplate'])->name('marketing.books.import-template');
@@ -297,6 +298,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/marketing/non-books/{id}', [MarketingController::class, 'destroyNonBook'])->name('marketing.non-books.destroy');
 
     // Book Bundles
+    Route::get('/marketing/book-bundles/export', [MarketingController::class, 'exportBookBundles'])->name('marketing.bundles.export');
     Route::get('/marketing/book-bundles/search-books', [MarketingController::class, 'searchBooks'])->name('marketing.bundles.search-books');
     Route::post('/marketing/book-bundles/store', [MarketingController::class, 'storeBundle'])->name('marketing.bundles.store');
     Route::get('/marketing/book-bundles/{id}/edit', [MarketingController::class, 'editBundle'])->name('marketing.bundles.edit');
@@ -305,6 +307,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Book Indexing
     Route::get('/marketing/book-indices', [MarketingController::class, 'bookIndices'])->name('marketing.indices');
+    Route::get('/marketing/book-indices/export', [MarketingController::class, 'exportBookIndices'])->name('marketing.indices.export');
     Route::post('/marketing/book-indices/store', [MarketingController::class, 'storeIndex'])->name('marketing.indices.store');
     Route::get('/marketing/book-indices/{id}/edit', [MarketingController::class, 'editIndex'])->name('marketing.indices.edit');
     Route::post('/marketing/book-indices/{id}/update', [MarketingController::class, 'updateIndex'])->name('marketing.indices.update');
@@ -337,6 +340,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/sales-orders/export', [MarketingController::class, 'exportSalesOrders'])->name('marketing.sales-orders.export');
     Route::get('/marketing/sales-orders/{id}/export-excel', [MarketingController::class, 'exportSingleSalesOrder'])->name('marketing.sales-orders.export-single');
     Route::get('/marketing/sales-orders/list', [MarketingController::class, 'salesOrdersList'])->name('marketing.sales-orders.list');
+    Route::get('/marketing/sales-orders/products-by-team', [MarketingController::class, 'getProductsByTeam'])->name('marketing.sales-orders.products-by-team');
     Route::get('/marketing/sales-orders/create', [MarketingController::class, 'createSalesOrder'])->name('marketing.sales-orders.create');
     Route::post('/marketing/sales-orders/store', [MarketingController::class, 'storeSalesOrder'])->name('marketing.sales-orders.store');
     Route::get('/marketing/sales-orders', function() { return redirect()->route('marketing.sales-orders.list'); });
@@ -379,7 +383,11 @@ Route::middleware(['auth'])->group(function () {
 
     // Area Sales Team Stocks Routes
     Route::get('/marketing/area-sales/team-stocks', [MarketingController::class, 'teamStocksIndex'])->name('marketing.area-sales.team-stocks.index');
+    Route::get('/marketing/area-sales/team-stocks/template', [MarketingController::class, 'downloadTeamStockTransferTemplate'])->name('marketing.area-sales.team-stocks.template');
+    Route::post('/marketing/area-sales/team-stocks/parse-excel', [MarketingController::class, 'parseTeamStockTransferExcel'])->name('marketing.area-sales.team-stocks.parse-excel');
     Route::post('/marketing/area-sales/team-stocks/transfer', [MarketingController::class, 'storeTeamStockTransfer'])->name('marketing.area-sales.team-stocks.transfer');
+    Route::post('/marketing/area-sales/team-stocks/{id}/approve', [MarketingController::class, 'approveTeamStockTransferByMarketing'])->name('marketing.area-sales.team-stocks.approve');
+    Route::post('/marketing/area-sales/team-stocks/{id}/reject', [MarketingController::class, 'rejectTeamStockTransferByMarketing'])->name('marketing.area-sales.team-stocks.reject');
     Route::get('/marketing/sales-invoice', [MarketingController::class, 'salesInvoice'])->name('marketing.sales-invoice');
     Route::get('/marketing/pick-list-management', [MarketingController::class, 'pickListManagement'])->name('marketing.pick-list.management');
     Route::get('/marketing/pick-lists', [MarketingController::class, 'pickLists'])->name('marketing.pick-lists');

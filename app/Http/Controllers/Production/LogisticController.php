@@ -121,7 +121,7 @@ class LogisticController extends Controller
             \Illuminate\Support\Facades\Log::debug('First pick list: ' . $pickLists->first()->pick_list_number);
         }
 
-        $teamStockPickLists = \App\Models\TeamStockTransfer::with('transferredByUser', 'items')
+        $teamStockPickLists = \App\Models\TeamStockTransfer::with(['transferredByUser', 'items.book', 'items.bookIndex.book', 'items.bookBundle'])
             ->whereIn('status', ['pending_picklist', 'picking'])
             ->latest()
             ->get();
@@ -1788,7 +1788,7 @@ class LogisticController extends Controller
             }
         }
 
-        $teamStockPackingTransfers = \App\Models\TeamStockTransfer::with('transferredByUser', 'items')
+        $teamStockPackingTransfers = \App\Models\TeamStockTransfer::with(['transferredByUser', 'items.book', 'items.bookIndex.book', 'items.bookBundle'])
             ->whereIn('status', ['packing', 'completed'])
             ->latest()
             ->get();
@@ -2255,6 +2255,7 @@ class LogisticController extends Controller
                 'destination_province' => $validated['destination_province'] ?? null,
                 'service_mode' => $validated['service_mode'] ?? null,
                 'freight_option' => $validated['freight_option'] ?? null,
+                'forwarder' => $validated['forwarder'] ?? $validated['service_carrier'] ?? null,
                 'service_carrier' => $validated['service_carrier'] ?? null,
                 'service_remarks' => $validated['service_remarks'] ?? null,
                 'cargo_items' => !empty($cargoItems) ? json_encode($cargoItems) : null,

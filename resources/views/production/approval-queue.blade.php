@@ -347,11 +347,14 @@
                                         <td>
                                             @if($approval['type'] === 'Sales Order')
                                                 <a href="{{ $approval['url'] }}" class="btn btn-primary btn-sm"><i class="las la-eye"></i> Review</a>
-                                            @elseif($approval['type'] === 'Team Stock Transfer')
-                                                <form action="{{ route('production.team-stock-transfer.approve', $approval['id']) }}" method="POST" class="d-inline">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve Transfer</button>
-                                                </form>
+                                             @elseif($approval['type'] === 'Team Stock Transfer')
+                                                 <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#prodTeamStockTransferModal{{ $approval['id'] }}">
+                                                     <i class="las la-eye"></i> Review
+                                                 </button>
+                                                 <form action="{{ route('production.team-stock-transfer.approve', $approval['id']) }}" method="POST" class="d-inline">
+                                                     @csrf
+                                                     <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve</button>
+                                                 </form>
                                             @elseif($approval['type'] === 'CCTV')
                                                 <form action="{{ route('user.cctv-requests.update', $approval['id']) }}" method="POST" class="d-inline">
                                                     @csrf
@@ -818,6 +821,81 @@
         </div>
     </div>
 
+    @foreach($pendingTeamTransfers as $teamTransfer)
+    <div class="modal fade" id="prodTeamStockTransferModal{{ $teamTransfer->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>Review Team Stock Transfer ({{ $teamTransfer->transfer_number }})</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
+                            <span class="badge bg-danger fs-6">{{ $teamTransfer->team_name }}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Requested By:</small>
+                            <strong>{{ $teamTransfer->transferredByUser->name ?? 'N/A' }}</strong>
+                            <small class="d-block text-muted">{{ $teamTransfer->created_at->format('M d, Y h:i A') }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
+                            <span class="fw-semibold text-dark">{{ $teamTransfer->notes ?: 'None' }}</span>
+                        </div>
+                    </div>
+
+                    @if($teamTransfer->notes)
+                    <div class="alert alert-warning border border-warning mb-3 py-2">
+                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $teamTransfer->notes }}
+                    </div>
+                    @else
+                    <div class="alert alert-light border mb-3 py-2 text-muted">
+                        <i class="las la-info-circle me-1"></i>No remarks or notes specified for this transfer.
+                    </div>
+                    @endif
+
+                    <h6 class="fw-bold mb-2">Requested Items (Main Warehouse Transfer):</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Item Title</th>
+                                    <th>Type</th>
+                                    <th class="text-center">Quantity to Transfer</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($teamTransfer->items as $tItem)
+                                @php
+                                    $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
+                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+                                @endphp
+                                <tr>
+                                    <td class="fw-bold text-dark">{{ $itemName }}</td>
+                                    <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
+                                    <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <form action="{{ route('production.team-stock-transfer.approve', $teamTransfer->id) }}" method="POST" class="d-inline">
+                        @csrf
+                        <button type="submit" class="btn btn-success fw-bold">
+                            <i class="las la-check me-1"></i> Approve & Execute Stock Transfer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
     @push('scripts')
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
@@ -860,25 +938,25 @@
         $(document).ready(function() {
             // Initialize Tables
             queueTable = $('#approvalQueueTable').DataTable({
-                order: [[3, 'desc']],
+                order: [[4, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             myApprovalsTable = $('#myApprovalsTable').DataTable({
-                order: [[3, 'desc']],
+                order: [[4, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             mySubmissionsTable = $('#mySubmissionsTable').DataTable({
-                order: [[2, 'desc']],
+                order: [[3, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
 
             myApprovedTable = $('#myApprovedTable').DataTable({
-                order: [[3, 'desc']],
+                order: [[4, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });

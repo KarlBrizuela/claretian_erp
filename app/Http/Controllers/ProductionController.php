@@ -282,7 +282,7 @@ class ProductionController extends Controller
             }
         }
 
-        $pendingTeamTransfers = \App\Models\TeamStockTransfer::with('transferredByUser', 'items')
+        $pendingTeamTransfers = \App\Models\TeamStockTransfer::with(['transferredByUser', 'items.book', 'items.bookIndex.book', 'items.bookBundle'])
             ->where('status', 'pending_prod_approval')
             ->latest()
             ->get();
@@ -415,6 +415,7 @@ class ProductionController extends Controller
             'salesOrders' => $salesOrders,
             'pendingCashAdvances' => $pendingCashAdvances,
             'pendingTransfers' => $pendingTransfers,
+            'pendingTeamTransfers' => $pendingTeamTransfers,
             'pendingCctvRequests' => $pendingCctvRequests,
             'pendingMaterials' => $pendingMaterials,
             'myApprovals' => collect($myApprovals)->sortByDesc('submitted_date'),

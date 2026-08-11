@@ -339,6 +339,7 @@ class FreightQuotationController extends Controller
                 'freight_charges' => $freightQuotation->total_amount,
                 'freight_notes' => $freightQuotation->logistics_notes ?? 'Freight approved from Quotation #' . $freightQuotation->quote_number,
                 'freight_option' => $freightQuotation->freight_option,
+                'forwarder' => $freightQuotation->forwarder ?? $freightQuotation->freight_mode ?? null,
                 'prepared_by' => auth()->id(),
                 'billing_address' => $customer?->shipping_address ?? $customer?->billing_address ?? '',
                 'remarks' => 'Created from Freight Quotation #' . $freightQuotation->quote_number,
@@ -469,6 +470,7 @@ class FreightQuotationController extends Controller
                     'total_amount' => $totalAmount,
                     'freight_charges' => $freightQuotation->total_amount,
                     'freight_option' => $freightQuotation->freight_option,
+                    'forwarder' => $freightQuotation->forwarder ?? $freightQuotation->freight_mode ?? null,
                     'prepared_by' => auth()->id(),
                     'remarks' => 'Created from Freight Quotation #' . $freightQuotation->quote_number,
                 ]);

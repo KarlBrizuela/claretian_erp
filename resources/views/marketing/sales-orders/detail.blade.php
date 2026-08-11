@@ -173,14 +173,14 @@
                                             <option value="freight_billing" {{ $order->freight_option === 'freight_billing' ? 'selected' : '' }}>Freight Billing</option>
                                             <option value="bill_client" {{ $order->freight_option === 'bill_client' ? 'selected' : '' }}>Bill Client</option>
                                         </select>
-                                        <div id="forwarderContainer" class="mt-2" style="display: {{ $order->freight_option === 'bill_client' ? 'block' : 'none' }};">
-                                            <label class="small fw-bold text-dark mb-1">Forwarder <span class="text-danger">*</span>:</label>
+                                        <div id="forwarderContainer" class="mt-2" style="display: {{ $order->freight_option ? 'block' : 'none' }};">
+                                            <label class="small fw-bold text-dark mb-1">Forwarder / Carrier:</label>
                                             <input type="text" id="forwarderInput" class="form-control form-control-sm" placeholder="e.g. LBC, J&T, 2GO, AP Cargo" value="{{ $order->forwarder }}">
                                         </div>
                                     @else
                                         @if($order->freight_option)
                                             <span class="badge bg-primary">{{ ucfirst(str_replace('_', ' ', $order->freight_option)) }}</span>
-                                            @if($order->freight_option === 'bill_client' && $order->forwarder)
+                                            @if($order->forwarder)
                                                 <div class="small fw-bold text-dark mt-1"><i class="las la-shipping-fast me-1 text-primary"></i>Forwarder: {{ $order->forwarder }}</div>
                                             @endif
                                         @else
@@ -654,7 +654,7 @@
                         serviceFeeRow.style.display = 'none';
                     }
                     if (forwarderContainer) {
-                        forwarderContainer.style.display = this.value === 'bill_client' ? 'block' : 'none';
+                        forwarderContainer.style.display = this.value ? 'block' : 'none';
                     }
                 });
                 
@@ -664,7 +664,7 @@
                 }
                 const forwarderContainer = document.getElementById('forwarderContainer');
                 if (forwarderContainer) {
-                    forwarderContainer.style.display = freightOptionSelect.value === 'bill_client' ? 'block' : 'none';
+                    forwarderContainer.style.display = freightOptionSelect.value ? 'block' : 'none';
                 }
             }
         });

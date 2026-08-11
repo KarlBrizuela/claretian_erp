@@ -1039,11 +1039,12 @@
                                             <th>Transfer #</th>
                                             <th>Target Team</th>
                                             <th>Transferred By</th>
-                                            <th class="text-center">Items Count</th>
+                                            <th class="text-center">Items</th>
                                             <th class="text-center">Total Pcs</th>
                                             <th>Date Created</th>
+                                            <th>Remarks</th>
                                             <th>Status</th>
-                                            <th class="text-end">Actions</th>
+                                            <th class="text-end" style="min-width: 140px;">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1055,29 +1056,35 @@
                                             <td class="text-center">{{ $tt->items->count() }} item(s)</td>
                                             <td class="text-center fw-bold text-success">{{ number_format($tt->items->sum('quantity')) }} pcs</td>
                                             <td>{{ $tt->created_at->format('M d, Y h:i A') }}</td>
+                                            <td style="max-width: 110px;" class="text-truncate" title="{{ $tt->notes }}"><span class="text-dark">{{ $tt->notes ?: '—' }}</span></td>
                                             <td>
                                                 @if($tt->status === 'completed')
-                                                    <span class="badge bg-success text-white"><i class="fas fa-check me-1"></i>Packed & Completed</span>
+                                                    <span class="badge bg-success text-white"><i class="fas fa-check me-1"></i>Completed</span>
                                                 @else
                                                     <span class="badge bg-info text-white">Ready for Packing</span>
                                                 @endif
                                             </td>
-                                            <td class="text-end">
-                                                @if($tt->status === 'completed')
-                                                    <span class="text-success fw-bold small"><i class="fas fa-check-circle me-1"></i>Completed</span>
-                                                @else
-                                                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="d-inline">
-                                                        @csrf
-                                                        <button type="submit" class="btn btn-sm btn-success fw-bold" style="background-color: #28a745; border: none;">
-                                                            <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
-                                                        </button>
-                                                    </form>
-                                                @endif
+                                            <td class="text-end" style="white-space: nowrap;">
+                                                <div class="d-flex align-items-center justify-content-end gap-1">
+                                                    <button type="button" class="btn btn-xs btn-outline-danger" data-bs-toggle="modal" data-bs-target="#teamStockPackModal{{ $tt->id }}">
+                                                        <i class="fas fa-eye me-1"></i>View Items
+                                                    </button>
+                                                    @if($tt->status === 'completed')
+                                                        <span class="badge bg-success text-white"><i class="fas fa-check me-1"></i>Completed</span>
+                                                    @else
+                                                        <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="d-inline m-0">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-xs btn-success fw-bold" style="background-color: #28a745; border: none;">
+                                                                <i class="fas fa-check me-1"></i>Mark Packed
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                </div>
                                             </td>
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-4 text-muted">No team stock transfers found.</td>
+                                            <td colspan="9" class="text-center py-4 text-muted">No team stock transfers found.</td>
                                         </tr>
                                         @endforelse
                                     </tbody>
@@ -1088,6 +1095,84 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+    @foreach($teamStockPackingTransfers ?? [] as $tt)
+    <div class="modal fade" id="teamStockPackModal{{ $tt->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white"><i class="fas fa-boxes me-2"></i>Team Stock Transfer Items to Pack ({{ $tt->transfer_number }})</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
+                            <span class="badge bg-danger fs-6">{{ $tt->team_name }}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Requested By:</small>
+                            <strong>{{ $tt->transferredByUser->name ?? 'N/A' }}</strong>
+                            <small class="d-block text-muted">{{ $tt->created_at->format('M d, Y h:i A') }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
+                            <span class="fw-semibold text-dark">{{ $tt->notes ?: 'None' }}</span>
+                        </div>
+                    </div>
+
+                    @if($tt->notes)
+                    <div class="alert alert-warning border border-warning mb-3 py-2">
+                        <strong class="text-dark"><i class="fas fa-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $tt->notes }}
+                    </div>
+                    @else
+                    <div class="alert alert-light border mb-3 py-2 text-muted">
+                        <i class="fas fa-info-circle me-1"></i>No remarks or notes specified for this transfer.
+                    </div>
+                    @endif
+
+                    <h6 class="fw-bold mb-2">Items to Pack:</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Item Title</th>
+                                    <th>Type</th>
+                                    <th class="text-center">Quantity to Pack</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($tt->items as $tItem)
+                                @php
+                                    $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
+                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+                                @endphp
+                                <tr>
+                                    <td class="fw-bold text-dark">{{ $itemName }}</td>
+                                    <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
+                                    <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    @if($tt->status !== 'completed')
+                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="d-inline">
+                        @csrf
+                        <button type="submit" class="btn btn-success fw-bold" style="background-color: #28a745; border: none;">
+                            <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
+                        </button>
+                    </form>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+    @endforeach
     <!-- Floating Sticky Bulk Action Bar for Ready for Pickup -->
     <div id="readyBulkFloatingBar" class="ready-bulk-floating-bar hidden">
         <div class="d-flex align-items-center gap-2">
