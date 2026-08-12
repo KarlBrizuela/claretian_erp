@@ -15,6 +15,8 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class NBSImportController extends Controller
 {
@@ -37,19 +39,55 @@ class NBSImportController extends Controller
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('PO Template');
         
-        // Simplified headers — no Customer, no NBS Account
+        // Clean headers including Discount & Discount Type
         $headers = [
-            'PO Number',    // A
-            'PO Date',      // B
-            'Qty',          // C
-            'Book Article', // D
-            'NBS Branch',   // E
+            'PO Number',     // A
+            'PO Date',       // B
+            'Qty',           // C
+            'Book Article',  // D
+            'NBS Branch',    // E
+            'Discount',      // F
+            'Discount Type', // G
         ];
         
         foreach ($headers as $colIndex => $header) {
             $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
             $sheet->setCellValue($colLetter . '1', $header);
+        }
+
+        // Header Styling (Claretian Red Theme, Centered, Bold White text)
+        $sheet->getRowDimension(1)->setRowHeight(28);
+        $headerStyle = [
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+                'size' => 11,
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'C1121F'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ];
+        $sheet->getStyle('A1:G1')->applyFromArray($headerStyle);
+
+        // Column Widths
+        $colWidths = [
+            'A' => 22,
+            'B' => 15,
+            'C' => 12,
+            'D' => 25,
+            'E' => 30,
+            'F' => 15,
+            'G' => 18,
+        ];
+        foreach ($colWidths as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
         }
 
         // --- NBS Branch dropdown from selected branch's sub-branches (column E) ---
@@ -65,12 +103,21 @@ class NBSImportController extends Controller
                     ->pluck('company_name')
                     ->toArray();
 
-                // If no sub-branches, use the branch itself as the single option
                 if (empty($subBranches)) {
                     $subBranches = [$selectedBranch->company_name];
                 }
             }
         }
+
+        // Add Sample Data Row (Row 2) as a visual guide
+        $sampleBranch = !empty($subBranches) ? $subBranches[0] : 'NBS Sample Branch';
+        $sheet->setCellValue('A2', 'PO-2026-001');
+        $sheet->setCellValue('B2', date('Y-m-d'));
+        $sheet->setCellValue('C2', 10);
+        $sheet->setCellValue('D2', 'ART-1001');
+        $sheet->setCellValue('E2', $sampleBranch);
+        $sheet->setCellValue('F2', 10);
+        $sheet->setCellValue('G2', '%');
 
         if (!empty($subBranches)) {
             $branchSheet = $spreadsheet->createSheet();
@@ -83,8 +130,8 @@ class NBSImportController extends Controller
 
             $totalBranches = count($subBranches);
 
-            // NBS Branch is now column E
-            for ($row = 2; $row <= 100; $row++) {
+            // NBS Branch dropdown validation (Column E)
+            for ($row = 2; $row <= 200; $row++) {
                 $validation = $sheet->getCell('E' . $row)->getDataValidation();
                 $validation->setType(DataValidation::TYPE_LIST);
                 $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
@@ -98,6 +145,20 @@ class NBSImportController extends Controller
                 $validation->setPrompt('Please pick an NBS branch from the dropdown list');
                 $validation->setFormula1('NBSBranchesList!$A$1:$A$' . $totalBranches);
             }
+        }
+
+        // Discount Type dropdown validation (Column G: % or ₱)
+        for ($row = 2; $row <= 200; $row++) {
+            $validationType = $sheet->getCell('G' . $row)->getDataValidation();
+            $validationType->setType(DataValidation::TYPE_LIST);
+            $validationType->setErrorStyle(DataValidation::STYLE_INFORMATION);
+            $validationType->setAllowBlank(true);
+            $validationType->setShowDropDown(true);
+            $validationType->setErrorTitle('Input error');
+            $validationType->setError('Select % or ₱');
+            $validationType->setPromptTitle('Discount Type');
+            $validationType->setPrompt('Select % (Percentage) or ₱ (Amount)');
+            $validationType->setFormula1('"%,₱"');
         }
 
         $spreadsheet->setActiveSheetIndex(0);
@@ -141,7 +202,7 @@ class NBSImportController extends Controller
             return trim(str_replace("\ufeff", '', $val ?? ''));
         }, $lines[0]);
 
-        // Detect if this is the new bulk upload template or the old HD/DT format.
+        // Detect if this is the bulk upload template or the old HD/DT format.
         $isBulkTemplate = false;
         if (isset($header[0]) && (strtolower($header[0]) === 'po number' || strtolower($header[0]) === 'nbs branch')) {
             $isBulkTemplate = true;
@@ -161,12 +222,22 @@ class NBSImportController extends Controller
             return strtolower(trim(str_replace("\ufeff", '', $h ?? '')));
         }, $lines[0]);
 
+        $findCol = function($candidates) use ($headers) {
+            foreach ($candidates as $cand) {
+                $idx = array_search(strtolower($cand), $headers);
+                if ($idx !== false) return $idx;
+            }
+            return false;
+        };
+
         $colIndices = [
-            'po_number'    => array_search('po number', $headers),
-            'po_date'      => array_search('po date', $headers),
-            'qty'          => array_search('qty', $headers),
-            'book_article' => array_search('book article', $headers),
-            'nbs_branch'   => array_search('nbs branch', $headers),
+            'po_number'     => $findCol(['po number', 'po_number', 'po #', 'po']),
+            'po_date'       => $findCol(['po date', 'po_date', 'date']),
+            'qty'           => $findCol(['qty', 'quantity']),
+            'book_article'  => $findCol(['book article', 'article', 'barcode', 'sku', 'isbn', 'book']),
+            'nbs_branch'    => $findCol(['nbs branch', 'branch']),
+            'discount'      => $findCol(['discount', 'discount value', 'disc', 'discount_val', 'discount amount']),
+            'discount_type' => $findCol(['discount type', 'disc type', 'discount_type', 'type']),
         ];
 
         // Validate critical fields are mapped
@@ -198,6 +269,30 @@ class NBSImportController extends Controller
             $bookArticle = $getValue($row, 'book_article');
             $qty = (float)$getValue($row, 'qty');
             if ($qty <= 0) continue;
+
+            // Extract Discount & Discount Type
+            $rawDiscount = $getValue($row, 'discount');
+            $rawDiscType = strtolower($getValue($row, 'discount_type'));
+
+            $discVal = 0;
+            $discType = 'percentage';
+
+            if ($rawDiscount !== '') {
+                if (str_contains($rawDiscount, '%')) {
+                    $discVal = (float) str_replace('%', '', $rawDiscount);
+                    $discType = 'percentage';
+                } elseif (str_contains(strtolower($rawDiscount), '₱') || str_contains(strtolower($rawDiscount), 'php')) {
+                    $discVal = (float) preg_replace('/[^\d.]/', '', $rawDiscount);
+                    $discType = 'amount';
+                } else {
+                    $discVal = (float) preg_replace('/[^\d.]/', '', $rawDiscount);
+                    if ($rawDiscType === 'amount' || $rawDiscType === '₱' || $rawDiscType === 'php' || $rawDiscType === 'fixed' || $rawDiscType === 'pesos') {
+                        $discType = 'amount';
+                    } else {
+                        $discType = 'percentage';
+                    }
+                }
+            }
 
             // Find BookIndex or Book by article, barcode, or nbs_barcode
             $bookIndex = null;
@@ -247,11 +342,13 @@ class NBSImportController extends Controller
             }
 
             $orders[$poNumber]['items'][] = [
-                'book_id'       => $book ? $book->id : null,
-                'book_index_id' => $bookIndex ? $bookIndex->id : null,
-                'description'   => $description,
-                'qty'           => $qty,
-                'price'         => $unitPrice,
+                'book_id'        => $book ? $book->id : null,
+                'book_index_id'  => $bookIndex ? $bookIndex->id : null,
+                'description'    => $description,
+                'qty'            => $qty,
+                'price'          => $unitPrice,
+                'discount_value' => $discVal,
+                'discount_type'  => $discType,
             ];
         }
 
@@ -340,21 +437,40 @@ class NBSImportController extends Controller
                 
                 foreach ($poData['items'] as $item) {
                     $unitPrice = $item['price'];
-                    $subtotal = $item['qty'] * $unitPrice;
+                    $qty = $item['qty'];
+                    $grossSubtotal = $qty * $unitPrice;
+
+                    $discVal = (float)($item['discount_value'] ?? 0);
+                    $discType = $item['discount_type'] ?? 'percentage';
                     
+                    $discAmount = 0;
+                    if ($discVal > 0) {
+                        if ($discType === 'percentage') {
+                            $discAmount = $grossSubtotal * ($discVal / 100);
+                        } else {
+                            $discAmount = $discVal;
+                        }
+                        $discAmount = min($grossSubtotal, max(0, $discAmount));
+                    }
+                    
+                    $subtotal = max(0, $grossSubtotal - $discAmount);
+
                     $soItem = SalesOrderItem::create([
-                        'sales_order_id' => $so->id,
-                        'book_id'        => $item['book_id'],
-                        'book_index_id'  => $item['book_index_id'] ?? null,
-                        'quantity'       => $item['qty'],
-                        'price'          => $unitPrice,
-                        'subtotal'       => $subtotal,
+                        'sales_order_id'  => $so->id,
+                        'book_id'         => $item['book_id'],
+                        'book_index_id'   => $item['book_index_id'] ?? null,
+                        'quantity'        => $qty,
+                        'price'           => $unitPrice,
+                        'discount_value'  => $discVal,
+                        'discount_type'   => $discType,
+                        'discount_amount' => $discAmount,
+                        'subtotal'        => $subtotal,
                     ]);
                     $totalAmount += $subtotal;
                     
                     $itemsToPick[] = [
                         'sales_order_item_id' => $soItem->id,
-                        'requested_qty' => $item['qty']
+                        'requested_qty' => $qty
                     ];
                 }
                 

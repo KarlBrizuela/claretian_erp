@@ -46,7 +46,7 @@ class CompanyController extends Controller
         ]);
 
         if (empty($validated['account_number'])) {
-            $validated['account_number'] = 'COMP-' . strtoupper(uniqid());
+            $validated['account_number'] = null;
         }
 
         // Copy parent contact/address fields if none are provided
@@ -272,7 +272,7 @@ class CompanyController extends Controller
 
                 $accountNumber = isset($colMap['account_number']) ? trim($row[$colMap['account_number']] ?? '') : '';
                 if (empty($accountNumber)) {
-                    $accountNumber = 'COMP-' . strtoupper(uniqid());
+                    $accountNumber = null;
                 }
 
                 $mobile = isset($colMap['mobile']) ? trim($row[$colMap['mobile']] ?? '') : '';

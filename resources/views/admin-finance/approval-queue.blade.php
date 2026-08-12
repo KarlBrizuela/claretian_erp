@@ -1157,7 +1157,7 @@
                     'approved_at', 'accounting_reviewed_at', 'logistics_assigned_at', 'completed_at',
                     'from_site_id', 'to_site_id', 'book_id', 'book_index_id', 'book_bundle_id', 'quantity',
                     'approval_division', 'initial_approval_division', 'batch_id', 'batch_items',
-                    'total_quantity', 'items_count', 'item_name', 'item_type'
+                    'total_quantity', 'items_count', 'item_name', 'item_type', 'transferred_by_user', 'transferred_by'
                 ];
 
                 let descriptionHtml = `<div class="table-responsive"><table class="table table-sm table-borderless mb-0"><tbody>`;
@@ -1177,6 +1177,14 @@
                     const val = original[key];
                     if (!excludedFields.includes(key) && val !== null && val !== undefined && key !== 'amount' && key !== 'total_amount') {
                         let displayVal = val;
+
+                        if (typeof val === 'object') {
+                            if (val.name || val.title || val.full_name) {
+                                displayVal = val.name || val.title || val.full_name;
+                            } else {
+                                return;
+                            }
+                        }
 
                         // Attachment handling: render a button instead of raw path
                         if (key === 'supporting_documents' || key === 'attachment') {
@@ -1231,8 +1239,8 @@
                         descriptionHtml += `<tr><td>${item.customer_name}</td><td>${item.reference_no}</td><td class="text-end">₱${parseFloat(item.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</td></tr>`;
                     });
                     descriptionHtml += `</tbody></table></div></div>`;
-                } else if (type === 'Stock Transfer') {
-                    var itemsList = original.batch_items;
+                } else if (type === 'Stock Transfer' || type === 'Team Stock Transfer' || type.includes('Stock Transfer')) {
+                    var itemsList = original.items || original.batch_items;
                     if (!Array.isArray(itemsList) || itemsList.length === 0) {
                         var bName = original.book?.name || original.item_name || 'Book';
                         if (original.book_index && original.book_index.book) {
@@ -1241,6 +1249,34 @@
                             bName = original.book_bundle.name;
                         }
                         itemsList = [{ name: bName, type: original.item_type || 'Book', quantity: original.quantity || 1 }];
+                    } else {
+                        itemsList = itemsList.map(function(it) {
+                            var name = it.name;
+                            var itemType = it.type || it.item_type || 'Book';
+                            if (!name) {
+                                if (it.book_index && it.book_index.book) {
+                                    name = it.book_index.book.name + (it.book_index.index_value ? ' (' + it.book_index.index_value + ')' : '');
+                                    itemType = 'BookIndex';
+                                } else if (it.book_index_id && it.book_index) {
+                                    var bObj = it.book_index.book || {};
+                                    name = (bObj.name || 'Book') + (it.book_index.index_value ? ' (' + it.book_index.index_value + ')' : '');
+                                    itemType = 'BookIndex';
+                                } else if (it.book && (it.book.name || it.book.title)) {
+                                    name = it.book.name || it.book.title;
+                                    itemType = 'Book';
+                                } else if (it.book_bundle && it.book_bundle.name) {
+                                    name = it.book_bundle.name;
+                                    itemType = 'BookBundle';
+                                } else {
+                                    name = 'Item #' + (it.book_id || it.id || '');
+                                }
+                            }
+                            return {
+                                name: name,
+                                type: itemType,
+                                quantity: it.quantity || 1
+                            };
+                        });
                     }
 
                     var itemsRows = '';
@@ -1261,6 +1297,18 @@
                         </tr>`;
                     }
 
+                    var siteInfoHtml = '';
+                    if (original.from_site || original.to_site) {
+                        siteInfoHtml = `<div class="mt-2 p-2 rounded bg-light border small text-muted">
+                            <strong>From Site:</strong> ${original.from_site?.name || 'N/A'} &nbsp;&nbsp;|&nbsp;&nbsp; 
+                            <strong>To Site:</strong> ${original.to_site?.name || 'N/A'}
+                        </div>`;
+                    } else if (original.team_name) {
+                        siteInfoHtml = `<div class="mt-2 p-2 rounded bg-light border small text-muted">
+                            <strong>Team Name:</strong> ${original.team_name}
+                        </div>`;
+                    }
+
                     descriptionHtml += `</tbody></table></div>
                         <div class="mt-3 pt-2 border-top">
                             <h6 class="fw-bold fs-12 text-muted mb-2"><i class="las la-books text-danger me-1"></i>BOOKS INCLUDED IN TRANSFER (${itemsList.length} titles · ${totQty} pcs total)</h6>
@@ -1278,10 +1326,7 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="mt-2 p-2 rounded bg-light border small text-muted">
-                                <strong>From Site:</strong> ${original.from_site?.name || 'N/A'} &nbsp;&nbsp;|&nbsp;&nbsp; 
-                                <strong>To Site:</strong> ${original.to_site?.name || 'N/A'}
-                            </div>
+                            ${siteInfoHtml}
                         </div>`;
                 } else {
                     descriptionHtml += `</tbody></table></div>`;

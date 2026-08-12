@@ -295,40 +295,6 @@
             if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
                 $('select[name="customer_id"]').selectpicker({ size: 8, liveSearch: true });
             }
-            // Cargo Items Logic
-            const addBtn = document.getElementById('addCargoItem');
-            const tbody = document.getElementById('cargoItemsBody');
-            const table = document.getElementById('cargoItemsTable');
-
-            if (addBtn && tbody) {
-                addBtn.addEventListener('click', function() {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td><input type="number" class="form-control form-control-sm" name="cargo_qty[]" min="1" value="1" required></td>
-                        <td><input type="text" class="form-control form-control-sm" name="cargo_package_type[]" placeholder="Box, Bag, Pallet, etc." required></td>
-                        <td><input type="text" class="form-control form-control-sm" name="cargo_dimensions[]" placeholder="e.g., 50cm x 40cm x 30cm" required></td>
-                        <td><button type="button" class="btn btn-sm btn-danger remove-row" title="Remove Item"><i class="fas fa-trash"></i></button></td>
-                    `;
-                    tbody.appendChild(row);
-                    addRemoveListeners();
-                });
-            }
-
-            function addRemoveListeners() {
-                if (!tbody) return;
-                document.querySelectorAll('#cargoItemsBody .remove-row').forEach(btn => {
-                    btn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        if (tbody.querySelectorAll('tr').length > 1) {
-                            this.closest('tr').remove();
-                        } else {
-                            alert('You must have at least one cargo item');
-                        }
-                    });
-                });
-            }
-
-            addRemoveListeners();
 
             // Sales Order Items Logic
             const addSOBtn = document.getElementById('addSOItem');
@@ -418,74 +384,76 @@
                 calculateSOSubtotal();
             }
 
-            addSOBtn.addEventListener('click', function() {
-                const row = document.createElement('tr');
-                const uniqueId = Date.now() + Math.random().toString(36).substring(7);
-                
-                row.innerHTML = `
-                    <td>
-                        <input type="number" class="form-control form-control-sm so-qty" name="so_items[new_${uniqueId}][quantity]" min="1" value="1" required style="text-align: center;">
-                    </td>
-                    <td>
-                        <select class="form-control form-control-sm so-product selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search product..." name="so_items[new_${uniqueId}][product_id]" required>
-                            ${productSource.innerHTML}
-                        </select>
-                    </td>
-                    <td>
-                        <input type="number" class="form-control form-control-sm so-price" name="so_items[new_${uniqueId}][price]" step="0.01" min="0" required style="text-align: right;">
-                    </td>
-                    <td>
-                        <div class="d-flex align-items-center gap-1" style="min-width: 110px;">
-                            <input type="number" step="any" min="0" class="form-control form-control-sm so-discount-val text-center px-1" name="so_items[new_${uniqueId}][discount_value]" placeholder="0" style="width: 60%; font-size: 0.85rem;">
-                            <select class="form-select form-select-sm so-discount-type px-1" name="so_items[new_${uniqueId}][discount_type]" style="width: 40%; font-size: 0.8rem;">
-                                <option value="percentage">%</option>
-                                <option value="amount">₱</option>
+            if (addSOBtn && soItemsBody) {
+                addSOBtn.addEventListener('click', function() {
+                    const row = document.createElement('tr');
+                    const uniqueId = Date.now() + Math.random().toString(36).substring(7);
+                    
+                    row.innerHTML = `
+                        <td>
+                            <input type="number" class="form-control form-control-sm so-qty" name="so_items[new_${uniqueId}][quantity]" min="1" value="1" required style="text-align: center;">
+                        </td>
+                        <td>
+                            <select class="form-control form-control-sm so-product selectpicker" data-live-search="true" data-size="8" data-live-search-placeholder="Search product..." name="so_items[new_${uniqueId}][product_id]" required>
+                                ${productSource.innerHTML}
                             </select>
-                        </div>
-                    </td>
-                    <td class="so-item-amount text-end fw-bold">₱ 0.00</td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-danger so-remove-row" title="Remove Item" style="background: #ff0000; border: none; padding: 0.35rem 0.6rem;"><i class="fas fa-trash"></i></button>
-                    </td>
-                `;
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm so-price" name="so_items[new_${uniqueId}][price]" step="0.01" min="0" required style="text-align: right;">
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-1" style="min-width: 110px;">
+                                <input type="number" step="any" min="0" class="form-control form-control-sm so-discount-val text-center px-1" name="so_items[new_${uniqueId}][discount_value]" placeholder="0" style="width: 60%; font-size: 0.85rem;">
+                                <select class="form-select form-select-sm so-discount-type px-1" name="so_items[new_${uniqueId}][discount_type]" style="width: 40%; font-size: 0.8rem;">
+                                    <option value="percentage">%</option>
+                                    <option value="amount">₱</option>
+                                </select>
+                            </div>
+                        </td>
+                        <td class="so-item-amount text-end fw-bold">₱ 0.00</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-danger so-remove-row" title="Remove Item" style="background: #ff0000; border: none; padding: 0.35rem 0.6rem;"><i class="fas fa-trash"></i></button>
+                        </td>
+                    `;
 
-                const qtyInput = row.querySelector('.so-qty');
-                const priceInput = row.querySelector('.so-price');
-                const discValInput = row.querySelector('.so-discount-val');
-                const discTypeSelect = row.querySelector('.so-discount-type');
-                const productSelect = row.querySelector('.so-product');
-                const removeBtn = row.querySelector('.so-remove-row');
+                    const qtyInput = row.querySelector('.so-qty');
+                    const priceInput = row.querySelector('.so-price');
+                    const discValInput = row.querySelector('.so-discount-val');
+                    const discTypeSelect = row.querySelector('.so-discount-type');
+                    const productSelect = row.querySelector('.so-product');
+                    const removeBtn = row.querySelector('.so-remove-row');
 
-                qtyInput.addEventListener('input', () => calculateRow(row));
-                priceInput.addEventListener('input', () => calculateRow(row));
-                discValInput.addEventListener('input', () => calculateRow(row));
-                discTypeSelect.addEventListener('change', () => calculateRow(row));
-                
-                productSelect.addEventListener('change', function() {
-                    const option = this.options[this.selectedIndex];
-                    priceInput.value = option.dataset.price || 0;
-                    calculateRow(row);
-                });
+                    qtyInput.addEventListener('input', () => calculateRow(row));
+                    priceInput.addEventListener('input', () => calculateRow(row));
+                    discValInput.addEventListener('input', () => calculateRow(row));
+                    discTypeSelect.addEventListener('change', () => calculateRow(row));
+                    
+                    productSelect.addEventListener('change', function() {
+                        const option = this.options[this.selectedIndex];
+                        priceInput.value = option.dataset.price || 0;
+                        calculateRow(row);
+                    });
 
-                removeBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    row.remove();
+                    removeBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        row.remove();
+                        calculateSOSubtotal();
+                    });
+
+                    soItemsBody.appendChild(row);
+
+                    if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
+                        $(productSelect).selectpicker({
+                            size: 8,
+                            liveSearch: true,
+                            liveSearchPlaceholder: 'Search product...',
+                            dropupAuto: false
+                        });
+                    }
+
                     calculateSOSubtotal();
                 });
-
-                soItemsBody.appendChild(row);
-
-                if (typeof $ !== 'undefined' && $.fn && $.fn.selectpicker) {
-                    $(productSelect).selectpicker({
-                        size: 8,
-                        liveSearch: true,
-                        liveSearchPlaceholder: 'Search product...',
-                        dropupAuto: false
-                    });
-                }
-
-                calculateSOSubtotal();
-            });
+            }
 
             // Customer Select & Auto-fill Logic
             const fqCustomerSelect = document.getElementById('fqCustomerSelect');
@@ -527,20 +495,18 @@
 
             function performAutofill() {
                 if (!fqCustomerSelect) return;
-                const selectedOpt = fqCustomerSelect.options[fqCustomerSelect.selectedIndex];
-                if (!selectedOpt || !selectedOpt.value) return;
+                const opt = fqCustomerSelect.options[fqCustomerSelect.selectedIndex];
+                if (!opt || !opt.value) return;
 
-                // Origin default (Claretian info)
                 if (originContact && !originContact.value) originContact.value = 'Claretian Communications Foundation Inc.';
                 if (originProvince && !originProvince.value) originProvince.value = 'Metro Manila';
                 if (originAddress && !originAddress.value) originAddress.value = '8 Mayumi St, UP Village, Diliman, Quezon City';
 
-                // Destination info
-                const custName = selectedOpt.getAttribute('data-customer-name') || '';
+                const custName = opt.getAttribute('data-customer-name') || '';
                 const repVal = fqRepresentativeSelect ? fqRepresentativeSelect.value : '';
-                const phone = selectedOpt.getAttribute('data-phone') || '';
-                const address = selectedOpt.getAttribute('data-address') || '';
-                const province = selectedOpt.getAttribute('data-province') || '';
+                const phone = opt.getAttribute('data-phone') || '';
+                const address = opt.getAttribute('data-address') || '';
+                const province = opt.getAttribute('data-province') || '';
 
                 let destContactStr = repVal || custName;
                 if (phone) destContactStr += ' (' + phone + ')';
@@ -567,6 +533,9 @@
                     }
                 });
             }
+
+            if (toggleAutofillBtn) {
+                toggleAutofillBtn.addEventListener('click', function() {
                     isAutofillEnabled = !isAutofillEnabled;
                     if (isAutofillEnabled) {
                         this.className = 'btn btn-sm btn-outline-danger shadow-sm';

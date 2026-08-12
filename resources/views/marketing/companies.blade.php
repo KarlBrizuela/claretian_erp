@@ -195,7 +195,7 @@
                                     </div>
                                     <div class="form-row-custom">
                                         <label for="addCompAccount">Account Number</label>
-                                        <input type="text" class="form-control form-control-sm" id="addCompAccount" placeholder="Auto-generated if empty">
+                                        <input type="text" class="form-control form-control-sm" id="addCompAccount" placeholder="N/A">
                                     </div>
                                     <div class="section-divider">Contact Details</div>
                                     <div class="form-row-custom">
@@ -265,7 +265,7 @@
                                     </div>
                                     <div class="form-row-custom">
                                         <label for="editCompAccount">Account Number</label>
-                                        <input type="text" class="form-control form-control-sm" id="editCompAccount" required>
+                                        <input type="text" class="form-control form-control-sm" id="editCompAccount" placeholder="N/A">
                                     </div>
                                     <div class="section-divider">Contact Details</div>
                                     <div class="form-row-custom">
@@ -406,7 +406,7 @@
                         </div>
                         <div class="form-row-custom mb-3">
                             <label for="addBranchAccount" style="width: 120px; text-align: left;">Account Number</label>
-                            <input type="text" class="form-control form-control-sm" id="addBranchAccount" placeholder="Auto-generated if empty">
+                            <input type="text" class="form-control form-control-sm" id="addBranchAccount" placeholder="N/A">
                         </div>
                         <div class="d-flex justify-content-end" style="gap: 0.5rem; margin-top: 1.5rem;">
                             <button type="button" class="btn btn-sm btn-outline-danger" data-bs-dismiss="modal">Cancel</button>
@@ -445,7 +445,7 @@
                         </div>
 
                         <div class="alert alert-info py-2 px-3 mb-0" style="font-size: 0.8rem; border-radius: 6px;">
-                            <i class="fas fa-info-circle me-1"></i><strong>Template Headers:</strong> <code>Branch Name*</code>, <code>Account Number</code>, <code>Phone / Mobile</code>, <code>Email</code>, <code>Address</code>, <code>Status</code>. If Account Number is blank, one will be generated automatically.
+                            <i class="fas fa-info-circle me-1"></i><strong>Template Headers:</strong> <code>Branch Name*</code>, <code>Account Number</code>, <code>Phone / Mobile</code>, <code>Email</code>, <code>Address</code>, <code>Status</code>.
                         </div>
                     </div>
                     <div class="modal-footer border-top p-3 bg-light d-flex justify-content-end" style="gap: 0.5rem;">
@@ -462,6 +462,40 @@
     @push('scripts')
     <script>
         const canEditCompanies = {{ (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('marketing.customers')) ? 'true' : 'false' }};
+
+        // Global handler for native HTML5 validation on hidden tabs
+        document.addEventListener('invalid', function(e) {
+            const target = e.target;
+            if (!target) return;
+
+            const pane = target.closest('.tab-pane');
+            if (pane && !pane.classList.contains('active') && !pane.classList.contains('show')) {
+                const tabId = pane.id;
+                const form = target.closest('form');
+                const tabBtn = form ? form.querySelector(`button[data-bs-target="#${tabId}"], button[href="#${tabId}"]`)
+                                    : document.querySelector(`button[data-bs-target="#${tabId}"], button[href="#${tabId}"]`);
+                if (tabBtn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+                    const tabInstance = bootstrap.Tab.getOrCreateInstance(tabBtn);
+                    tabInstance.show();
+                    setTimeout(() => {
+                        target.focus();
+                    }, 150);
+                }
+            }
+        }, true);
+
+        // Reset Add Company Modal active tab when opening
+        const addCompModalEl = document.getElementById('addCompanyModal');
+        if (addCompModalEl) {
+            addCompModalEl.addEventListener('show.bs.modal', function() {
+                const genTabBtn = document.getElementById('add-company-gen-tab');
+                if (genTabBtn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+                    bootstrap.Tab.getOrCreateInstance(genTabBtn).show();
+                }
+                const nameInput = document.getElementById('addCompName');
+                if (nameInput) nameInput.classList.remove('is-invalid');
+            });
+        }
 
         // Add Branch Modal Trigger
         document.querySelectorAll('.add-branch-btn').forEach(btn => {
@@ -545,13 +579,27 @@
         document.getElementById('addCompanyForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const form = this;
+
+            const compNameInput = document.getElementById('addCompName');
+            if (!compNameInput.value.trim()) {
+                const genTabBtn = document.getElementById('add-company-gen-tab');
+                if (genTabBtn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+                    bootstrap.Tab.getOrCreateInstance(genTabBtn).show();
+                }
+                compNameInput.classList.add('is-invalid');
+                compNameInput.focus();
+                return;
+            } else {
+                compNameInput.classList.remove('is-invalid');
+            }
+
             const submitBtn = form.querySelector('button[type="submit"]');
             
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
 
             const data = {
-                company_name: document.getElementById('addCompName').value,
+                company_name: compNameInput.value.trim(),
                 parent_id: document.getElementById('addCompParent').value || null,
                 account_number: document.getElementById('addCompAccount').value || null,
                 mobile: document.getElementById('addCompPhone').value,
