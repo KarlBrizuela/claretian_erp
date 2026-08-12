@@ -36,10 +36,22 @@
                 </div>
 
                 @if($order)
+                    @php
+                        $bName = $order->customer_representative;
+                        if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
+                            preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
+                            $bName = trim($m[1] ?? '');
+                        }
+                        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+                        $displayCompanyName = $bCompany?->parent?->company_name 
+                            ?: ($bCompany?->company_name 
+                            ?: ($order->customer?->company_name 
+                            ?: ($order->customer?->customer_name ?? 'N/A')));
+                    @endphp
                     <!-- Delivered To Section -->
                     <div class="form-group">
                         <label class="fw-bold">Company:</label>
-                        <input type="text" class="form-control" value="{{ $order->customer->customer_name ?? 'N/A' }}" readonly>
+                        <input type="text" class="form-control" value="{{ $displayCompanyName }}" readonly>
                     </div>
                     <div class="form-group">
                         <label class="fw-bold">Customer Name:</label>
@@ -755,6 +767,10 @@
 
         .notes-section textarea {
             min-height: 80px;
+        }
+
+        .print-only-remarks {
+            display: none;
         }
 
         @page {

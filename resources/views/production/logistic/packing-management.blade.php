@@ -1219,6 +1219,10 @@
                     <input type="text" id="detailRepresentative" readonly>
                 </div>
                 <div class="form-group">
+                    <label>Account Number:</label>
+                    <input type="text" id="detailAccountNumber" class="fw-bold font-monospace" readonly>
+                </div>
+                <div class="form-group">
                     <label>Contact:</label>
                     <input type="text" id="detailContact" readonly>
                 </div>
@@ -2141,8 +2145,9 @@
                     // Populate order info
                     setInputValue('detailSONumber', order.so_number);
                     setInputValue('detailOrderDate', new Date(order.created_at).toLocaleDateString());
-                    setInputValue('detailCustomerName', order.customer?.customer_name || 'N/A');
-                    setInputValue('detailRepresentative', order.customer_representative || 'N/A');
+                    setInputValue('detailCustomerName', order.display_company_name || order.customer?.company_name || order.customer?.customer_name || 'N/A');
+                    setInputValue('detailRepresentative', order.customer_representative || order.customer?.customer_name || 'N/A');
+                    setInputValue('detailAccountNumber', order.display_account_number || order.customer?.account_number || 'N/A');
                     setInputValue('detailContact', order.customer_contact || order.customer?.mobile || order.customer?.main_phone || 'N/A');
                     const packingData = order.packing_data ? (typeof order.packing_data === 'string' ? JSON.parse(order.packing_data) : order.packing_data) : {};
                     setInputValue('detailRemarks', order.remarks || (packingData.remarks || ''));

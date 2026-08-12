@@ -28,28 +28,46 @@
                     @endif
 
                     <!-- Pick List Details Section -->
+                    @php
+                        $so = $pickList->salesOrder;
+                        $bName = $so?->customer_representative;
+                        if (!$bName && $so?->remarks && str_contains($so->remarks, 'Branch:')) {
+                            preg_match('/Branch:\s*([^|\n\r]+)/', $so->remarks, $m);
+                            $bName = trim($m[1] ?? '');
+                        }
+                        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+                        $displayCompanyName = $bCompany?->parent?->company_name 
+                            ?: ($bCompany?->company_name 
+                            ?: ($so?->customer?->company_name 
+                            ?: ($so?->customer?->customer_name ?? 'N/A')));
+                        $displayAccountNo = $bCompany?->account_number ?: ($so?->customer?->account_number ?? 'N/A');
+                    @endphp
                     <div class="order-info-section">
                         <div class="order-info-box">
                             <h5>Order Information</h5>
                             <div class="form-group">
                                 <label>Sales Order Number:</label>
-                                <input type="text" value="{{ $pickList->salesOrder?->so_number ?? 'N/A' }}" readonly>
+                                <input type="text" value="{{ $so?->so_number ?? 'N/A' }}" readonly>
                             </div>
                             <div class="form-group">
                                 <label>Order Date:</label>
-                                <input type="text" value="{{ optional(optional($pickList->salesOrder)->created_at)->format('M d, Y') ?? 'N/A' }}" readonly>
+                                <input type="text" value="{{ optional(optional($so)->created_at)->format('M d, Y') ?? 'N/A' }}" readonly>
                             </div>
                             <div class="form-group">
                                 <label>Company:</label>
-                                <input type="text" value="{{ $pickList->salesOrder?->customer?->company_name ?: ($pickList->salesOrder?->customer?->customer_name ?? 'N/A') }}" readonly>
+                                <input type="text" value="{{ $displayCompanyName }}" readonly>
                             </div>
                             <div class="form-group">
                                 <label>Customer Name:</label>
-                                <input type="text" value="{{ $pickList->salesOrder?->customer_representative ?: ($pickList->salesOrder?->customer?->customer_name ?? 'Unknown') }}" readonly>
+                                <input type="text" value="{{ $so?->customer_representative ?: ($so?->customer?->customer_name ?? 'Unknown') }}" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Account Number:</label>
+                                <input type="text" class="fw-bold font-monospace" value="{{ $displayAccountNo }}" readonly>
                             </div>
                             <div class="form-group">
                                 <label>Contact:</label>
-                                <input type="text" value="{{ $pickList->salesOrder?->customer_contact ?: ($pickList->salesOrder?->customer?->mobile ?: ($pickList->salesOrder?->customer?->main_phone ?: 'N/A')) }}" readonly>
+                                <input type="text" value="{{ $so?->customer_contact ?: ($so?->customer?->mobile ?: ($so?->customer?->main_phone ?: 'N/A')) }}" readonly>
                             </div>
                             <div class="form-group">
                                 <label>Freight Option:</label>

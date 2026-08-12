@@ -42,7 +42,7 @@
                         <table class="table table-sm table-borderless">
                             <tr>
                                 <td class="fw-bold text-dark" style="width: 140px;">Company:</td>
-                                <td class="fw-bold text-black">{{ $order->customer->customer_name ?? 'N/A' }}</td>
+                                <td class="fw-bold text-black">{{ $order->customer->company_name ?: ($order->customer->customer_name ?? 'N/A') }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Customer Name:</td>
@@ -52,9 +52,18 @@
                                 <td class="fw-bold text-dark">Contact:</td>
                                 <td class="text-black">{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}</td>
                             </tr>
+                            @php
+                                $bName = $order->customer_representative;
+                                if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
+                                    preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
+                                    $bName = trim($m[1] ?? '');
+                                }
+                                $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+                                $displayAccountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A');
+                            @endphp
                             <tr>
                                 <td class="fw-bold text-dark">Account No:</td>
-                                <td class="text-black">{{ $order->customer->account_number ?? 'N/A' }}</td>
+                                <td class="text-black">{{ $displayAccountNo }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Address:</td>

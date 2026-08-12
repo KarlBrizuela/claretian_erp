@@ -604,7 +604,69 @@
             display: block !important;
         }
         .dataTables_wrapper {
+            padding: 1rem 0;
             font-size: 13px;
+        }
+        .dataTables_wrapper .dataTables_length {
+            float: left;
+            margin-bottom: 1rem;
+        }
+        .dataTables_wrapper .dataTables_length select {
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            font-size: 0.875rem;
+            background-color: #fff;
+            cursor: pointer;
+        }
+        .dataTables_wrapper .dataTables_filter {
+            float: right;
+            margin-bottom: 1rem;
+        }
+        .dataTables_wrapper .dataTables_filter input {
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            font-size: 0.875rem;
+            margin-left: 0.5rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .dataTables_wrapper .dataTables_filter input:focus {
+            border-color: #ff0000;
+            box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.1);
+        }
+        .dataTables_wrapper .dataTables_info {
+            float: left;
+            padding-top: 0.75rem;
+            font-weight: 500;
+            color: #6c757d;
+        }
+        .dataTables_wrapper .dataTables_paginate {
+            float: right;
+            padding-top: 0.75rem;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            padding: 0.35rem 0.75rem !important;
+            margin-left: 4px !important;
+            border-radius: 6px !important;
+            border: 1px solid #dee2e6 !important;
+            background: #fff !important;
+            color: #333 !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: #ff0000 !important;
+            color: #fff !important;
+            border-color: #ff0000 !important;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
+            opacity: 0.5;
+            cursor: not-allowed !important;
+            background: #f8f9fa !important;
+            color: #6c757d !important;
         }
         
         #pickListsTable, #lazadaTable, #shopeeTable, #tiktokTable, #complimentaryPickListsTable {
@@ -701,9 +763,25 @@
                 try {
                     $(this).DataTable({
                         order: [],
-                        pageLength: 25,
+                        pageLength: 10,
+                        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                        searching: true,
+                        paging: true,
+                        info: true,
                         responsive: true,
-                        autoWidth: false
+                        autoWidth: false,
+                        language: {
+                            search: "Search:",
+                            searchPlaceholder: "Search pick lists...",
+                            lengthMenu: "Show _MENU_ entries",
+                            info: "Showing _START_ to _END_ of _TOTAL_ entries",
+                            paginate: {
+                                first: "First",
+                                last: "Last",
+                                next: "Next",
+                                previous: "Previous"
+                            }
+                        }
                     });
                 } catch(e) {
                     console.warn('DataTable init warning in pick-list-list for:', this.id, e);
@@ -721,6 +799,7 @@
                     $(target).addClass('show active').css('display', 'block');
                 }
             });
+        });
     </script>
     @endpush
 </x-app-layout>

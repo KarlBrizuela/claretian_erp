@@ -99,6 +99,8 @@
 
                         <form action="{{ route('marketing.nbs-import.process') }}" method="POST" enctype="multipart/form-data" id="importForm">
                             @csrf
+                            <input type="hidden" name="company_id" id="hiddenCompanyId" value="">
+                            <input type="hidden" name="branch_id" id="hiddenBranchId" value="">
 
                             {{-- Drop zone --}}
                             <div id="dropZone"
@@ -194,6 +196,8 @@
         /* ── cascade: company → branch ── */
         companySelect.addEventListener('change', async function () {
             const id = this.value;
+            document.getElementById('hiddenCompanyId').value = id;
+            document.getElementById('hiddenBranchId').value = '';
             branchSelect.innerHTML = '<option value="">— Select Branch —</option>';
             branchSelect.disabled = true;
             subBranchNotice.classList.add('d-none');
@@ -221,6 +225,7 @@
         });
 
         branchSelect.addEventListener('change', function () {
+            document.getElementById('hiddenBranchId').value = this.value;
             if (this.value) {
                 selectedBranchName.textContent = this.options[this.selectedIndex].text;
                 subBranchNotice.classList.remove('d-none');

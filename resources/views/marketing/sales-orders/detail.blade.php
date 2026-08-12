@@ -91,10 +91,23 @@
                     <div class="customer-details">
                         <h5 class="text-black fw-bold">Customer Information</h5>
                         <table class="table table-sm table-borderless">
+                            @php
+                                $bName = $order->customer_representative;
+                                if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
+                                    preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
+                                    $bName = trim($m[1] ?? '');
+                                }
+                                $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+                                $displayCompanyName = $bCompany?->parent?->company_name 
+                                    ?: ($bCompany?->company_name 
+                                    ?: ($order->customer?->company_name 
+                                    ?: ($order->customer?->customer_name ?? 'N/A')));
+                                $displayAccountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A');
+                            @endphp
                             <tr>
                                 <td class="fw-bold text-dark" style="width: 140px;">Company:</td>
                                 <td class="fw-bold text-black">
-                                    {{ $order->customer?->customer_name ?? 'N/A' }}
+                                    {{ $displayCompanyName }}
                                     @if($order->customer)
                                         @if($order->customer->isBadClient)
                                             <span class="badge bg-danger ms-2">BAD CLIENT</span>
@@ -106,11 +119,7 @@
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Customer Name:</td>
-                                <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->freightQuotation?->customer_representative ?: 'N/A') }}</td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-dark">Contact:</td>
-                                <td class="text-black">{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}</td>
+                                <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->customer?->customer_name ?? 'N/A') }}</td>
                             </tr>
                             @if($order->type === 'area_sales_consignment')
                             <tr>
@@ -122,7 +131,7 @@
                             @endif
                             <tr>
                                 <td class="fw-bold text-dark">Account No:</td>
-                                <td class="text-black">{{ $order->customer?->account_number ?? 'N/A' }}</td>
+                                <td class="text-black">{{ $displayAccountNo }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Address:</td>
@@ -132,8 +141,9 @@
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Contact:</td>
-                                <td class="text-black">{{ $order->customer?->main_phone ?? $order->customer?->mobile ?? 'N/A' }}</td>
+                                <td class="text-black">{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}</td>
                             </tr>
+
                         </table>
                     </div>
                     <div class="order-details">

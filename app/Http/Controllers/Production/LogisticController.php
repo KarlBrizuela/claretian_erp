@@ -1839,6 +1839,18 @@ class LogisticController extends Controller
             
             $order = \App\Models\SalesOrder::with('customer', 'items.book')->findOrFail($id);
 
+            $bName = $order->customer_representative;
+            if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
+                preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
+                $bName = trim($m[1] ?? '');
+            }
+            $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+            $order->display_company_name = $bCompany?->parent?->company_name 
+                ?: ($bCompany?->company_name 
+                ?: ($order->customer?->company_name 
+                ?: ($order->customer?->customer_name ?? 'N/A')));
+            $order->display_account_number = $bCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A');
+
             \Log::info('Order loaded successfully', [
                 'id' => $order->id,
                 'so_number' => $order->so_number,

@@ -224,7 +224,7 @@ class MarketingController extends Controller
     public function approvalQueue()
     {
         // 1. Pending Department Approvals (Marketing Manager needs to approve these)
-        $salesOrders = \App\Models\SalesOrder::with('customer', 'preparedBy')
+        $salesOrders = \App\Models\SalesOrder::with(['customer', 'preparedBy', 'items.book', 'items.bookIndex.book', 'items.bundle'])
             ->where('status', 'pending_mkt_approval')
             ->latest()
             ->get();
@@ -2144,8 +2144,15 @@ class MarketingController extends Controller
         $order = \App\Models\SalesOrder::findOrFail($id);
         
         // E-com direct orders go directly to pending_si_prep (Sales Invoice Prep)
+        // Area Consignment / NBS PO orders go directly to picking & create Pick List
         // All other SO types proceed to Accounting approval after Marketing Manager approval
-        $nextStatus = $order->type === 'ecom_direct' ? 'pending_si_prep' : 'pending_acct_approval';
+        if (str_starts_with($order->so_number, 'SO-NBS-') || $order->type === 'area_consignment') {
+            $nextStatus = 'picking';
+        } elseif ($order->type === 'ecom_direct') {
+            $nextStatus = 'pending_si_prep';
+        } else {
+            $nextStatus = 'pending_acct_approval';
+        }
         
         $updateData = [
             'status' => $nextStatus,
@@ -2160,8 +2167,36 @@ class MarketingController extends Controller
         
         $order->update($updateData);
 
+        // If transitioning to picking (e.g. NBS PO / Area Consignment), automatically generate Pick List
+        if ($nextStatus === 'picking') {
+            $order->load('items');
+            if ($order->items && $order->items->count() > 0) {
+                $existingPickList = \App\Models\PickList::where('sales_order_id', $order->id)->first();
+                if (!$existingPickList) {
+                    $pickList = \App\Models\PickList::create([
+                        'sales_order_id'   => $order->id,
+                        'pick_list_number' => 'PL-' . $order->so_number . '-' . date('YmdHis'),
+                        'status'           => 'in_progress',
+                        'prepared_by'      => auth()->id(),
+                    ]);
+
+                    foreach ($order->items as $item) {
+                        \App\Models\PickListItem::create([
+                            'pick_list_id'        => $pickList->id,
+                            'sales_order_item_id' => $item->id,
+                            'requested_qty'       => $item->quantity,
+                            'picked_qty'          => 0,
+                            'status'              => 'pending',
+                        ]);
+                    }
+                }
+            }
+        }
+
         $successMsg = 'Sales Order #' . $order->so_number . ' has been approved by Marketing.';
-        if ($order->type === 'ecom_direct') {
+        if ($nextStatus === 'picking') {
+            $successMsg .= ' It has been routed to Logistics Pick Lists.';
+        } elseif ($order->type === 'ecom_direct') {
             $successMsg .= ' It now appears in the Sales Invoice list for preparation.';
         } else {
             $successMsg .= ' Awaiting Accounting approval.';

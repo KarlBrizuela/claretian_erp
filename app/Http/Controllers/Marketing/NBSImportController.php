@@ -396,16 +396,57 @@ class NBSImportController extends Controller
         // Process orders into the database
         DB::beginTransaction();
         try {
-            $abacusCustomer = Customer::where('company_name', 'like', '%abacus%')
-                ->orWhere('customer_name', 'like', '%abacus%')
+            // Determine Parent Company & Branch names based on user selection or defaults
+            $parentCompanyName = 'Intracode';
+            $defaultBranchName = 'abacus';
+
+            if (request('branch_id')) {
+                $bComp = Company::with('parent')->find(request('branch_id'));
+                if ($bComp) {
+                    $defaultBranchName = $bComp->company_name;
+                    if ($bComp->parent) {
+                        $parentCompanyName = $bComp->parent->company_name;
+                    }
+                }
+            } elseif (request('company_id')) {
+                $cComp = Company::find(request('company_id'));
+                if ($cComp) {
+                    $parentCompanyName = $cComp->company_name;
+                }
+            }
+
+            // Find branch company record if available to get account_number
+            $branchCompany = Company::where('company_name', $defaultBranchName)->first();
+            $accountNo = $branchCompany ? $branchCompany->account_number : ('CUST-NBS-' . strtoupper(\Illuminate\Support\Str::slug($defaultBranchName)));
+
+            // Find or create Customer record by account_number first, or by branch/company name
+            $customer = Customer::where('account_number', $accountNo)
+                ->orWhere('customer_name', 'like', "%{$defaultBranchName}%")
+                ->orWhere('company_name', 'like', "%{$parentCompanyName}%")
                 ->first();
 
-            if (!$abacusCustomer) {
-                $abacusCustomer = Customer::create([
-                    'customer_name'  => 'abacus',
-                    'company_name'   => 'abacus',
-                    'account_number' => 'CUST-NBS-ABACUS',
-                    'customer_type'  => 'business',
+            if (!$customer) {
+                // Double check if account_number exists to avoid duplicate entry violation
+                $existingAcct = Customer::where('account_number', $accountNo)->first();
+                if ($existingAcct) {
+                    $customer = $existingAcct;
+                    $customer->update([
+                        'company_name'   => $parentCompanyName,
+                        'customer_name'  => $defaultBranchName,
+                    ]);
+                } else {
+                    $customer = Customer::create([
+                        'company_name'   => $parentCompanyName,
+                        'customer_name'  => $defaultBranchName,
+                        'account_number' => $accountNo,
+                        'customer_type'  => 'business',
+                    ]);
+                }
+            } else {
+                $customer->update([
+                    'company_name'   => $parentCompanyName,
+                    'customer_name'  => $defaultBranchName,
+                    'account_number' => $accountNo,
                 ]);
             }
 
@@ -413,27 +454,23 @@ class NBSImportController extends Controller
             foreach ($orders as $poNum => $poData) {
                 if (empty($poData['items'])) continue;
 
-                // Build remarks from NBS Branch
-                $remarksStr = !empty($poData['nbs_branch']) ? 'Branch: ' . $poData['nbs_branch'] : '';
+                $branchRepresentative = !empty($poData['nbs_branch']) ? $poData['nbs_branch'] : $defaultBranchName;
+                $remarksStr = !empty($poData['remarks']) ? $poData['remarks'] : null;
 
-                // Create SalesOrder directly in "picking" status
+                // Create SalesOrder in "pending_mkt_approval" status for Marketing Approval Queue
                 $so = SalesOrder::create([
-                    'customer_id'      => $abacusCustomer->customer_id,
-                    'so_number'        => 'SO-NBS-' . $poNum . '-' . date('His'),
-                    'type'             => 'area_consignment',
-                    'ref_number'       => $poNum,
-                    'remarks'          => $remarksStr,
-                    'status'           => 'picking',
-                    'prepared_by'      => auth()->id(),
-                    'approved_by_mkt'  => auth()->id(),
-                    'approved_by_acct' => auth()->id(),
-                    'mkt_approved_at'  => now(),
-                    'acct_approved_at' => now(),
-                    'total_amount'     => 0,
+                    'customer_id'             => $customer->customer_id,
+                    'customer_representative' => $branchRepresentative,
+                    'so_number'               => 'SO-NBS-' . $poNum . '-' . date('His'),
+                    'type'                    => 'area_consignment',
+                    'ref_number'              => $poNum,
+                    'remarks'                 => $remarksStr,
+                    'status'                  => 'pending_mkt_approval',
+                    'prepared_by'             => auth()->id(),
+                    'total_amount'            => 0,
                 ]);
 
                 $totalAmount = 0;
-                $itemsToPick = [];
                 
                 foreach ($poData['items'] as $item) {
                     $unitPrice = $item['price'];
@@ -467,38 +504,14 @@ class NBSImportController extends Controller
                         'subtotal'        => $subtotal,
                     ]);
                     $totalAmount += $subtotal;
-                    
-                    $itemsToPick[] = [
-                        'sales_order_item_id' => $soItem->id,
-                        'requested_qty' => $qty
-                    ];
                 }
                 
                 $so->update(['total_amount' => $totalAmount]);
-
-                // Automatically create Pick List
-                $pickList = \App\Models\PickList::create([
-                    'sales_order_id' => $so->id,
-                    'pick_list_number' => 'PL-' . $so->so_number . '-' . date('YmdHis'),
-                    'status' => 'in_progress',
-                    'prepared_by' => auth()->id(),
-                ]);
-
-                foreach ($itemsToPick as $pickItem) {
-                    \App\Models\PickListItem::create([
-                        'pick_list_id' => $pickList->id,
-                        'sales_order_item_id' => $pickItem['sales_order_item_id'],
-                        'requested_qty' => $pickItem['requested_qty'],
-                        'picked_qty' => 0,
-                        'status' => 'pending',
-                    ]);
-                }
-
                 $createdCount++;
             }
 
             DB::commit();
-            return redirect()->route('production.logistic.pick-list-management')->with('success', "Successfully imported $createdCount NBS Purchase Orders. They have been routed directly to the Pick Lists.");
+            return redirect()->route('marketing.approval-queue')->with('success', "Successfully imported $createdCount NBS Purchase Orders. They have been routed to the Marketing Approval Queue for review.");
 
         } catch (\Exception $e) {
             DB::rollBack();
