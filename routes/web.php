@@ -119,6 +119,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/packing-management', [App\Http\Controllers\Production\LogisticController::class, 'packingManagement'])->name('packing-management');
       Route::get('/packing/{id}/data', [App\Http\Controllers\Production\LogisticController::class, 'getPackingOrderData'])->name('packing-order-data');
       Route::post('/packing/save', [App\Http\Controllers\Production\LogisticController::class, 'savePackingData'])->name('packing.save');
+      Route::post('/packing/save-remarks', [App\Http\Controllers\Production\LogisticController::class, 'savePackingRemarks'])->name('packing.save-remarks');
       Route::post('/packing/set-ready-for-pickup', [App\Http\Controllers\Production\LogisticController::class, 'setReadyForPickup'])->name('packing.set-ready-for-pickup');
       Route::post('/packing/mark-as-gathered', [App\Http\Controllers\Production\LogisticController::class, 'markPackedOrdersAsGathered'])->name('packing.mark-as-gathered');
 

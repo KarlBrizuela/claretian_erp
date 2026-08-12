@@ -1041,40 +1041,55 @@
                                             <th>Transferred By</th>
                                             <th class="text-center">Items</th>
                                             <th class="text-center">Total Pcs</th>
+                                            <th class="text-end">Total Amount</th>
                                             <th>Date Created</th>
                                             <th>Remarks</th>
                                             <th>Status</th>
-                                            <th class="text-end" style="min-width: 140px;">Actions</th>
+                                            <th class="text-end" style="min-width: 150px;">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @forelse($teamStockPackingTransfers ?? [] as $tt)
+                                        @php
+                                            $totalTransferAmount = $tt->items->sum(function($item) {
+                                                $price = 0;
+                                                if ($item->bookIndex) {
+                                                    $price = (float)($item->bookIndex->price ?: ($item->bookIndex->book?->price ?: 0));
+                                                } elseif ($item->book) {
+                                                    $price = (float)($item->book->price ?: 0);
+                                                } elseif ($item->bookBundle) {
+                                                    $price = (float)($item->bookBundle->price ?: 0);
+                                                }
+                                                return $price * $item->quantity;
+                                            });
+                                        @endphp
                                         <tr>
                                             <td class="fw-bold">{{ $tt->transfer_number }}</td>
                                             <td><span class="badge bg-danger">{{ $tt->team_name }}</span></td>
                                             <td>{{ $tt->transferredByUser->name ?? 'N/A' }}</td>
                                             <td class="text-center">{{ $tt->items->count() }} item(s)</td>
                                             <td class="text-center fw-bold text-success">{{ number_format($tt->items->sum('quantity')) }} pcs</td>
+                                            <td class="text-end fw-bold text-dark">₱{{ number_format($totalTransferAmount, 2) }}</td>
                                             <td>{{ $tt->created_at->format('M d, Y h:i A') }}</td>
                                             <td style="max-width: 110px;" class="text-truncate" title="{{ $tt->notes }}"><span class="text-dark">{{ $tt->notes ?: '—' }}</span></td>
                                             <td>
                                                 @if($tt->status === 'completed')
                                                     <span class="badge bg-success text-white"><i class="fas fa-check me-1"></i>Completed</span>
                                                 @else
-                                                    <span class="badge bg-info text-white">Ready for Packing</span>
+                                                    <span id="team_stock_transfer_status_badge_{{ $tt->id }}" class="badge bg-info text-white">Ready for Packing</span>
                                                 @endif
                                             </td>
                                             <td class="text-end" style="white-space: nowrap;">
                                                 <div class="d-flex align-items-center justify-content-end gap-1">
-                                                    <button type="button" class="btn btn-xs btn-outline-danger" data-bs-toggle="modal" data-bs-target="#teamStockPackModal{{ $tt->id }}">
-                                                        <i class="fas fa-eye me-1"></i>View Items
+                                                    <button type="button" class="btn btn-xs btn-outline-danger fw-bold" data-bs-toggle="modal" data-bs-target="#teamStockPackModal{{ $tt->id }}">
+                                                        <i class="fas fa-barcode me-1"></i>View & Pack Items
                                                     </button>
                                                     @if($tt->status === 'completed')
                                                         <span class="badge bg-success text-white"><i class="fas fa-check me-1"></i>Completed</span>
                                                     @else
                                                         <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="d-inline m-0">
                                                             @csrf
-                                                            <button type="submit" class="btn btn-xs btn-success fw-bold" style="background-color: #28a745; border: none;">
+                                                            <button type="submit" id="team_stock_complete_btn_main_{{ $tt->id }}" class="btn btn-xs btn-success fw-bold" style="background-color: #28a745; border: none;">
                                                                 <i class="fas fa-check me-1"></i>Mark Packed
                                                             </button>
                                                         </form>
@@ -1084,7 +1099,7 @@
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="9" class="text-center py-4 text-muted">No team stock transfers found.</td>
+                                            <td colspan="10" class="text-center py-4 text-muted">No team stock transfers found.</td>
                                         </tr>
                                         @endforelse
                                     </tbody>
@@ -1098,8 +1113,21 @@
         </div>
 
     @foreach($teamStockPackingTransfers ?? [] as $tt)
-    <div class="modal fade" id="teamStockPackModal{{ $tt->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+    @php
+        $totalTransferAmount = $tt->items->sum(function($item) {
+            $price = 0;
+            if ($item->bookIndex) {
+                $price = (float)($item->bookIndex->price ?: ($item->bookIndex->book?->price ?: 0));
+            } elseif ($item->book) {
+                $price = (float)($item->book->price ?: 0);
+            } elseif ($item->bookBundle) {
+                $price = (float)($item->bookBundle->price ?: 0);
+            }
+            return $price * $item->quantity;
+        });
+    @endphp
+    <div class="modal fade team-stock-modal" id="teamStockPackModal{{ $tt->id }}" tabindex="-1" aria-hidden="true" data-transfer-id="{{ $tt->id }}">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title text-white"><i class="fas fa-boxes me-2"></i>Team Stock Transfer Items to Pack ({{ $tt->transfer_number }})</h5>
@@ -1107,16 +1135,20 @@
                 </div>
                 <div class="modal-body p-4">
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <small class="text-muted d-block mb-1">Target Sales Team:</small>
                             <span class="badge bg-danger fs-6">{{ $tt->team_name }}</span>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <small class="text-muted d-block mb-1">Requested By:</small>
                             <strong>{{ $tt->transferredByUser->name ?? 'N/A' }}</strong>
                             <small class="d-block text-muted">{{ $tt->created_at->format('M d, Y h:i A') }}</small>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <small class="text-muted d-block mb-1">Total Books Value:</small>
+                            <span class="fs-5 fw-bold text-success">₱{{ number_format($totalTransferAmount, 2) }}</span>
+                        </div>
+                        <div class="col-md-3">
                             <small class="text-muted d-block mb-1">Remarks / Notes:</small>
                             <span class="fw-semibold text-dark">{{ $tt->notes ?: 'None' }}</span>
                         </div>
@@ -1126,48 +1158,114 @@
                     <div class="alert alert-warning border border-warning mb-3 py-2">
                         <strong class="text-dark"><i class="fas fa-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $tt->notes }}
                     </div>
-                    @else
-                    <div class="alert alert-light border mb-3 py-2 text-muted">
-                        <i class="fas fa-info-circle me-1"></i>No remarks or notes specified for this transfer.
-                    </div>
                     @endif
 
-                    <h6 class="fw-bold mb-2">Items to Pack:</h6>
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-book me-2"></i>Items to Pack:</h6>
+                            <span id="ts_pack_progress_{{ $tt->id }}" class="badge bg-secondary fs-6 px-3 py-1">0 / {{ $tt->items->count() }} Items Packed</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-success fw-bold" onclick="markAllTeamStockItemsPacked({{ $tt->id }})">
+                            <i class="fas fa-check-double me-1"></i>Pack All Items
+                        </button>
+                    </div>
                     <div class="table-responsive mb-3">
-                        <table class="table table-bordered table-sm align-middle mb-0">
+                        <table class="table table-bordered table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Item Title</th>
+                                    <th>Item Title / Book Details</th>
                                     <th>Type</th>
-                                    <th class="text-center">Quantity to Pack</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-center">Qty to Pack</th>
+                                    <th class="text-end">Subtotal Price</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-center" style="width: 130px;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($tt->items as $tItem)
+                                @foreach($tt->items as $idx => $tItem)
                                 @php
                                     $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
                                     $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+                                    
+                                    $unitPrice = 0;
+                                    $barcodes = [];
+                                    if ($tItem->bookIndex) {
+                                        $unitPrice = (float)($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?: 0));
+                                        if (!empty($tItem->bookIndex->barcode)) $barcodes[] = (string)$tItem->bookIndex->barcode;
+                                        if (!empty($tItem->bookIndex->nbs_barcode)) $barcodes[] = (string)$tItem->bookIndex->nbs_barcode;
+                                        if ($tItem->bookIndex->book) {
+                                            if (!empty($tItem->bookIndex->book->barcode)) $barcodes[] = (string)$tItem->bookIndex->book->barcode;
+                                            if (!empty($tItem->bookIndex->book->nbs_barcode)) $barcodes[] = (string)$tItem->bookIndex->book->nbs_barcode;
+                                            if (!empty($tItem->bookIndex->book->sku)) $barcodes[] = (string)$tItem->bookIndex->book->sku;
+                                            if (!empty($tItem->bookIndex->book->item_code)) $barcodes[] = (string)$tItem->bookIndex->book->item_code;
+                                        }
+                                    } elseif ($tItem->book) {
+                                        $unitPrice = (float)($tItem->book->price ?: 0);
+                                        if (!empty($tItem->book->barcode)) $barcodes[] = (string)$tItem->book->barcode;
+                                        if (!empty($tItem->book->nbs_barcode)) $barcodes[] = (string)$tItem->book->nbs_barcode;
+                                        if (!empty($tItem->book->sku)) $barcodes[] = (string)$tItem->book->sku;
+                                        if (!empty($tItem->book->item_code)) $barcodes[] = (string)$tItem->book->item_code;
+                                    } elseif ($tItem->bookBundle) {
+                                        $unitPrice = (float)($tItem->bookBundle->price ?: 0);
+                                        if (!empty($tItem->bookBundle->sku)) $barcodes[] = (string)$tItem->bookBundle->sku;
+                                    }
+                                    $itemSubtotal = $unitPrice * $tItem->quantity;
+                                    $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
+                                    $barcodesJson = htmlspecialchars(json_encode($uniqueBarcodes), ENT_QUOTES, 'UTF-8');
                                 @endphp
-                                <tr>
-                                    <td class="fw-bold text-dark">{{ $itemName }}</td>
+                                <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}">
+                                    <td class="fw-bold text-dark">
+                                        <div>{{ $itemName }}</div>
+                                        @if(!empty($uniqueBarcodes))
+                                            <small class="text-muted"><i class="fas fa-barcode me-1"></i>ISBN/Barcode: {{ implode(', ', $uniqueBarcodes) }}</small>
+                                        @else
+                                            <small class="text-muted font-italic">No barcode registered</small>
+                                        @endif
+                                    </td>
                                     <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
-                                    <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                    <td class="text-end fw-semibold">₱{{ number_format($unitPrice, 2) }}</td>
+                                    <td class="text-center fw-bold text-primary">{{ number_format($tItem->quantity) }} pcs</td>
+                                    <td class="text-end fw-bold text-dark">₱{{ number_format($itemSubtotal, 2) }}</td>
+                                    <td class="text-center">
+                                        <span id="ts_status_badge_{{ $tt->id }}_{{ $idx }}" class="badge bg-warning text-dark ts-status-badge px-2 py-1">
+                                            <i class="fas fa-clock me-1"></i>Not Packed
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" id="ts_toggle_btn_{{ $tt->id }}_{{ $idx }}" class="btn btn-xs btn-outline-success ts-pack-toggle-btn fw-semibold" onclick="toggleTeamStockItemPack({{ $tt->id }}, {{ $idx }})">
+                                            <i class="fas fa-check me-1"></i>Mark Packed
+                                        </button>
+                                    </td>
                                 </tr>
                                 @endforeach
                             </tbody>
+                            <tfoot>
+                                <tr class="table-light fw-bold">
+                                    <td colspan="3" class="text-end text-dark fs-6">Total Transfer Amount:</td>
+                                    <td class="text-center text-primary fs-6">{{ number_format($tt->items->sum('quantity')) }} pcs</td>
+                                    <td class="text-end text-success fs-6">₱{{ number_format($totalTransferAmount, 2) }}</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    @if($tt->status !== 'completed')
-                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-success fw-bold" style="background-color: #28a745; border: none;">
-                            <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
-                        </button>
-                    </form>
-                    @endif
+                <div class="modal-footer bg-light d-flex align-items-center justify-content-between">
+                    <div id="ts_footer_status_{{ $tt->id }}" class="text-muted fw-semibold">
+                        <i class="fas fa-box-open me-1"></i>Status: <span class="badge bg-info text-white">Ready for Packing</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        @if($tt->status !== 'completed')
+                        <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" id="ts_modal_complete_btn_{{ $tt->id }}" class="btn btn-success fw-bold" style="background-color: #28a745; border: none;">
+                                <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
+                            </button>
+                        </form>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
@@ -1970,6 +2068,77 @@
             // Initialize bulk actions
             initializeBulkActions();
         });
+
+        window.openPackingDetailsModal = function(orderId, isCompleted = false) {
+            if (orderId) {
+                currentOrderId = orderId;
+                console.log('Opening packing details modal for order:', currentOrderId);
+                loadPackingOrder(currentOrderId, isCompleted);
+            }
+        };
+
+        function openPackingDetailsModal(orderId, isCompleted = false) {
+            window.openPackingDetailsModal(orderId, isCompleted);
+        }
+
+        window.openPackingShippingLabel = function() {
+            if (currentOrderId) {
+                window.open('/marketing/sales-orders/' + currentOrderId + '/shipping-label', '_blank');
+            } else {
+                alert('No order selected');
+            }
+        };
+
+        function openPackingShippingLabel() {
+            window.openPackingShippingLabel();
+        }
+
+        window.savePackingRemarksOnly = function() {
+            if (!currentOrderId) {
+                alert('No order selected');
+                return;
+            }
+            const remarks = document.getElementById('detailRemarks') ? document.getElementById('detailRemarks').value : '';
+            fetch('/production/logistic/packing/save-remarks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                },
+                body: JSON.stringify({ order_id: currentOrderId, remarks: remarks })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Remarks saved successfully');
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to save remarks'));
+                }
+            })
+            .catch(error => {
+                alert('Error saving remarks: ' + error.message);
+            });
+        };
+
+        function savePackingRemarksOnly() {
+            window.savePackingRemarksOnly();
+        }
+
+        window.markOrderAsPackedAction = function(orderId, soNumber) {
+            markOrderAsPacked(orderId, soNumber);
+        };
+
+        function markOrderAsPackedAction(orderId, soNumber) {
+            window.markOrderAsPackedAction(orderId, soNumber);
+        }
+
+        window.markOrderAsGatheredAction = function(orderId, soNumber) {
+            markOrderAsGathered(orderId, soNumber);
+        };
+
+        function markOrderAsGatheredAction(orderId, soNumber) {
+            window.markOrderAsGatheredAction(orderId, soNumber);
+        }
 
         window.closePackingDetailsModal = function() {
             const modal = document.getElementById('orderDetailModal');
@@ -2863,7 +3032,168 @@
                 }
             })
             .catch(err => alert('Error saving remarks: ' + err.message));
+        // --- Team Stock Transfer Packing & Barcode Scanning JS ---
+
+        let tsScannerBuffer = '';
+        let tsScannerTimer = null;
+
+        function normalizeTeamStockBarcode(bc) {
+            if (!bc) return '';
+            return String(bc).trim().toLowerCase().replace(/[\s\-\_]/g, '');
         }
+
+        function processTeamStockBarcodeScan(transferId, rawBarcode) {
+            const normalized = normalizeTeamStockBarcode(rawBarcode);
+            if (!normalized) return false;
+
+            const rows = document.querySelectorAll(`#teamStockPackModal${transferId} .ts-item-row`);
+            let matched = false;
+            let matchedTitle = '';
+
+            rows.forEach(row => {
+                if (matched) return; // match one item per scan
+                const index = row.getAttribute('data-index');
+                const title = row.getAttribute('data-title');
+                let barcodes = [];
+                try {
+                    barcodes = JSON.parse(row.getAttribute('data-barcodes') || '[]');
+                } catch (e) {
+                    barcodes = [];
+                }
+
+                const normalizedBarcodes = barcodes.map(normalizeTeamStockBarcode);
+
+                if (normalizedBarcodes.includes(normalized)) {
+                    matched = true;
+                    matchedTitle = title;
+                    markTeamStockItemAsPacked(transferId, index, title);
+                }
+            });
+
+            return matched;
+        }
+
+        function markTeamStockItemAsPacked(transferId, index, title) {
+            const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
+            const toggleBtn = document.getElementById(`ts_toggle_btn_${transferId}_${index}`);
+            const row = document.getElementById(`ts_row_${transferId}_${index}`);
+
+            if (badge) {
+                badge.className = 'badge bg-success text-white ts-status-badge px-2 py-1';
+                badge.innerHTML = '<i class="fas fa-check me-1"></i>Packed';
+            }
+            if (toggleBtn) {
+                toggleBtn.className = 'btn btn-xs btn-success ts-pack-toggle-btn fw-semibold';
+                toggleBtn.innerHTML = '<i class="fas fa-check-double me-1"></i>Packed';
+            }
+            if (row) {
+                row.classList.add('table-success');
+            }
+
+            updateTeamStockPackingProgress(transferId);
+        }
+
+        function toggleTeamStockItemPack(transferId, index) {
+            const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
+            const toggleBtn = document.getElementById(`ts_toggle_btn_${transferId}_${index}`);
+            const row = document.getElementById(`ts_row_${transferId}_${index}`);
+
+            if (badge && badge.classList.contains('bg-success')) {
+                // Unpack
+                badge.className = 'badge bg-warning text-dark ts-status-badge px-2 py-1';
+                badge.innerHTML = '<i class="fas fa-clock me-1"></i>Not Packed';
+                if (toggleBtn) {
+                    toggleBtn.className = 'btn btn-xs btn-outline-success ts-pack-toggle-btn fw-semibold';
+                    toggleBtn.innerHTML = '<i class="fas fa-check me-1"></i>Mark Packed';
+                }
+                if (row) row.classList.remove('table-success');
+            } else {
+                // Pack
+                markTeamStockItemAsPacked(transferId, index);
+            }
+            updateTeamStockPackingProgress(transferId);
+        }
+
+        function markAllTeamStockItemsPacked(transferId) {
+            const rows = document.querySelectorAll(`#teamStockPackModal${transferId} .ts-item-row`);
+            rows.forEach(row => {
+                const index = row.getAttribute('data-index');
+                markTeamStockItemAsPacked(transferId, index);
+            });
+        }
+
+        function updateTeamStockPackingProgress(transferId) {
+            const rows = document.querySelectorAll(`#teamStockPackModal${transferId} .ts-item-row`);
+            let packedCount = 0;
+            const totalCount = rows.length;
+
+            rows.forEach(row => {
+                const index = row.getAttribute('data-index');
+                const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
+                if (badge && badge.classList.contains('bg-success')) {
+                    packedCount++;
+                }
+            });
+
+            const progressSpan = document.getElementById(`ts_pack_progress_${transferId}`);
+            if (progressSpan) {
+                progressSpan.textContent = `${packedCount} / ${totalCount} Items Packed`;
+                if (packedCount === totalCount && totalCount > 0) {
+                    progressSpan.className = 'badge bg-success fs-6 px-3 py-1';
+                } else {
+                    progressSpan.className = 'badge bg-secondary fs-6 px-3 py-1';
+                }
+            }
+
+            const footerStatus = document.getElementById(`ts_footer_status_${transferId}`);
+            const modalCompleteBtn = document.getElementById(`ts_modal_complete_btn_${transferId}`);
+            const mainStatusBadge = document.getElementById(`team_stock_transfer_status_badge_${transferId}`);
+
+            if (packedCount === totalCount && totalCount > 0) {
+                if (footerStatus) {
+                    footerStatus.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i>Status: <span class="badge bg-success text-white">Fully Packed & Ready to Complete</span>';
+                }
+                if (modalCompleteBtn) {
+                    modalCompleteBtn.classList.add('shadow-lg');
+                }
+                if (mainStatusBadge) {
+                    mainStatusBadge.className = 'badge bg-success text-white';
+                    mainStatusBadge.innerHTML = '<i class="fas fa-box me-1"></i>Packed';
+                }
+            }
+        }
+
+        // Global keydown listener for hardware barcode scanning when Team Stock Transfer modal is open
+        document.addEventListener('keydown', function(e) {
+            const activeModal = document.querySelector('.modal.team-stock-modal.show');
+            if (!activeModal) return;
+
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                if (tsScannerBuffer.trim().length >= 3) {
+                    const transferId = activeModal.getAttribute('data-transfer-id');
+                    processTeamStockBarcodeScan(transferId, tsScannerBuffer.trim());
+                }
+                tsScannerBuffer = '';
+                clearTimeout(tsScannerTimer);
+                return;
+            }
+
+            if (e.key.length === 1) {
+                tsScannerBuffer += e.key;
+                clearTimeout(tsScannerTimer);
+                tsScannerTimer = setTimeout(() => {
+                    if (tsScannerBuffer.trim().length >= 6) {
+                        const transferId = activeModal.getAttribute('data-transfer-id');
+                        processTeamStockBarcodeScan(transferId, tsScannerBuffer.trim());
+                    }
+                    tsScannerBuffer = '';
+                }, 300);
+            }
+        });
     </script>
     @endpush
 

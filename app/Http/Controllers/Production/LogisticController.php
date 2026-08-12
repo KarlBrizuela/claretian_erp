@@ -2943,8 +2943,33 @@ class LogisticController extends Controller
                     $mainSiteInv->quantity = max(0, $mainSiteInv->quantity - $qty);
                     $mainSiteInv->save();
                 }
+            }
 
-                // 3. Credit Team Stock balance
+            $transfer->update(['status' => 'packing']);
+            \DB::commit();
+
+            return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' pick list completed! Stock deducted from Main Warehouse and sent to Packing Queue.');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to complete team stock pick list: ' . $e->getMessage());
+        }
+    }
+
+    public function completeTeamStockPacking($id)
+    {
+        $transfer = \App\Models\TeamStockTransfer::with('items')->findOrFail($id);
+
+        if ($transfer->status === 'completed') {
+            return redirect()->back()->with('error', 'Team Stock Transfer #' . $transfer->transfer_number . ' is already marked as completed.');
+        }
+
+        \DB::beginTransaction();
+        try {
+            foreach ($transfer->items as $tItem) {
+                $qty = $tItem->quantity;
+
+                // 1. Credit Team Stock balance
                 $teamStock = \App\Models\TeamStock::firstOrNew([
                     'team_name' => $transfer->team_name,
                     'book_id' => $tItem->book_id,
@@ -2954,10 +2979,15 @@ class LogisticController extends Controller
                 $teamStock->quantity = ($teamStock->quantity ?? 0) + $qty;
                 $teamStock->save();
 
-                // 4. Sync Target Team SiteInventory
+                // 2. Sync Target Team SiteInventory
                 $targetSite = \App\Models\Site::firstOrCreate(
                     ['name' => $transfer->team_name],
-                    ['code' => strtolower(str_replace(' ', '_', $transfer->team_name)), 'location' => 'Area Sales', 'description' => 'Area Sales ' . $transfer->team_name . ' Inventory', 'is_active' => true]
+                    [
+                        'code' => strtolower(str_replace(' ', '_', $transfer->team_name)),
+                        'location' => 'Area Sales',
+                        'description' => 'Area Sales ' . $transfer->team_name . ' Inventory',
+                        'is_active' => true
+                    ]
                 );
 
                 $siteInv = \App\Models\SiteInventory::firstOrNew([
@@ -2970,22 +3000,30 @@ class LogisticController extends Controller
                 $siteInv->save();
             }
 
-            $transfer->update(['status' => 'packing']);
+            $transfer->update(['status' => 'completed']);
             \DB::commit();
 
-            return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' pick list completed! Stock deducted from Main Warehouse and credited to ' . $transfer->team_name . '. Sent to Packing Queue.');
+            return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' packing completed! Stock successfully credited to ' . $transfer->team_name . '.');
 
         } catch (\Exception $e) {
             \DB::rollBack();
-            return redirect()->back()->with('error', 'Failed to complete team stock pick list: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to complete team stock packing: ' . $e->getMessage());
         }
     }
 
-    public function completeTeamStockPacking($id)
+    public function savePackingRemarks(Request $request)
     {
-        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
-        $transfer->update(['status' => 'completed']);
-        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' packing completed!');
+        try {
+            $orderId = $request->input('order_id');
+            $remarks = $request->input('remarks');
+
+            $order = \App\Models\SalesOrder::findOrFail($orderId);
+            $order->update(['remarks' => $remarks]);
+
+            return response()->json(['success' => true, 'message' => 'Remarks updated successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 }
 
