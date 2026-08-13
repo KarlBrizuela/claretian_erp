@@ -120,6 +120,9 @@
 			@if($user->hasPermission('production.logistic.packing'))
 			<a href="{{ route('production.logistic.packing-management') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.packing-management') ? 'active' : '' }}">Packing</a>
 			@endif
+			@if($user->hasPermission('production.logistic.delivery_scheduling') || $user->isSuperAdmin())
+			<a href="{{ route('production.logistic.pickup-requests.index') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.pickup-requests.*') ? 'active' : '' }}">Logistics Service Order</a>
+			@endif
 			@if($user->hasPermission('production.logistic.delivery_scheduling'))
 			<a href="{{ route('production.logistic.delivery-scheduling') }}" class="modern-nav-subitem {{ request()->routeIs('production.logistic.delivery-scheduling') ? 'active' : '' }}">Delivery Scheduling</a>
 			@endif

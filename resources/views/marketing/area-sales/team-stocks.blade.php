@@ -481,8 +481,18 @@
             select.classList.remove('select2-hidden-accessible');
             select.style.display = '';
             select.selectedIndex = 0;
-            Array.from(select.options).forEach(opt => opt.selected = false);
+            
+            // Remove data-select2-id from options and reset selection state
+            Array.from(select.options).forEach(opt => {
+                opt.removeAttribute('data-select2-id');
+                opt.selected = false;
+            });
             if (select.options.length > 0) select.options[0].selected = true;
+
+            // Remove any other cloned select2-id markers from the row's elements
+            newRow.querySelectorAll('[data-select2-id]').forEach(el => {
+                el.removeAttribute('data-select2-id');
+            });
 
             const qty = newRow.querySelector('.qty-input');
             qty.name = `items[${transferRowIndex}][quantity]`;

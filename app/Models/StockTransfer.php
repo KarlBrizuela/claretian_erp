@@ -18,6 +18,7 @@ class StockTransfer extends Model
         'notes',
         'batch_id',
         'rejection_reason',
+        'remarks',
         'created_by',
         'approved_by',
         'approved_at',

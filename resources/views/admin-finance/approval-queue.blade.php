@@ -1442,12 +1442,17 @@
                 }
 
                 e.preventDefault();
+                const remarksVal = $('#modalApprovalRemarks').val();
                 fetch(action, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
                         'Accept': 'application/json'
-                    }
+                    },
+                    body: JSON.stringify({
+                        remarks: remarksVal
+                    })
                 })
                 .then(response => response.json().then(data => ({ ok: response.ok, data })))
                 .then(({ ok, data }) => {

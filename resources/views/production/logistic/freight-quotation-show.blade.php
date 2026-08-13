@@ -407,11 +407,23 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @php $totalAmount = 0; $totalWeight = 0; @endphp
+                                        @php $totalAmount = 0; $totalWeight = 0; $grossSubtotal = 0; $totalItemDiscount = 0; @endphp
                                         @foreach($quotation->salesOrder->items as $key => $item)
                                             @php
-                                                $product = $item->product ?? $item->book ?? $item->bundle ?? $item->bookIndex;
-                                                $weight = (float)($product?->weight ?? 0);
+                                                $bookIndex = $item->bookIndex ?? ($item->book_index_id ? \App\Models\BookIndex::find($item->book_index_id) : null);
+                                                $book = $item->book;
+                                                $product = $item->product ?? $item->bundle;
+
+                                                if ($bookIndex) {
+                                                    $displayName = $bookIndex->display_name;
+                                                    $sku = $bookIndex->barcode ?: ($bookIndex->nbs_barcode ?: ($bookIndex->article ?: ($book?->sku ?: $book?->isbn)));
+                                                    $weight = (float)($bookIndex->weight ?: ($book?->weight ?: 0));
+                                                } else {
+                                                    $displayName = $item->product_name ?? ($item->item_name ?? ($product?->name ?? ($book?->name ?? 'Unknown Item')));
+                                                    $sku = $product?->sku ?? ($book?->sku ?? ($book?->isbn ?? null));
+                                                    $weight = (float)($product?->weight ?? ($book?->weight ?: 0));
+                                                }
+
                                                 $quantity = (int)($item->quantity ?? 0);
                                                 $price = (float)($item->price ?? 0);
                                                 $discVal = (float)($item->discount_value ?? 0);
@@ -422,13 +434,15 @@
                                                 $itemTotalWeight = ($quantity * $weight);
                                                 $totalAmount += $itemSubtotal;
                                                 $totalWeight += $itemTotalWeight;
+                                                $grossSubtotal += $itemGross;
+                                                $totalItemDiscount += $discAmt;
                                             @endphp
                                             <tr>
                                                 <td>{{ $key + 1 }}</td>
                                                 <td>
-                                                    <strong>{{ $product?->name ?? $item->product_name ?? 'Unknown' }}</strong>
-                                                    @if($product?->sku)
-                                                        <br><small class="text-muted">SKU: {{ $product->sku }}</small>
+                                                    <strong>{{ $displayName }}</strong>
+                                                    @if($sku)
+                                                        <br><small class="text-muted">SKU: {{ $sku }}</small>
                                                     @endif
                                                 </td>
                                                 <td class="text-center">{{ $quantity }}</td>
@@ -459,19 +473,59 @@
                                         @endforeach
                                     </tbody>
                                     <tfoot class="table-light">
-                                        <tr>
-                                            <td colspan="4"></td>
-                                            <td class="text-center fw-bold">
-                                                @if($totalWeight > 0)
-                                                    {{ number_format($totalWeight, 2) }} kg
-                                                @else
-                                                    <span class="text-muted">-</span>
-                                                @endif
-                                            </td>
-                                            <td colspan="2"></td>
-                                            <td class="text-end fw-bold fs-5">₱ {{ number_format($totalAmount, 2) }}</td>
-                                        </tr>
-                                    </tfoot>
+                                         @if($totalItemDiscount > 0)
+                                         <tr>
+                                             <td colspan="7" class="text-end"><strong>Gross Subtotal:</strong></td>
+                                             <td class="text-end fw-bold">₱ {{ number_format($grossSubtotal, 2) }}</td>
+                                         </tr>
+                                         <tr>
+                                             <td colspan="7" class="text-end text-danger"><strong>Item Discounts:</strong></td>
+                                             <td class="text-end fw-bold text-danger">- ₱ {{ number_format($totalItemDiscount, 2) }}</td>
+                                         </tr>
+                                         @endif
+                                         <tr>
+                                             <td colspan="4" class="text-end"><strong>Order Subtotal:</strong></td>
+                                             <td class="text-center fw-bold">
+                                                 @if($totalWeight > 0)
+                                                     {{ number_format($totalWeight, 2) }} kg
+                                                 @else
+                                                     <span class="text-muted">-</span>
+                                                 @endif
+                                             </td>
+                                             <td colspan="2"></td>
+                                             <td class="text-end fw-bold fs-5">₱ {{ number_format($totalAmount, 2) }}</td>
+                                         </tr>
+                                         @php
+                                             $topOrderDiscAmount = (float)($quotation->salesOrder->discount_amount ?? 0);
+                                             $topOrderDiscVal = (float)($quotation->salesOrder->discount_percentage ?? 0);
+                                             $topNetTotal = max(0, $totalAmount - $topOrderDiscAmount);
+                                             $topServiceFee = $quotation->freight_option === 'freight_collect' ? 50 : 0;
+                                             $topGrandTotal = $topNetTotal + $topServiceFee;
+                                         @endphp
+                                         @if($topOrderDiscAmount > 0)
+                                         <tr>
+                                             <td colspan="7" class="text-end text-danger">
+                                                 <strong>Order Discount{{ $topOrderDiscVal > 0 ? ' (' . $topOrderDiscVal . '%)' : ' (₱' . number_format($topOrderDiscAmount, 2) . ')' }}:</strong>
+                                             </td>
+                                             <td class="text-end fw-bold text-danger">- ₱ {{ number_format($topOrderDiscAmount, 2) }}</td>
+                                         </tr>
+                                         @endif
+                                         @if($topServiceFee > 0)
+                                         <tr style="background-color: #fff3cd;">
+                                             <td colspan="7" class="text-end text-success"><strong>Service Fee (Freight Collect):</strong></td>
+                                             <td class="text-end fw-bold text-success">₱ {{ number_format($topServiceFee, 2) }}</td>
+                                         </tr>
+                                         <tr style="background-color: #e8f5e9;">
+                                             <td colspan="7" class="text-end"><strong>Grand Total:</strong></td>
+                                             <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">₱ {{ number_format($topGrandTotal, 2) }}</td>
+                                         </tr>
+                                         @else
+                                         <tr style="background-color: #e8f5e9;">
+                                             <td colspan="7" class="text-end"><strong>Grand Total:</strong></td>
+                                             <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">₱ {{ number_format($topGrandTotal, 2) }}</td>
+                                         </tr>
+                                         @endif
+                                     </tfoot>
                                 </table>
                             </div>
                         @else
@@ -536,7 +590,11 @@
                                                     @endphp
                                                     <tr>
                                                         <td>{{ $item->quantity }}</td>
-                                                        <td>{{ $item->bookIndex ? $item->bookIndex->display_name : ($item->product?->name ?? $item->book?->name ?? $item->bundle?->name ?? 'N/A') }}</td>
+                                                        @php
+                                                            $soBookIndex = $item->bookIndex ?? ($item->book_index_id ? \App\Models\BookIndex::find($item->book_index_id) : null);
+                                                            $soItemName = $soBookIndex ? $soBookIndex->display_name : ($item->product_name ?? ($item->item_name ?? ($item->product?->name ?? ($item->book?->name ?? ($item->bundle?->name ?? 'N/A')))));
+                                                        @endphp
+                                                        <td>{{ $soItemName }}</td>
                                                         <td class="text-end">₱ {{ number_format($item->price, 2) }}</td>
                                                         <td class="text-end text-danger">
                                                             @if($discVal > 0)
@@ -550,21 +608,30 @@
                                                 @endforeach
                                             </tbody>
                                             <tfoot class="table-light">
+                                                @if($totalItemDiscount > 0)
+                                                <tr>
+                                                    <td colspan="4" class="text-end"><strong>Gross Subtotal:</strong></td>
+                                                    <td class="text-end fw-bold">₱ {{ number_format($grossSubtotal, 2) }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td colspan="4" class="text-end text-danger"><strong>Item Discounts:</strong></td>
+                                                    <td class="text-end fw-bold text-danger">- ₱ {{ number_format($totalItemDiscount, 2) }}</td>
+                                                </tr>
+                                                @endif
                                                 <tr>
                                                     <td colspan="4" class="text-end"><strong>Order Subtotal:</strong></td>
                                                     <td class="text-end fw-bold">₱ {{ number_format($soSubtotal, 2) }}</td>
                                                 </tr>
                                                 @php
-                                                    $orderDiscVal = (float)($quotation->salesOrder->discount_value ?? 0);
-                                                    $orderDiscType = $quotation->salesOrder->discount_type ?? 'amount';
-                                                    $orderDiscAmount = $quotation->salesOrder->discount_amount ?? ($orderDiscType === 'percentage' ? $soSubtotal * ($orderDiscVal / 100) : $orderDiscVal);
+                                                    $orderDiscAmount = (float)($quotation->salesOrder->discount_amount ?? 0);
+                                                    $orderDiscVal = (float)($quotation->salesOrder->discount_percentage ?? 0);
                                                     $soNetTotal = max(0, $soSubtotal - $orderDiscAmount);
                                                     $serviceFee = $quotation->freight_option === 'freight_collect' ? 50 : 0;
                                                     $grandTotal = $soNetTotal + $serviceFee;
                                                 @endphp
                                                 @if($orderDiscAmount > 0)
                                                 <tr>
-                                                    <td colspan="4" class="text-end"><strong>Order Discount:</strong></td>
+                                                    <td colspan="4" class="text-end text-danger"><strong>Order Discount{{ $orderDiscVal > 0 ? ' (' . $orderDiscVal . '%)' : ' (₱' . number_format($orderDiscAmount, 2) . ')' }}:</strong></td>
                                                     <td class="text-end fw-bold text-danger">- ₱ {{ number_format($orderDiscAmount, 2) }}</td>
                                                 </tr>
                                                 @endif

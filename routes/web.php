@@ -113,6 +113,17 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/mark-as-gathered/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'markAsGathered'])->name('mark-as-gathered');
       Route::get('/pick-list/{id}/delete', [App\Http\Controllers\Production\LogisticController::class, 'deletePickList'])->name('pick-list-delete');
       
+      // Pick-up Requests CRUD
+      Route::get('/pickup-requests', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsIndex'])->name('pickup-requests.index');
+      Route::get('/pickup-requests/create', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsCreate'])->name('pickup-requests.create');
+      Route::post('/pickup-requests', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsStore'])->name('pickup-requests.store');
+      Route::get('/pickup-requests/{id}/edit', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsEdit'])->name('pickup-requests.edit');
+      Route::put('/pickup-requests/{id}', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsUpdate'])->name('pickup-requests.update');
+      Route::delete('/pickup-requests/{id}', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsDestroy'])->name('pickup-requests.destroy');
+      Route::post('/pickup-requests/{id}/approve', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsApprove'])->name('pickup-requests.approve');
+      Route::post('/pickup-requests/{id}/reject', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsReject'])->name('pickup-requests.reject');
+      Route::post('/pickup-requests/{id}/complete', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsComplete'])->name('pickup-requests.complete');
+      
       Route::get('/shipping-label/{id}', [App\Http\Controllers\Production\LogisticController::class, 'shippingLabel'])->name('shipping-label');
 
       // Packing Management
@@ -125,7 +136,10 @@ Route::middleware(['auth'])->group(function () {
 
       // Delivery & Fleet management
       Route::get('/delivery-scheduling', [App\Http\Controllers\Production\LogisticController::class, 'deliveryScheduling'])->name('delivery-scheduling');
+      Route::post('/delivery-scheduling/set-as-pickup', [App\Http\Controllers\Production\LogisticController::class, 'setAsPickup'])->name('set-as-pickup');
       Route::post('/delivery-scheduling/{id}/delivered', [App\Http\Controllers\Production\LogisticController::class, 'markAsDelivered'])->name('mark-as-delivered');
+      Route::post('/delivery-scheduling/{id}/picked-up', [App\Http\Controllers\Production\LogisticController::class, 'markAsPickedUp'])->name('mark-as-picked-up');
+      Route::post('/delivery-scheduling/{id}/move-back-to-delivery', [App\Http\Controllers\Production\LogisticController::class, 'moveBackToDelivery'])->name('move-back-to-delivery');
       Route::post('/delivery-scheduling/{id}/assign-driver', [App\Http\Controllers\Production\LogisticController::class, 'assignDriver'])->name('assign-driver');
       Route::get('/delivery-scheduling/{id}/transmittal', [App\Http\Controllers\Production\LogisticController::class, 'printTransmittal'])->name('print-transmittal');
       Route::get('/driver-dashboard', [App\Http\Controllers\Production\LogisticController::class, 'driverDashboard'])->name('driver-dashboard');
@@ -133,6 +147,7 @@ Route::middleware(['auth'])->group(function () {
       
       // Delivery Receipts (Restored)
       Route::get('/delivery-receipt-list', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceiptList'])->name('delivery-receipt-list');
+      Route::match(['get', 'post'], '/delivery-receipt-bulk-print', [App\Http\Controllers\Production\LogisticController::class, 'bulkPrintDR'])->name('delivery-receipt.bulk-print');
       Route::get('/delivery-receipt/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('delivery-receipt');
       Route::post('/delivery-receipt/import-excel', [App\Http\Controllers\Production\LogisticController::class, 'importDeliveryReceiptFromExcel'])->name('delivery-receipt.import-excel');
       Route::post('/mark-as-dr-prepared/{id}', [App\Http\Controllers\Production\LogisticController::class, 'markAsDRPrepared'])->name('mark-as-dr-prepared');

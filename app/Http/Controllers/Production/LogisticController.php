@@ -380,17 +380,24 @@ class LogisticController extends Controller
 
     public function deliveryScheduling()
     {
-        $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->where('status', 'ready_for_delivery')
+        $allOrders = \App\Models\SalesOrder::with(['customer', 'preparedBy', 'freightQuotation', 'invoice', 'deliveryReceipt', 'items.book', 'items.bookIndex', 'items.bundle'])
+            ->where(function($q) {
+                $q->where('status', 'ready_for_delivery')
+                  ->orWhere(function($sub) {
+                      $sub->where('is_pickup', true)->whereIn('status', ['ready_for_delivery', 'ready_for_pickup', 'completed']);
+                  });
+            })
             ->where('status', '!=', 'ready_for_packing')
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
-            ->where(function($query) {
-                $query->where(function($q) {
-                    $q->whereNotNull('packing_data')
-                      ->whereIn('packing_data->status', ['gathered', 'completed', 'ready_for_pickup']);
-                })->orWhereNotNull('delivery_date');
-            })
             ->orderByRaw('COALESCE(signed_at, created_at) DESC')
+            ->get();
+
+        $landtripOrders = $allOrders->where('is_pickup', false)->where('status', 'ready_for_delivery');
+        $pickupOrders = $allOrders->where('is_pickup', true);
+
+        $approvedRequests = \App\Models\PickupRequest::with('createdByUser')
+            ->whereIn('status', ['approved', 'completed'])
+            ->orderBy('requested_date', 'asc')
             ->get();
 
         $drivers = \App\Models\User::where('position', 'Driver')
@@ -398,12 +405,161 @@ class LogisticController extends Controller
             ->get();
 
         return view('production.logistic.delivery-scheduling', [
-            'orders' => $orders,
+            'orders' => $landtripOrders,
+            'pickupOrders' => $pickupOrders,
+            'approvedRequests' => $approvedRequests,
             'drivers' => $drivers,
             'title' => 'Delivery Scheduling',
             'role' => 'Dispatcher',
             'sidebar' => 'production'
         ]);
+    }
+
+    public function setAsPickup(Request $request)
+    {
+        $orderIds = $request->input('order_ids', []);
+        if (empty($orderIds)) {
+            return redirect()->back()->with('error', 'Please select at least one Sales Order to set as For Pickup.');
+        }
+
+        \App\Models\SalesOrder::whereIn('id', (array)$orderIds)->update([
+            'is_pickup' => true
+        ]);
+
+        return redirect()->back()->with('success', count((array)$orderIds) . ' order(s) moved to For Pickup tab successfully.');
+    }
+
+    public function markAsPickedUp(Request $request, $id)
+    {
+        $order = \App\Models\SalesOrder::findOrFail($id);
+
+        $order->update([
+            'status' => 'completed',
+            'picked_up_at' => now(),
+        ]);
+
+        $dr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->orWhere('so_number', $order->so_number)->first();
+        if ($dr) {
+            $dr->update(['status' => 'completed']);
+        }
+
+        return redirect()->back()->with('success', 'Order #' . $order->so_number . ' marked as completed (Picked Up).');
+    }
+
+    public function moveBackToDelivery(Request $request, $id)
+    {
+        $order = \App\Models\SalesOrder::findOrFail($id);
+
+        $order->update([
+            'is_pickup' => false,
+            'status' => 'ready_for_delivery',
+        ]);
+
+        return redirect()->back()->with('success', 'Order #' . $order->so_number . ' moved back to Landtrip Manifest.');
+    }
+
+    public function pickupRequestsIndex()
+    {
+        $requests = \App\Models\PickupRequest::with('createdByUser')->orderBy('id', 'desc')->get();
+        return view('production.logistic.pickup-requests.index', [
+            'requests' => $requests,
+            'title' => 'Logistics Service Orders',
+            'sidebar' => 'production'
+        ]);
+    }
+
+    public function pickupRequestsCreate()
+    {
+        return view('production.logistic.pickup-requests.create', [
+            'title' => 'Create Request',
+            'sidebar' => 'production'
+        ]);
+    }
+
+    public function pickupRequestsStore(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => 'required|in:delivery,pickup,pull_out',
+            'client_name' => 'required|string|max:255',
+            'address' => 'required|string',
+            'requested_date' => 'required|date',
+            'items_details' => 'required|string',
+            'remarks' => 'nullable|string',
+        ]);
+
+        $validated['status'] = 'pending_approval';
+        $validated['created_by'] = auth()->id();
+
+        \App\Models\PickupRequest::create($validated);
+
+        return redirect()->route('production.logistic.pickup-requests.index')->with('success', 'Request created successfully and sent to approval queue.');
+    }
+
+    public function pickupRequestsEdit($id)
+    {
+        $requestItem = \App\Models\PickupRequest::findOrFail($id);
+        return view('production.logistic.pickup-requests.edit', [
+            'requestItem' => $requestItem,
+            'title' => 'Edit Request',
+            'sidebar' => 'production'
+        ]);
+    }
+
+    public function pickupRequestsUpdate(Request $request, $id)
+    {
+        $requestItem = \App\Models\PickupRequest::findOrFail($id);
+
+        $validated = $request->validate([
+            'type' => 'required|in:delivery,pickup,pull_out',
+            'client_name' => 'required|string|max:255',
+            'address' => 'required|string',
+            'requested_date' => 'required|date',
+            'items_details' => 'required|string',
+            'remarks' => 'nullable|string',
+        ]);
+
+        $requestItem->update($validated);
+
+        return redirect()->route('production.logistic.pickup-requests.index')->with('success', 'Request updated successfully.');
+    }
+
+    public function pickupRequestsDestroy($id)
+    {
+        $requestItem = \App\Models\PickupRequest::findOrFail($id);
+        $requestItem->delete();
+        return redirect()->route('production.logistic.pickup-requests.index')->with('success', 'Request deleted successfully.');
+    }
+
+    public function pickupRequestsApprove(Request $request, $id)
+    {
+        $requestItem = \App\Models\PickupRequest::findOrFail($id);
+        $requestItem->update([
+            'status' => 'approved',
+            'approved_by' => auth()->id(),
+            'approved_at' => now(),
+        ]);
+        return redirect()->back()->with('success', 'Request approved successfully and sent to Delivery Scheduling.');
+    }
+
+    public function pickupRequestsReject(Request $request, $id)
+    {
+        $requestItem = \App\Models\PickupRequest::findOrFail($id);
+        $requestItem->update([
+            'status' => 'rejected',
+            'rejected_by' => auth()->id(),
+            'rejected_at' => now(),
+            'rejection_reason' => $request->input('rejection_reason'),
+        ]);
+        return redirect()->back()->with('success', 'Request rejected.');
+    }
+
+    public function pickupRequestsComplete(Request $request, $id)
+    {
+        $requestItem = \App\Models\PickupRequest::findOrFail($id);
+        $requestItem->update([
+            'status' => 'completed',
+        ]);
+        return redirect()->back()->with('success', 'Request marked as completed.');
     }
 
     public function markAsDelivered(Request $request, $id)
@@ -436,6 +592,7 @@ class LogisticController extends Controller
         $request->validate([
             'driver_id' => 'required|exists:users,id',
             'plate_number' => 'required|string|max:255',
+            'helper' => 'nullable|string|max:255',
             'delivery_date' => 'required|date',
         ]);
 
@@ -451,6 +608,7 @@ class LogisticController extends Controller
             'driver_id' => $request->driver_id,
             'driver' => $driver->first_name . ' ' . $driver->last_name,
             'plate_number' => $request->plate_number,
+            'helper' => $request->helper,
             'delivery_date' => $request->delivery_date,
         ]);
 
@@ -958,6 +1116,34 @@ class LogisticController extends Controller
             'customers' => $customers,
             'title' => 'Delivery Receipt',
             'sidebar' => 'production'
+        ]);
+    }
+
+    public function bulkPrintDR(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        if (is_string($ids)) {
+            $ids = explode(',', $ids);
+        }
+        $ids = array_filter((array)$ids);
+
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'No Delivery Receipts selected for bulk printing.');
+        }
+
+        $orders = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.product', 'preparedBy', 'drPreparedBy', 'signedBy', 'acctApprovedBy', 'mktApprovedBy'])
+            ->whereIn('id', $ids)
+            ->get();
+
+        $deliveryReceiptsMap = \App\Models\DeliveryReceipt::with('items')
+            ->whereIn('so_id', $ids)
+            ->get()
+            ->keyBy('so_id');
+
+        return view('production.logistic.bulk-print-dr', [
+            'orders' => $orders,
+            'deliveryReceiptsMap' => $deliveryReceiptsMap,
+            'title' => 'Bulk Print Delivery Receipts'
         ]);
     }
 
@@ -1837,14 +2023,19 @@ class LogisticController extends Controller
         try {
             \Log::info('Fetching packing order data for ID: ' . $id);
             
-            $order = \App\Models\SalesOrder::with('customer', 'items.book')->findOrFail($id);
+            $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex.book', 'items.bundle'])->findOrFail($id);
 
             $bName = $order->customer_representative;
             if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
                 preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
                 $bName = trim($m[1] ?? '');
             }
-            $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+            $bCompany = null;
+            if ($bName && \Illuminate\Support\Facades\Schema::hasTable('companies')) {
+                try {
+                    $bCompany = \App\Models\Company::where('company_name', $bName)->first();
+                } catch (\Exception $e) {}
+            }
             $order->display_company_name = $bCompany?->parent?->company_name 
                 ?: ($bCompany?->company_name 
                 ?: ($order->customer?->company_name 
@@ -2369,9 +2560,7 @@ class LogisticController extends Controller
             'title' => 'Freight Quotation Review',
             'sidebar' => 'production',
             'quotation' => $freightQuotation->load(['createdBy', 'salesOrder' => function($query) {
-                $query->with(['items' => function($q) {
-                    $q->with('book');
-                }, 'customer']);
+                $query->with(['items.book', 'items.bookIndex', 'items.product', 'items.bundle', 'customer']);
             }]),
         ]);
     }

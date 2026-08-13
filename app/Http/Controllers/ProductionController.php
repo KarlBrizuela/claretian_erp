@@ -162,6 +162,10 @@ class ProductionController extends Controller
         $pendingTransfers = $isAuthorized
             ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'bookIndex.book', 'bookBundle', 'createdBy', 'logisticsAssignedTo')
                 ->whereIn('status', ['pending', 'logistics_assignment', 'logistics_assigned', 'completed'])
+                ->where(function ($query) {
+                    $query->where('status', '!=', 'pending')
+                          ->orWhere('approval_division', 'Production');
+                })
                 ->latest()
                 ->get()
                 ->groupBy(function ($item) {
@@ -316,6 +320,25 @@ class ProductionController extends Controller
             ];
         }
 
+        $pendingPickupRequests = \App\Models\PickupRequest::with('createdByUser')
+            ->where('status', 'pending_approval')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        foreach ($pendingPickupRequests as $req) {
+            $myApprovals[] = [
+                'type' => 'Logistics Service Order',
+                'id' => $req->id,
+                'reference_no' => 'REQ-' . str_pad($req->id, 5, '0', STR_PAD_LEFT),
+                'submitted_by' => $req->createdByUser->name ?? 'N/A',
+                'submitted_date' => $req->created_at,
+                'amount' => ucfirst($req->type) . ': ' . $req->client_name,
+                'attachment' => null,
+                'status' => 'pending_approval',
+                'original' => $req
+            ];
+        }
+
         // 4. My Submissions
         $mySubmissions = collect();
         
@@ -372,6 +395,24 @@ class ProductionController extends Controller
             ]);
         }
 
+        $pickupSubmissions = \App\Models\PickupRequest::with('createdByUser')
+            ->where('created_by', auth()->id())
+            ->latest()
+            ->get();
+
+        foreach ($pickupSubmissions as $req) {
+            $mySubmissions->push((object)[
+                'type' => 'Logistics Service Order',
+                'id' => $req->id,
+                'reference_no' => 'REQ-' . str_pad($req->id, 5, '0', STR_PAD_LEFT),
+                'prep_name' => $req->createdByUser->name ?? 'N/A',
+                'submitted_date' => $req->created_at,
+                'amount' => ucfirst($req->type) . ': ' . $req->client_name,
+                'status' => $req->status,
+                'original' => $req
+            ]);
+        }
+
         // 5. My Approved Requests (Requests this manager has already approved)
         $caApproved = \App\Models\EmployeeCashAdvance::where('approved_by_manager', auth()->id())
             ->latest()
@@ -403,6 +444,24 @@ class ProductionController extends Controller
                 'submitted_by' => $req->user->name ?? $req->requested_by,
                 'submitted_date' => $req->created_at,
                 'amount' => '₱' . number_format($req->amount, 2),
+                'status' => $req->status,
+                'original' => $req
+            ]);
+        }
+
+        $pickupApproved = \App\Models\PickupRequest::with('createdByUser')
+            ->where('approved_by', auth()->id())
+            ->latest()
+            ->get();
+
+        foreach ($pickupApproved as $req) {
+            $myApprovedRequests->push((object)[
+                'type' => 'Logistics Service Order',
+                'id' => $req->id,
+                'reference_no' => 'REQ-' . str_pad($req->id, 5, '0', STR_PAD_LEFT),
+                'submitted_by' => $req->createdByUser->name ?? 'N/A',
+                'submitted_date' => $req->created_at,
+                'amount' => ucfirst($req->type) . ': ' . $req->client_name,
                 'status' => $req->status,
                 'original' => $req
             ]);

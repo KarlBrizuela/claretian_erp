@@ -1456,11 +1456,15 @@
 
         // Stock Transfer Approval AJAX Handler
         function approveStockTransfer(transferId) {
+            var remarksVal = $('#st-approval-remarks').val();
             $.ajax({
                 url: '/stock-transfers/' + transferId + '/approve',
                 type: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                data: {
+                    remarks: remarksVal
                 },
                 success: function(response) {
                     if (response.success) {
@@ -1477,7 +1481,7 @@
                     alert(message);
                 }
             });
-        }2
+        }
 
         // Stock Transfer Rejection AJAX Handler
         function rejectStockTransfer(transferId) {

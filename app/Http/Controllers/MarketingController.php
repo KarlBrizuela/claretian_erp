@@ -255,6 +255,7 @@ class MarketingController extends Controller
         $pendingTransfers = $isAuthorized
             ? \App\Models\StockTransfer::with('fromSite', 'toSite', 'book', 'bookIndex.book', 'bookBundle', 'createdBy')
                 ->where('status', 'pending')
+                ->where('approval_division', 'Marketing')
                 ->latest()
                 ->get()
                 ->groupBy(function ($item) {

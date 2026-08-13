@@ -112,6 +112,7 @@
                                         <tr>
                                             <th style="width: 30px;"><input type="checkbox" id="selectAllCheckbox" style="cursor: pointer;"></th>
                                             <th>SO #</th>
+                                            <th>Transaction Type</th>
                                             <th>Company</th>
                                             <th>SI Signed</th>
                                             <th>Total Items</th>
@@ -143,6 +144,9 @@
                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                     <td><input type="checkbox" class="order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                    </td>
                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                     <td>{{ $totalItems }}</td>
@@ -152,7 +156,7 @@
                                     <td>
                                         <div class="d-flex gap-2">
                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                    
                                                     data-order-id="{{ $order->id }}"
                                                     data-so-number="{{ $order->so_number }}"
                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -215,6 +219,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ecom-select-all-checkbox" data-platform="lazada" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -246,6 +251,9 @@
                                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -255,7 +263,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -276,7 +284,7 @@
                                                         </div>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center">No Lazada orders found</td>
+                                                    <td colspan="10" class="text-center">No Lazada orders found</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>
@@ -292,6 +300,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ecom-select-all-checkbox" data-platform="shopee" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -323,6 +332,9 @@
                                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -332,7 +344,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -355,7 +367,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center">No Shopee orders found</td>
+                                                    <td colspan="10" class="text-center">No Shopee orders found</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>
@@ -371,6 +383,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ecom-select-all-checkbox" data-platform="tiktok" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -402,6 +415,9 @@
                                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -411,7 +427,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -434,7 +450,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center">No TikTok orders found</td>
+                                                    <td colspan="10" class="text-center">No TikTok orders found</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>
@@ -450,6 +466,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ecom-select-all-checkbox" data-platform="cob" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -481,6 +498,9 @@
                                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -490,7 +510,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                   
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -513,7 +533,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center">No COB orders found</td>
+                                                    <td colspan="10" class="text-center">No COB orders found</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>
@@ -569,6 +589,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -590,6 +611,9 @@
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -599,7 +623,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -622,7 +646,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                    <td colspan="10" class="text-center" style="padding: 2rem;">
                                                         <p style="color: #999;">No orders ready for pickup yet</p>
                                                     </td>
                                                 </tr>
@@ -640,6 +664,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -661,6 +686,9 @@
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'Shopee Customer' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -670,7 +698,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -693,7 +721,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                    <td colspan="10" class="text-center" style="padding: 2rem;">
                                                         <p style="color: #999;">No Shopee orders ready for pickup</p>
                                                     </td>
                                                 </tr>
@@ -711,6 +739,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -732,6 +761,9 @@
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'TikTok Customer' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -741,7 +773,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -764,7 +796,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                    <td colspan="10" class="text-center" style="padding: 2rem;">
                                                         <p style="color: #999;">No TikTok orders ready for pickup</p>
                                                     </td>
                                                 </tr>
@@ -782,6 +814,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -803,6 +836,9 @@
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'Lazada Customer' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -812,7 +848,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -835,7 +871,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                    <td colspan="10" class="text-center" style="padding: 2rem;">
                                                         <p style="color: #999;">No Lazada orders ready for pickup</p>
                                                     </td>
                                                 </tr>
@@ -853,6 +889,7 @@
                                                 <tr>
                                                     <th style="width: 30px;"><input type="checkbox" class="ready-select-all-table-checkbox" style="cursor: pointer;"></th>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>SI Signed</th>
                                                     <th>Total Items</th>
@@ -874,6 +911,9 @@
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $order->customer->customer_name ?? 'COB Customer' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -883,7 +923,7 @@
                                                     <td>
                                                         <div class="d-flex gap-2">
                                                             <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                    onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                    
                                                                     data-order-id="{{ $order->id }}"
                                                                     data-so-number="{{ $order->so_number }}"
                                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -906,7 +946,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                    <td colspan="10" class="text-center" style="padding: 2rem;">
                                                         <p style="color: #999;">No COB orders ready for pickup</p>
                                                     </td>
                                                 </tr>
@@ -923,6 +963,7 @@
                                             <thead>
                                                 <tr>
                                                     <th>SO #</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Platform</th>
                                                     <th>Customer</th>
                                                     <th>Total Items</th>
@@ -945,6 +986,9 @@
                                                 @endphp
                                                 <tr>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td><span class="platform-badge {{ $platformClass }}">{{ $platformLabel }}</span></td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
@@ -954,7 +998,7 @@
                                                     <td><span class="badge" style="background-color: #17a2b8; color: #fff;">Completed</span></td>
                                                     <td>
                                                         <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                                onclick="openPackingDetailsModal({{ $order->id }})"
+                                                                
                                                                 data-order-id="{{ $order->id }}"
                                                                 data-so-number="{{ $order->so_number }}"
                                                                 data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
@@ -968,7 +1012,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center" style="padding: 2rem;">
+                                                    <td colspan="10" class="text-center" style="padding: 2rem;">
                                                         <p style="color: #999;">No completed drop-off orders</p>
                                                     </td>
                                                 </tr>
@@ -987,6 +1031,7 @@
                                     <thead>
                                         <tr>
                                             <th>SO Number</th>
+                                            <th>Transaction Type</th>
                                             <th>Recipient / Customer</th>
                                             <th>Date</th>
                                             <th>Total Qty</th>
@@ -1003,6 +1048,9 @@
                                         @endphp
                                         <tr>
                                             <td><strong>{{ $order->so_number }}</strong></td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                            </td>
                                             <td>{{ $order->customer->customer_name ?? 'Recipient' }}</td>
                                             <td>{{ $order->created_at->format('Y-m-d') }}</td>
                                             <td>{{ $totalQty }} pcs</td>
@@ -1010,18 +1058,30 @@
                                                 <span class="badge" style="background-color: #6f42c1; color: #fff;">Complimentary (Ready to Pack)</span>
                                             </td>
                                             <td>
-                                                <button type="button" class="btn btn-success shadow mark-packed-btn"
-                                                        onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
-                                                        title="Mark as Packed (Send to Delivery Scheduling)"
-                                                        style="background: #28a745; border: none; padding: 0.4rem 0.8rem; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 500;">
-                                                    <i class="fas fa-check-circle me-1" style="font-size: 0.9rem;"></i> Mark as Packed
-                                                </button>
+                                                <div class="d-flex gap-2">
+                                                    <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                            data-order-id="{{ $order->id }}"
+                                                            data-so-number="{{ $order->so_number }}"
+                                                            data-customer="{{ $order->customer->customer_name ?? 'Recipient' }}"
+                                                            data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                            data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                            title="View Details"
+                                                            style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff;">
+                                                        <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                            onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                            title="Mark as Packed (Send to Delivery Scheduling)"
+                                                            style="background: #28a745; border: none; padding: 0.4rem 0.8rem; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 500;">
+                                                        <i class="fas fa-check-circle me-1" style="font-size: 0.9rem;"></i> Mark as Packed
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="6" class="text-center" style="padding: 2rem;">
-                                                <p style="color: #999;">No complimentary orders ready for packing.</p>
+                                            <td colspan="7" class="text-center" style="padding: 2rem;">
+                                                <p style="color: #999;">No complimentary orders to pack yet</p>
                                             </td>
                                         </tr>
                                         @endforelse
@@ -1289,174 +1349,163 @@
         </div>
     </div>
 
-    <!-- Order Detail Modal -->
-    <div id="orderDetailModal" class="modal-backdrop-packing" style="display: none;">
-        <div class="modal-content-packing">
-            <div class="modal-header-packing">
+    @push('modals')
+    <!-- Order Detail Modal (rendered at body level to avoid stacking context issues) -->
+    <div id="orderDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 999999; align-items: center; justify-content: center; backdrop-filter: blur(3px);">
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 95vw; width: 1200px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; animation: slideInPacking 0.3s ease-out;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.5rem 2rem; border-bottom: 1px solid #e9ecef; background: #f8f9fa;">
                 <h3 id="modalTitle" style="margin: 0; color: #000;">Packing Details</h3>
-                <button type="button" class="modal-close-btn" id="closeDetailBtn" onclick="closePackingDetailsModal()" style="cursor: pointer; z-index: 10000; position: relative;">&times;</button>
+                <button type="button" onclick="closePackingDetailsModal()" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #999; padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
             </div>
-            <div class="modal-body-packing">
-                <div class="order-info-section">
-            <div class="order-info-box">
-                <h5>Order Information</h5>
-                <div class="form-group">
-                    <label>Sales Order Number:</label>
-                    <input type="text" id="detailSONumber" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Order Date:</label>
-                    <input type="text" id="detailOrderDate" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Company:</label>
-                    <input type="text" id="detailCustomerName" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Customer Name:</label>
-                    <input type="text" id="detailRepresentative" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Account Number:</label>
-                    <input type="text" id="detailAccountNumber" class="fw-bold font-monospace" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Contact:</label>
-                    <input type="text" id="detailContact" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Remarks / Special Instructions:</label>
-                    <div class="d-flex flex-column gap-2">
-                        <textarea id="detailRemarks" class="form-control" style="background:#fff; font-weight:600;" placeholder="Enter remarks or special instructions..." rows="2"></textarea>
-                        <button type="button" class="btn btn-sm btn-primary align-self-start mt-1" onclick="savePackingRemarksOnly()" style="background:#0d6efd; border:none; border-radius:6px; font-weight:600; padding: 0.4rem 1rem;">
-                            <i class="fas fa-save me-1"></i>Save Remarks
-                        </button>
+            <div style="padding: 2rem; overflow-y: auto; flex: 1;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h5 style="margin-bottom: 1rem; font-weight: 600;">Order Information</h5>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Sales Order Number:</label>
+                            <input type="text" id="detailSONumber" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-weight: 700;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Order Date:</label>
+                            <input type="text" id="detailOrderDate" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Company:</label>
+                            <input type="text" id="detailCustomerName" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Customer Name:</label>
+                            <input type="text" id="detailRepresentative" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Account Number:</label>
+                            <input type="text" id="detailAccountNumber" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-weight: 700; font-family: monospace;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Contact:</label>
+                            <input type="text" id="detailContact" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Remarks / Special Instructions:</label>
+                            <textarea id="detailRemarks" class="form-control" style="background:#fff; font-weight:600;" placeholder="Enter remarks or special instructions..." rows="2"></textarea>
+                            <button type="button" onclick="savePackingRemarksOnly()" class="btn btn-sm btn-primary mt-1" style="background:#0d6efd; border:none; border-radius:6px; font-weight:600; padding: 0.4rem 1rem;">
+                                <i class="fas fa-save me-1"></i>Save Remarks
+                            </button>
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">SI Signed Date:</label>
+                            <input type="text" id="siSignedDate" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Freight Option:</label>
+                            <input type="text" id="detailFreightOptionPack" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div id="detailForwarderPackContainer" style="display: none; margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Forwarder:</label>
+                            <input type="text" id="detailForwarderPack" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #0d6efd; font-weight: 700;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Packing Status:</label>
+                            <select id="packingStatus" style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="not_started">Not Started</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="ready_for_pickup">Ready for Pickup</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Number of Boxes:</label>
+                            <input type="number" id="packingBoxesCount" placeholder="Enter number of boxes" min="0" style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>SI Signed Date:</label>
-                    <input type="text" id="siSignedDate" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Freight Option:</label>
-                    <input type="text" id="detailFreightOptionPack" readonly>
-                </div>
-                <div class="form-group" id="detailForwarderPackContainer" style="display: none;">
-                    <label>Forwarder:</label>
-                    <input type="text" id="detailForwarderPack" class="fw-bold text-primary" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Packing Status:</label>
-                    <select id="packingStatus">
-                        <option value="not_started">Not Started</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="completed">Completed</option>
-                        <option value="ready_for_pickup">Ready for Pickup</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Number of Boxes:</label>
-                    <input type="number" id="packingBoxesCount" placeholder="Enter number of boxes" min="0">
-                </div>
-            </div>
-            <div class="order-info-box" id="attachmentsSection" style="display: none;">
-                <h5>Attachments - Packing Photos</h5>
-                <div class="form-group">
-                    <label>Upload Photo 1:</label>
-                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                        <input type="file" id="packingPhoto1" accept="image/*" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                        <button type="button" id="cameraPhoto1Btn" class="btn" style="background: #007bff; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">
-                            <i class="fas fa-camera"></i> Camera
-                        </button>
-                    </div>
-                    <div id="photo1Preview" style="display: none; margin-top: 0.5rem;">
-                        <img id="photo1Img" src="" alt="Photo 1" style="max-width: 100%; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Upload Photo 2:</label>
-                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                        <input type="file" id="packingPhoto2" accept="image/*" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                        <button type="button" id="cameraPhoto2Btn" class="btn" style="background: #007bff; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">
-                            <i class="fas fa-camera"></i> Camera
-                        </button>
-                    </div>
-                    <div id="photo2Preview" style="display: none; margin-top: 0.5rem;">
-                        <img id="photo2Img" src="" alt="Photo 2" style="max-width: 100%; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
-                    </div>
-                </div>
-            </div>
-        </div>
-
-                <!-- Packing Items Table -->
-                <div id="barcodeScanMessage" class="barcode-scan-message visually-hidden" aria-live="polite">Ready to scan</div>
-
-                <h5 style="margin-bottom: 1rem; margin-top: 1.5rem; font-weight: 600;">Items to Pack</h5>
-                <div class="table-wrapper-packing">
-                    <table class="packing-table">
-                        <thead>
-                <tr>
-                    <th style="width: 50px;">#</th>
-                    <th>Product</th>
-                    <th style="width: 120px;">Qty to Pack</th>
-                    <th style="width: 120px;">Unit Price</th>
-                    <th style="width: 120px;">Subtotal</th>
-                    <th style="width: 100px;">Packed Qty</th>
-                    <th style="width: 120px;">Status</th>
-                    <th style="width: 150px;">Notes</th>
-                    <th style="width: 120px;">Packed Date</th>
-                </tr>
-            </thead>
-            <tbody id="packingTableBody">
-                <!-- Filled by JS -->
-            </tbody>
-        </table>
-                </div>
-
-        <!-- Summary Section -->
-        <div class="order-info-section" style="margin-top: 1.5rem;">
-            <div class="order-info-box">
-                <h5>Packing Summary</h5>
-                <div class="form-group">
-                    <label>Total Items:</label>
-                    <input type="text" id="totalItems" value="0" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Items Packed:</label>
-                    <input type="text" id="itemsPacked" value="0" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Packing Progress:</label>
-                    <div class="progress" style="height: 25px;">
-                        <div id="packingProgressBar" class="progress-bar bg-warning" role="progressbar" style="width: 0%">
-                            <span id="packingPercent">0%</span>
+                    <div id="attachmentsSection" style="display: none; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h5 style="margin-bottom: 1rem; font-weight: 600;">Attachments - Packing Photos</h5>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Upload Photo 1:</label>
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <input type="file" id="packingPhoto1" accept="image/*" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" id="cameraPhoto1Btn" class="btn" style="background: #007bff; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-camera"></i> Camera</button>
+                            </div>
+                            <div id="photo1Preview" style="display: none; margin-top: 0.5rem;">
+                                <img id="photo1Img" src="" alt="Photo 1" style="max-width: 100%; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Upload Photo 2:</label>
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <input type="file" id="packingPhoto2" accept="image/*" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" id="cameraPhoto2Btn" class="btn" style="background: #007bff; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-camera"></i> Camera</button>
+                            </div>
+                            <div id="photo2Preview" style="display: none; margin-top: 0.5rem;">
+                                <img id="photo2Img" src="" alt="Photo 2" style="max-width: 100%; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="order-info-box">
-                <h5>Actions</h5>
-                <div class="form-group">
-                    <button type="button" class="btn btn-success" style="width: 100%; margin-bottom: 0.5rem; background: #ffc107; color: #000; border: none; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;" id="savePackingBtn" onclick="savePackingData()">
-                        <i class="las la-save"></i> Save Packing
-                    </button>
+
+                <!-- Barcode / Items section -->
+                <div id="barcodeScanMessage" style="display: none; padding: 0.5rem 1rem; background: #e8f5e9; border-radius: 6px; margin-bottom: 1rem; font-weight: 600; color: #2e7d32;" aria-live="polite">Ready to scan</div>
+
+                <h5 style="margin-bottom: 1rem; margin-top: 0.5rem; font-weight: 600;">Items to Pack</h5>
+                <div style="overflow-x: auto; margin-bottom: 1rem;">
+                    <table class="packing-table" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; width: 40px;">#</th>
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Product</th>
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; width: 100px;">Qty to Pack</th>
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; width: 100px;">Unit Price</th>
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; width: 100px;">Subtotal</th>
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; width: 100px;">Packed Qty</th>
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; width: 110px;">Status</th>
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; width: 140px;">Notes</th>
+                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; width: 120px;">Packed Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="packingTableBody">
+                            <!-- Filled by JS -->
+                        </tbody>
+                    </table>
                 </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-outline-primary" style="width: 100%; margin-bottom: 0.5rem; border: 1px solid #0d6efd; color: #0d6efd; background: #fff; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="openPackingShippingLabel()">
-                        <i class="fas fa-tag me-1"></i> Print / View Shipping Label
-                    </button>
+
+                <!-- Summary & Actions -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h5 style="margin-bottom: 1rem; font-weight: 600;">Packing Summary</h5>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Total Items:</label>
+                            <input type="text" id="totalItems" value="0" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Items Packed:</label>
+                            <input type="text" id="itemsPacked" value="0" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Packing Progress:</label>
+                            <div class="progress" style="height: 25px;">
+                                <div id="packingProgressBar" class="progress-bar bg-warning" role="progressbar" style="width: 0%">
+                                    <span id="packingPercent">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h5 style="margin-bottom: 1rem; font-weight: 600;">Actions</h5>
+                        <button type="button" id="savePackingBtn" onclick="savePackingData()" style="width: 100%; margin-bottom: 0.5rem; background: #ffc107; color: #000; border: none; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            <i class="las la-save"></i> Save Packing
+                        </button>
+                        <button type="button" onclick="openPackingShippingLabel()" style="width: 100%; margin-bottom: 0.5rem; border: 1px solid #0d6efd; color: #0d6efd; background: #fff; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            <i class="fas fa-tag me-1"></i> Print / View Shipping Label
+                        </button>
+                        <button type="button" onclick="closePackingDetailsModal()" style="width: 100%; background: #6c757d; color: #fff; border: none; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            <i class="las la-times"></i> Close Details
+                        </button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-primary-custom close-modal-btn" style="width: 100%; cursor: pointer;" id="closeDetailsActionBtn" onclick="closePackingDetailsModal()">
-                        <i class="las la-times"></i> Close Details
-                    </button>
-                </div>
-            </div>
-        </div>
             </div>
         </div>
     </div>
+    @endpush
 
     @push('styles')
     <style>
@@ -1471,13 +1520,14 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
+            z-index: 99999 !important;
+            backdrop-filter: blur(3px);
         }
 
         .modal-content-packing {
@@ -1999,16 +2049,25 @@
             });
 
             // View Order Button Click
-            $(document).on('click', '.view-order-btn', function(e) {
-                e.stopPropagation();
-                const btn = $(this).closest('.view-order-btn');
-                const orderId = btn.attr('data-order-id') || btn.data('order-id');
-                if (orderId) {
-                    currentOrderId = orderId;
-                    console.log('Clicked view details for order:', currentOrderId);
-                    loadPackingOrder(currentOrderId);
-                }
-            });
+           document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.view-order-btn');
+
+    if (!btn) {
+        return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const orderId = btn.getAttribute('data-order-id');
+
+    console.log('Clicked view details for order:', orderId);
+
+    if (orderId) {
+        currentOrderId = orderId;
+        loadPackingOrder(orderId);
+    }
+});
 
             // Close Detail Modal
             const closeDetailBtn = document.getElementById('closeDetailBtn');
@@ -2384,20 +2443,36 @@
                     let totalItems = 0;
                     let packedItems = 0;
 
-                    order.items.forEach((item, index) => {
+                    (order.items || []).forEach((item, index) => {
                         const itemKey = `item_${index}`;
                         const itemData = packingData[itemKey] || {};
                         
                         totalItems++;
                         if (itemData.status === 'Packed') packedItems++;
 
+                       // const prodName = item.book_index ? (item.book_index.display_name || item.book_index.title) : (item.book ? item.book.name : (item.bundle ? item.bundle.name : 'N/A'));
+
+                       const prodName =
+    item.book_index?.display_name ||
+    item.book_index?.title ||
+    item.book?.name ||
+    item.book_bundle?.name ||
+    item.bookBundle?.name ||
+    item.bundle?.name ||
+    item.name ||
+    'N/A';
+
+    
+                        const unitPrice = parseFloat(item.price || 0).toFixed(2);
+                        const subtotalPrice = parseFloat(item.subtotal || (item.quantity * (item.price || 0)) || 0).toFixed(2);
+
                         html += `
                             <tr id="packing_item_row_${index}">
                                 <td>${index + 1}</td>
-                                <td>${item.book?.name || 'N/A'}</td>
-                                <td><input type="number" value="${item.quantity}" readonly style="width: 100%; border: none;"></td>
-                                <td>₱${parseFloat(item.price).toFixed(2)}</td>
-                                <td>₱${parseFloat(item.subtotal).toFixed(2)}</td>
+                                <td class="fw-bold">${prodName}</td>
+                                <td><input type="number" value="${item.quantity}" readonly style="width: 100%; border: none; background: transparent; font-weight: 600;"></td>
+                                <td>₱${unitPrice}</td>
+                                <td>₱${subtotalPrice}</td>
                                 <td><input type="number" id="packed_qty_${index}" min="0" max="${item.quantity}" value="${itemData.packed_qty || 0}" onchange="updatePackingCount()"></td>
                                 <td>
                                     <select id="packed_status_${index}" onchange="handlePackingStatusChange()">
@@ -2579,12 +2654,11 @@
 
         function setBarcodeScanMessage(message, type) {
             const messageBox = document.getElementById('barcodeScanMessage');
+            if (!messageBox) return;
             messageBox.textContent = message;
-            messageBox.classList.remove('success', 'error');
-
-            if (type === 'success' || type === 'error') {
-                messageBox.classList.add(type);
-            }
+            messageBox.style.display = message ? 'block' : 'none';
+            messageBox.style.background = type === 'success' ? '#e8f5e9' : (type === 'error' ? '#ffebee' : '#e8f5e9');
+            messageBox.style.color = type === 'success' ? '#2e7d32' : (type === 'error' ? '#c62828' : '#2e7d32');
         }
 
         function savePackingData() {
@@ -2610,20 +2684,51 @@
             const photo1Input = document.getElementById('packingPhoto1');
             const photo2Input = document.getElementById('packingPhoto2');
 
-            // Function to convert file to base64
-            const fileToBase64 = (file) => {
+            // Function to compress image before base64 encoding to speed up upload loading time
+            const compressAndGetBase64 = (file) => {
                 return new Promise((resolve, reject) => {
                     const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+                            const max_size = 1200; // max resolution
+
+                            if (width > height) {
+                                if (width > max_size) {
+                                    height *= max_size / width;
+                                    width = max_size;
+                                }
+                            } else {
+                                if (height > max_size) {
+                                    width *= max_size / height;
+                                    height = max_size;
+                                }
+                            }
+
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            // Compress to JPEG with 0.75 quality to drastically reduce upload size
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                            resolve(dataUrl);
+                        };
+                        img.onerror = error => reject(error);
+                        img.src = e.target.result;
+                    };
                     reader.onerror = error => reject(error);
                     reader.readAsDataURL(file);
                 });
             };
 
-            // Process attachments
+            // Process attachments with compression to prevent long loading delays
             Promise.all([
-                photo1Input && photo1Input.files.length > 0 ? fileToBase64(photo1Input.files[0]) : Promise.resolve(null),
-                photo2Input && photo2Input.files.length > 0 ? fileToBase64(photo2Input.files[0]) : Promise.resolve(null)
+                photo1Input && photo1Input.files.length > 0 ? compressAndGetBase64(photo1Input.files[0]) : Promise.resolve(null),
+                photo2Input && photo2Input.files.length > 0 ? compressAndGetBase64(photo2Input.files[0]) : Promise.resolve(null)
             ])
             .then(([photo1Base64, photo2Base64]) => {
                 const payload = {
@@ -3033,7 +3138,7 @@
             })
             .catch(err => alert('Error saving remarks: ' + err.message));
         // --- Team Stock Transfer Packing & Barcode Scanning JS ---
-
+  }
         let tsScannerBuffer = '';
         let tsScannerTimer = null;
 

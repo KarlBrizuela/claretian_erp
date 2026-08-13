@@ -323,7 +323,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @php $soSubtotal = 0; $totalWeight = 0; @endphp
+                                            @php $soSubtotal = 0; $totalWeight = 0; $grossSubtotal = 0; $totalItemDiscount = 0; @endphp
                                             @foreach($quotation->salesOrder->items as $item)
                                                 @php
                                                     $product = $item->product ?? $item->book ?? $item->bundle ?? $item->bookIndex;
@@ -338,6 +338,8 @@
                                                     $itemTotalWeight = $quantity * $weight;
                                                     $totalWeight += $itemTotalWeight;
                                                     $soSubtotal += $itemSubtotal;
+                                                    $grossSubtotal += $itemGross;
+                                                    $totalItemDiscount += $discAmt;
                                                 @endphp
                                                 <tr>
                                                     <td>{{ $quantity }}</td>
@@ -370,13 +372,22 @@
                                         </tbody>
                                         <tfoot class="table-light">
                                             @php
-                                                $orderDiscVal = (float)($quotation->salesOrder->discount_value ?? 0);
-                                                $orderDiscType = $quotation->salesOrder->discount_type ?? 'amount';
-                                                $orderDiscAmount = $quotation->salesOrder->discount_amount ?? ($orderDiscType === 'percentage' ? $soSubtotal * ($orderDiscVal / 100) : $orderDiscVal);
+                                                $orderDiscAmount = (float)($quotation->salesOrder->discount_amount ?? 0);
+                                                $orderDiscVal = (float)($quotation->salesOrder->discount_percentage ?? 0);
                                                 $soNetTotal = max(0, $soSubtotal - $orderDiscAmount);
                                                 $serviceFee = $quotation->freight_option === 'freight_collect' ? 50 : 0;
                                                 $grandTotal = $soNetTotal + $serviceFee;
                                             @endphp
+                                            @if($totalItemDiscount > 0)
+                                            <tr>
+                                                <td colspan="6" class="text-end"><strong>Gross Subtotal:</strong></td>
+                                                <td class="text-end fw-bold">₱ {{ number_format($grossSubtotal, 2) }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="6" class="text-end text-danger"><strong>Item Discounts:</strong></td>
+                                                <td class="text-end fw-bold text-danger">- ₱ {{ number_format($totalItemDiscount, 2) }}</td>
+                                            </tr>
+                                            @endif
                                             <tr>
                                                 <td colspan="3" class="text-end"><strong>Items Subtotal:</strong></td>
                                                 <td class="text-center fw-bold">
@@ -391,7 +402,7 @@
                                             </tr>
                                             @if($orderDiscAmount > 0)
                                             <tr>
-                                                <td colspan="6" class="text-end text-danger"><strong>Order Discount:</strong></td>
+                                                <td colspan="6" class="text-end text-danger"><strong>Order Discount{{ $orderDiscVal > 0 ? ' (' . $orderDiscVal . '%)' : ' (₱' . number_format($orderDiscAmount, 2) . ')' }}:</strong></td>
                                                 <td class="text-end fw-bold text-danger">- ₱ {{ number_format($orderDiscAmount, 2) }}</td>
                                             </tr>
                                             @endif

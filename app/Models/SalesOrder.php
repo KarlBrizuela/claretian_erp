@@ -62,6 +62,9 @@ class SalesOrder extends Model
         'shipping_label_attachment',
         'driver',
         'plate_number',
+        'helper',
+        'is_pickup',
+        'picked_up_at',
         'driver_id',
         'delivery_date',
         'packing_data',
@@ -153,6 +156,11 @@ class SalesOrder extends Model
     public function invoice()
     {
         return $this->hasOne(SalesInvoice::class, 'so_id');
+    }
+
+    public function deliveryReceipt()
+    {
+        return $this->hasOne(DeliveryReceipt::class, 'so_id');
     }
 
     public function invoices()

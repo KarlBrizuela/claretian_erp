@@ -362,7 +362,7 @@ class SiteController extends Controller
         }
     }
 
-    public function approveTransfer($id)
+    public function approveTransfer(Request $request, $id)
     {
         try {
             $transfer = StockTransfer::findOrFail($id);
@@ -383,7 +383,9 @@ class SiteController extends Controller
                 ], 422);
             }
 
-            DB::transaction(function () use ($transfer) {
+            $remarks = $request->input('remarks');
+
+            DB::transaction(function () use ($transfer, $remarks) {
                 $query = $transfer->batch_id 
                     ? StockTransfer::where('batch_id', $transfer->batch_id) 
                     : StockTransfer::where('id', $transfer->id);
@@ -391,7 +393,8 @@ class SiteController extends Controller
                 $query->update([
                     'status' => 'accounting_review',
                     'approved_by' => auth()->id(),
-                    'approved_at' => now()
+                    'approved_at' => now(),
+                    'remarks' => $remarks
                 ]);
             });
 
@@ -407,7 +410,7 @@ class SiteController extends Controller
         }
     }
 
-    public function approveAccountingTransfer($id)
+    public function approveAccountingTransfer(Request $request, $id)
     {
         try {
             $transfer = StockTransfer::findOrFail($id);
@@ -427,15 +430,30 @@ class SiteController extends Controller
                 ], 422);
             }
 
-            $query = $transfer->batch_id 
-                ? StockTransfer::where('batch_id', $transfer->batch_id) 
-                : StockTransfer::where('id', $transfer->id);
+            $newRemarks = $request->input('remarks');
 
-            $query->update([
-                'status' => 'logistics_assignment',
-                'accounting_reviewed_by' => $user->id,
-                'accounting_reviewed_at' => now()
-            ]);
+            DB::transaction(function () use ($transfer, $user, $newRemarks) {
+                $query = $transfer->batch_id 
+                    ? StockTransfer::where('batch_id', $transfer->batch_id) 
+                    : StockTransfer::where('id', $transfer->id);
+
+                foreach ($query->get() as $t) {
+                    $finalRemarks = $t->remarks;
+                    if ($newRemarks) {
+                        if ($finalRemarks) {
+                            $finalRemarks .= "\n[Accounting Review]: " . $newRemarks;
+                        } else {
+                            $finalRemarks = "[Accounting Review]: " . $newRemarks;
+                        }
+                    }
+                    $t->update([
+                        'status' => 'logistics_assignment',
+                        'accounting_reviewed_by' => $user->id,
+                        'accounting_reviewed_at' => now(),
+                        'remarks' => $finalRemarks
+                    ]);
+                }
+            });
 
             return response()->json([
                 'success' => true,

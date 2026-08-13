@@ -1,6 +1,7 @@
 <x-app-layout :title="'Delivery Receipts'" :sidebar="'production'">
     @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap-daterangepicker/daterangepicker.css') }}" rel="stylesheet">
     <style>
         .nav-tabs .nav-link {
             color: #333;
@@ -37,6 +38,29 @@
             background: #ff0000 !important;
             color: #fff !important;
             border-color: #ff0000 !important;
+        }
+
+        /* Floating Sticky Bulk Action Bar at Bottom of Screen */
+        .dr-bulk-floating-bar {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1050;
+            background: #ffffff;
+            padding: 10px 24px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            border: 2px solid #ff0000;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .dr-bulk-floating-bar.hidden {
+            bottom: -100px;
+            opacity: 0;
+            pointer-events: none;
         }
     </style>
     @endpush
@@ -306,11 +330,73 @@
 
                     <!-- Completed DRs Tab -->
                     <div class="tab-pane fade" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
+                        <!-- Filters Section for Completed DRs -->
+                        <div class="p-3 mb-3 border rounded shadow-sm bg-light" style="height: auto !important; min-height: 0 !important;">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-4 col-sm-6">
+                                    <label class="form-label small fw-bold text-muted mb-1">Status</label>
+                                    <select id="completedStatusFilter" class="form-control form-control-sm">
+                                        <option value="all">All Statuses</option>
+                                        <option value="ready_for_packing">In Packing</option>
+                                        <option value="ready_for_delivery">Ready for Delivery</option>
+                                        <option value="si_created">Moved to SI</option>
+                                        <option value="ar_created">Moved to AR</option>
+                                        <option value="cr_created">Moved to CR</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="reconsignment_pending">Reconsignment Pending</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 col-sm-6">
+                                    <label class="form-label small fw-bold text-muted mb-1">Prepared By</label>
+                                    <select id="completedPreparedByFilter" class="form-control form-control-sm">
+                                        <option value="all">All Prepared By</option>
+                                        @php
+                                            $uniquePreparers = collect($completedOrders ?? [])->map(function($o) {
+                                                return $o->drPreparedBy->name ?? ($o->preparedBy->name ?? 'System');
+                                            })->filter()->unique()->sort();
+                                        @endphp
+                                        @foreach($uniquePreparers as $prepName)
+                                            <option value="{{ strtolower($prepName) }}">{{ $prepName }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-3 col-sm-6">
+                                    <label class="form-label small fw-bold text-muted mb-1">DR Date Range</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-white border-end-0"><i class="las la-calendar text-danger fs-16"></i></span>
+                                        <input type="text" id="completedDateRange" class="form-control form-control-sm border-start-0" placeholder="Date Range" readonly style="background:#fff; cursor:pointer;">
+                                    </div>
+                                </div>
+                                <div class="col-md-1 col-sm-6 d-flex align-items-end">
+                                    <button type="button" id="resetCompletedFilters" class="btn btn-outline-secondary btn-sm w-100 mt-md-4" title="Reset Filters">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Floating Sticky Bulk Action Bar for Completed DRs -->
+                        <div id="bulkCompletedDrToolbar" class="dr-bulk-floating-bar hidden">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-danger rounded-pill px-3 py-2 fs-13 fw-bold" id="selectedCompletedDrCount">0</span>
+                                <span class="fw-bold text-dark fs-14">Delivery Receipt(s) selected</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" id="btnPrintSelectedDr" class="btn btn-danger btn-sm rounded-pill px-4 fw-bold shadow-sm" style="background:#ff0000; border-color:#ff0000; height: 38px;">
+                                    <i class="las la-print me-1 fs-16"></i> Print Selected DRs
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="table-responsive">
                             <table class="table table-hover" id="completedDrTable" style="width:100%">
                                 <thead class="table-light">
                                     <tr>
+                                        <th style="width: 40px;" class="text-center">
+                                            <input type="checkbox" id="selectAllCompletedDr" class="form-check-input" style="cursor: pointer; width: 18px; height: 18px;">
+                                        </th>
                                         <th>SO Number</th>
+                                        <th>DR Date</th>
                                         <th>Customer</th>
                                         <th>Total Amount</th>
                                         <th>Payment Terms</th>
@@ -376,9 +462,21 @@
                                             '90_days' => '90 Days',
                                             default => $order->terms ?? 'Standard'
                                         };
+                                        $drDateObj = $order->dr_prepared_at ? \Carbon\Carbon::parse($order->dr_prepared_at) : ($order->updated_at ? \Carbon\Carbon::parse($order->updated_at) : null);
+                                        $drDateFormatted = $drDateObj ? $drDateObj->format('M d, Y') : '-';
+                                        $drDateIso = $drDateObj ? $drDateObj->format('Y-m-d') : '';
+                                        $prepByName = $order->drPreparedBy->name ?? ($order->preparedBy->name ?? 'System');
                                     @endphp
-                                    <tr>
+                                    <tr data-so-number="{{ $order->so_number }}" 
+                                        data-customer="{{ $order->customer->customer_name ?? '' }}" 
+                                        data-status="{{ $order->status }}" 
+                                        data-prepared-by="{{ strtolower($prepByName) }}" 
+                                        data-dr-date="{{ $drDateIso }}">
+                                        <td class="text-center">
+                                            <input type="checkbox" class="form-check-input completed-dr-cb" value="{{ $order->id }}" style="cursor: pointer; width: 18px; height: 18px;">
+                                        </td>
                                         <td><strong>{{ $order->so_number }}</strong></td>
+                                        <td><span class="badge bg-light text-dark border text-nowrap"><i class="las la-calendar me-1"></i>{{ $drDateFormatted }}</span></td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td><span class="badge bg-info">{{ $termsDisplay }}</span></td>
@@ -519,6 +617,8 @@
 
     @push('scripts')
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
+    <script src="{{ asset('vendor/moment/moment.min.js') }}"></script>
+    <script src="{{ asset('vendor/bootstrap-daterangepicker/daterangepicker.js') }}"></script>
     <script>
         $(document).ready(function() {
             const drTable = $('#drTable').DataTable({
@@ -533,18 +633,199 @@
                 }
             });
 
-            $('#completedDrTable').DataTable({
-                order: [[0, 'desc']],
+            const completedDrTable = $('#completedDrTable').DataTable({
+                order: [[1, 'desc']],
                 pageLength: 10,
                 columnDefs: [
-                    { orderable: false, targets: -1 }
+                    { orderable: false, targets: [0, -1] }
                 ],
                 language: {
                     zeroRecords: "No completed delivery receipts found"
                 }
             });
 
-            // Custom DataTables filter matching Search, Customer, and Status
+            let completedDateFrom = null;
+            let completedDateTo = null;
+
+            // Initialize bootstrap daterangepicker for single calendar date-range selection
+            $('#completedDateRange').daterangepicker({
+                autoUpdateInput: false,
+                locale: {
+                    cancelLabel: 'Clear',
+                    format: 'YYYY-MM-DD'
+                }
+            });
+
+            $('#completedDateRange').on('apply.daterangepicker', function(ev, picker) {
+                completedDateFrom = picker.startDate.format('YYYY-MM-DD');
+                completedDateTo = picker.endDate.format('YYYY-MM-DD');
+                $(this).val(picker.startDate.format('MMM DD, YYYY') + ' - ' + picker.endDate.format('MMM DD, YYYY'));
+                completedDrTable.draw();
+            });
+
+            $('#completedDateRange').on('cancel.daterangepicker', function(ev, picker) {
+                completedDateFrom = null;
+                completedDateTo = null;
+                $(this).val('');
+                completedDrTable.draw();
+            });
+
+            // Persistent state for selected Completed DR IDs across pagination
+            const selectedCompletedDrIds = new Set();
+
+            function updateCompletedDrToolbarState() {
+                const checkedCount = selectedCompletedDrIds.size;
+
+                $('#selectedCompletedDrCount').text(checkedCount);
+
+                const isCompletedTabActive = $('#completed-pane').hasClass('active');
+
+                if (checkedCount > 0 && isCompletedTabActive) {
+                    $('#bulkCompletedDrToolbar').removeClass('hidden');
+                } else {
+                    $('#bulkCompletedDrToolbar').addClass('hidden');
+                }
+
+                // Update selectAll header checkbox status for currently visible page
+                const visibleCheckboxes = $('#completedDrTable tbody .completed-dr-cb');
+                if (visibleCheckboxes.length > 0) {
+                    const visibleChecked = visibleCheckboxes.filter(':checked').length;
+                    if (visibleChecked === visibleCheckboxes.length) {
+                        $('#selectAllCompletedDr').prop('checked', true).prop('indeterminate', false);
+                    } else if (visibleChecked > 0) {
+                        $('#selectAllCompletedDr').prop('checked', false).prop('indeterminate', true);
+                    } else {
+                        $('#selectAllCompletedDr').prop('checked', false).prop('indeterminate', false);
+                    }
+                } else {
+                    $('#selectAllCompletedDr').prop('checked', false).prop('indeterminate', false);
+                }
+            }
+
+            // Restore checkbox states when DataTables redraws (page change, search, sort)
+            function syncCompletedDrCheckboxesOnDraw() {
+                $('#completedDrTable tbody .completed-dr-cb').each(function() {
+                    const id = $(this).val();
+                    $(this).prop('checked', selectedCompletedDrIds.has(id));
+                });
+                updateCompletedDrToolbarState();
+            }
+
+            $('#selectAllCompletedDr').on('change', function() {
+                const isChecked = $(this).is(':checked');
+                
+                completedDrTable.rows({ filter: 'applied' }).nodes().to$().find('.completed-dr-cb').each(function() {
+                    const id = $(this).val();
+                    $(this).prop('checked', isChecked);
+                    if (isChecked) {
+                        selectedCompletedDrIds.add(id);
+                    } else {
+                        selectedCompletedDrIds.delete(id);
+                    }
+                });
+
+                updateCompletedDrToolbarState();
+            });
+
+            $(document).on('change', '.completed-dr-cb', function() {
+                const id = $(this).val();
+                if ($(this).is(':checked')) {
+                    selectedCompletedDrIds.add(id);
+                } else {
+                    selectedCompletedDrIds.delete(id);
+                }
+                updateCompletedDrToolbarState();
+            });
+
+            completedDrTable.on('draw', function() {
+                syncCompletedDrCheckboxesOnDraw();
+            });
+
+            $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
+                updateCompletedDrToolbarState();
+            });
+
+            $('#btnPrintSelectedDr').on('click', function() {
+                const selectedIds = Array.from(selectedCompletedDrIds);
+
+                if (selectedIds.length === 0) {
+                    alert('Please select at least one Delivery Receipt to print.');
+                    return;
+                }
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = "{{ route('production.logistic.delivery-receipt.bulk-print') }}";
+                form.target = '_blank';
+
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = '{{ csrf_token() }}';
+                form.appendChild(csrf);
+
+                selectedIds.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ids[]';
+                    input.value = id;
+                    form.appendChild(input);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            });
+
+            // Custom DataTables filter for Completed DRs
+            $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+                if (settings.nTable.id !== 'completedDrTable') return true;
+
+                const rowNode = completedDrTable.row(dataIndex).node();
+                const statusFilter = ($('#completedStatusFilter').val() || 'all').toLowerCase().trim();
+                const preparedByFilter = ($('#completedPreparedByFilter').val() || 'all').toLowerCase().trim();
+                const dateFrom = completedDateFrom;
+                const dateTo = completedDateTo;
+
+                const status = ($(rowNode).data('status') || '').toString().toLowerCase();
+                const preparedBy = ($(rowNode).data('prepared-by') || '').toString().toLowerCase();
+                const drDate = ($(rowNode).data('dr-date') || '').toString(); // YYYY-MM-DD
+
+                // 1. Status match
+                const statusMatch = (statusFilter === 'all') || (status === statusFilter);
+
+                // 2. Prepared By match
+                const preparedByMatch = (preparedByFilter === 'all') || (preparedBy.includes(preparedByFilter));
+
+                // 3. Date Range match
+                let dateMatch = true;
+                if (dateFrom || dateTo) {
+                    if (!drDate) {
+                        dateMatch = false;
+                    } else {
+                        if (dateFrom && drDate < dateFrom) dateMatch = false;
+                        if (dateTo && drDate > dateTo) dateMatch = false;
+                    }
+                }
+
+                return statusMatch && preparedByMatch && dateMatch;
+            });
+
+            // Trigger redraw on filter changes
+            $('#completedStatusFilter, #completedPreparedByFilter').on('change', function() {
+                completedDrTable.draw();
+            });
+
+            $('#resetCompletedFilters').on('click', function() {
+                $('#completedStatusFilter').val('all');
+                $('#completedPreparedByFilter').val('all');
+                $('#completedDateRange').val('');
+                completedDateFrom = null;
+                completedDateTo = null;
+                completedDrTable.draw();
+            });
+
+            // Custom DataTables filter matching Search, Customer, and Status for Pending DRs
             $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
                 if (settings.nTable.id !== 'drTable') return true;
 

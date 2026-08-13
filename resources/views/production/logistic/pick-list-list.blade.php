@@ -46,6 +46,7 @@
                                         <tr>
                                             <th>Pick List Number</th>
                                             <th>Sales Order</th>
+                                            <th>Transaction Type</th>
                                             <th>Customer</th>
                                             <th>Date Created</th>
                                             <th>Total Items</th>
@@ -60,6 +61,9 @@
                                         <tr>
                                             <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                             <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                            </td>
                                             <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                             <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
                                             <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
@@ -96,7 +100,7 @@
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="9" class="text-center">No active pick lists.</td>
+                                            <td colspan="10" class="text-center">No active pick lists.</td>
                                         </tr>
                                         @endforelse
                                     </tbody>
@@ -140,6 +144,7 @@
                                                 <tr>
                                                     <th>Pick List Number</th>
                                                     <th>Sales Order</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>Date Created</th>
                                                     <th>Total Items</th>
@@ -154,6 +159,9 @@
                                                 <tr>
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                                     <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
                                                     <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
@@ -190,7 +198,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center">No Lazada pick lists.</td>
+                                                    <td colspan="10" class="text-center">No Lazada pick lists.</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>
@@ -206,6 +214,7 @@
                                                 <tr>
                                                     <th>Pick List Number</th>
                                                     <th>Sales Order</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>Date Created</th>
                                                     <th>Total Items</th>
@@ -220,6 +229,9 @@
                                                 <tr>
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                                     <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
                                                     <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
@@ -256,7 +268,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center">No Shopee pick lists.</td>
+                                                    <td colspan="10" class="text-center">No Shopee pick lists.</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>
@@ -272,6 +284,7 @@
                                                 <tr>
                                                     <th>Pick List Number</th>
                                                     <th>Sales Order</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>Date Created</th>
                                                     <th>Total Items</th>
@@ -286,6 +299,9 @@
                                                 <tr>
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                                     <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
                                                     <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
@@ -322,7 +338,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center">No TikTok pick lists.</td>
+                                                    <td colspan="10" class="text-center">No TikTok pick lists.</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>
@@ -338,6 +354,7 @@
                                                 <tr>
                                                     <th>Pick List Number</th>
                                                     <th>Sales Order</th>
+                                                    <th>Transaction Type</th>
                                                     <th>Customer</th>
                                                     <th>Date Created</th>
                                                     <th>Total Items</th>
@@ -352,6 +369,9 @@
                                                 <tr>
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                    </td>
                                                     <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                                     <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
                                                     <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
@@ -388,7 +408,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr>
-                                                    <td colspan="9" class="text-center">No COB pick lists.</td>
+                                                    <td colspan="10" class="text-center">No COB pick lists.</td>
                                                 </tr>
                                                 @endforelse
                                             </tbody>
@@ -405,6 +425,7 @@
                                         <tr>
                                             <th>Pick List Number</th>
                                             <th>Sales Order</th>
+                                            <th>Transaction Type</th>
                                             <th>Recipient / Customer</th>
                                             <th>Date Created</th>
                                             <th>Total Items</th>
@@ -419,6 +440,9 @@
                                         <tr>
                                             <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                             <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                            </td>
                                             <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                             <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
                                             <td>{{ $pickList->pickListItems->sum('requested_qty') }}</td>
@@ -559,6 +583,8 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Item Title</th>
+                                    <th>Barcode</th>
+                                    <th class="text-end">Price</th>
                                     <th>Type</th>
                                     <th class="text-center">Quantity to Pick & Transfer</th>
                                 </tr>
@@ -568,9 +594,28 @@
                                 @php
                                     $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
                                     $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+
+                                    // Barcode resolution
+                                    $barcode = $tItem->bookIndex ? ($tItem->bookIndex->barcode ?: ($tItem->bookIndex->nbs_barcode ?: ($tItem->bookIndex->article ?: ($tItem->bookIndex->book?->barcode ?: $tItem->bookIndex->book?->sku))))
+                                              : ($tItem->book ? ($tItem->book->barcode ?: ($tItem->book->nbs_barcode ?: ($tItem->book->sku ?: $tItem->book->isbn)))
+                                              : ($tItem->bookBundle ? ($tItem->bookBundle->sku ?: '—') : '—'));
+
+                                    // Price resolution
+                                    $price = (float)($tItem->price > 0 ? $tItem->price 
+                                            : ($tItem->bookIndex ? ($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?: 0))
+                                            : ($tItem->book ? ($tItem->book->price ?: 0)
+                                            : ($tItem->bookBundle ? ($tItem->bookBundle->price ?: 0) : 0))));
                                 @endphp
                                 <tr>
                                     <td class="fw-bold text-dark">{{ $itemName }}</td>
+                                    <td>
+                                        @if($barcode && $barcode !== '—')
+                                            <span class="badge bg-light text-dark border font-monospace"><i class="las la-barcode me-1 text-danger"></i>{{ $barcode }}</span>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end fw-bold">₱{{ number_format($price, 2) }}</td>
                                     <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
                                     <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
                                 </tr>

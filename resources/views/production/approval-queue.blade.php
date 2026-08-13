@@ -347,6 +347,88 @@
                                         <td>
                                             @if($approval['type'] === 'Sales Order')
                                                 <a href="{{ $approval['url'] }}" class="btn btn-primary btn-sm"><i class="las la-eye"></i> Review</a>
+                                            @elseif($approval['type'] === 'Logistics Service Order')
+                                                <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#pickupRequestModal{{ $approval['id'] }}">
+                                                    <i class="las la-eye"></i> Review
+                                                </button>
+                                                <form action="{{ route('production.logistic.pickup-requests.approve', $approval['id']) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve</button>
+                                                </form>
+                                                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectPickupModal{{ $approval['id'] }}">
+                                                    <i class="las la-times me-1"></i> Reject
+                                                </button>
+
+                                                <!-- Review Modal -->
+                                                <div class="modal fade" id="pickupRequestModal{{ $approval['id'] }}" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content text-start">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title">Review Logistics Service Order</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <div class="modal-body text-start">
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Type:</strong> <span class="badge {{ $approval['original']->type === 'delivery' ? 'bg-primary text-white' : 'text-white' }}" style="{{ $approval['original']->type === 'pickup' ? 'background-color: #6f42c1 !important;' : ($approval['original']->type === 'pull_out' ? 'background-color: #f57c00 !important;' : '') }}">{{ str_replace('_', ' ', ucfirst($approval['original']->type)) }}</span>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Client / Receiver Name:</strong>
+                                                                    <div>{{ $approval['original']->client_name }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Address / Location:</strong>
+                                                                    <div>{{ $approval['original']->address }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Requested Date:</strong>
+                                                                    <div>{{ $approval['original']->requested_date->format('M d, Y') }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Items Details:</strong>
+                                                                    <div class="bg-light p-2 rounded" style="white-space: pre-wrap;">{{ $approval['original']->items_details }}</div>
+                                                                </div>
+                                                                @if($approval['original']->remarks)
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Remarks:</strong>
+                                                                    <div>{{ $approval['original']->remarks }}</div>
+                                                                </div>
+                                                                @endif
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                                <form action="{{ route('production.logistic.pickup-requests.approve', $approval['id']) }}" method="POST" class="d-inline">
+                                                                    @csrf
+                                                                    <button type="submit" class="btn btn-success"><i class="las la-check me-1"></i> Approve</button>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Reject Modal -->
+                                                <div class="modal fade" id="rejectPickupModal{{ $approval['id'] }}" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content text-start">
+                                                            <form action="{{ route('production.logistic.pickup-requests.reject', $approval['id']) }}" method="POST">
+                                                                @csrf
+                                                                <div class="modal-header">
+                                                                    <h5 class="modal-title">Reject Request</h5>
+                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                </div>
+                                                                <div class="modal-body text-start">
+                                                                    <div class="mb-3 text-start">
+                                                                        <label class="form-label fw-bold">Reason for Rejection</label>
+                                                                        <textarea class="form-control" name="rejection_reason" rows="3" required placeholder="Specify why this request is being rejected..."></textarea>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="modal-footer">
+                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                    <button type="submit" class="btn btn-danger">Submit Reject</button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                              @elseif($approval['type'] === 'Team Stock Transfer')
                                                  <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#prodTeamStockTransferModal{{ $approval['id'] }}">
                                                      <i class="las la-eye"></i> Review
@@ -369,18 +451,45 @@
                                                     <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times"></i> Reject</button>
                                                 </form>
                                             @elseif($approval['type'] === 'Stock Transfer')
-                                                <div class="d-flex gap-1" style="max-width: 250px;">
-                                                    <select class="form-control form-control-sm" id="assignLogistics{{ $approval['id'] }}">
-                                                        <option value="">Select staff</option>
-                                                        @foreach($logisticsUsers ?? [] as $logisticsUser)
-                                                            <option value="{{ $logisticsUser->id }}" {{ $approval['original']->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
-                                                                {{ $logisticsUser->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    <button class="btn btn-primary btn-sm" onclick="assignLogisticsTransfer({{ $approval['id'] }})">
-                                                        Assign
+                                                <div class="d-flex gap-1 align-items-center flex-wrap">
+                                                    <button type="button" 
+                                                            class="btn btn-primary btn-sm view-transfer-btn"
+                                                            data-id="{{ $approval['id'] }}"
+                                                            data-ref="ST-{{ str_pad($approval['id'], 5, '0', STR_PAD_LEFT) }}"
+                                                            data-from-site="{{ $approval['original']->fromSite->name ?? 'N/A' }}"
+                                                            data-to-site="{{ $approval['original']->toSite->name ?? 'N/A' }}"
+                                                            data-submitted-by="{{ $approval['submitted_by'] ?? 'N/A' }}"
+                                                            data-date="{{ $approval['original']->created_at ? $approval['original']->created_at->format('M. d, Y h:i A') : '' }}"
+                                                            data-notes="{{ $approval['original']->notes ?? '' }}"
+                                                            data-remarks="{{ $approval['original']->remarks ?? '' }}"
+                                                            data-status="{{ $approval['original']->status }}"
+                                                            data-can-approve="{{ $approval['original']->canBeApprovedBy(auth()->user()) ? 'true' : 'false' }}"
+                                                            data-items="{{ json_encode($approval['original']->batch_items ?? [['name' => $approval['original']->item_name, 'type' => $approval['original']->item_type, 'quantity' => $approval['original']->quantity]]) }}">
+                                                        <i class="las la-eye"></i> View
                                                     </button>
+
+                                                    @if($approval['original']->status === 'pending' && $approval['original']->canBeApprovedBy(auth()->user()))
+                                                        <button type="button" class="btn btn-success btn-sm" onclick="approveTransfer({{ $approval['id'] }})">
+                                                            <i class="las la-check"></i> Approve
+                                                        </button>
+                                                        <button type="button" class="btn btn-danger btn-sm" onclick="rejectTransfer({{ $approval['id'] }})">
+                                                            <i class="las la-times"></i> Reject
+                                                        </button>
+                                                    @elseif($approval['original']->status === 'logistics_assignment' && ($isLogisticsAssigner ?? false))
+                                                        <div class="d-flex gap-1" style="max-width: 250px;">
+                                                            <select class="form-control form-control-sm" id="assignLogistics{{ $approval['id'] }}">
+                                                                <option value="">Select staff</option>
+                                                                @foreach($logisticsUsers ?? [] as $logisticsUser)
+                                                                    <option value="{{ $logisticsUser->id }}" {{ $approval['original']->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
+                                                                        {{ $logisticsUser->name }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+                                                            <button class="btn btn-primary btn-sm" onclick="assignLogisticsTransfer({{ $approval['id'] }})">
+                                                                Assign
+                                                            </button>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             @else
                                                 <button type="button" 
@@ -444,6 +553,57 @@
                                         <td>
                                             @if($submission->type === 'Sales Order')
                                                 <a href="{{ $submission->url }}" class="btn btn-primary btn-sm"><i class="las la-eye"></i> View</a>
+                                            @elseif($submission->type === 'Logistics Service Order')
+                                                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#viewSubmissionPickupModal{{ $submission->id }}">
+                                                    <i class="las la-eye"></i> View
+                                                </button>
+
+                                                <!-- Submission Detail Modal -->
+                                                <div class="modal fade" id="viewSubmissionPickupModal{{ $submission->id }}" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content text-start">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title">Logistics Service Order Details</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <div class="modal-body text-start">
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Type:</strong> <span class="badge {{ $submission->original->type === 'delivery' ? 'bg-primary text-white' : 'text-white' }}" style="{{ $submission->original->type === 'pickup' ? 'background-color: #6f42c1 !important;' : ($submission->original->type === 'pull_out' ? 'background-color: #f57c00 !important;' : '') }}">{{ str_replace('_', ' ', ucfirst($submission->original->type)) }}</span>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Client / Receiver Name:</strong>
+                                                                    <div>{{ $submission->original->client_name }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Address / Location:</strong>
+                                                                    <div>{{ $submission->original->address }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Requested Date:</strong>
+                                                                    <div>{{ $submission->original->requested_date->format('M d, Y') }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Items Details:</strong>
+                                                                    <div class="bg-light p-2 rounded" style="white-space: pre-wrap;">{{ $submission->original->items_details }}</div>
+                                                                </div>
+                                                                @if($submission->original->remarks)
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Remarks:</strong>
+                                                                    <div>{{ $submission->original->remarks }}</div>
+                                                                </div>
+                                                                @endif
+                                                                @if($submission->original->status === 'rejected')
+                                                                <div class="alert alert-danger mb-0 mt-3 text-start">
+                                                                    <strong>Rejection Reason:</strong> {{ $submission->original->rejection_reason ?? 'N/A' }}
+                                                                </div>
+                                                                @endif
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             @else
                                                 <button type="button" class="btn btn-primary btn-sm"
                                                     data-bs-toggle="modal" data-bs-target="#cashAdvanceModal"
@@ -509,8 +669,55 @@
                                             <span class="status-badge {{ $badgeClass }}">{{ ucwords(str_replace('_', ' ', $status)) }}</span>
                                         </td>
                                         <td>
-                                            <button type="button" 
-                                                    class="btn btn-primary btn-xs"
+                                            @if($approved->type === 'Logistics Service Order')
+                                                <button type="button" class="btn btn-primary btn-xs" data-bs-toggle="modal" data-bs-target="#viewApprovedPickupModal{{ $approved->id }}">
+                                                    <i class="las la-eye"></i> View
+                                                </button>
+
+                                                <!-- Approved Detail Modal -->
+                                                <div class="modal fade" id="viewApprovedPickupModal{{ $approved->id }}" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content text-start">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title">Logistics Service Order Details</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <div class="modal-body text-start">
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Type:</strong> <span class="badge {{ $approved->original->type === 'delivery' ? 'bg-primary text-white' : 'text-white' }}" style="{{ $approved->original->type === 'pickup' ? 'background-color: #6f42c1 !important;' : ($approved->original->type === 'pull_out' ? 'background-color: #f57c00 !important;' : '') }}">{{ str_replace('_', ' ', ucfirst($approved->original->type)) }}</span>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Client / Receiver Name:</strong>
+                                                                    <div>{{ $approved->original->client_name }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Address / Location:</strong>
+                                                                    <div>{{ $approved->original->address }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Requested Date:</strong>
+                                                                    <div>{{ $approved->original->requested_date->format('M d, Y') }}</div>
+                                                                </div>
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Items Details:</strong>
+                                                                    <div class="bg-light p-2 rounded" style="white-space: pre-wrap;">{{ $approved->original->items_details }}</div>
+                                                                </div>
+                                                                @if($approved->original->remarks)
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Remarks:</strong>
+                                                                    <div>{{ $approved->original->remarks }}</div>
+                                                                </div>
+                                                                @endif
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @else
+                                                <button type="button" 
+                                                        class="btn btn-primary btn-xs"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#cashAdvanceModal"
                                                     data-id="{{ $approved->id }}"
@@ -521,6 +728,7 @@
                                                     data-status="{{ $approved->status }}">
                                                 <i class="las la-eye"></i> View
                                             </button>
+                                            @endif
                                         </td>
                                     </tr>
                                     @endforeach
@@ -635,57 +843,73 @@
                                         @endif
                                     </td>
                                     <td>
-                                        @if($transfer->status === 'pending' && $transfer->canBeApprovedBy(auth()->user()))
-                                            <button type="button" class="btn btn-success btn-sm" onclick="approveTransfer({{ $transfer->id }})">
-                                                <i class="las la-check"></i> Approve
+                                        <div class="d-flex gap-1 align-items-center flex-wrap">
+                                            <button type="button" 
+                                                    class="btn btn-primary btn-sm view-transfer-btn"
+                                                    data-id="{{ $transfer->id }}"
+                                                    data-ref="ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}"
+                                                    data-from-site="{{ $transfer->fromSite->name ?? 'N/A' }}"
+                                                    data-to-site="{{ $transfer->toSite->name ?? 'N/A' }}"
+                                                    data-submitted-by="{{ $transfer->createdBy->name ?? 'N/A' }}"
+                                                    data-date="{{ $transfer->created_at->format('M. d, Y h:i A') }}"
+                                                    data-notes="{{ $transfer->notes ?? '' }}"
+                                                    data-remarks="{{ $transfer->remarks ?? '' }}"
+                                                    data-status="{{ $transfer->status }}"
+                                                    data-can-approve="{{ $transfer->canBeApprovedBy(auth()->user()) ? 'true' : 'false' }}"
+                                                    data-items="{{ json_encode($transfer->batch_items ?? [['name' => $transfer->item_name, 'type' => $transfer->item_type, 'quantity' => $transfer->quantity]]) }}">
+                                                <i class="las la-eye"></i> View
                                             </button>
-                                            <button type="button" class="btn btn-danger btn-sm" onclick="rejectTransfer({{ $transfer->id }})">
-                                                <i class="las la-times"></i> Reject
-                                            </button>
-                                        @elseif($transfer->status === 'accounting_review' && ($isAccountingReviewer ?? false))
-                                            <button class="btn btn-info btn-sm" onclick="accountingApproveTransfer({{ $transfer->id }})">
-                                                <i class="las la-file-invoice"></i> Accounting Approve
-                                            </button>
-                                        @elseif($transfer->status === 'logistics_assigned')
-                                            <div class="d-flex flex-column gap-1">
-                                                @if($transfer->canBeCompletedBy(auth()->user()))
-                                                    <button class="btn btn-success btn-sm" onclick="completeLogisticsTransfer({{ $transfer->id }})">
-                                                        <i class="las la-check-double"></i> Mark Completed
-                                                    </button>
-                                                @endif
-                                                @if($isLogisticsAssigner ?? false)
-                                                    <div class="d-flex gap-1 mt-1">
-                                                        <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
-                                                            <option value="">Re-assign staff</option>
-                                                            @foreach($logisticsUsers ?? [] as $logisticsUser)
-                                                                <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
-                                                                    {{ $logisticsUser->name }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                        <button class="btn btn-outline-primary btn-sm" onclick="assignLogisticsTransfer({{ $transfer->id }})">
-                                                            Re-assign
-                                                        </button>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        @elseif($transfer->status === 'logistics_assignment' && ($isLogisticsAssigner ?? false))
-                                            <div class="d-flex gap-1">
-                                                <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
-                                                    <option value="">Select staff</option>
-                                                    @foreach($logisticsUsers ?? [] as $logisticsUser)
-                                                        <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
-                                                            {{ $logisticsUser->name }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                                <button class="btn btn-primary btn-sm" onclick="assignLogisticsTransfer({{ $transfer->id }})">
-                                                    Assign
+
+                                            @if($transfer->status === 'pending' && $transfer->canBeApprovedBy(auth()->user()))
+                                                <button type="button" class="btn btn-success btn-sm" onclick="approveTransfer({{ $transfer->id }})">
+                                                    <i class="las la-check"></i> Approve
                                                 </button>
-                                            </div>
-                                        @else
-                                            <span class="text-muted small">No action available</span>
-                                        @endif
+                                                <button type="button" class="btn btn-danger btn-sm" onclick="rejectTransfer({{ $transfer->id }})">
+                                                    <i class="las la-times"></i> Reject
+                                                </button>
+                                            @elseif($transfer->status === 'accounting_review' && ($isAccountingReviewer ?? false))
+                                                <button class="btn btn-info btn-sm" onclick="accountingApproveTransfer({{ $transfer->id }})">
+                                                    <i class="las la-file-invoice"></i> Accounting Approve
+                                                </button>
+                                            @elseif($transfer->status === 'logistics_assigned')
+                                                <div class="d-flex flex-column gap-1">
+                                                    @if($transfer->canBeCompletedBy(auth()->user()))
+                                                        <button class="btn btn-success btn-sm" onclick="completeLogisticsTransfer({{ $transfer->id }})">
+                                                            <i class="las la-check-double"></i> Mark Completed
+                                                        </button>
+                                                    @endif
+                                                    @if($isLogisticsAssigner ?? false)
+                                                        <div class="d-flex gap-1 mt-1">
+                                                            <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
+                                                                <option value="">Re-assign staff</option>
+                                                                @foreach($logisticsUsers ?? [] as $logisticsUser)
+                                                                    <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
+                                                                        {{ $logisticsUser->name }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+                                                            <button class="btn btn-outline-primary btn-sm" onclick="assignLogisticsTransfer({{ $transfer->id }})">
+                                                                Re-assign
+                                                            </button>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @elseif($transfer->status === 'logistics_assignment' && ($isLogisticsAssigner ?? false))
+                                                <div class="d-flex gap-1">
+                                                    <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
+                                                        <option value="">Select staff</option>
+                                                        @foreach($logisticsUsers ?? [] as $logisticsUser)
+                                                            <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
+                                                                {{ $logisticsUser->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <button class="btn btn-primary btn-sm" onclick="assignLogisticsTransfer({{ $transfer->id }})">
+                                                        Assign
+                                                    </button>
+                                                </div>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -816,6 +1040,168 @@
                         <input type="hidden" name="status" value="rejected">
                         <input type="hidden" name="rejection_reason" id="hidden_rejection_reason">
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Transfer Details Modal -->
+    <div class="modal fade" id="stockTransferModal" tabindex="-1" aria-labelledby="stockTransferModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg">
+                <!-- Header -->
+                <div class="modal-header border-0 text-white position-relative" style="background: #dc3545; padding: 1.5rem 2rem;">
+                    <div>
+                        <h5 class="modal-title text-white fw-bold mb-1" id="stockTransferModalLabel">
+                            <i class="las la-exchange-alt me-2"></i>Stock Transfer Request Details
+                        </h5>
+                        <p class="mb-0 opacity-75 small" id="st-modal-reference-header"></p>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <!-- Body -->
+                <div class="modal-body p-0" style="background: #f8f9fa; overflow-y: auto;">
+                    <!-- Info Cards -->
+                    <div class="p-3" style="background: #f8f9fa;">
+                        <div class="row g-2">
+                            <!-- Submitted By -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-user" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">Submitted By</label>
+                                            <p id="st-submitted-by" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Request Type -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-tag" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">Request Type</label>
+                                            <p class="mb-0 small fw-semibold" style="color:#212529;">Stock Transfer Request</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- From Site -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-warehouse" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">From Site</label>
+                                            <p id="st-from-site" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- To Site -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-map-marker" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">To Site</label>
+                                            <p id="st-to-site" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Date Submitted -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-calendar" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">Date Submitted</label>
+                                            <p id="st-modal-date" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Status -->
+                            <div class="col-md-6">
+                                <div class="info-card p-2 rounded h-100 bg-white border">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                            <i class="las la-info-circle" style="font-size:1.1rem;color:#6c757d;"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <label class="text-muted mb-0 d-block" style="font-size:0.75rem;font-weight:600;">Status</label>
+                                            <p id="st-modal-status" class="mb-0 small fw-semibold" style="color:#212529;"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items Table Section -->
+                    <div class="px-3 pb-3" style="background:#f8f9fa;">
+                        <div class="details-section p-3 rounded-3 bg-white border">
+                            <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
+                                <div class="icon-wrapper me-2" style="width:32px;height:32px;background:#dc3545;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                                    <i class="las la-books text-white" style="font-size:1.1rem;"></i>
+                                </div>
+                                <h6 class="fw-bold mb-0" style="color:#212529;">Books Included in Transfer</h6>
+                            </div>
+                            <div class="table-responsive" style="max-height:280px;overflow-y:auto;">
+                                <table class="table table-bordered table-hover align-middle mb-0 small">
+                                    <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+                                        <tr>
+                                            <th style="width:55%">Book Title / Code</th>
+                                            <th style="width:20%">Type</th>
+                                            <th class="text-center" style="width:25%">Quantity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="st-items-body"></tbody>
+                                </table>
+                            </div>
+                            <!-- Notes -->
+                            <div id="st-notes-row" class="mt-3" style="display:none;">
+                                <label class="form-label fw-bold small text-dark mb-1"><i class="las la-sticky-note text-warning me-1"></i>Notes:</label>
+                                <div id="st-notes-text" class="p-2 rounded" style="background:#fffbe6;border:1px solid #ffe58f;font-size:0.875rem;color:#555;"></div>
+                            </div>
+                            <!-- Remarks -->
+                            <div id="st-remarks-row" class="mt-3" style="display:none;">
+                                <label class="form-label fw-bold small text-dark mb-1"><i class="las la-comment-alt text-primary me-1"></i>Approval Remarks / History:</label>
+                                <div id="st-remarks-text" class="p-2 rounded" style="background:#e6f7ff;border:1px solid #91d5ff;font-size:0.875rem;color:#555;white-space:pre-wrap;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer border-top bg-white" style="padding:1.25rem 2rem;">
+                    <div class="d-flex justify-content-between w-100 align-items-center">
+                        <button type="button" class="btn btn-light px-4 py-2 fw-semibold border" data-bs-dismiss="modal">
+                            <i class="las la-times me-1"></i>Close
+                        </button>
+                        <div class="d-flex gap-2" id="st-modal-actions" style="display:none !important;">
+                            <button type="button" class="btn btn-danger px-4 py-2 fw-semibold" id="st-modal-reject-btn">
+                                <i class="las la-times-circle me-1"></i>Reject
+                            </button>
+                            <button type="button" class="btn btn-success px-4 py-2 fw-semibold" id="st-modal-approve-btn">
+                                <i class="las la-check-circle me-1"></i>Approve
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1080,16 +1466,21 @@
         }
 
         function approveTransfer(transferId) {
-            if (!confirm('Approve this stock transfer?')) {
+            const remarks = prompt('Remarks (Optional):');
+            if (remarks === null) {
                 return;
             }
+
+            const formData = new FormData();
+            formData.append('remarks', remarks);
 
             fetch(`/stock-transfers/${transferId}/approve`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                     'Accept': 'application/json'
-                }
+                },
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
@@ -1192,6 +1583,80 @@
             })
             .catch(() => alert('Error completing transfer.'));
         }
+
+        $(document).on('click', '.view-transfer-btn', function() {
+            var btn = $(this);
+            var id = btn.data('id');
+            var ref = btn.data('ref');
+            var fromSite = btn.data('from-site');
+            var toSite = btn.data('to-site');
+            var submittedBy = btn.data('submitted-by');
+            var date = btn.data('date');
+            var notes = btn.data('notes');
+            var remarks = btn.data('remarks');
+            var status = btn.data('status');
+            var items = btn.data('items'); // JSON parsed array
+
+            var modal = $('#stockTransferModal');
+            modal.find('#st-modal-reference-header').text(ref);
+            modal.find('#st-submitted-by').text(submittedBy);
+            modal.find('#st-from-site').text(fromSite);
+            modal.find('#st-to-site').text(toSite);
+            modal.find('#st-modal-date').text(date);
+            modal.find('#st-modal-status').text(status.replace(/_/g, ' ').toUpperCase());
+
+            // Populate items table
+            var itemsHtml = '';
+            var totalQty = 0;
+            if (Array.isArray(items)) {
+                items.forEach(function(item) {
+                    var qty = parseInt(item.quantity) || 0;
+                    totalQty += qty;
+                    itemsHtml += `<tr>
+                        <td><strong>${item.name || 'Unknown Item'}</strong></td>
+                        <td><span class="badge bg-secondary">${item.type || 'Book'}</span></td>
+                        <td class="text-center fw-bold text-success">${qty} pcs</td>
+                    </tr>`;
+                });
+            }
+            modal.find('#st-items-body').html(itemsHtml);
+            modal.find('#st-modal-total').text((items ? items.length : 0) + ' titles · ' + totalQty + ' pcs total');
+
+            // Populate notes
+            if (notes && notes.trim() !== '') {
+                modal.find('#st-notes-text').text(notes);
+                modal.find('#st-notes-row').show();
+            } else {
+                modal.find('#st-notes-row').hide();
+            }
+
+            // Populate remarks
+            if (remarks && remarks.trim() !== '') {
+                modal.find('#st-remarks-text').text(remarks);
+                modal.find('#st-remarks-row').show();
+            } else {
+                modal.find('#st-remarks-row').hide();
+            }
+
+            // Toggle Approve/Reject actions inside modal if pending
+            var canApprove = btn.data('can-approve') === true || btn.data('can-approve') === 'true';
+            if (status === 'pending' && canApprove) {
+                modal.find('#st-modal-actions').show().css('display', 'flex');
+                // Set click listeners for modal approve/reject buttons
+                modal.find('#st-modal-approve-btn').off('click').on('click', function() {
+                    modal.modal('hide');
+                    approveTransfer(id);
+                });
+                modal.find('#st-modal-reject-btn').off('click').on('click', function() {
+                    modal.modal('hide');
+                    rejectTransfer(id);
+                });
+            } else {
+                modal.find('#st-modal-actions').hide().attr('style', 'display: none !important;');
+            }
+
+            modal.modal('show');
+        });
     </script>
     @endpush
 </x-app-layout>

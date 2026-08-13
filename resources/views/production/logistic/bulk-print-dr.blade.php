@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Print Delivery Receipts</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            color: #000;
+            padding: 15px;
+        }
+
+        .dr-box {
+            background: #fff;
+            max-width: 8.5in;
+            margin: 0 auto 25px auto;
+            padding: 0.4in 0.5in;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            page-break-after: always;
+            break-after: page;
+        }
+
+        .dr-box:last-child {
+            page-break-after: avoid;
+            break-after: avoid;
+            margin-bottom: 0;
+        }
+
+        .form-header {
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #333;
+        }
+
+        .form-header .company-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-header .company-logo-img {
+            height: 55px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .form-header .company-name {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #000;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
+        }
+
+        .form-header .company-address,
+        .form-header .company-contact {
+            font-size: 0.82rem;
+            color: #333;
+            line-height: 1.2;
+        }
+
+        .form-header .document-title {
+            text-align: center;
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #000;
+            margin-top: 0.5rem;
+            letter-spacing: 1.5px;
+        }
+
+        .form-info-grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+            font-size: 0.88rem;
+        }
+
+        .form-info-grid td {
+            padding: 4px 6px;
+            vertical-align: top;
+        }
+
+        .form-info-grid .label-col {
+            font-weight: bold;
+            color: #000;
+            white-space: nowrap;
+            width: 110px;
+        }
+
+        .form-info-grid .val-col {
+            border-bottom: 1px solid #777;
+            font-weight: 600;
+            color: #111;
+        }
+
+        .receipt-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.25rem;
+            font-size: 0.85rem;
+        }
+
+        .receipt-table thead th {
+            background-color: #ff0000 !important;
+            color: #ffffff !important;
+            padding: 7px 10px;
+            font-weight: 700;
+            text-align: left;
+            border: 1px solid #ff0000;
+            font-size: 0.83rem;
+            text-transform: uppercase;
+        }
+
+        .receipt-table tbody td {
+            padding: 6px 10px;
+            border: 1px solid #dee2e6;
+            vertical-align: middle;
+            color: #212529;
+        }
+
+        .receipt-table tfoot td {
+            padding: 5px 10px;
+            border: 1px solid #dee2e6;
+            font-size: 0.85rem;
+        }
+
+        .signature-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 2px solid #ccc;
+        }
+
+        .signature-box {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .signature-box label {
+            font-weight: 700;
+            color: #333;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .signature-line-box {
+            text-align: center;
+            border-top: 1px solid #000;
+            padding-top: 4px;
+            font-size: 0.72rem;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .signature-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-align: center;
+            margin-bottom: 4px;
+            min-height: 1.2rem;
+        }
+
+        .actions-bar {
+            max-width: 8.5in;
+            margin: 0 auto 15px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            padding: 10px 18px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        @media print {
+            body {
+                background: #fff !important;
+                padding: 0 !important;
+            }
+            .dr-box {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin-bottom: 0 !important;
+            }
+            .actions-bar {
+                display: none !important;
+            }
+            @page {
+                size: letter portrait;
+                margin: 0.35in 0.4in;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="actions-bar">
+        <div class="d-flex align-items-center gap-3">
+            <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="las la-arrow-left me-1"></i> Back to Delivery Receipts
+            </a>
+            <span class="fw-bold text-muted">{{ $orders->count() }} Delivery Receipt(s) Selected</span>
+        </div>
+        <button onclick="window.print()" class="btn btn-danger btn-sm px-4 shadow-sm" style="background:#ff0000; border-color:#ff0000;">
+            <i class="las la-print me-1"></i> Print All Receipts
+        </button>
+    </div>
+
+    @foreach($orders as $order)
+    @php
+        $deliveryReceipt = $deliveryReceiptsMap->get($order->id);
+
+        $bName = $order->customer_representative;
+        if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
+            preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
+            $bName = trim($m[1] ?? '');
+        }
+        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+        $displayCompanyName = $bCompany?->parent?->company_name 
+            ?: ($bCompany?->company_name 
+            ?: ($order->customer?->company_name 
+            ?: ($order->customer?->customer_name ?? 'N/A')));
+
+        $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
+        $displayItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
+
+        $grossSubtotal = 0;
+        $totalItemDiscounts = 0;
+
+        $preparedByName = 'System';
+        $approvedByName = 'Pending Approval';
+        if ($order->drPreparedBy) {
+            $preparedByName = $order->drPreparedBy->name;
+            $approvedByName = $order->drPreparedBy->name;
+        } elseif ($order->preparedBy) {
+            $preparedByName = $order->preparedBy->name;
+        }
+        if (!$approvedByName || $approvedByName === 'Pending Approval') {
+            $approvedByName = $order->signedBy->name ?? ($order->acctApprovedBy->name ?? ($order->mktApprovedBy->name ?? 'Pending Approval'));
+        }
+        $receivedByName = $order->customer_representative ?: ($order->customer->customer_name ?? '');
+        $dateFormatted = $order->dr_prepared_at ? \Carbon\Carbon::parse($order->dr_prepared_at)->format('M d, Y') : ($order->created_at ? $order->created_at->format('M d, Y') : date('M d, Y'));
+    @endphp
+
+    <div class="dr-box">
+        <!-- Form Header -->
+        <div class="form-header">
+            <div class="company-info">
+                <img src="{{ asset('images/claeritian_logo.png') }}" alt="Claretian Logo" class="company-logo-img" onerror="this.style.display='none'">
+                <div>
+                    <div class="company-name">CLARETIAN COMMUNICATIONS FOUNDATION INC.</div>
+                    <div class="company-address">8 Mayumi St., UP Village, Diliman, Quezon City</div>
+                    <div class="company-contact">Tel. No.: 921-3984</div>
+                </div>
+            </div>
+            <div class="document-title">DELIVERY RECEIPT</div>
+            <div class="text-center text-muted small fw-bold mt-1">NON-VAT REGISTERED</div>
+            <div class="text-center extra-small text-muted fst-italic">"This document is not valid for claim of input taxes."</div>
+        </div>
+
+        <!-- Receipt Details Grid -->
+        <table class="form-info-grid">
+            <tr>
+                <td class="label-col">DR No.:</td>
+                <td class="val-col" style="width: 35%;">DR-{{ $order->so_number }}</td>
+                <td class="label-col" style="padding-left: 15px;">Date:</td>
+                <td class="val-col">{{ $dateFormatted }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Sales Order:</td>
+                <td class="val-col">{{ $order->so_number }}</td>
+                <td class="label-col" style="padding-left: 15px;">Terms:</td>
+                <td class="val-col">{{ $order->terms ?: 'Standard' }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Company:</td>
+                <td class="val-col" colspan="3">{{ $displayCompanyName }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Customer:</td>
+                <td class="val-col">{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown') }}</td>
+                <td class="label-col" style="padding-left: 15px;">Contact:</td>
+                <td class="val-col">{{ $order->customer_contact ?: ($order->customer?->mobile ?: ($order->customer?->main_phone ?: 'N/A')) }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Address:</td>
+                <td class="val-col" colspan="3">{{ $order->shipping_address ?: ($order->customer->shipping_address ?? $order->customer->billing_address ?? 'N/A') }}</td>
+            </tr>
+            @if($order->remarks || $order->notes || ($deliveryReceipt->remarks ?? null))
+            <tr>
+                <td class="label-col">Remarks:</td>
+                <td class="val-col" colspan="3">{{ $order->remarks ?: ($order->notes ?: ($deliveryReceipt->remarks ?? '')) }}</td>
+            </tr>
+            @endif
+        </table>
+
+        <!-- Delivery Receipt Items Table -->
+        <table class="receipt-table">
+            <thead>
+                <tr>
+                    <th style="width: 100px; text-align: center;">{{ $isConsignment ? 'PICK QTY' : 'QUANTITY' }}</th>
+                    <th>DESCRIPTION</th>
+                    <th style="width: 130px; text-align: right;">UNIT PRICE</th>
+                    <th style="width: 110px; text-align: center;">DISCOUNT</th>
+                    <th style="width: 140px; text-align: right;">AMOUNT</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($displayItems as $item)
+                    @php
+                        $qty = (int)($item->quantity ?? 0);
+                        $pickQty = (!empty($item->customer_selected_qty) && (int)$item->customer_selected_qty > 0) ? (int)$item->customer_selected_qty : $qty;
+                        $displayQty = $isConsignment ? $pickQty : $qty;
+                        $unitPrice = (float)($item->unit_price ?? $item->price ?? 0);
+                        $itemSubtotal = $displayQty * $unitPrice;
+                        $grossSubtotal += $itemSubtotal;
+
+                        $itemDiscountAmt = 0;
+                        if (($item->discount_amount ?? 0) > 0) {
+                            $itemDiscountAmt = (float)$item->discount_amount;
+                        } elseif (($item->discount_value ?? 0) > 0) {
+                            if (($item->discount_type ?? 'percentage') === 'percentage') {
+                                $itemDiscountAmt = $itemSubtotal * ((float)$item->discount_value / 100);
+                            } else {
+                                $itemDiscountAmt = (float)$item->discount_value;
+                            }
+                        }
+                        $totalItemDiscounts += $itemDiscountAmt;
+                        $rowAmount = max(0, $itemSubtotal - $itemDiscountAmt);
+                    @endphp
+                    <tr>
+                        <td style="text-align: center; font-weight: bold;">{{ $displayQty }}</td>
+                        <td style="font-weight: 600;">{{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}</td>
+                        <td style="text-align: right;">₱{{ number_format($unitPrice, 2) }}</td>
+                        <td style="text-align: center;">
+                            @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
+                                @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
+                                    {{ (float)$item->discount_value }}%
+                                @elseif(($item->discount_value ?? 0) > 0)
+                                    ₱{{ number_format($item->discount_value, 2) }}
+                                @else
+                                    ₱{{ number_format($item->discount_amount, 2) }}
+                                @endif
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td style="text-align: right; font-weight: 600;">₱{{ number_format($rowAmount, 2) }}</td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5" class="text-center py-2 text-muted">No items found for this delivery receipt</td>
+                    </tr>
+                @endforelse
+            </tbody>
+            @php
+                $orderDiscountAmt = (float)($order->discount_amount ?? 0);
+                if ($orderDiscountAmt == 0 && ($order->discount_percentage ?? 0) > 0) {
+                    $orderDiscountAmt = max(0, $grossSubtotal - $totalItemDiscounts) * ((float)$order->discount_percentage / 100);
+                }
+                $allDiscountsCombined = $totalItemDiscounts + $orderDiscountAmt;
+                $freightChargesAmt = (float)($order->freight_charges ?? 0);
+                $finalTotalAmt = max(0, $grossSubtotal - $allDiscountsCombined + $freightChargesAmt);
+            @endphp
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end text-uppercase"><strong>Gross Subtotal:</strong></td>
+                    <td class="text-end fw-bold">₱{{ number_format($grossSubtotal, 2) }}</td>
+                </tr>
+                @if($totalItemDiscounts > 0)
+                <tr>
+                    <td colspan="4" class="text-end text-uppercase"><strong>Items Discount Subtotal:</strong></td>
+                    <td class="text-end fw-bold text-danger">- ₱{{ number_format($totalItemDiscounts, 2) }}</td>
+                </tr>
+                @endif
+                @if($orderDiscountAmt > 0)
+                <tr>
+                    <td colspan="4" class="text-end text-uppercase"><strong>Order Discount:</strong></td>
+                    <td class="text-end fw-bold text-danger">- ₱{{ number_format($orderDiscountAmt, 2) }}</td>
+                </tr>
+                @endif
+                @if($freightChargesAmt > 0)
+                <tr>
+                    <td colspan="4" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                    <td class="text-end fw-bold">₱{{ number_format($freightChargesAmt, 2) }}</td>
+                </tr>
+                @endif
+                <tr style="background-color: #f8f9fa;">
+                    <td colspan="4" class="text-end text-uppercase fw-bold text-dark" style="font-size: 0.95rem;">Total Amount:</td>
+                    <td class="text-end fw-bold text-danger" style="font-size: 1rem;">₱{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- Signature Section -->
+        <div class="signature-section">
+            <div class="signature-box">
+                <label>Prepared by:</label>
+                <div class="signature-name">{{ $preparedByName }}</div>
+                <div class="signature-line-box">SIGNATURE OVER PRINTED NAME</div>
+            </div>
+            <div class="signature-box">
+                <label>Approved by:</label>
+                <div class="signature-name">{{ $approvedByName }}</div>
+                <div class="signature-line-box">SIGNATURE OVER PRINTED NAME</div>
+            </div>
+            <div class="signature-box">
+                <label>Received by:</label>
+                <div class="signature-name">{{ $receivedByName }}</div>
+                <div class="signature-line-box">SIGNATURE OVER PRINTED NAME</div>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
+</body>
+</html>

@@ -175,6 +175,7 @@
         <div class="modern-nav-submenu">
             <a href="{{ route('production.logistic.pick-list-list') }}" class="modern-nav-subitem">Pick Lists</a>
             <a href="{{ route('production.logistic.packing-management') }}" class="modern-nav-subitem">Packing</a>
+            <a href="{{ route('production.logistic.pickup-requests.index') }}" class="modern-nav-subitem">Logistics Service Order</a>
             <a href="{{ route('production.logistic.delivery-scheduling') }}" class="modern-nav-subitem">Delivery Scheduling</a>
             <a href="{{ route('production.logistic.driver-dashboard') }}" class="modern-nav-subitem">Driver Dashboard</a>
             <a href="{{ route('production.logistic.delivery-tracking') }}" class="modern-nav-subitem">Delivery Tracking</a>
