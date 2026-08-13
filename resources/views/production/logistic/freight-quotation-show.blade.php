@@ -53,7 +53,7 @@
 
                     <div class="card-body p-2">
                         <!-- Sales Order Header - Prominent Display -->
-                        @if($quotation->sales_order_id && $quotation->salesOrder)
+                        @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->id)
                             <div class="alert alert-info border-2 mb-4" style="background-color: #e3f2fd; border-color: #2196F3;">
                                 <div class="row align-items-center">
                                     <div class="col-md-8">
@@ -391,7 +391,7 @@
 
                         <!-- BOOKS/ITEMS BREAKDOWN DISPLAY - ALWAYS VISIBLE -->
                         <h6 class="border-bottom pb-2 mb-3"><strong>📚 Books/Items Breakdown</strong></h6>
-                        @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->items && $quotation->salesOrder->items->count() > 0)
+                        @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->id && $quotation->salesOrder->items && $quotation->salesOrder->items->count() > 0)
                             <div class="table-responsive mb-4">
                                 <table class="table table-hover table-bordered">
                                     <thead class="table-info">
@@ -541,7 +541,7 @@
                         <hr>
 
                     <!-- Linked Sales Order -->
-                    @if($quotation->sales_order_id)
+                    @if($quotation->sales_order_id && $quotation->salesOrder)
                         <h6 class="border-bottom pb-2 mb-3"><strong>Linked Sales Order</strong></h6>
                         
                         <div class="card mb-4 border-success">

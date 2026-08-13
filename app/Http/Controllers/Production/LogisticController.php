@@ -594,6 +594,8 @@ class LogisticController extends Controller
             'plate_number' => 'required|string|max:255',
             'helper' => 'nullable|string|max:255',
             'delivery_date' => 'required|date',
+            'remarks' => 'nullable|string',
+            'ref_number' => 'nullable|string|max:255',
         ]);
 
         $order = \App\Models\SalesOrder::findOrFail($id);
@@ -610,6 +612,8 @@ class LogisticController extends Controller
             'plate_number' => $request->plate_number,
             'helper' => $request->helper,
             'delivery_date' => $request->delivery_date,
+            'remarks' => $request->remarks,
+            'ref_number' => $request->ref_number,
         ]);
 
         // Create RiderCollection if this is a COD (Cash on Delivery) order

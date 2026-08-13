@@ -445,9 +445,17 @@
                                                             <label class="form-label font-w500 text-black">Helper Name</label>
                                                             <input type="text" name="helper" class="form-control shadow-sm" value="{{ $order->helper ?? '' }}" placeholder="Ex: Juan Dela Cruz">
                                                         </div>
-                                                        <div class="mb-0">
+                                                        <div class="mb-3">
+                                                            <label class="form-label font-w500 text-black">Reference Number</label>
+                                                            <input type="text" name="ref_number" class="form-control shadow-sm" value="{{ $order->ref_number ?? '' }}" placeholder="Ex: REF-1234">
+                                                        </div>
+                                                        <div class="mb-3">
                                                             <label class="form-label font-w500 text-black">Delivery Date</label>
                                                             <input type="date" name="delivery_date" class="form-control shadow-sm" value="{{ $order->delivery_date ?? '' }}" required>
+                                                        </div>
+                                                        <div class="mb-0">
+                                                            <label class="form-label font-w500 text-black">Remarks</label>
+                                                            <textarea name="remarks" class="form-control shadow-sm" rows="3" placeholder="Optional remarks or instructions...">{{ $order->remarks ?? '' }}</textarea>
                                                         </div>
                                                     </div>
                                                     <div class="modal-footer border-0 pt-0 px-4 pb-4">
