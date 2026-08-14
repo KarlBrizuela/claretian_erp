@@ -170,8 +170,14 @@
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Remarks:</td>
-                                <td class="text-black fw-bold text-primary" style="white-space: pre-wrap;">{!! e($order->remarks ?: 'None') !!}</td>
+                                <td class="text-black" style="white-space: pre-wrap;">{!! e($order->remarks ?: 'None') !!}</td>
                             </tr>
+                            @if($order->cancellation_date)
+                            <tr>
+                                <td class="fw-bold text-dark">Cancellation Date:</td>
+                                <td class="text-black fw-bold text-danger">{{ \Carbon\Carbon::parse($order->cancellation_date)->format('F d, Y') }}</td>
+                            </tr>
+                            @endif
                             <tr>
                                 <td class="fw-bold text-dark">Terms:</td>
                                 <td class="text-black">{{ $order->terms ?? '-' }}</td>

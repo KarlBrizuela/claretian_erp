@@ -41,15 +41,16 @@ class NBSImportController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('PO Template');
         
-        // Clean headers including Discount & Discount Type
+        // Clean headers including Discount, Discount Type & Cancellation Date
         $headers = [
-            'PO Number',     // A
-            'PO Date',       // B
-            'Qty',           // C
-            'Book Article',  // D
-            'NBS Branch',    // E
-            'Discount',      // F
-            'Discount Type', // G
+            'PO Number',         // A
+            'PO Date',           // B
+            'Cancellation Date', // C
+            'Qty',               // D
+            'Book Article',      // E
+            'NBS Branch',        // F
+            'Discount',          // G
+            'Discount Type',     // H
         ];
         
         foreach ($headers as $colIndex => $header) {
@@ -74,23 +75,24 @@ class NBSImportController extends Controller
                 'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
-        $sheet->getStyle('A1:G1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:H1')->applyFromArray($headerStyle);
 
         // Column Widths
         $colWidths = [
             'A' => 22,
             'B' => 15,
-            'C' => 12,
-            'D' => 25,
-            'E' => 30,
-            'F' => 15,
-            'G' => 18,
+            'C' => 18,
+            'D' => 12,
+            'E' => 25,
+            'F' => 30,
+            'G' => 15,
+            'H' => 18,
         ];
         foreach ($colWidths as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
         }
 
-        // --- NBS Branch dropdown from selected branch's sub-branches (column E) ---
+        // --- NBS Branch dropdown from selected branch's sub-branches (column F) ---
         $branchId = $request->query('branch_id');
         $subBranches = [];
 
@@ -113,11 +115,12 @@ class NBSImportController extends Controller
         $sampleBranch = !empty($subBranches) ? $subBranches[0] : 'NBS Sample Branch';
         $sheet->setCellValue('A2', 'PO-2026-001');
         $sheet->setCellValue('B2', date('Y-m-d'));
-        $sheet->setCellValue('C2', 10);
-        $sheet->setCellValue('D2', 'ART-1001');
-        $sheet->setCellValue('E2', $sampleBranch);
-        $sheet->setCellValue('F2', 10);
-        $sheet->setCellValue('G2', '%');
+        $sheet->setCellValue('C2', date('Y-m-d', strtotime('+30 days')));
+        $sheet->setCellValue('D2', 10);
+        $sheet->setCellValue('E2', 'ART-1001');
+        $sheet->setCellValue('F2', $sampleBranch);
+        $sheet->setCellValue('G2', 10);
+        $sheet->setCellValue('H2', '%');
 
         if (!empty($subBranches)) {
             $branchSheet = $spreadsheet->createSheet();
@@ -130,9 +133,9 @@ class NBSImportController extends Controller
 
             $totalBranches = count($subBranches);
 
-            // NBS Branch dropdown validation (Column E)
+            // NBS Branch dropdown validation (Column F)
             for ($row = 2; $row <= 200; $row++) {
-                $validation = $sheet->getCell('E' . $row)->getDataValidation();
+                $validation = $sheet->getCell('F' . $row)->getDataValidation();
                 $validation->setType(DataValidation::TYPE_LIST);
                 $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
                 $validation->setAllowBlank(true);
@@ -147,9 +150,9 @@ class NBSImportController extends Controller
             }
         }
 
-        // Discount Type dropdown validation (Column G: % or ₱)
+        // Discount Type dropdown validation (Column H: % or ₱)
         for ($row = 2; $row <= 200; $row++) {
-            $validationType = $sheet->getCell('G' . $row)->getDataValidation();
+            $validationType = $sheet->getCell('H' . $row)->getDataValidation();
             $validationType->setType(DataValidation::TYPE_LIST);
             $validationType->setErrorStyle(DataValidation::STYLE_INFORMATION);
             $validationType->setAllowBlank(true);
@@ -231,13 +234,14 @@ class NBSImportController extends Controller
         };
 
         $colIndices = [
-            'po_number'     => $findCol(['po number', 'po_number', 'po #', 'po']),
-            'po_date'       => $findCol(['po date', 'po_date', 'date']),
-            'qty'           => $findCol(['qty', 'quantity']),
-            'book_article'  => $findCol(['book article', 'article', 'barcode', 'sku', 'isbn', 'book']),
-            'nbs_branch'    => $findCol(['nbs branch', 'branch']),
-            'discount'      => $findCol(['discount', 'discount value', 'disc', 'discount_val', 'discount amount']),
-            'discount_type' => $findCol(['discount type', 'disc type', 'discount_type', 'type']),
+            'po_number'         => $findCol(['po number', 'po_number', 'po #', 'po']),
+            'po_date'           => $findCol(['po date', 'po_date', 'date']),
+            'cancellation_date' => $findCol(['cancellation date', 'cancellation_date', 'cancel date', 'cancellation']),
+            'qty'               => $findCol(['qty', 'quantity']),
+            'book_article'      => $findCol(['book article', 'article', 'barcode', 'sku', 'isbn', 'book']),
+            'nbs_branch'        => $findCol(['nbs branch', 'branch']),
+            'discount'          => $findCol(['discount', 'discount value', 'disc', 'discount_val', 'discount amount']),
+            'discount_type'     => $findCol(['discount type', 'disc type', 'discount_type', 'type']),
         ];
 
         // Validate critical fields are mapped
@@ -325,10 +329,11 @@ class NBSImportController extends Controller
 
             if (!isset($orders[$poNumber])) {
                 $orders[$poNumber] = [
-                    'po_number'  => $poNumber,
-                    'po_date'    => $getValue($row, 'po_date'),
-                    'nbs_branch' => $getValue($row, 'nbs_branch'),
-                    'items'      => []
+                    'po_number'         => $poNumber,
+                    'po_date'           => $getValue($row, 'po_date'),
+                    'cancellation_date' => $getValue($row, 'cancellation_date'),
+                    'nbs_branch'        => $getValue($row, 'nbs_branch'),
+                    'items'             => []
                 ];
             }
 
@@ -419,35 +424,39 @@ class NBSImportController extends Controller
             $branchCompany = Company::where('company_name', $defaultBranchName)->first();
             $accountNo = $branchCompany ? $branchCompany->account_number : ('CUST-NBS-' . strtoupper(\Illuminate\Support\Str::slug($defaultBranchName)));
 
-            // Find or create Customer record by account_number first, or by branch/company name
-            $customer = Customer::where('account_number', $accountNo)
-                ->orWhere('customer_name', 'like', "%{$defaultBranchName}%")
-                ->orWhere('company_name', 'like', "%{$parentCompanyName}%")
-                ->first();
+            // 1. Search customer by account_number FIRST to prevent duplicate key constraint violations
+            $customer = Customer::where('account_number', $accountNo)->first();
 
             if (!$customer) {
-                // Double check if account_number exists to avoid duplicate entry violation
-                $existingAcct = Customer::where('account_number', $accountNo)->first();
-                if ($existingAcct) {
-                    $customer = $existingAcct;
-                    $customer->update([
-                        'company_name'   => $parentCompanyName,
-                        'customer_name'  => $defaultBranchName,
-                    ]);
-                } else {
-                    $customer = Customer::create([
-                        'company_name'   => $parentCompanyName,
-                        'customer_name'  => $defaultBranchName,
-                        'account_number' => $accountNo,
-                        'customer_type'  => 'business',
-                    ]);
-                }
-            } else {
-                $customer->update([
+                // 2. Search customer by branch or company name if not found by account_number
+                $customer = Customer::where('customer_name', 'like', "%{$defaultBranchName}%")
+                    ->orWhere('company_name', 'like', "%{$parentCompanyName}%")
+                    ->first();
+            }
+
+            if (!$customer) {
+                // 3. Create new customer if neither account_number nor name matched
+                $customer = Customer::create([
                     'company_name'   => $parentCompanyName,
                     'customer_name'  => $defaultBranchName,
                     'account_number' => $accountNo,
+                    'customer_type'  => 'business',
                 ]);
+            } else {
+                // Update names safely without conflicting on existing account numbers
+                $updateData = [
+                    'company_name'   => $parentCompanyName,
+                    'customer_name'  => $defaultBranchName,
+                ];
+
+                if (empty($customer->account_number) && $accountNo) {
+                    $acctHolder = Customer::where('account_number', $accountNo)->first();
+                    if (!$acctHolder) {
+                        $updateData['account_number'] = $accountNo;
+                    }
+                }
+
+                $customer->update($updateData);
             }
 
             $createdCount = 0;
@@ -456,9 +465,10 @@ class NBSImportController extends Controller
 
                 $branchRepresentative = !empty($poData['nbs_branch']) ? $poData['nbs_branch'] : $defaultBranchName;
                 $remarksStr = !empty($poData['remarks']) ? $poData['remarks'] : null;
+                $cancelDate = !empty($poData['cancellation_date']) ? $poData['cancellation_date'] : null;
 
                 // Create SalesOrder in "pending_mkt_approval" status for Marketing Approval Queue
-                $so = SalesOrder::create([
+                $soData = [
                     'customer_id'             => $customer->customer_id,
                     'customer_representative' => $branchRepresentative,
                     'so_number'               => 'SO-NBS-' . $poNum . '-' . date('His'),
@@ -468,7 +478,13 @@ class NBSImportController extends Controller
                     'status'                  => 'pending_mkt_approval',
                     'prepared_by'             => auth()->id(),
                     'total_amount'            => 0,
-                ]);
+                ];
+
+                if ($cancelDate && \Illuminate\Support\Facades\Schema::hasColumn('sales_orders', 'cancellation_date')) {
+                    $soData['cancellation_date'] = $cancelDate;
+                }
+
+                $so = SalesOrder::create($soData);
 
                 $totalAmount = 0;
                 

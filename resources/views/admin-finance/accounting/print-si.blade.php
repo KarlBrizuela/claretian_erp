@@ -21,13 +21,14 @@
         .invoice-container {
             background: #fff;
             max-width: 8.5in;
-            height: 11in;
+            min-height: 10.5in;
             margin: 0 auto;
             padding: 0.4in;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
             page-break-after: avoid;
             display: flex;
             flex-direction: column;
+            justify-content: space-between;
         }
 
         .invoice-header {

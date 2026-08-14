@@ -44,6 +44,7 @@ class SalesOrder extends Model
         'cr_prepared_at',
         'cr_prepared_by',
         'remarks',
+        'cancellation_date',
         'billing_address',
         'payment_method',
         'payment_reference',

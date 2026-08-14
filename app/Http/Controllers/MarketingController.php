@@ -2019,10 +2019,9 @@ class MarketingController extends Controller
         }
 
         // 3. Create Header
-        $so = \App\Models\SalesOrder::create([
+        $soData = [
             'customer_id' => $request->customer_id,
             'customer_representative' => $request->customer_representative,
-            'customer_contact' => $request->customer_contact,
             'area_sales_staff_id' => $request->type === 'area_sales_consignment' ? $request->area_sales_staff_id : null,
             'so_number' => $request->so_number,
             'type' => $request->type,
@@ -2038,7 +2037,17 @@ class MarketingController extends Controller
             'proof_of_payment' => $proofOfPaymentPath,
             'freight_option' => $validated['freight_option'] ?? null,
             'forwarder' => $request->forwarder ?? null,
-        ]);
+        ];
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('sales_orders', 'customer_contact')) {
+            $soData['customer_contact'] = $request->customer_contact;
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('sales_orders', 'cancellation_date') && $request->filled('cancellation_date')) {
+            $soData['cancellation_date'] = $request->cancellation_date;
+        }
+
+        $so = \App\Models\SalesOrder::create($soData);
 
         // Clean up any orphaned items that might reuse this order ID (in case of auto-increment reuse)
         $so->items()->delete();
