@@ -39,69 +39,109 @@
             justify-content: space-between;
         }
 
-        @if($format === 'half')
-        .header-section {
-            padding-bottom: 3px !important;
-            margin-bottom: 5px !important;
+        /* Half-Page (1/2 Paper Size) Layout Rules */
+        body.half-page-mode {
+            padding: 10px 0 !important;
         }
-        .header-logo {
-            width: 45px !important;
-            height: 45px !important;
+        body.half-page-mode .invoice-box {
+            max-width: 8.5in !important;
+            min-height: 4.8in !important;
+            height: auto !important;
+            max-height: none !important;
+            margin: 0 auto !important;
+            padding: 0.15in 0.25in !important;
+            box-sizing: border-box !important;
         }
-        .company-name {
-            font-size: 10.5pt !important;
+        body.half-page-mode .header-section {
+            padding-bottom: 2px !important;
+            margin-bottom: 4px !important;
+            border-bottom-width: 1.5px !important;
         }
-        .company-subtitle, .company-address, .company-contact {
-            font-size: 7.5pt !important;
-            margin-top: 1px !important;
+        body.half-page-mode .header-logo {
+            width: 40px !important;
+            height: 40px !important;
         }
-        .doc-no {
-            font-size: 9pt !important;
+        body.half-page-mode .company-name {
+            font-size: 9.5pt !important;
         }
-        .doc-no span {
-            font-size: 10pt !important;
+        body.half-page-mode .company-subtitle,
+        body.half-page-mode .company-address,
+        body.half-page-mode .company-contact {
+            font-size: 6.5pt !important;
+            margin-top: 0px !important;
+            line-height: 1.1 !important;
         }
-        .doc-title {
-            font-size: 11pt !important;
-        }
-        .info-grid {
-            margin-bottom: 5px !important;
-            font-size: 8.5pt !important;
-        }
-        .items-table {
-            margin-bottom: 5px !important;
-            font-size: 8.5pt !important;
-        }
-        .items-table th {
-            padding: 3px 5px !important;
-            font-size: 7.5pt !important;
-        }
-        .items-table td {
-            padding: 3px 5px !important;
-        }
-        .payment-sales-row {
-            margin-bottom: 5px !important;
-            font-size: 8.5pt !important;
-        }
-        .total-sales-box {
-            font-size: 9pt !important;
-        }
-        .total-sales-box span {
-            font-size: 10pt !important;
-        }
-        .conditions-bank-container {
-            margin-bottom: 5px !important;
-            font-size: 7pt !important;
-        }
-        .signatories-row {
-            margin-top: 5px !important;
-            margin-bottom: 5px !important;
+        body.half-page-mode .doc-no {
             font-size: 8pt !important;
         }
-        .sig-line {
-            margin-top: 10px !important;
+        body.half-page-mode .doc-no span {
+            font-size: 9pt !important;
         }
-        @endif
+        body.half-page-mode .doc-title {
+            font-size: 9.5pt !important;
+        }
+        body.half-page-mode .info-grid {
+            margin-bottom: 4px !important;
+            font-size: 7.5pt !important;
+        }
+        body.half-page-mode .info-grid td {
+            padding: 1px 0 !important;
+        }
+        body.half-page-mode .items-table {
+            margin-bottom: 4px !important;
+            font-size: 7.5pt !important;
+        }
+        body.half-page-mode .items-table th {
+            padding: 2px 4px !important;
+            font-size: 7pt !important;
+        }
+        body.half-page-mode .items-table td {
+            padding: 2px 4px !important;
+            line-height: 1.1 !important;
+        }
+        body.half-page-mode .payment-sales-row {
+            margin-bottom: 3px !important;
+            margin-top: 4px !important;
+            font-size: 7.5pt !important;
+        }
+        body.half-page-mode .cb-box {
+            width: 12px !important;
+            height: 12px !important;
+            line-height: 10px !important;
+            font-size: 9px !important;
+        }
+        body.half-page-mode .total-sales-box {
+            font-size: 8pt !important;
+            padding: 2px 6px !important;
+        }
+        body.half-page-mode .total-sales-box span {
+            font-size: 9pt !important;
+        }
+        body.half-page-mode .conditions-bank-container {
+            margin-bottom: 3px !important;
+            font-size: 6pt !important;
+            gap: 6px !important;
+            padding: 3px !important;
+        }
+        body.half-page-mode .signatories-row {
+            margin-top: 4px !important;
+            margin-bottom: 2px !important;
+            font-size: 7pt !important;
+        }
+        body.half-page-mode .sig-line {
+            margin-top: 14px !important;
+            border-bottom-width: 1px !important;
+        }
+        body.half-page-mode .footer-notice {
+            font-size: 5.5pt !important;
+            margin-top: 2px !important;
+        }
+        body.half-page-mode.preprinted-mode .invoice-box {
+            padding-top: 0.45in !important;
+        }
+        body.half-page-mode.preprinted-mode .sig-line {
+            margin-top: 14px !important;
+        }
 
         .header-section {
             display: flex;
@@ -430,12 +470,19 @@
 <body>
 
     @if(!$hideActions)
-    <div class="actions-bar">
+    <div class="actions-bar no-print">
         <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
             <i class="las la-arrow-left me-1"></i> Back
         </a>
         <div class="d-flex align-items-center gap-3">
-            <div class="form-check form-switch mb-0">
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label fw-bold small text-dark mb-0 text-nowrap"><i class="las la-file-alt me-1"></i>Paper Size:</label>
+                <select class="form-select form-select-sm fw-bold border-secondary" id="paperSizeSelect" onchange="changePaperSize(this.value)" style="width: 150px; cursor: pointer; height: 32px; font-size: 0.8rem;">
+                    <option value="whole" {{ ($format ?? 'whole') === 'whole' ? 'selected' : '' }}>1 Whole (Full Page)</option>
+                    <option value="half" {{ ($format ?? 'whole') === 'half' ? 'selected' : '' }}>1/2 (Half Page)</option>
+                </select>
+            </div>
+            <div class="form-check form-switch mb-0 ms-2">
                 <input class="form-check-input" type="checkbox" id="preprintedToggle" onchange="togglePreprintedMode(this)">
                 <label class="form-check-label fw-bold small text-dark" for="preprintedToggle">Overlay on Pre-printed Paper Form</label>
             </div>
@@ -661,6 +708,24 @@
                 document.body.classList.remove('preprinted-mode');
             }
         }
+
+        function changePaperSize(size) {
+            if (size === 'half') {
+                document.body.classList.add('half-page-mode');
+                document.body.classList.remove('whole-page-mode');
+            } else {
+                document.body.classList.remove('half-page-mode');
+                document.body.classList.add('whole-page-mode');
+            }
+        }
+
+        // Initialize paper size on load
+        document.addEventListener('DOMContentLoaded', function() {
+            var select = document.getElementById('paperSizeSelect');
+            if (select) {
+                changePaperSize(select.value);
+            }
+        });
     </script>
 
 </body>

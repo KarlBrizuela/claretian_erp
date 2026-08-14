@@ -15,13 +15,20 @@ class ConsignmentController extends Controller
     {
         $search = $request->query('search');
 
+        // Always fetch all owners for configuration modal dropdowns
+        $allOwners = ConsignmentOwner::orderBy('name', 'asc')->get();
+
         $ownersQuery = ConsignmentOwner::withCount('books')->orderBy('name', 'asc');
         if (!empty($search)) {
             $ownersQuery->where(function($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
                   ->orWhere('contact_person', 'like', '%' . $search . '%')
                   ->orWhere('email', 'like', '%' . $search . '%')
-                  ->orWhere('phone', 'like', '%' . $search . '%');
+                  ->orWhere('phone', 'like', '%' . $search . '%')
+                  ->orWhereHas('books', function($bq) use ($search) {
+                      $bq->where('name', 'like', '%' . $search . '%')
+                         ->orWhere('sku', 'like', '%' . $search . '%');
+                  });
             });
         }
         $owners = $ownersQuery->get();
@@ -47,7 +54,11 @@ class ConsignmentController extends Controller
         if (!empty($search)) {
             $settlementOwnersQuery->where(function($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('contact_person', 'like', '%' . $search . '%');
+                  ->orWhere('contact_person', 'like', '%' . $search . '%')
+                  ->orWhereHas('books', function($bq) use ($search) {
+                      $bq->where('name', 'like', '%' . $search . '%')
+                         ->orWhere('sku', 'like', '%' . $search . '%');
+                  });
             });
         }
         $settlements = $settlementOwnersQuery->get()->map(function($owner) {
@@ -89,6 +100,7 @@ class ConsignmentController extends Controller
             'role' => 'Marketing Manager',
             'sidebar' => 'marketing',
             'owners' => $owners,
+            'allOwners' => $allOwners,
             'books' => $consignmentBooks,
             'settlements' => $settlements,
             'history' => $history,

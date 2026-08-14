@@ -42,11 +42,18 @@
                             preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
                             $bName = trim($m[1] ?? '');
                         }
-                        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+                        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)
+                            ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
+                            ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
+                            ->first() : null;
+                        $accountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? null);
+                        $acctCompany = $accountNo ? \App\Models\Company::where('account_number', $accountNo)->first() : null;
+
                         $displayCompanyName = $bCompany?->parent?->company_name 
                             ?: ($bCompany?->company_name 
-                            ?: ($order->customer?->company_name 
-                            ?: ($order->customer?->customer_name ?? 'N/A')));
+                            ?: ($acctCompany?->parent?->company_name 
+                            ?: ($acctCompany?->company_name 
+                            ?: ($order->customer?->company_name && $order->customer->company_name !== 'Intracode' ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
                     @endphp
                     <!-- Delivered To Section -->
                     <div class="form-group">
@@ -307,17 +314,24 @@
                     if ($order) {
                         if ($order->drPreparedBy) {
                             $preparedByName = $order->drPreparedBy->name;
-                            $approvedByName = $order->drPreparedBy->name;
                         } elseif ($order->preparedBy) {
                             $preparedByName = $order->preparedBy->name;
                         }
 
-                        if (!$approvedByName || $approvedByName === 'Pending Approval') {
-                            $approvedByName = $order->signedBy->name ?? ($order->acctApprovedBy->name ?? ($order->mktApprovedBy->name ?? 'Pending Approval'));
+                        if ($order->drApprovedBy) {
+                            $approvedByName = $order->drApprovedBy->name;
+                        } elseif ($order->signedBy) {
+                            $approvedByName = $order->signedBy->name;
+                        } elseif ($order->acctApprovedBy) {
+                            $approvedByName = $order->acctApprovedBy->name;
+                        } elseif ($order->mktApprovedBy) {
+                            $approvedByName = $order->mktApprovedBy->name;
+                        } else {
+                            $approvedByName = 'Pending Approval';
                         }
                     } elseif (auth()->check()) {
                         $preparedByName = auth()->user()->name;
-                        $approvedByName = auth()->user()->name;
+                        $approvedByName = 'Pending Approval';
                     }
 
                     $receivedByName = $order ? ($order->customer_representative ?: ($order->customer->customer_name ?? '')) : '';
@@ -422,12 +436,24 @@
                         <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-secondary">
                             <i class="las la-arrow-left"></i> Back to List
                         </a>
-                        <form action="{{ route('production.logistic.complete-dr', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
-                            @csrf
-                            <button type="submit" class="btn btn-success">
-                                <i class="las la-check-circle me-1"></i> Complete DR
-                            </button>
-                        </form>
+                        @if($order->status === 'pending_dr_approval')
+                            <div class="d-inline-block ms-2">
+                                <span class="badge bg-warning text-dark me-2 fs-13 py-2 px-3"><i class="las la-clock me-1"></i> Pending DR Approval</span>
+                                <form action="{{ route('production.logistic.approve-dr', $order->id) }}" method="POST" style="display:inline-block;">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success shadow-sm">
+                                        <i class="las la-check-double me-1"></i> Approve DR
+                                    </button>
+                                </form>
+                            </div>
+                        @else
+                            <form action="{{ route('production.logistic.complete-dr', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
+                                @csrf
+                                <button type="submit" class="btn btn-success">
+                                    <i class="las la-check-circle me-1"></i> Complete DR
+                                </button>
+                            </form>
+                        @endif
                         @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
                             <form action="{{ route('production.logistic.request-reconsignment', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
                                 @csrf

@@ -315,7 +315,12 @@
                                     <tr>
                                             <td>
                                                 @php
-                                                    $typeClass = $approval['type'] === 'Sales Order' ? 'type-sales-order' : ($approval['type'] === 'CCTV' ? 'type-job-order' : 'badge-info');
+                                                    $typeClass = match($approval['type']) {
+                                                        'Sales Order' => 'type-sales-order',
+                                                        'Delivery Receipt' => 'bg-warning text-dark border border-warning',
+                                                        'CCTV' => 'type-job-order',
+                                                        default => 'badge-info'
+                                                    };
                                                 @endphp
                                                 <span class="document-type-badge {{ $typeClass }}" @if($approval['type'] === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @elseif($approval['type'] === 'Stock Transfer') style="background-color: #d4edda; color: #155724;" @endif>{{ $approval['type'] }}</span>
                                                 
@@ -345,8 +350,20 @@
                                             <span class="status-badge {{ $badgeClass }}">{{ ucwords(str_replace('_', ' ', $status)) }}</span>
                                         </td>
                                         <td>
-                                            @if($approval['type'] === 'Sales Order')
-                                                <a href="{{ $approval['url'] }}" class="btn btn-primary btn-sm"><i class="las la-eye"></i> Review</a>
+                                            @if($approval['type'] === 'Delivery Receipt')
+                                                <a href="{{ $approval['url'] }}" class="btn btn-danger btn-sm text-white me-1"><i class="las la-eye me-1"></i> Review</a>
+                                                <form action="{{ route('production.logistic.approve-dr', $approval['id']) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve</button>
+                                                </form>
+                                            @elseif($approval['type'] === 'Sales Order')
+                                                <a href="{{ $approval['url'] }}" class="btn btn-danger btn-sm text-white me-1"><i class="las la-eye me-1"></i> Review</a>
+                                                @if(isset($approval['status']) && $approval['status'] === 'pending_dr_approval')
+                                                    <form action="{{ route('production.logistic.approve-dr', $approval['id']) }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve</button>
+                                                    </form>
+                                                @endif
                                             @elseif($approval['type'] === 'Logistics Service Order')
                                                 <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#pickupRequestModal{{ $approval['id'] }}">
                                                     <i class="las la-eye"></i> Review
@@ -1165,9 +1182,11 @@
                                 <table class="table table-bordered table-hover align-middle mb-0 small">
                                     <thead class="table-light" style="position:sticky;top:0;z-index:2;">
                                         <tr>
-                                            <th style="width:55%">Book Title / Code</th>
-                                            <th style="width:20%">Type</th>
-                                            <th class="text-center" style="width:25%">Quantity</th>
+                                            <th style="width:40%">Book Title / Code</th>
+                                            <th style="width:15%">Type</th>
+                                            <th class="text-end" style="width:15%">Unit Price</th>
+                                            <th class="text-center" style="width:15%">Quantity</th>
+                                            <th class="text-end" style="width:15%">Total Price</th>
                                         </tr>
                                     </thead>
                                     <tbody id="st-items-body"></tbody>
@@ -1234,11 +1253,18 @@
 
                     @if($teamTransfer->notes)
                     <div class="alert alert-warning border border-warning mb-3 py-2">
-                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $teamTransfer->notes }}
+                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Requester Notes:</strong> {{ $teamTransfer->notes }}
                     </div>
                     @else
                     <div class="alert alert-light border mb-3 py-2 text-muted">
-                        <i class="las la-info-circle me-1"></i>No remarks or notes specified for this transfer.
+                        <i class="las la-info-circle me-1"></i>No notes specified by requester.
+                    </div>
+                    @endif
+
+                    @if($teamTransfer->remarks)
+                    <div class="alert alert-info border border-info mb-3 py-2">
+                        <strong class="text-dark"><i class="las la-history me-1"></i>Approval Remarks / History:</strong>
+                        <div style="white-space: pre-wrap;" class="small text-dark mt-1">{{ $teamTransfer->remarks }}</div>
                     </div>
                     @endif
 
@@ -1249,21 +1275,43 @@
                                 <tr>
                                     <th>Item Title</th>
                                     <th>Type</th>
+                                    <th class="text-end">Unit Price</th>
                                     <th class="text-center">Quantity to Transfer</th>
+                                    <th class="text-end">Total Price</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                @php $pGrandTotal = 0; $pTotalQty = 0; @endphp
                                 @foreach($teamTransfer->items as $tItem)
                                 @php
                                     $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
                                     $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+                                    $uPrice = (float) ($tItem->bookIndex ? ($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?? 0)) : ($tItem->book ? $tItem->book->price : ($tItem->bookBundle ? $tItem->bookBundle->price : 0)));
+                                    $barcodeVal = $tItem->bookIndex ? ($tItem->bookIndex->barcode ?: ($tItem->bookIndex->nbs_barcode ?: $tItem->bookIndex->article)) : ($tItem->book ? ($tItem->book->barcode ?: ($tItem->book->isbn ?: $tItem->book->item_code)) : ($tItem->bookBundle ? $tItem->bookBundle->sku : ''));
+                                    $subT = $tItem->quantity * $uPrice;
+                                    $pGrandTotal += $subT;
+                                    $pTotalQty += $tItem->quantity;
                                 @endphp
                                 <tr>
-                                    <td class="fw-bold text-dark">{{ $itemName }}</td>
+                                    <td class="fw-bold text-dark">
+                                        {{ $itemName }}
+                                        @if($barcodeVal)
+                                            <br><small class="text-muted"><i class="las la-barcode me-1"></i>Barcode: <code>{{ $barcodeVal }}</code></small>
+                                        @endif
+                                    </td>
                                     <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
+                                    <td class="text-end font-monospace text-muted">₱{{ number_format($uPrice, 2) }}</td>
                                     <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                    <td class="text-end font-monospace fw-bold text-dark">₱{{ number_format($subT, 2) }}</td>
                                 </tr>
                                 @endforeach
+                                @if(count($teamTransfer->items) > 0)
+                                <tr class="table-light fw-bold">
+                                    <td colspan="3" class="text-end small">Total Estimated Value:</td>
+                                    <td class="text-center text-success">{{ number_format($pTotalQty) }} pcs</td>
+                                    <td class="text-end font-monospace text-danger">₱{{ number_format($pGrandTotal, 2) }}</td>
+                                </tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>
@@ -1608,16 +1656,33 @@
             // Populate items table
             var itemsHtml = '';
             var totalQty = 0;
+            var totalAmt = 0;
             if (Array.isArray(items)) {
                 items.forEach(function(item) {
                     var qty = parseInt(item.quantity) || 0;
+                    var unitPrice = parseFloat(item.unit_price || item.price) || 0;
+                    var barcode = item.barcode || '';
+                    var subtotal = qty * unitPrice;
                     totalQty += qty;
+                    totalAmt += subtotal;
                     itemsHtml += `<tr>
-                        <td><strong>${item.name || 'Unknown Item'}</strong></td>
+                        <td class="fw-semibold text-dark">
+                            ${item.name || 'Unknown Item'}
+                            ${barcode ? `<br><small class="text-muted"><i class="las la-barcode me-1"></i>Barcode: <code>${barcode}</code></small>` : ''}
+                        </td>
                         <td><span class="badge bg-secondary">${item.type || 'Book'}</span></td>
+                        <td class="text-end font-monospace text-muted">₱${unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td class="text-center fw-bold text-success">${qty} pcs</td>
+                        <td class="text-end font-monospace fw-bold text-dark">₱${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     </tr>`;
                 });
+                if (items.length > 0) {
+                    itemsHtml += `<tr class="table-light fw-bold">
+                        <td colspan="3" class="text-end small">Total Estimated Value:</td>
+                        <td class="text-center text-success">${totalQty} pcs</td>
+                        <td class="text-end font-monospace text-danger">₱${totalAmt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    </tr>`;
+                }
             }
             modal.find('#st-items-body').html(itemsHtml);
             modal.find('#st-modal-total').text((items ? items.length : 0) + ' titles · ' + totalQty + ' pcs total');

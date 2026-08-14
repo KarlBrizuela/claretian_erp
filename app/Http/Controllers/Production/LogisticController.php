@@ -966,7 +966,7 @@ class LogisticController extends Controller
         // Get sales orders where DR is completed (moved to packing, ready for delivery, moved to SI, AR/CR, completed)
         $completedOrders = \App\Models\SalesOrder::with('customer', 'preparedBy')
             ->whereIn('status', ['ready_for_packing', 'ready_for_delivery', 'si_created', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval'])
-            ->latest()
+            ->orderByRaw('COALESCE(dr_prepared_at, updated_at, created_at) DESC')
             ->get();
 
         return view('production.logistic.delivery-receipt-list', [
@@ -995,26 +995,29 @@ class LogisticController extends Controller
         $order = \App\Models\SalesOrder::findOrFail($id);
 
         $order->update([
-            'status' => 'ready_for_packing',
-            'dr_prepared_at' => $order->dr_prepared_at ?? now(),
-            'dr_prepared_by' => $order->dr_prepared_by ?? auth()->id(),
+            'status' => 'pending_dr_approval',
+            'dr_prepared_at' => now(),
+            'dr_prepared_by' => auth()->id(),
         ]);
 
         $dr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
         if ($dr) {
-            $dr->update(['status' => 'completed']);
+            $dr->update([
+                'status' => 'pending_approval',
+                'prepared_by' => auth()->id(),
+            ]);
         }
 
         \App\Models\ActivityLog::create([
             'user_id' => auth()->id(),
-            'action' => 'DR Completed & Sent to Packing',
-            'description' => "Delivery Receipt for Sales Order {$order->so_number} marked as completed and moved to Packing Management.",
+            'action' => 'DR Prepared & Submitted for Approval',
+            'description' => "Delivery Receipt for Sales Order {$order->so_number} prepared and submitted to Approval Queue for approval.",
             'reference_type' => 'SalesOrder',
             'reference_id' => $order->id,
         ]);
 
         return redirect()->route('production.logistic.delivery-receipt-list')
-            ->with('success', "Delivery Receipt for Sales Order #{$order->so_number} completed successfully and moved to Packing Management.");
+            ->with('success', "Delivery Receipt for Sales Order #{$order->so_number} submitted for Approval! Sent to Approval Queue.");
     }
 
 
@@ -1261,13 +1264,26 @@ class LogisticController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         $order->update([
-            'status' => 'ready_for_delivery',
-            'dr_prepared_at' => now(),
-            'dr_prepared_by' => auth()->id(),
+            'status' => 'ready_for_packing',
+            'dr_approved_at' => now(),
+            'dr_approved_by' => auth()->id(),
             'signed_at' => now()
         ]);
 
-        return redirect()->back()->with('success', 'DR approved for Order #' . $order->so_number . '. Ready for delivery.');
+        $dr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
+        if ($dr) {
+            $dr->update(['status' => 'completed']);
+        }
+
+        \App\Models\ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'DR Approved & Moved to Packing',
+            'description' => "Delivery Receipt for Sales Order {$order->so_number} approved by " . auth()->user()->name . " and moved to Packing Management.",
+            'reference_type' => 'SalesOrder',
+            'reference_id' => $order->id,
+        ]);
+
+        return redirect()->back()->with('success', 'DR approved for Order #' . $order->so_number . '. Moved to Packing Management and Completed DRs.');
     }
 
     public function viewDeliveryForm($id)
@@ -2037,14 +2053,21 @@ class LogisticController extends Controller
             $bCompany = null;
             if ($bName && \Illuminate\Support\Facades\Schema::hasTable('companies')) {
                 try {
-                    $bCompany = \App\Models\Company::where('company_name', $bName)->first();
+                    $bCompany = \App\Models\Company::where('company_name', $bName)
+                        ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
+                        ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
+                        ->first();
                 } catch (\Exception $e) {}
             }
+            $accountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? null);
+            $acctCompany = ($accountNo && \Illuminate\Support\Facades\Schema::hasTable('companies')) ? \App\Models\Company::where('account_number', $accountNo)->first() : null;
+
             $order->display_company_name = $bCompany?->parent?->company_name 
                 ?: ($bCompany?->company_name 
-                ?: ($order->customer?->company_name 
-                ?: ($order->customer?->customer_name ?? 'N/A')));
-            $order->display_account_number = $bCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A');
+                ?: ($acctCompany?->parent?->company_name 
+                ?: ($acctCompany?->company_name 
+                ?: ($order->customer?->company_name && $order->customer->company_name !== 'Intracode' ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+            $order->display_account_number = $bCompany?->account_number ?: ($acctCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A'));
 
             \Log::info('Order loaded successfully', [
                 'id' => $order->id,

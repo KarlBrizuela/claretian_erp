@@ -264,11 +264,21 @@ class MarketingController extends Controller
                 ->map(function ($items) use (&$batchData) {
                     $first = $items->first();
                     $batchItems = $items->map(function($i) {
+                        $unitPrice = (float) (
+                            $i->bookIndex ? ($i->bookIndex->price ?: ($i->bookIndex->book?->price ?? 0))
+                            : ($i->book ? $i->book->price 
+                            : ($i->bookBundle ? $i->bookBundle->price : 0))
+                        );
+                        $barcode = $i->bookIndex ? ($i->bookIndex->barcode ?: ($i->bookIndex->nbs_barcode ?: $i->bookIndex->article))
+                            : ($i->book ? ($i->book->barcode ?: ($i->book->isbn ?: $i->book->item_code))
+                            : ($i->bookBundle ? $i->bookBundle->sku : ''));
                         return [
-                            'id'       => $i->id,
-                            'name'     => (string) $i->item_name,
-                            'type'     => (string) $i->item_type,
-                            'quantity' => (int)    $i->quantity,
+                            'id'         => $i->id,
+                            'name'       => (string) $i->item_name,
+                            'type'       => (string) $i->item_type,
+                            'quantity'   => (int)    $i->quantity,
+                            'unit_price' => $unitPrice,
+                            'barcode'    => (string) $barcode,
                         ];
                     })->values()->toArray();
 
@@ -4424,16 +4434,23 @@ class MarketingController extends Controller
     /**
      * Approve Team Stock Transfer by Marketing (moves to Production approval queue)
      */
-    public function approveTeamStockTransferByMarketing($id)
+    public function approveTeamStockTransferByMarketing(Request $request, $id)
     {
         $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
         if ($transfer->status !== 'pending_mkt_approval') {
             return redirect()->back()->with('error', 'This transfer is not pending Marketing approval.');
         }
 
-        $transfer->update([
+        $remarks = $request->input('approval_remarks') ?: ($request->input('remarks') ?: null);
+        $updateData = [
             'status' => 'pending_af_approval',
-        ]);
+        ];
+        if ($remarks) {
+            $existingRemarks = $transfer->remarks;
+            $updateData['remarks'] = $existingRemarks ? ($existingRemarks . "\n[Marketing]: " . $remarks) : ('[Marketing]: ' . $remarks);
+        }
+
+        $transfer->update($updateData);
 
         return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' approved by Marketing! Moved to Admin & Finance Approval Queue.');
     }
@@ -4449,9 +4466,10 @@ class MarketingController extends Controller
         }
 
         $reason = $request->input('rejection_reason');
+        $existingRemarks = $transfer->remarks;
         $transfer->update([
             'status' => 'rejected',
-            'notes' => ($transfer->notes ? $transfer->notes . ' | ' : '') . 'Rejected by Marketing: ' . ($reason ?: 'No reason specified'),
+            'remarks' => $existingRemarks ? ($existingRemarks . "\n[Marketing Rejection]: " . $reason) : ('[Marketing Rejection]: ' . $reason),
         ]);
 
         return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' rejected.');

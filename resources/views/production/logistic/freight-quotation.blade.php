@@ -234,7 +234,7 @@
                         <tbody id="cargoRows">
                             <tr>
                                 <td><input type="number" name="cargo_qty[]" min="1" placeholder="0"></td>
-                                <td><select name="cargo_package_type[]"><option value="">Select Type</option><option>LCL</option><option>FCL</option><option>Pallets</option></select></td>
+                                <td><select name="cargo_package_type[]"><option value="">Select Type</option><option>Box</option><option>Parcel</option><option>Carton</option><option>Crate</option><option>LCL</option><option>FCL</option><option>Pallets</option></select></td>
                                 <td><input type="text" name="cargo_dimensions[]" placeholder="L × W × H"></td>
                                 <td><input type="number" name="cargo_gross_weight[]" step="0.01" placeholder="0"></td>
                                 <td><input type="number" name="cargo_vol_weight[]" step="0.01" placeholder="0"></td>

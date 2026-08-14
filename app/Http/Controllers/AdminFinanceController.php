@@ -523,11 +523,21 @@ class AdminFinanceController extends Controller
       ->map(function ($items) {
           $first = $items->first();
           $first->batch_items = $items->map(function($i) {
+              $unitPrice = (float) (
+                  $i->bookIndex ? ($i->bookIndex->price ?: ($i->bookIndex->book?->price ?? 0))
+                  : ($i->book ? $i->book->price 
+                  : ($i->bookBundle ? $i->bookBundle->price : 0))
+              );
+              $barcode = $i->bookIndex ? ($i->bookIndex->barcode ?: ($i->bookIndex->nbs_barcode ?: $i->bookIndex->article))
+                  : ($i->book ? ($i->book->barcode ?: ($i->book->isbn ?: $i->book->item_code))
+                  : ($i->bookBundle ? $i->bookBundle->sku : ''));
               return [
-                  'id' => $i->id,
-                  'name' => $i->item_name,
-                  'type' => $i->item_type,
-                  'quantity' => $i->quantity
+                  'id'         => $i->id,
+                  'name'       => $i->item_name,
+                  'type'       => $i->item_type,
+                  'quantity'   => $i->quantity,
+                  'unit_price' => $unitPrice,
+                  'barcode'    => (string) $barcode,
               ];
           })->values()->toArray();
           $first->total_quantity = $items->sum('quantity');
@@ -5410,17 +5420,24 @@ public function checkVoucher()
     /**
      * Approve Team Stock Transfer by Admin & Finance (moves to Production approval queue)
      */
-    public function approveTeamStockTransferByAdminFinance($id)
+    public function approveTeamStockTransferByAdminFinance(Request $request, $id)
     {
         $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
         if ($transfer->status !== 'pending_af_approval') {
             return redirect()->back()->with('error', 'This transfer is not pending Admin & Finance approval.');
         }
 
-        $transfer->update([
+        $remarks = $request->input('approval_remarks') ?: ($request->input('remarks') ?: null);
+        $updateData = [
             'status' => 'pending_prod_approval',
             'approved_by_af' => auth()->id(),
-        ]);
+        ];
+        if ($remarks) {
+            $existingRemarks = $transfer->remarks;
+            $updateData['remarks'] = $existingRemarks ? ($existingRemarks . "\n[Admin & Finance]: " . $remarks) : ('[Admin & Finance]: ' . $remarks);
+        }
+
+        $transfer->update($updateData);
 
         return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' approved by Admin & Finance! Moved to Production Approval Queue.');
     }
@@ -5436,15 +5453,15 @@ public function checkVoucher()
         }
 
         $reason = $request->input('rejection_reason');
+        $existingRemarks = $transfer->remarks;
         $transfer->update([
             'status' => 'rejected',
-            'notes' => ($transfer->notes ? $transfer->notes . ' | ' : '') . 'Rejected by Admin & Finance: ' . ($reason ?: 'No reason specified'),
+            'remarks' => $existingRemarks ? ($existingRemarks . "\n[Admin & Finance Rejection]: " . $reason) : ('[Admin & Finance Rejection]: ' . $reason),
         ]);
 
-        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' rejected.');
+        return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' has been rejected.');
     }
 }
-
 
 
 

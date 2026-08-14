@@ -462,7 +462,7 @@ class NBSImportController extends Controller
                     'customer_id'             => $customer->customer_id,
                     'customer_representative' => $branchRepresentative,
                     'so_number'               => 'SO-NBS-' . $poNum . '-' . date('His'),
-                    'type'                    => 'area_consignment',
+                    'type'                    => 'direct_consignment',
                     'ref_number'              => $poNum,
                     'remarks'                 => $remarksStr,
                     'status'                  => 'pending_mkt_approval',
@@ -690,7 +690,7 @@ class NBSImportController extends Controller
                 $so = SalesOrder::create([
                     'customer_id' => $customer ? $customer->customer_id : $abacusCustomer->customer_id, 
                     'so_number' => 'SO-NBS-' . $poNum . '-' . date('His'),
-                    'type' => 'area_consignment',
+                    'type' => 'direct_consignment',
                     'ref_number' => $poNum,
                     'remarks' => ($poData['remarks'] ?? '') . ($customer ? '' : " (Vendor Code: $vendorCode)"),
                     'status' => 'draft',

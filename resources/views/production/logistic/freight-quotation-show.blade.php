@@ -196,6 +196,7 @@
                                                                 <select name="cargo_package_type[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;">
                                                                     <option value="">Select</option>
                                                                     <option value="Box, Bag, Pallet" {{ ($item['package_type'] ?? '') === 'Box, Bag, Pallet' ? 'selected' : '' }}>Box</option>
+                                                                    <option value="Parcel" {{ ($item['package_type'] ?? '') === 'Parcel' ? 'selected' : '' }}>Parcel</option>
                                                                     <option value="Crate" {{ ($item['package_type'] ?? '') === 'Crate' ? 'selected' : '' }}>Crate</option>
                                                                     <option value="Carton" {{ ($item['package_type'] ?? '') === 'Carton' ? 'selected' : '' }}>Carton</option>
                                                                     <option value="LCL" {{ ($item['package_type'] ?? '') === 'LCL' ? 'selected' : '' }}>LCL</option>
@@ -232,6 +233,7 @@
                                                             <select name="cargo_package_type[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;">
                                                                 <option value="">Select</option>
                                                                 <option value="Box, Bag, Pallet">Box</option>
+                                                                <option value="Parcel">Parcel</option>
                                                                 <option value="Crate">Crate</option>
                                                                 <option value="Carton">Carton</option>
                                                                 <option value="LCL">LCL</option>
@@ -390,7 +392,12 @@
                         @endif
 
                         <!-- BOOKS/ITEMS BREAKDOWN DISPLAY - ALWAYS VISIBLE -->
-                        <h6 class="border-bottom pb-2 mb-3"><strong>📚 Books/Items Breakdown</strong></h6>
+                        <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                            <h6 class="mb-0"><strong>📚 Books/Items Breakdown</strong></h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary shadow-sm" onclick="printItemsBreakdownOnly()">
+                                <i class="fas fa-print me-1"></i> Print Breakdown
+                            </button>
+                        </div>
                         @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->id && $quotation->salesOrder->items && $quotation->salesOrder->items->count() > 0)
                             <div class="table-responsive mb-4">
                                 <table class="table table-hover table-bordered">
@@ -707,6 +714,7 @@
                 <select name="cargo_package_type[]" class="form-control form-control-sm" style="height: 1.5rem; font-size: 0.75rem;">
                     <option value="">Select</option>
                     <option value="Box, Bag, Pallet">Box</option>
+                    <option value="Parcel">Parcel</option>
                     <option value="Crate">Crate</option>
                     <option value="Carton">Carton</option>
                     <option value="LCL">LCL</option>
@@ -763,6 +771,138 @@
             row.setAttribute('data-row-num', index + 1);
             row.querySelector('.row-number').textContent = index + 1;
         });
+    }
+
+    // Print ONLY Books/Items Breakdown (Item, Qty, Price, Amount)
+    function printItemsBreakdownOnly() {
+        var refNo = "{{ $quotation->quotation_number ?? ('FO-' . str_pad($quotation->id, 5, '0', STR_PAD_LEFT)) }}";
+        var soNumber = "{{ $quotation->salesOrder->so_number ?? 'N/A' }}";
+        var customerName = "{{ $quotation->salesOrder->customer->customer_name ?? ($quotation->salesOrder->company_name ?? 'N/A') }}";
+        var dateStr = "{{ now()->format('M d, Y') }}";
+        var logoUrl = window.location.origin + "{{ asset('images/claeritian_logo.png') }}";
+
+        var rowsHtml = '';
+        var itemsTable = document.querySelector('.table-responsive table.table-hover');
+        if (!itemsTable) {
+            alert('No items breakdown table found.');
+            return;
+        }
+
+        var rows = itemsTable.querySelectorAll('tbody tr');
+        var totalAmountVal = 0;
+        var totalQtyCount = 0;
+
+        rows.forEach(function(tr, idx) {
+            var tds = tr.querySelectorAll('td');
+            if (tds.length >= 8) {
+                var itemName = tds[1].innerText.split('\n')[0].trim();
+                var qtyStr = tds[2].innerText.trim();
+                var unitPrice = tds[5].innerText.trim();
+                var amount = tds[7].innerText.trim();
+                var qtyNum = parseInt(qtyStr) || 0;
+                totalQtyCount += qtyNum;
+
+                var amtNum = parseFloat(amount.replace(/[^0-9.-]+/g, '')) || 0;
+                totalAmountVal += amtNum;
+
+                rowsHtml += `
+                    <tr>
+                        <td style="text-align: center;">${idx + 1}</td>
+                        <td>${itemName}</td>
+                        <td style="text-align: center; font-weight: bold;">${qtyStr}</td>
+                        <td style="text-align: right;">${unitPrice}</td>
+                        <td style="text-align: right; font-weight: bold;">${amount}</td>
+                    </tr>
+                `;
+            }
+        });
+
+        var printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Books/Items Breakdown - ${refNo}</title>
+            <style>
+                body { font-family: 'Segoe UI', Arial, sans-serif; margin: 25px; color: #111; font-size: 12px; }
+                .company-header { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 12px; }
+                .company-logo { height: 60px; width: auto; object-fit: contain; }
+                .company-details { text-align: left; }
+                .company-name { font-size: 17px; font-weight: 800; color: #D9251C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+                .company-sub { font-size: 11px; color: #444; margin-bottom: 1px; }
+                .document-banner { text-align: center; margin: 15px 0 18px 0; border-top: 2px solid #D9251C; border-bottom: 1px solid #ddd; padding: 8px 0; background: #fff8f8; }
+                .document-title { font-size: 14px; font-weight: 800; color: #222; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+                .meta-table { width: 100%; margin-bottom: 18px; font-size: 12px; border-collapse: collapse; background: #fafafa; border: 1px solid #e0e0e0; }
+                .meta-table td { padding: 8px 12px; }
+                .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                .items-table th { background-color: #D9251C; color: #ffffff; font-weight: bold; text-transform: uppercase; font-size: 11px; padding: 9px 10px; border: 1px solid #b71c1c; }
+                .items-table td { border: 1px solid #e0e0e0; padding: 8px 10px; color: #222; }
+                .items-table tr:nth-child(even) { background-color: #fcfcfc; }
+                .tfoot-summary td { background-color: #f4f4f4; font-weight: bold; font-size: 13px; border-top: 2px solid #D9251C; padding: 10px; }
+                @media print {
+                    @page { margin: 12mm; }
+                    body { margin: 0; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="company-header">
+                <img src="${logoUrl}" class="company-logo" alt="Claretian Logo" onerror="this.style.display='none'">
+                <div class="company-details">
+                    <div class="company-name">CLARETIAN COMMUNICATIONS FOUNDATION INC.</div>
+                    <div class="company-sub">8 Mayumi St., U.P. Village, Diliman, Quezon City 1101 Philippines</div>
+                    <div class="company-sub">Tel. No.: (02) 921-3984 &nbsp;|&nbsp; Fax: 921-7429 &nbsp;|&nbsp; Email: info@claretianpublications.com</div>
+                </div>
+            </div>
+
+            <div class="document-banner">
+                <h3 class="document-title">FREIGHT QUOTATION — BOOKS & ITEMS BREAKDOWN</h3>
+            </div>
+
+            <table class="meta-table">
+                <tr>
+                    <td style="width: 50%;"><strong>Freight Quotation #:</strong> <span style="color: #D9251C; font-weight: bold;">${refNo}</span></td>
+                    <td style="width: 50%; text-align: right;"><strong>Date Printed:</strong> ${dateStr}</td>
+                </tr>
+                <tr>
+                    <td><strong>Sales Order #:</strong> ${soNumber}</td>
+                    <td style="text-align: right;"><strong>Customer:</strong> ${customerName}</td>
+                </tr>
+            </table>
+
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">#</th>
+                        <th>Book / Product Name</th>
+                        <th style="width: 80px; text-align: center;">QTY</th>
+                        <th style="width: 120px; text-align: right;">Unit Price</th>
+                        <th style="width: 130px; text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+                <tfoot>
+                    <tr class="tfoot-summary">
+                        <td colspan="2" style="text-align: right;">Total Items Summary:</td>
+                        <td style="text-align: center; color: #D9251C;">${totalQtyCount} pcs</td>
+                        <td></td>
+                        <td style="text-align: right; color: #D9251C;">₱ ${totalAmountVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </body>
+        </html>
+        `;
+
+        var printWindow = window.open('', '_blank', 'width=900,height=700');
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(function() {
+            printWindow.print();
+            printWindow.close();
+        }, 400);
     }
 </script>
 </x-app-layout>

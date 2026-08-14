@@ -31,12 +31,14 @@ class SalesOrder extends Model
         'signed_by_af_manager',
         'si_prepared_by',
         'dr_prepared_by',
+        'dr_approved_by',
         'mkt_approved_at',
         'acct_approved_at',
         'prod_approved_at',
         'signed_at',
         'si_prepared_at',
         'dr_prepared_at',
+        'dr_approved_at',
         'ar_prepared_at',
         'ar_prepared_by',
         'cr_prepared_at',
@@ -126,6 +128,11 @@ class SalesOrder extends Model
     public function drPreparedBy()
     {
         return $this->belongsTo(User::class, 'dr_prepared_by');
+    }
+
+    public function drApprovedBy()
+    {
+        return $this->belongsTo(User::class, 'dr_approved_by');
     }
 
     public function signedBy()

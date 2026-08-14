@@ -35,12 +35,19 @@
                             preg_match('/Branch:\s*([^|\n\r]+)/', $so->remarks, $m);
                             $bName = trim($m[1] ?? '');
                         }
-                        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+                        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)
+                            ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
+                            ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
+                            ->first() : null;
+                        $accountNo = $bCompany?->account_number ?: ($so?->customer?->account_number ?? null);
+                        $acctCompany = $accountNo ? \App\Models\Company::where('account_number', $accountNo)->first() : null;
+
                         $displayCompanyName = $bCompany?->parent?->company_name 
                             ?: ($bCompany?->company_name 
-                            ?: ($so?->customer?->company_name 
-                            ?: ($so?->customer?->customer_name ?? 'N/A')));
-                        $displayAccountNo = $bCompany?->account_number ?: ($so?->customer?->account_number ?? 'N/A');
+                            ?: ($acctCompany?->parent?->company_name 
+                            ?: ($acctCompany?->company_name 
+                            ?: ($so?->customer?->company_name && $so->customer->company_name !== 'Intracode' ? $so->customer->company_name : ($so?->customer?->customer_name ?? 'N/A')))));
+                        $displayAccountNo = $bCompany?->account_number ?: ($acctCompany?->account_number ?: ($so?->customer?->account_number ?? 'N/A'));
                     @endphp
                     <div class="order-info-section">
                         <div class="order-info-box">

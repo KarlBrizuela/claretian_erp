@@ -1257,25 +1257,30 @@
                             var name = it.name;
                             var itemType = it.type || it.item_type || 'Book';
                             var unitPrice = parseFloat(it.unit_price || it.price) || 0;
+                            var barcode = it.barcode || '';
 
                             if (!name) {
                                 if (it.book_index && it.book_index.book) {
                                     name = it.book_index.book.name + (it.book_index.index_value ? ' (' + it.book_index.index_value + ')' : '');
                                     itemType = 'BookIndex';
                                     if (!unitPrice) unitPrice = parseFloat(it.book_index.price) || parseFloat(it.book_index.book.price) || 0;
+                                    if (!barcode) barcode = it.book_index.barcode || it.book_index.nbs_barcode || it.book_index.article || '';
                                 } else if (it.book_index_id && it.book_index) {
                                     var bObj = it.book_index.book || {};
                                     name = (bObj.name || 'Book') + (it.book_index.index_value ? ' (' + it.book_index.index_value + ')' : '');
                                     itemType = 'BookIndex';
                                     if (!unitPrice) unitPrice = parseFloat(it.book_index.price) || parseFloat(bObj.price) || 0;
+                                    if (!barcode) barcode = it.book_index.barcode || it.book_index.nbs_barcode || it.book_index.article || '';
                                 } else if (it.book && (it.book.name || it.book.title)) {
                                     name = it.book.name || it.book.title;
                                     itemType = 'Book';
                                     if (!unitPrice) unitPrice = parseFloat(it.book.price) || 0;
+                                    if (!barcode) barcode = it.book.barcode || it.book.isbn || it.book.item_code || '';
                                 } else if (it.book_bundle && it.book_bundle.name) {
                                     name = it.book_bundle.name;
                                     itemType = 'BookBundle';
                                     if (!unitPrice) unitPrice = parseFloat(it.book_bundle.price) || 0;
+                                    if (!barcode) barcode = it.book_bundle.sku || '';
                                 } else {
                                     name = 'Item #' + (it.book_id || it.id || '');
                                 }
@@ -1285,12 +1290,18 @@
                                     else if (it.book) unitPrice = parseFloat(it.book.price) || 0;
                                     else if (it.book_bundle) unitPrice = parseFloat(it.book_bundle.price) || 0;
                                 }
+                                if (!barcode) {
+                                    if (it.book_index) barcode = it.book_index.barcode || it.book_index.nbs_barcode || it.book_index.article || '';
+                                    else if (it.book) barcode = it.book.barcode || it.book.isbn || it.book.item_code || '';
+                                    else if (it.book_bundle) barcode = it.book_bundle.sku || '';
+                                }
                             }
                             return {
                                 name: name,
                                 type: itemType,
                                 quantity: it.quantity || 1,
-                                unit_price: unitPrice
+                                unit_price: unitPrice,
+                                barcode: barcode
                             };
                         });
                     }
@@ -1305,7 +1316,10 @@
                         totQty += q;
                         totAmount += lineTot;
                         itemsRows += `<tr>
-                            <td class="fw-semibold text-dark">${it.name || 'Unknown Item'}</td>
+                            <td class="fw-semibold text-dark">
+                                ${it.name || 'Unknown Item'}
+                                ${it.barcode ? `<br><small class="text-muted"><i class="las la-barcode me-1"></i>Barcode: <code>${it.barcode}</code></small>` : ''}
+                            </td>
                             <td><span class="badge bg-secondary">${it.type || 'Item'}</span></td>
                             <td class="text-end text-muted">₱${up.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             <td class="text-center fw-bold text-success">${q} pcs</td>
@@ -1332,6 +1346,14 @@
                         </div>`;
                     }
 
+                    var remarksHistoryHtml = '';
+                    if (original.remarks && original.remarks.trim() !== '') {
+                        remarksHistoryHtml = `<div class="mt-2 p-2 rounded bg-info bg-opacity-10 border border-info small text-dark">
+                            <strong><i class="las la-history me-1"></i>Approval Remarks / History:</strong>
+                            <div style="white-space: pre-wrap;" class="mt-1 font-monospace small">${original.remarks}</div>
+                        </div>`;
+                    }
+
                     descriptionHtml += `</tbody></table></div>
                         <div class="mt-3 pt-2 border-top">
                             <h6 class="fw-bold fs-12 text-muted mb-2"><i class="las la-books text-danger me-1"></i>BOOKS INCLUDED IN TRANSFER (${itemsList.length} titles · ${totQty} pcs total · ₱${totAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})</h6>
@@ -1352,6 +1374,7 @@
                                 </table>
                             </div>
                             ${siteInfoHtml}
+                            ${remarksHistoryHtml}
                         </div>`;
                 } else {
                     descriptionHtml += `</tbody></table></div>`;
@@ -1454,9 +1477,18 @@
 
             $(document).on('submit', '#approveForm, #rejectForm', function() {
                 const remarksVal = $('#modalApprovalRemarks').val();
-                if (remarksVal) {
-                    $(this).find('input[name="remarks"]').remove();
-                    $(this).append(`<input type="hidden" name="remarks" value="${remarksVal.replace(/"/g, '&quot;')}">`);
+                $(this).find('input[name="remarks"], input[name="approval_remarks"]').remove();
+                if (remarksVal && remarksVal.trim() !== '') {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'remarks',
+                        value: remarksVal
+                    }).appendTo(this);
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'approval_remarks',
+                        value: remarksVal
+                    }).appendTo(this);
                 }
             });
 

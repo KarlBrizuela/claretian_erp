@@ -14,6 +14,7 @@ class TeamStockTransfer extends Model
         'team_name',
         'transferred_by',
         'notes',
+        'remarks',
         'status',
     ];
 

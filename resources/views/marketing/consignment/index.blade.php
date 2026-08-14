@@ -369,7 +369,7 @@
                             <label class="form-label small fw-bold">Assign Owner</label>
                             <select class="form-select" id="config_owner_id" required>
                                 <option value="" disabled selected>Select an owner...</option>
-                                @foreach($owners as $owner)
+                                @foreach($allOwners ?? $owners as $owner)
                                     <option value="{{ $owner->id }}">{{ $owner->name }}</option>
                                 @endforeach
                             </select>

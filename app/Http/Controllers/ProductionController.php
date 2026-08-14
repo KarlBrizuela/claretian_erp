@@ -174,11 +174,21 @@ class ProductionController extends Controller
                 ->map(function ($items) {
                     $first = $items->first();
                     $first->batch_items = $items->map(function($i) {
+                        $unitPrice = (float) (
+                            $i->bookIndex ? ($i->bookIndex->price ?: ($i->bookIndex->book?->price ?? 0))
+                            : ($i->book ? $i->book->price 
+                            : ($i->bookBundle ? $i->bookBundle->price : 0))
+                        );
+                        $barcode = $i->bookIndex ? ($i->bookIndex->barcode ?: ($i->bookIndex->nbs_barcode ?: $i->bookIndex->article))
+                            : ($i->book ? ($i->book->barcode ?: ($i->book->isbn ?: $i->book->item_code))
+                            : ($i->bookBundle ? $i->bookBundle->sku : ''));
                         return [
-                            'id' => $i->id,
-                            'name' => $i->item_name,
-                            'type' => $i->item_type,
-                            'quantity' => $i->quantity
+                            'id'         => $i->id,
+                            'name'       => (string) $i->item_name,
+                            'type'       => (string) $i->item_type,
+                            'quantity'   => (int)    $i->quantity,
+                            'unit_price' => $unitPrice,
+                            'barcode'    => (string) $barcode,
                         ];
                     })->values()->toArray();
                     $first->total_quantity = $items->sum('quantity');
@@ -207,16 +217,17 @@ class ProductionController extends Controller
         $myApprovals = [];
         
         foreach ($salesOrders as $so) {
+            $isDR = $so->status === 'pending_dr_approval';
             $myApprovals[] = [
-                'type' => 'Sales Order',
+                'type' => $isDR ? 'Delivery Receipt' : 'Sales Order',
                 'id' => $so->id,
                 'reference_no' => $so->so_number,
-                'submitted_by' => $so->preparedBy->name ?? 'N/A',
-                'submitted_date' => $so->created_at,
+                'submitted_by' => $isDR ? ($so->drPreparedBy->name ?? ($so->preparedBy->name ?? 'N/A')) : ($so->preparedBy->name ?? 'N/A'),
+                'submitted_date' => $isDR ? ($so->dr_prepared_at ?? $so->created_at) : $so->created_at,
                 'amount' => '₱' . number_format($so->total_amount, 2),
                 'attachment' => null,
-                'status' => 'pending approval',
-                'url' => route('production.sales-order.detail', $so->id),
+                'status' => $so->status,
+                'url' => route('production.logistic.delivery-receipt', $so->id),
                 'original' => $so
             ];
         }

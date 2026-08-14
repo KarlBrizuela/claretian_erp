@@ -1140,45 +1140,72 @@
                                 <tr>
                                     <th>Item Title</th>
                                     <th>Type</th>
+                                    <th class="text-end">Unit Price</th>
                                     <th class="text-center">Quantity to Transfer</th>
+                                    <th class="text-end">Total Price</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                @php $teamGrandTotal = 0; $teamTotalQty = 0; @endphp
                                 @foreach($teamTransfer->items as $tItem)
                                 @php
                                     $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
                                     $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+                                    $uPrice = (float) ($tItem->bookIndex ? ($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?? 0)) : ($tItem->book ? $tItem->book->price : ($tItem->bookBundle ? $tItem->bookBundle->price : 0)));
+                                    $barcodeVal = $tItem->bookIndex ? ($tItem->bookIndex->barcode ?: ($tItem->bookIndex->nbs_barcode ?: $tItem->bookIndex->article)) : ($tItem->book ? ($tItem->book->barcode ?: ($tItem->book->isbn ?: $tItem->book->item_code)) : ($tItem->bookBundle ? $tItem->bookBundle->sku : ''));
+                                    $subT = $tItem->quantity * $uPrice;
+                                    $teamGrandTotal += $subT;
+                                    $teamTotalQty += $tItem->quantity;
                                 @endphp
                                 <tr>
-                                    <td class="fw-bold text-dark">{{ $itemName }}</td>
+                                    <td class="fw-bold text-dark">
+                                        {{ $itemName }}
+                                        @if($barcodeVal)
+                                            <br><small class="text-muted"><i class="las la-barcode me-1"></i>Barcode: <code>{{ $barcodeVal }}</code></small>
+                                        @endif
+                                    </td>
                                     <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
+                                    <td class="text-end font-monospace text-muted">₱{{ number_format($uPrice, 2) }}</td>
                                     <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                    <td class="text-end font-monospace fw-bold text-dark">₱{{ number_format($subT, 2) }}</td>
                                 </tr>
                                 @endforeach
+                                @if(count($teamTransfer->items) > 0)
+                                <tr class="table-light fw-bold">
+                                    <td colspan="3" class="text-end small">Total Estimated Value:</td>
+                                    <td class="text-center text-success">{{ number_format($teamTotalQty) }} pcs</td>
+                                    <td class="text-end font-monospace text-danger">₱{{ number_format($teamGrandTotal, 2) }}</td>
+                                </tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>
 
                     <form action="{{ route('marketing.area-sales.team-stocks.reject', $teamTransfer->id) }}" method="POST" id="rejectTeamTransferForm{{ $teamTransfer->id }}" class="mb-3" style="display: none;">
                         @csrf
+                        <input type="hidden" name="remarks" class="mkt-remarks-pass{{ $teamTransfer->id }}">
                         <label class="form-label text-danger fw-bold">Reason for Rejection:</label>
                         <textarea name="rejection_reason" class="form-control mb-2" rows="2" placeholder="Specify reason for rejection..." required></textarea>
                         <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times-circle me-1"></i>Confirm Rejection</button>
                         <button type="button" class="btn btn-light btn-sm ms-1" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').hide()">Cancel</button>
                     </form>
-                </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-outline-danger" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').toggle()">
-                        <i class="las la-times me-1"></i> Reject Request
-                    </button>
-                    <form action="{{ route('marketing.area-sales.team-stocks.approve', $teamTransfer->id) }}" method="POST" class="d-inline">
+
+                    <form action="{{ route('marketing.area-sales.team-stocks.approve', $teamTransfer->id) }}" method="POST">
                         @csrf
-                        <button type="submit" class="btn btn-success">
-                            <i class="las la-check me-1"></i> Approve & Send to Production
-                        </button>
+                        <div class="mb-3 text-start">
+                            <label class="form-label fw-bold small text-dark mb-1"><i class="las la-comment-alt text-primary me-1"></i>Add Action / Approval Remarks (Optional):</label>
+                            <textarea name="approval_remarks" class="form-control form-control-sm" rows="2" placeholder="Type optional remarks before approving..." oninput="$('.mkt-remarks-pass{{ $teamTransfer->id }}').val(this.value)"></textarea>
+                        </div>
+                        <div class="modal-footer bg-light px-0 pb-0 pt-3 border-0">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-outline-danger" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').toggle()">
+                                <i class="las la-times me-1"></i> Reject Request
+                            </button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="las la-check me-1"></i> Approve & Forward to Admin & Finance
+                            </button>
+                        </div>
                     </form>
-                </div>
             </div>
         </div>
     </div>
@@ -1391,20 +1418,32 @@
                 // Build items table
                 var rowsHtml = '';
                 var totalQty = 0;
+                var grandTotalVal = 0;
                 itemsData.forEach(function(item) {
                     var qty = parseInt(item.quantity) || 0;
                     totalQty += qty;
+                    var unitPrice = parseFloat(item.unit_price) || 0;
+                    var barcode = item.barcode || '';
+                    var lineTotal = qty * unitPrice;
+                    grandTotalVal += lineTotal;
+
                     var typeColor = item.type === 'Book' ? 'success' : (item.type === 'Bundle' ? 'warning' : 'secondary');
                     rowsHtml += `<tr>
-                        <td class="fw-semibold text-dark">${item.name || 'Unknown Item'}</td>
+                        <td class="fw-semibold text-dark">
+                            ${item.name || 'Unknown Item'}
+                            ${barcode ? `<br><small class="text-muted"><i class="las la-barcode me-1"></i>Barcode: <code>${barcode}</code></small>` : ''}
+                        </td>
                         <td><span class="badge bg-${typeColor}">${item.type || 'Item'}</span></td>
+                        <td class="text-end font-monospace text-muted">₱${unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td class="text-center fw-bold text-success">${qty} pcs</td>
+                        <td class="text-end font-monospace fw-bold text-dark">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     </tr>`;
                 });
-                if (itemsData.length > 1) {
+                if (itemsData.length > 0) {
                     rowsHtml += `<tr class="table-light fw-bold">
-                        <td colspan="2" class="text-end small">Total Batch Units:</td>
+                        <td colspan="3" class="text-end small">Total Estimated Value:</td>
                         <td class="text-center text-success">${totalQty} pcs</td>
+                        <td class="text-end font-monospace text-danger">₱${grandTotalVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     </tr>`;
                 }
                 modal.find('#st-items-body').html(rowsHtml);

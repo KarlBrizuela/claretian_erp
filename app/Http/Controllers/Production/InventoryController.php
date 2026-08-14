@@ -207,11 +207,21 @@ class InventoryController extends Controller
             ->map(function ($items) use (&$batchData) {
                 $first = $items->first();
                 $batchItems = $items->map(function($i) {
+                    $unitPrice = (float) (
+                        $i->bookIndex ? ($i->bookIndex->price ?: ($i->bookIndex->book?->price ?? 0))
+                        : ($i->book ? $i->book->price 
+                        : ($i->bookBundle ? $i->bookBundle->price : 0))
+                    );
+                    $barcode = $i->bookIndex ? ($i->bookIndex->barcode ?: ($i->bookIndex->nbs_barcode ?: $i->bookIndex->article))
+                        : ($i->book ? ($i->book->barcode ?: ($i->book->isbn ?: $i->book->item_code))
+                        : ($i->bookBundle ? $i->bookBundle->sku : ''));
                     return [
-                        'id'       => $i->id,
-                        'name'     => (string) $i->item_name,
-                        'type'     => (string) $i->item_type,
-                        'quantity' => (int)    $i->quantity,
+                        'id'         => $i->id,
+                        'name'       => (string) $i->item_name,
+                        'type'       => (string) $i->item_type,
+                        'quantity'   => (int)    $i->quantity,
+                        'unit_price' => $unitPrice,
+                        'barcode'    => (string) $barcode,
                     ];
                 })->values()->toArray();
 

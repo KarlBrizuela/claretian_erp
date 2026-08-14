@@ -476,7 +476,7 @@
                                             <input type="checkbox" class="form-check-input completed-dr-cb" value="{{ $order->id }}" style="cursor: pointer; width: 18px; height: 18px;">
                                         </td>
                                         <td><strong>{{ $order->so_number }}</strong></td>
-                                        <td><span class="badge bg-light text-dark border text-nowrap"><i class="las la-calendar me-1"></i>{{ $drDateFormatted }}</span></td>
+                                        <td data-order="{{ $drDateObj ? $drDateObj->timestamp : ($order->id ?? 0) }}"><span class="badge bg-light text-dark border text-nowrap"><i class="las la-calendar me-1"></i>{{ $drDateFormatted }}</span></td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td><span class="badge bg-info">{{ $termsDisplay }}</span></td>
@@ -634,7 +634,7 @@
             });
 
             const completedDrTable = $('#completedDrTable').DataTable({
-                order: [[1, 'desc']],
+                order: [[2, 'desc'], [1, 'desc']],
                 pageLength: 10,
                 columnDefs: [
                     { orderable: false, targets: [0, -1] }

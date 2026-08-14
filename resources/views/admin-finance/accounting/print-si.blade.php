@@ -326,6 +326,58 @@
         body.preprinted-mode .signature-section {
             border-color: transparent !important;
         }
+
+        /* Half Page Mode for print-si */
+        body.half-page-mode .invoice-container {
+            max-width: 8.5in !important;
+            height: auto !important;
+            min-height: 4.8in !important;
+            max-height: none !important;
+            padding: 0.2in 0.25in !important;
+            box-sizing: border-box !important;
+        }
+        body.half-page-mode .invoice-header {
+            margin-bottom: 0.3rem !important;
+            padding-bottom: 0.3rem !important;
+        }
+        body.half-page-mode .company-logo {
+            width: 35px !important;
+            height: 35px !important;
+            font-size: 1.2rem !important;
+        }
+        body.half-page-mode .company-info h1 {
+            font-size: 0.75rem !important;
+        }
+        body.half-page-mode .company-info p {
+            font-size: 0.65rem !important;
+        }
+        body.half-page-mode .invoice-title {
+            margin: 0.2rem 0 !important;
+        }
+        body.half-page-mode .invoice-title h2 {
+            font-size: 1rem !important;
+        }
+        body.half-page-mode .invoice-number {
+            font-size: 0.85rem !important;
+            margin: 0.2rem 0 !important;
+            padding-bottom: 0.2rem !important;
+        }
+        body.half-page-mode .invoice-details {
+            gap: 0.4rem !important;
+            margin-bottom: 0.4rem !important;
+        }
+        body.half-page-mode .detail-section {
+            padding: 0.4rem !important;
+        }
+        body.half-page-mode .items-table th,
+        body.half-page-mode .items-table td {
+            padding: 0.2rem 0.4rem !important;
+            font-size: 0.75rem !important;
+        }
+        body.half-page-mode .signature-section {
+            margin-top: 0.4rem !important;
+            padding-top: 0.4rem !important;
+        }
     </style>
 </head>
 <body>
@@ -334,7 +386,14 @@
             <i class="las la-arrow-left me-1"></i> Back
         </a>
         <div class="d-flex align-items-center gap-3">
-            <div class="form-check form-switch mb-0">
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label fw-bold small text-dark mb-0 text-nowrap"><i class="las la-file-alt me-1"></i>Paper Size:</label>
+                <select class="form-select form-select-sm fw-bold border-secondary" id="paperSizeSelect" onchange="changePaperSize(this.value)" style="width: 150px; cursor: pointer; height: 32px; font-size: 0.8rem;">
+                    <option value="whole" selected>1 Whole (Full Page)</option>
+                    <option value="half">1/2 (Half Page)</option>
+                </select>
+            </div>
+            <div class="form-check form-switch mb-0 ms-2">
                 <input class="form-check-input" type="checkbox" id="preprintedToggle" onchange="document.body.classList.toggle('preprinted-mode', this.checked)">
                 <label class="form-check-label fw-bold small text-dark" for="preprintedToggle">Overlay on Pre-printed Paper Form</label>
             </div>
@@ -506,5 +565,17 @@
             </button>
         </div>
     </div>
+
+    <script>
+        function changePaperSize(size) {
+            if (size === 'half') {
+                document.body.classList.add('half-page-mode');
+                document.body.classList.remove('whole-page-mode');
+            } else {
+                document.body.classList.remove('half-page-mode');
+                document.body.classList.add('whole-page-mode');
+            }
+        }
+    </script>
 </body>
 </html>

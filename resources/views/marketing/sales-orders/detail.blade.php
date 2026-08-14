@@ -97,12 +97,19 @@
                                     preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
                                     $bName = trim($m[1] ?? '');
                                 }
-                                $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)->first() : null;
+                                $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)
+                                    ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
+                                    ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
+                                    ->first() : null;
+                                $accountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? null);
+                                $acctCompany = $accountNo ? \App\Models\Company::where('account_number', $accountNo)->first() : null;
+
                                 $displayCompanyName = $bCompany?->parent?->company_name 
                                     ?: ($bCompany?->company_name 
-                                    ?: ($order->customer?->company_name 
-                                    ?: ($order->customer?->customer_name ?? 'N/A')));
-                                $displayAccountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A');
+                                    ?: ($acctCompany?->parent?->company_name 
+                                    ?: ($acctCompany?->company_name 
+                                    ?: ($order->customer?->company_name && $order->customer->company_name !== 'Intracode' ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+                                $displayAccountNo = $bCompany?->account_number ?: ($acctCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A'));
                             @endphp
                             <tr>
                                 <td class="fw-bold text-dark" style="width: 140px;">Company:</td>
