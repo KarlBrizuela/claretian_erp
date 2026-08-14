@@ -1051,9 +1051,11 @@
                                 <table class="table table-bordered table-hover align-middle mb-0 small">
                                     <thead class="table-light" style="position:sticky;top:0;z-index:2;">
                                         <tr>
-                                            <th style="width:55%">Book Title / Code</th>
-                                            <th style="width:20%">Type</th>
-                                            <th class="text-center" style="width:25%">Quantity</th>
+                                            <th style="width:40%">Book Title / Code</th>
+                                            <th style="width:15%">Type</th>
+                                            <th class="text-end" style="width:15%">Unit Price</th>
+                                            <th class="text-center" style="width:15%">Quantity</th>
+                                            <th class="text-end" style="width:15%">Total Price</th>
                                         </tr>
                                     </thead>
                                     <tbody id="st-items-body"></tbody>
@@ -1079,15 +1081,10 @@
                         <button type="button" class="btn btn-light px-4 py-2 fw-semibold border" data-bs-dismiss="modal">
                             <i class="las la-times me-1"></i>Close
                         </button>
-                        <div class="d-flex gap-2 position-relative">
-                            <button type="button" class="btn btn-danger px-4 py-2 fw-semibold" onclick="toggleStRejection()" id="st-reject-btn">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-danger px-4 py-2 fw-semibold" id="st-reject-btn">
                                 <i class="las la-times-circle me-1"></i>Reject
                             </button>
-                            <div id="st-rejection-reason-container" class="mt-2" style="display:none;position:absolute;background:white;border:1px solid #ccc;padding:15px;z-index:1000;width:300px;bottom:60px;right:0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
-                                <label class="fw-bold mb-2 small">Reason for Rejection:</label>
-                                <textarea name="rejection_reason" id="st-rejection-reason-text" class="form-control mb-3" rows="3" placeholder="Enter reason..."></textarea>
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-danger btn-sm flex-grow-1" id="st-confirm-reject-btn">Confirm Reject</button>
                                     <button type="button" class="btn btn-light btn-sm flex-grow-1 border" onclick="toggleStRejection()">Cancel</button>
                                 </div>
                             </div>

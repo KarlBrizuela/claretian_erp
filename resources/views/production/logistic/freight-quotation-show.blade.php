@@ -399,7 +399,7 @@
                                             <th style="width: 40px;">#</th>
                                             <th>Book/Product Name</th>
                                             <th style="width: 80px;" class="text-center">QTY</th>
-                                            <th style="width: 100px;" class="text-center">Weight (kg)</th>
+                                            <th style="width: 100px;" class="text-center">Weight (g)</th>
                                             <th style="width: 120px;" class="text-center">Total Weight</th>
                                             <th style="width: 110px;" class="text-end">Unit Price</th>
                                             <th style="width: 100px;" class="text-end">Discount</th>
@@ -455,7 +455,7 @@
                                                 </td>
                                                 <td class="text-center fw-bold">
                                                     @if($totalWeight > 0)
-                                                        {{ number_format($itemTotalWeight, 2) }} kg
+                                                        {{ number_format($itemTotalWeight, 2) }} g
                                                     @else
                                                         <span class="text-muted">-</span>
                                                     @endif
@@ -487,7 +487,7 @@
                                              <td colspan="4" class="text-end"><strong>Order Subtotal:</strong></td>
                                              <td class="text-center fw-bold">
                                                  @if($totalWeight > 0)
-                                                     {{ number_format($totalWeight, 2) }} kg
+                                                     {{ number_format($totalWeight, 2) }} g
                                                  @else
                                                      <span class="text-muted">-</span>
                                                  @endif

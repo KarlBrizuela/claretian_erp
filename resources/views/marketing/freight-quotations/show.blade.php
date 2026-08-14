@@ -175,7 +175,7 @@
                                             <th style="width: 40px;">#</th>
                                             <th>Book Name</th>
                                             <th style="width: 100px;" class="text-center">SKU</th>
-                                            <th style="width: 100px;" class="text-center">Weight (kg)</th>
+                                            <th style="width: 100px;" class="text-center">Weight (g)</th>
                                             <th style="width: 100px;" class="text-center">Stock</th>
                                             <th style="width: 120px;" class="text-end">Price</th>
                                             <th style="width: 150px;">Author</th>
@@ -315,7 +315,7 @@
                                             <tr>
                                                 <th style="width: 60px;">QTY</th>
                                                 <th>PRODUCT</th>
-                                                <th style="width: 80px;" class="text-center">WEIGHT (kg)</th>
+                                                <th style="width: 80px;" class="text-center">WEIGHT (g)</th>
                                                 <th style="width: 100px;" class="text-center">TOTAL WEIGHT</th>
                                                 <th style="width: 100px;" class="text-end">UNIT PRICE</th>
                                                 <th style="width: 100px;" class="text-end">DISCOUNT</th>
@@ -353,7 +353,7 @@
                                                     </td>
                                                     <td class="text-center fw-bold">
                                                         @if($weight > 0)
-                                                            {{ number_format($itemTotalWeight, 2) }} kg
+                                                            {{ number_format($itemTotalWeight, 2) }} g
                                                         @else
                                                             <span class="text-muted">-</span>
                                                         @endif
@@ -392,7 +392,7 @@
                                                 <td colspan="3" class="text-end"><strong>Items Subtotal:</strong></td>
                                                 <td class="text-center fw-bold">
                                                     @if($totalWeight > 0)
-                                                        {{ number_format($totalWeight, 2) }} kg
+                                                        {{ number_format($totalWeight, 2) }} g
                                                     @else
                                                         <span class="text-muted">-</span>
                                                     @endif

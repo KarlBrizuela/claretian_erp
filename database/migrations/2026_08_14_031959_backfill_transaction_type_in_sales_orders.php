@@ -15,13 +15,16 @@ class BackfillTransactionTypeInSalesOrders extends Migration
     public function up()
     {
         // Change column from ENUM to string to allow all possible values
-        DB::statement("ALTER TABLE sales_orders MODIFY COLUMN transaction_type VARCHAR(50) NOT NULL DEFAULT 'Credit'");
+        DB::statement("ALTER TABLE sales_orders MODIFY COLUMN transaction_type VARCHAR(50) NOT NULL DEFAULT 'paid'");
 
-        // Backfill NULL or empty transaction_type values to 'Credit'
+        // Sync transaction_type from 'type' column (which stores the actual order type selected when created)
+        DB::statement("UPDATE sales_orders SET transaction_type = type WHERE type IS NOT NULL AND type != ''");
+
+        // Backfill any remaining NULL or empty transaction_type values to 'paid'
         DB::table('sales_orders')
             ->whereNull('transaction_type')
             ->orWhere('transaction_type', '')
-            ->update(['transaction_type' => 'Credit']);
+            ->update(['transaction_type' => 'paid']);
     }
 
     /**

@@ -397,8 +397,8 @@ class NBSImportController extends Controller
         DB::beginTransaction();
         try {
             // Determine Parent Company & Branch names based on user selection or defaults
-            $parentCompanyName = 'Intracode';
-            $defaultBranchName = 'abacus';
+            $parentCompanyName = 'National Book Store';
+            $defaultBranchName = 'Abacus';
 
             if (request('branch_id')) {
                 $bComp = Company::with('parent')->find(request('branch_id'));

@@ -4047,14 +4047,17 @@ class MarketingController extends Controller
     public function exportBooks(Request $request)
     {
         $search = $request->input('search');
-        $query = \App\Models\Book::where('is_active', true);
+        $query = \App\Models\Book::with(['consignmentOwner', 'bookCategory', 'bookSubCategory'])->where('is_active', true);
 
         if ($search) {
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('isbn', 'like', "%{$search}%")
                   ->orWhere('item_code', 'like', "%{$search}%")
-                  ->orWhere('category', 'like', "%{$search}%");
+                  ->orWhere('category', 'like', "%{$search}%")
+                  ->orWhere('sub_category', 'like', "%{$search}%")
+                  ->orWhere('publisher', 'like', "%{$search}%")
+                  ->orWhere('book_type', 'like', "%{$search}%");
             });
         }
 
@@ -4066,13 +4069,13 @@ class MarketingController extends Controller
 
         // Title
         $sheet->setCellValue('A1', 'CLARETIAN ERP — BOOK LIST (MASTER REGISTRY)');
-        $sheet->mergeCells('A1:H1');
+        $sheet->mergeCells('A1:K1');
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFD9251C']],
         ]);
 
         $sheet->setCellValue('A2', 'Exported on ' . date('M d, Y h:i A') . ' | Total Records: ' . $books->count());
-        $sheet->mergeCells('A2:H2');
+        $sheet->mergeCells('A2:K2');
         $sheet->getStyle('A2')->applyFromArray([
             'font' => ['italic' => true, 'size' => 10, 'color' => ['argb' => 'FF666666']],
         ]);
@@ -4083,17 +4086,20 @@ class MarketingController extends Controller
             'B4' => 'ISBN / Barcode',
             'C4' => 'Book Title / Name',
             'D4' => 'Category',
-            'E4' => 'Price (₱)',
-            'F4' => 'Main Warehouse Stock (pcs)',
-            'G4' => 'Status',
-            'H4' => 'Description',
+            'E4' => 'Sub Category',
+            'F4' => 'Classification',
+            'G4' => 'Publisher',
+            'H4' => 'Price (₱)',
+            'I4' => 'Main Warehouse Stock (pcs)',
+            'J4' => 'Status',
+            'K4' => 'Description',
         ];
 
         foreach ($headers as $cell => $label) {
             $sheet->setCellValue($cell, $label);
         }
 
-        $sheet->getStyle('A4:H4')->applyFromArray([
+        $sheet->getStyle('A4:K4')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
             'fill' => [
                 'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
@@ -4112,17 +4118,23 @@ class MarketingController extends Controller
         foreach ($books as $b) {
             $stock = (int) ($b->main_stock ?? $b->stock ?? 0);
             $status = $b->is_active ? 'Active' : 'Inactive';
+            $subCategory = $b->sub_category ?: ($b->bookSubCategory?->name ?: '—');
+            $classification = $b->book_type ?: ($b->consignmentOwner ? 'Consignment' : '—');
+            $publisher = $b->publisher ?: ($b->consignmentOwner?->name ?: '—');
 
             $sheet->setCellValue("A{$row}", $b->item_code ?: '—');
             $sheet->setCellValue("B{$row}", $b->isbn ?: $b->barcode ?: '—');
             $sheet->setCellValue("C{$row}", $b->name);
             $sheet->setCellValue("D{$row}", $b->category ?: 'Books');
-            $sheet->setCellValue("E{$row}", (float)$b->price);
-            $sheet->setCellValue("F{$row}", $stock);
-            $sheet->setCellValue("G{$row}", $status);
-            $sheet->setCellValue("H{$row}", $b->description ?: '—');
+            $sheet->setCellValue("E{$row}", $subCategory);
+            $sheet->setCellValue("F{$row}", $classification);
+            $sheet->setCellValue("G{$row}", $publisher);
+            $sheet->setCellValue("H{$row}", (float)$b->price);
+            $sheet->setCellValue("I{$row}", $stock);
+            $sheet->setCellValue("J{$row}", $status);
+            $sheet->setCellValue("K{$row}", $b->description ?: ($b->sales_description ?: '—'));
 
-            $sheet->getStyle("A{$row}:H{$row}")->applyFromArray([
+            $sheet->getStyle("A{$row}:K{$row}")->applyFromArray([
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -4130,9 +4142,9 @@ class MarketingController extends Controller
                     ]
                 ]
             ]);
-            $sheet->getStyle("E{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
-            $sheet->getStyle("F{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("G{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("H{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("I{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("J{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
             $row++;
         }
@@ -4141,10 +4153,13 @@ class MarketingController extends Controller
         $sheet->getColumnDimension('B')->setWidth(20);
         $sheet->getColumnDimension('C')->setWidth(45);
         $sheet->getColumnDimension('D')->setWidth(20);
-        $sheet->getColumnDimension('E')->setWidth(15);
-        $sheet->getColumnDimension('F')->setWidth(25);
-        $sheet->getColumnDimension('G')->setWidth(15);
-        $sheet->getColumnDimension('H')->setWidth(35);
+        $sheet->getColumnDimension('E')->setWidth(20);
+        $sheet->getColumnDimension('F')->setWidth(20);
+        $sheet->getColumnDimension('G')->setWidth(25);
+        $sheet->getColumnDimension('H')->setWidth(15);
+        $sheet->getColumnDimension('I')->setWidth(25);
+        $sheet->getColumnDimension('J')->setWidth(15);
+        $sheet->getColumnDimension('K')->setWidth(35);
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
 
@@ -4169,18 +4184,25 @@ class MarketingController extends Controller
         $search = $request->input('search');
         $query = \App\Models\BookIndex::with('book');
 
-        if ($search) {
+        if (!empty($search)) {
             $query->where(function($q) use ($search) {
-                $q->where('display_name', 'like', "%{$search}%")
-                  ->orWhere('article_number', 'like', "%{$search}%")
-                  ->orWhere('isbn', 'like', "%{$search}%")
+                $q->where('index_value', 'like', '%' . $search . '%')
+                  ->orWhere('article', 'like', '%' . $search . '%')
+                  ->orWhere('barcode', 'like', '%' . $search . '%')
+                  ->orWhere('nbs_barcode', 'like', '%' . $search . '%')
                   ->orWhereHas('book', function($bq) use ($search) {
-                      $bq->where('name', 'like', "%{$search}%");
+                      $bq->where('name', 'like', '%' . $search . '%')
+                         ->orWhere('sku', 'like', '%' . $search . '%')
+                         ->orWhere('article', 'like', '%' . $search . '%')
+                         ->orWhere('barcode', 'like', '%' . $search . '%')
+                         ->orWhere('nbs_barcode', 'like', '%' . $search . '%');
                   });
             });
         }
 
-        $indices = $query->orderBy('display_name')->get();
+        $indices = $query->get()->sortBy(function($item) {
+            return strtolower($item->display_name);
+        })->values();
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -4232,7 +4254,7 @@ class MarketingController extends Controller
         foreach ($indices as $idx) {
             $stock = (int) ($idx->main_stock ?? $idx->stock ?? 0);
             $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
-            $article = $idx->article_number ?: ($idx->isbn ?: '—');
+            $article = $idx->article ?: ($idx->barcode ?: ($idx->nbs_barcode ?: '—'));
             $status = ($idx->is_active ?? true) ? 'Active' : 'Inactive';
 
             $sheet->setCellValue("A{$row}", $article);

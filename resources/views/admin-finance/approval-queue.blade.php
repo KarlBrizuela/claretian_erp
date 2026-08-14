@@ -1243,57 +1243,80 @@
                     var itemsList = original.items || original.batch_items;
                     if (!Array.isArray(itemsList) || itemsList.length === 0) {
                         var bName = original.book?.name || original.item_name || 'Book';
+                        var bPrice = parseFloat(original.book?.price || original.unit_price || original.price) || 0;
                         if (original.book_index && original.book_index.book) {
                             bName = original.book_index.book.name + ' ' + (original.book_index.index_value || '');
+                            bPrice = parseFloat(original.book_index.price) || parseFloat(original.book_index.book.price) || 0;
                         } else if (original.book_bundle) {
                             bName = original.book_bundle.name;
+                            bPrice = parseFloat(original.book_bundle.price) || 0;
                         }
-                        itemsList = [{ name: bName, type: original.item_type || 'Book', quantity: original.quantity || 1 }];
+                        itemsList = [{ name: bName, type: original.item_type || 'Book', quantity: original.quantity || 1, unit_price: bPrice }];
                     } else {
                         itemsList = itemsList.map(function(it) {
                             var name = it.name;
                             var itemType = it.type || it.item_type || 'Book';
+                            var unitPrice = parseFloat(it.unit_price || it.price) || 0;
+
                             if (!name) {
                                 if (it.book_index && it.book_index.book) {
                                     name = it.book_index.book.name + (it.book_index.index_value ? ' (' + it.book_index.index_value + ')' : '');
                                     itemType = 'BookIndex';
+                                    if (!unitPrice) unitPrice = parseFloat(it.book_index.price) || parseFloat(it.book_index.book.price) || 0;
                                 } else if (it.book_index_id && it.book_index) {
                                     var bObj = it.book_index.book || {};
                                     name = (bObj.name || 'Book') + (it.book_index.index_value ? ' (' + it.book_index.index_value + ')' : '');
                                     itemType = 'BookIndex';
+                                    if (!unitPrice) unitPrice = parseFloat(it.book_index.price) || parseFloat(bObj.price) || 0;
                                 } else if (it.book && (it.book.name || it.book.title)) {
                                     name = it.book.name || it.book.title;
                                     itemType = 'Book';
+                                    if (!unitPrice) unitPrice = parseFloat(it.book.price) || 0;
                                 } else if (it.book_bundle && it.book_bundle.name) {
                                     name = it.book_bundle.name;
                                     itemType = 'BookBundle';
+                                    if (!unitPrice) unitPrice = parseFloat(it.book_bundle.price) || 0;
                                 } else {
                                     name = 'Item #' + (it.book_id || it.id || '');
+                                }
+                            } else {
+                                if (!unitPrice) {
+                                    if (it.book_index) unitPrice = parseFloat(it.book_index.price) || parseFloat(it.book_index.book?.price) || 0;
+                                    else if (it.book) unitPrice = parseFloat(it.book.price) || 0;
+                                    else if (it.book_bundle) unitPrice = parseFloat(it.book_bundle.price) || 0;
                                 }
                             }
                             return {
                                 name: name,
                                 type: itemType,
-                                quantity: it.quantity || 1
+                                quantity: it.quantity || 1,
+                                unit_price: unitPrice
                             };
                         });
                     }
 
                     var itemsRows = '';
                     var totQty = 0;
+                    var totAmount = 0;
                     itemsList.forEach(function(it) {
                         var q = parseInt(it.quantity) || 0;
+                        var up = parseFloat(it.unit_price) || 0;
+                        var lineTot = q * up;
                         totQty += q;
+                        totAmount += lineTot;
                         itemsRows += `<tr>
                             <td class="fw-semibold text-dark">${it.name || 'Unknown Item'}</td>
                             <td><span class="badge bg-secondary">${it.type || 'Item'}</span></td>
+                            <td class="text-end text-muted">₱${up.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             <td class="text-center fw-bold text-success">${q} pcs</td>
+                            <td class="text-end fw-bold text-dark">₱${lineTot.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         </tr>`;
                     });
-                    if (itemsList.length > 1) {
+                    if (itemsList.length > 0) {
                         itemsRows += `<tr class="table-light fw-bold">
-                            <td colspan="2" class="text-end small">Total Batch Units:</td>
+                            <td colspan="3" class="text-end small">Total Estimated Value:</td>
                             <td class="text-center text-success">${totQty} pcs</td>
+                            <td class="text-end text-danger">₱${totAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         </tr>`;
                     }
 
@@ -1311,14 +1334,16 @@
 
                     descriptionHtml += `</tbody></table></div>
                         <div class="mt-3 pt-2 border-top">
-                            <h6 class="fw-bold fs-12 text-muted mb-2"><i class="las la-books text-danger me-1"></i>BOOKS INCLUDED IN TRANSFER (${itemsList.length} titles · ${totQty} pcs total)</h6>
+                            <h6 class="fw-bold fs-12 text-muted mb-2"><i class="las la-books text-danger me-1"></i>BOOKS INCLUDED IN TRANSFER (${itemsList.length} titles · ${totQty} pcs total · ₱${totAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})</h6>
                             <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
                                 <table class="table table-sm table-bordered align-middle mb-0 small">
                                     <thead class="table-light" style="position: sticky; top: 0;">
                                         <tr>
-                                            <th style="width: 60%;">Book Title / Code</th>
-                                            <th style="width: 20%;">Type</th>
-                                            <th class="text-center" style="width: 20%;">Quantity</th>
+                                            <th style="width: 40%;">Book Title / Code</th>
+                                            <th style="width: 15%;">Type</th>
+                                            <th class="text-end" style="width: 15%;">Unit Price</th>
+                                            <th class="text-center" style="width: 15%;">Quantity</th>
+                                            <th class="text-end" style="width: 15%;">Total Price</th>
                                         </tr>
                                     </thead>
                                     <tbody>

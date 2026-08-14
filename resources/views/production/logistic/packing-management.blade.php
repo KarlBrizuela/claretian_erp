@@ -1,4 +1,23 @@
 <x-app-layout :title="'Packing Management'" :sidebar="'production'">
+@php
+$txnTypeLabels = [
+    'paid'                  => 'Paid Transaction',
+    'charge'                => 'Charge Transaction',
+    'area_consignment'      => 'Area Consignment',
+    'area_sales_consignment'=> 'Area Sales Consignment',
+    'direct_consignment'    => 'Direct Consignment',
+    'foreign'               => 'Foreign Order',
+    'complimentary'         => 'Complimentary',
+    'cod'                   => 'Due on Receipt (COD)',
+    'COD'                   => 'Due on Receipt (COD)',
+    'evaluation'            => 'Evaluation',
+    'Evaluation'            => 'Evaluation',
+    'ecom_direct'           => 'E-Commerce Direct',
+    'calculator_pos'        => 'Direct POS',
+    'Credit'                => 'Credit',
+    'Prepaid'               => 'Prepaid',
+];
+@endphp
     @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
     <style>
@@ -145,7 +164,8 @@
                                     <td><input type="checkbox" class="order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                     <td><strong>{{ $order->so_number }}</strong></td>
                                     <td>
-                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                     </td>
                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -252,7 +272,8 @@
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -333,7 +354,8 @@
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -416,7 +438,8 @@
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -499,7 +522,8 @@
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -612,7 +636,8 @@
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -687,7 +712,8 @@
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'Shopee Customer' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -762,7 +788,8 @@
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'TikTok Customer' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -837,7 +864,8 @@
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'Lazada Customer' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -912,7 +940,8 @@
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $order->customer->customer_name ?? 'COB Customer' }}</td>
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
@@ -987,7 +1016,8 @@
                                                 <tr>
                                                     <td><strong>{{ $order->so_number }}</strong></td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
+                                                        @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
+                                        <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td><span class="platform-badge {{ $platformClass }}">{{ $platformLabel }}</span></td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>

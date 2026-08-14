@@ -1,4 +1,23 @@
 <x-app-layout :title="'Pick Lists'" :sidebar="'production'">
+@php
+$txnTypeLabels = [
+    'paid'                  => 'Paid Transaction',
+    'charge'                => 'Charge Transaction',
+    'area_consignment'      => 'Area Consignment',
+    'area_sales_consignment'=> 'Area Sales Consignment',
+    'direct_consignment'    => 'Direct Consignment',
+    'foreign'               => 'Foreign Order',
+    'complimentary'         => 'Complimentary',
+    'cod'                   => 'Due on Receipt (COD)',
+    'COD'                   => 'Due on Receipt (COD)',
+    'evaluation'            => 'Evaluation',
+    'Evaluation'            => 'Evaluation',
+    'ecom_direct'           => 'E-Commerce Direct',
+    'calculator_pos'        => 'Direct POS',
+    'Credit'                => 'Credit',
+    'Prepaid'               => 'Prepaid',
+];
+@endphp
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -62,7 +81,8 @@
                                             <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                             <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
                                             <td>
-                                                <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
+                                                <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
                                             </td>
                                             <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                             <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
@@ -160,7 +180,8 @@
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                        @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
+                                                <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                                     <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
@@ -230,7 +251,8 @@
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                        @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
+                                                <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                                     <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
@@ -300,7 +322,8 @@
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                        @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
+                                                <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                                     <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
@@ -370,7 +393,8 @@
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                        @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
+                                                <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
                                                     </td>
                                                     <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                                     <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
@@ -441,7 +465,8 @@
                                             <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                             <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
                                             <td>
-                                                <span class="badge bg-light text-dark border">{{ $pickList->salesOrder->transaction_type ?? 'N/A' }}</span>
+                                                @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
+                                                <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
                                             </td>
                                             <td>{{ $pickList->salesOrder->customer->customer_name ?? 'Unknown' }}</td>
                                             <td>{{ $pickList->created_at->format('Y-m-d') }}</td>
