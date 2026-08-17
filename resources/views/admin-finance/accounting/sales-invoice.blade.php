@@ -148,6 +148,8 @@
                                                 $pmStatus = $order->computed_payment_status;
                                                 $pmBadgeColor = $pmStatus === 'paid' ? 'success' : ($pmStatus === 'partially_paid' ? 'warning' : 'danger');
                                                 $pmLabel = $pmStatus === 'partially_paid' ? 'PARTIALLY PAID' : strtoupper($pmStatus);
+                                                $ordCurr = $order->currency ?? 'PHP';
+                                                $ordSym = ($ordCurr === 'USD' ? '$' : ($ordCurr === 'EUR' ? '€' : '₱'));
                                             @endphp
                                             <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-type="{{ $order->type }}" data-amount="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
                                                 <td>
@@ -173,9 +175,9 @@
                                                         <option value="card" {{ $currentPm === 'card' ? 'selected' : '' }}>💳 Card</option>
                                                     </select>
                                                 </td>
-                                                <td class="fw-bold">₱{{ number_format($displayAmount, 2) }}</td>
-                                                <td class="text-success fw-bold">₱{{ number_format($paidAmt, 2) }}</td>
-                                                <td class="text-danger fw-bold">₱{{ number_format($remBal, 2) }}</td>
+                                                <td class="fw-bold">{{ $ordSym }}{{ number_format($displayAmount, 2) }}</td>
+                                                <td class="text-success fw-bold">{{ $ordSym }}{{ number_format($paidAmt, 2) }}</td>
+                                                <td class="text-danger fw-bold">{{ $ordSym }}{{ number_format($remBal, 2) }}</td>
                                                 <td>
                                                     @php
                                                         $statusClass = 'secondary';
@@ -204,7 +206,7 @@
                                                         <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
                                                         
                                                         @if($remBal > 0 && $order->customer_id)
-                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}">
+                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $order->currency ?? 'USD' }}" data-symbol="{{ $ordSym }}">
                                                                 <i class="las la-coins me-1"></i> Pay
                                                             </button>
                                                         @endif
@@ -315,7 +317,11 @@
                                                     @endif
                                                 </td>
                                                 <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
-                                                <td class="fw-bold">₱{{ number_format($order->total_amount, 2) }}</td>
+                                                @php
+                                                    $ecomCurr = $order->currency ?? 'PHP';
+                                                    $ecomSym = ($ecomCurr === 'USD' ? '$' : ($ecomCurr === 'EUR' ? '€' : '₱'));
+                                                @endphp
+                                                <td class="fw-bold">{{ $ecomSym }}{{ number_format($order->total_amount, 2) }}</td>
                                                 <td>
                                                     @php
                                                         $statusClass = 'secondary';
@@ -435,6 +441,8 @@
                                                 $pmStatus = $so ? $so->computed_payment_status : ($remBal <= 0 ? 'paid' : 'unpaid');
                                                 $pmBadgeColor = $pmStatus === 'paid' ? 'success' : ($pmStatus === 'partially_paid' ? 'warning' : 'danger');
                                                 $pmLabel = $pmStatus === 'partially_paid' ? 'PARTIALLY PAID' : strtoupper($pmStatus);
+                                                $siCurr = $so->currency ?? 'PHP';
+                                                $siSym = ($siCurr === 'USD' ? '$' : ($siCurr === 'EUR' ? '€' : '₱'));
                                             @endphp
                                             <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}" data-type="{{ $si->salesOrder->type ?? str_replace('_si', '', $si->transaction_type ?? 'area_consignment') }}" data-amount="{{ $totalAmt }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}">
                                                 <td><strong>#{{ $si->si_number }}</strong></td>
@@ -454,16 +462,16 @@
                                                         <option value="card" {{ $currentPm === 'card' ? 'selected' : '' }}>💳 Card</option>
                                                     </select>
                                                 </td>
-                                                <td class="fw-bold">₱{{ number_format($totalAmt, 2) }}</td>
-                                                <td class="text-success fw-bold">₱{{ number_format($paidAmt, 2) }}</td>
-                                                <td class="text-danger fw-bold">₱{{ number_format($remBal, 2) }}</td>
+                                                <td class="fw-bold">{{ $siSym }}{{ number_format($totalAmt, 2) }}</td>
+                                                <td class="text-success fw-bold">{{ $siSym }}{{ number_format($paidAmt, 2) }}</td>
+                                                <td class="text-danger fw-bold">{{ $siSym }}{{ number_format($remBal, 2) }}</td>
                                                 <td><span class="badge bg-success text-white">Completed / Approved</span></td>
                                                 <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</span></td>
                                                 <td>{{ $si->created_at->format('M d, Y') }}</td>
                                                 <td>
                                                     <div class="d-flex align-items-center gap-1 flex-wrap">
                                                         @if($remBal > 0 && $so && $so->customer_id)
-                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $so->id }}" data-customer-id="{{ $so->customer_id }}" data-so-number="{{ $so->so_number }}" data-total="{{ $totalAmt }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $so->terms ?? 'COD' }}" data-due-date="{{ $so->due_date ? $so->due_date->format('M d, Y') : 'N/A' }}">
+                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $so->id }}" data-customer-id="{{ $so->customer_id }}" data-so-number="{{ $so->so_number }}" data-total="{{ $totalAmt }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $so->terms ?? 'COD' }}" data-due-date="{{ $so->due_date ? $so->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $so->currency ?? 'USD' }}" data-symbol="{{ $siSym }}">
                                                                 <i class="las la-coins me-1"></i> Pay
                                                             </button>
                                                         @endif
@@ -1101,9 +1109,9 @@
 
                             <div class="row g-2">
                                 <div class="col-md-6 mb-2">
-                                    <label class="form-label fw-bold small text-dark">Payment Amount (₱) <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-bold small text-dark">Payment Amount (<span class="pay-curr-symbol">₱</span>) <span class="text-danger">*</span></label>
                                     <div class="input-group input-group-sm">
-                                        <span class="input-group-text">₱</span>
+                                        <span class="input-group-text pay-curr-symbol">₱</span>
                                         <input type="number" step="0.01" min="0.01" id="payAmountInput" class="form-control fw-bold fs-15 text-primary" required placeholder="0.00">
                                     </div>
                                 </div>
@@ -1204,14 +1212,20 @@
                 const terms = payBtn.dataset.terms || 'COD';
                 const dueDate = payBtn.dataset.dueDate || 'N/A';
 
+                const currSymbol = payBtn.dataset.symbol || (payBtn.dataset.currency === 'USD' ? '$' : (payBtn.dataset.currency === 'EUR' ? '€' : '₱'));
+
                 document.getElementById('paySoId').value = soId;
                 document.getElementById('payCustomerId').value = customerId;
                 document.getElementById('paySoNumber').textContent = soNumber;
                 document.getElementById('payTerms').textContent = terms;
                 document.getElementById('payDueDate').textContent = dueDate;
-                document.getElementById('payTotalAmount').textContent = '₱' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
-                document.getElementById('payAlreadyPaid').textContent = '₱' + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
-                document.getElementById('payRemainingBalance').textContent = '₱' + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payTotalAmount').textContent = currSymbol + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payAlreadyPaid').textContent = currSymbol + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payRemainingBalance').textContent = currSymbol + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
+                
+                document.querySelectorAll('.pay-curr-symbol').forEach(el => {
+                    el.textContent = currSymbol;
+                });
                 
                 const formFields = document.getElementById('newPaymentFormFields');
                 const submitBtn = document.getElementById('submitPaymentBtn');

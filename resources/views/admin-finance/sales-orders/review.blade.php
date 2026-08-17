@@ -33,6 +33,7 @@
             $totalSalesAmount = (float) $order->total_amount;
             $activeInvoice = null; // reset so item fields resolve from SO items
         }
+        $sym = ($order->currency === 'USD' ? '$' : ($order->currency === 'EUR' ? '€' : '₱'));
     @endphp
 
     <div class="row">
@@ -180,7 +181,7 @@
                                     @if($isComplimentary)
                                         <span class="text-muted">N/A (Donation)</span>
                                     @else
-                                        <span class="text-success">₱{{ number_format($paidAmt, 2) }}</span>
+                                        <span class="text-success">{{ $sym }}{{ number_format($paidAmt, 2) }}</span>
                                     @endif
                                 </td>
                             </tr>
@@ -188,9 +189,9 @@
                                 <td class="fw-bold text-dark">Remaining Balance:</td>
                                 <td class="fw-bold">
                                     @if($isComplimentary)
-                                        <span class="text-success">₱0.00 (No Charge)</span>
+                                        <span class="text-success">{{ $sym }}0.00 (No Charge)</span>
                                     @else
-                                        <span class="text-danger">₱{{ number_format($remBal, 2) }}</span>
+                                        <span class="text-danger">{{ $sym }}{{ number_format($remBal, 2) }}</span>
                                     @endif
                                 </td>
                             </tr>
@@ -358,21 +359,21 @@
                                 </div>
                                 <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? $item->bundle?->sku ?? '-' }}</small>
                             </td>
-                            <td class="text-end">₱{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
+                            <td class="text-end">{{ $sym }}{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
                             <td class="text-center">
                                 @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
                                     @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
                                         {{ (float)$item->discount_value }}%
                                     @elseif(($item->discount_value ?? 0) > 0)
-                                        ₱{{ number_format($item->discount_value, 2) }}
+                                        {{ $sym }}{{ number_format($item->discount_value, 2) }}
                                     @else
-                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                        {{ $sym }}{{ number_format($item->discount_amount, 2) }}
                                     @endif
                                 @else
                                     -
                                 @endif
                             </td>
-                            <td class="text-end fw-bold">₱{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $sym }}{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>
                         </tr>
                         @endif
                         @endforeach
@@ -385,11 +386,11 @@
                             $discountAmount = (float) ($order->discount_amount ?? 0);
                             $discountPercentage = $order->discount_percentage ?? 0;
                             $freightCharges = $order->freight_charges ?? 0;
-                            $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
+                            $serviceFee = $order->freight_option ? (($order->currency === 'USD' || $order->currency === 'EUR') ? 1.00 : 50.00) : 0;
                         @endphp
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $sym }}{{ number_format($itemsSubtotal, 2) }}</td>
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
@@ -401,36 +402,45 @@
                                     @endif:
                                 </strong>
                             </td>
-                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
+                            <td class="text-end fw-bold text-danger">- {{ $sym }}{{ number_format($discountAmount, 2) }}</td>
                         </tr>
                         @endif
                         @if($freightCharges > 0)
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($freightCharges, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $sym }}{{ number_format($freightCharges, 2) }}</td>
                         </tr>
                         @endif
                         @if($serviceFee > 0)
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
+                            <td class="text-end fw-bold">+ {{ $sym }}{{ number_format($serviceFee, 2) }}</td>
                         </tr>
                         @endif
                         <tr style="background: #f8f9fa;">
                             <td colspan="5" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
-                            <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($totalSalesAmount, 2) }}</td>
+                            <td class="text-end fw-bold fs-5 text-primary">{{ $sym }}{{ number_format($totalSalesAmount, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>
 
                 <!-- Actions -->
-                <div class="d-flex justify-content-between align-items-center mt-4 form-actions">
-                    <div>
+                <div class="d-flex justify-content-between align-items-center mt-4 form-actions flex-wrap gap-3">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
                         <button type="button" class="btn btn-dark" onclick="window.history.back()">
                             <i class="las la-arrow-left me-2"></i>Back to Queue
                         </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                            <i class="las la-print me-1"></i>Print Order
+                        </button>
+                        <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-primary">
+                            <i class="las la-file-invoice me-1"></i>Print Sales Invoice
+                        </a>
+                        <a href="{{ route('marketing.sales-orders.shipping-label', $order->id) }}" target="_blank" class="btn btn-info text-white">
+                            <i class="las la-tag me-1"></i>Shipping Label
+                        </a>
                     </div>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 flex-wrap">
                         @if($order->type === 'complimentary')
                             @if(in_array($order->status, ['draft', 'pending_mkt_approval', 'pending_acct_approval', 'pending_ar_prep']))
                                 <form action="{{ route('admin-finance.sales-order.reject', $order->id) }}" method="POST" id="rejectForm">
@@ -604,9 +614,9 @@
 
                             <div class="row g-2">
                                 <div class="col-md-6 mb-2">
-                                    <label class="form-label fw-bold small text-dark">Payment Amount (₱) <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-bold small text-dark">Payment Amount (<span class="pay-curr-symbol">₱</span>) <span class="text-danger">*</span></label>
                                     <div class="input-group input-group-sm">
-                                        <span class="input-group-text">₱</span>
+                                        <span class="input-group-text pay-curr-symbol">₱</span>
                                         <input type="number" step="0.01" min="0.01" id="payAmountInput" class="form-control fw-bold fs-15 text-primary" required placeholder="0.00">
                                     </div>
                                 </div>
@@ -707,14 +717,20 @@
                 const terms = payBtn.dataset.terms || 'COD';
                 const dueDate = payBtn.dataset.dueDate || 'N/A';
 
+                const currSymbol = payBtn.dataset.symbol || (payBtn.dataset.currency === 'USD' ? '$' : (payBtn.dataset.currency === 'EUR' ? '€' : '₱'));
+
                 document.getElementById('paySoId').value = soId;
                 document.getElementById('payCustomerId').value = customerId;
                 document.getElementById('paySoNumber').textContent = soNumber;
                 document.getElementById('payTerms').textContent = terms;
                 document.getElementById('payDueDate').textContent = dueDate;
-                document.getElementById('payTotalAmount').textContent = '₱' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
-                document.getElementById('payAlreadyPaid').textContent = '₱' + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
-                document.getElementById('payRemainingBalance').textContent = '₱' + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payTotalAmount').textContent = currSymbol + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payAlreadyPaid').textContent = currSymbol + paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('payRemainingBalance').textContent = currSymbol + remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
+                
+                document.querySelectorAll('.pay-curr-symbol').forEach(el => {
+                    el.textContent = currSymbol;
+                });
                 
                 const formFields = document.getElementById('newPaymentFormFields');
                 const submitBtn = document.getElementById('submitPaymentBtn');

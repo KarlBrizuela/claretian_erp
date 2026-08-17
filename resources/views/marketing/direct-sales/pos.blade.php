@@ -324,11 +324,16 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0" style="background: #f4f6f9;">
-                    <iframe id="orderInvoiceIframe" src="about:blank" style="width: 100%; height: 650px; border: none;"></iframe>
+                    <iframe id="orderInvoiceIframe" src="about:blank" style="width: 100%; height: 78vh; min-height: 680px; border: none;"></iframe>
                 </div>
                 <div class="modal-footer py-2">
                     <a id="printInvoiceNewTabBtn" href="#" target="_blank" class="btn btn-sm btn-outline-danger me-auto"><i class="las la-external-link-alt me-1"></i> Open In New Tab</a>
                     
+                    <div class="form-check form-switch mb-0 ms-2 me-3">
+                        <input class="form-check-input" type="checkbox" id="posPreprintedToggle" onchange="togglePosPreprintedMode(this)">
+                        <label class="form-check-label fw-bold small text-dark" for="posPreprintedToggle">Print Data Only (For Official BIR Paper)</label>
+                    </div>
+
                     <div class="btn-group btn-group-sm me-2" role="group">
                         <button type="button" class="btn btn-danger active" id="btnFormatWhole" onclick="switchPrintFormat('whole')">Whole Page</button>
                         <button type="button" class="btn btn-outline-danger" id="btnFormatHalf1" onclick="switchPrintFormat('half', 1)">First Half</button>
@@ -920,6 +925,29 @@
             document.getElementById('orderInvoiceIframe').src = targetUrl;
             document.getElementById('printInvoiceNewTabBtn').href = targetUrl;
         }
+
+        function togglePosPreprintedMode(checkbox) {
+            const iframe = document.getElementById('orderInvoiceIframe');
+            if (iframe && iframe.contentWindow && iframe.contentWindow.document && iframe.contentWindow.document.body) {
+                if (checkbox.checked) {
+                    iframe.contentWindow.document.body.classList.add('preprinted-mode');
+                } else {
+                    iframe.contentWindow.document.body.classList.remove('preprinted-mode');
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframe = document.getElementById('orderInvoiceIframe');
+            if (iframe) {
+                iframe.onload = function() {
+                    const toggle = document.getElementById('posPreprintedToggle');
+                    if (toggle && toggle.checked && this.contentWindow && this.contentWindow.document && this.contentWindow.document.body) {
+                        this.contentWindow.document.body.classList.add('preprinted-mode');
+                    }
+                };
+            }
+        });
 
         function calculateTotals() {
             subtotalAmt = 0;

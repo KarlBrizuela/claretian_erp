@@ -344,6 +344,29 @@
                 $termsVal = $order->terms ?: ($order->payment_method ? strtoupper($order->payment_method) : 'CASH');
                 $orderDate = $order->created_at ? $order->created_at->format('m/d/Y') : date('m/d/Y');
                 $dueDate = $order->due_date ? \Carbon\Carbon::parse($order->due_date)->format('m/d/Y') : '-';
+
+                $itemsSubtotal = 0;
+                foreach ($itemsToPrint as $item) {
+                    $qty = (float) $item->quantity;
+                    $price = (float) ($item->unit_price ?? $item->price);
+                    $itemsSubtotal += (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
+                }
+
+                $discount = (float) ($order->discount_amount ?? 0);
+                if ($discount == 0 && (float) ($order->discount_percentage ?? 0) > 0) {
+                    $discount = $itemsSubtotal * ((float) $order->discount_percentage / 100);
+                }
+
+                $freight = (float) ($order->freight_charges ?? 0);
+                $wht = (float) ($order->withholding_tax_amount ?? 0);
+
+                if ($discount > 0 || $freight > 0) {
+                    $calculatedTotalSales = max(0, $itemsSubtotal - $discount + $freight);
+                } else {
+                    $calculatedTotalSales = $totalSalesAmount > 0 ? $totalSalesAmount : $itemsSubtotal;
+                }
+
+                $totalAmountDue = max(0, $calculatedTotalSales - $wht);
             @endphp
 
             <table class="info-grid">
@@ -415,8 +438,29 @@
                         <span>CHARGE</span>
                     </div>
                 </div>
-                <div class="total-sales-box">
-                    TOTAL SALES: <span>₱{{ number_format($totalSalesAmount, 2) }}</span>
+                <div class="totals-block text-end" style="display: flex; flex-direction: column; align-items: flex-end;">
+                    <div class="subtotal-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;">
+                        <span class="total-label">SUBTOTAL: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">₱{{ number_format($itemsSubtotal, 2) }}</span>
+                    </div>
+                    @if($freight > 0)
+                    <div class="freight-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;">
+                        <span class="total-label">FREIGHT: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">₱{{ number_format($freight, 2) }}</span>
+                    </div>
+                    @endif
+                    @if($discount > 0)
+                    <div class="discount-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;">
+                        <span class="total-label">DISCOUNT: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">-₱{{ number_format($discount, 2) }}</span>
+                    </div>
+                    @endif
+                    <div class="withholding-tax-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;">
+                        <span class="total-label">LESS: WITHHOLDING TAX: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">{{ $wht > 0 ? '-₱' . number_format($wht, 2) : '' }}</span>
+                    </div>
+                    <div class="total-sales-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;">
+                        <span class="total-label">TOTAL SALES: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">₱{{ number_format($calculatedTotalSales, 2) }}</span>
+                    </div>
+                    <div class="total-amount-due-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;">
+                        <span class="total-label">TOTAL AMOUNT DUE: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">{{ $wht > 0 ? '₱' . number_format($totalAmountDue, 2) : '' }}</span>
+                    </div>
                 </div>
             </div>
 

@@ -16,6 +16,9 @@ class PickupRequest extends Model
         'client_name',
         'address',
         'requested_date',
+        'driver_id',
+        'driver_name',
+        'vehicle',
         'items_details',
         'remarks',
         'status',
@@ -26,6 +29,14 @@ class PickupRequest extends Model
         'rejected_at',
         'rejection_reason'
     ];
+
+    /**
+     * Driver assigned to the request.
+     */
+    public function driver()
+    {
+        return $this->belongsTo(User::class, 'driver_id');
+    }
 
     protected $casts = [
         'requested_date' => 'date',

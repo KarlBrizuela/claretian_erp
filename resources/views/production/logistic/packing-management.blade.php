@@ -17,6 +17,11 @@ $txnTypeLabels = [
     'Credit'                => 'Credit',
     'Prepaid'               => 'Prepaid',
 ];
+$isAdmin = auth()->check() && (
+    auth()->user()->isSuperAdmin() || 
+    str_contains(strtolower(auth()->user()->position ?? ''), 'admin') || 
+    str_contains(strtolower(auth()->user()->department ?? ''), 'admin')
+);
 @endphp
     @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
@@ -171,31 +176,42 @@ $txnTypeLabels = [
                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                     <td>{{ $totalItems }}</td>
                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
-                                    <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
-                                    <td>
-                                        <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-danger shadow view-order-btn"
-                                                    
-                                                    data-order-id="{{ $order->id }}"
-                                                    data-so-number="{{ $order->so_number }}"
-                                                    data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
-                                                    data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
-                                                    data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
-                                                    title="View Details"
-                                                    style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-success shadow mark-packed-btn"
-                                                    onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
-                                                    data-order-id="{{ $order->id }}"
-                                                    data-so-number="{{ $order->so_number }}"
-                                                    title="Mark as Packed"
-                                                    style="background: {{ $isFullyPacked ? '#28a745' : '#ffc107' }}; color: {{ $isFullyPacked ? '#fff' : '#000' }}; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                                <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
-                                            </button>
-                                        </div>
-                                    </td>
+                                     @php
+                                         $pkgCurr = $order->currency ?? 'USD';
+                                         $pkgSym = ($pkgCurr === 'USD' ? '$' : ($pkgCurr === 'EUR' ? '€' : '₱'));
+                                     @endphp
+                                     <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                     <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
+                                     <td>
+                                         <div class="d-flex gap-2">
+                                             <button type="button" class="btn btn-danger shadow view-order-btn"
+                                                     data-order-id="{{ $order->id }}"
+                                                     data-so-number="{{ $order->so_number }}"
+                                                     data-customer="{{ $order->customer->customer_name ?? 'N/A' }}"
+                                                     data-date="{{ \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') }}"
+                                                     data-signed="{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('Y-m-d') : '' }}"
+                                                     title="View Details"
+                                                     style="background: #ff0000; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                 <i class="fas fa-eye" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                             </button>
+                                             <button type="button" class="btn btn-success shadow mark-packed-btn"
+                                                     onclick="markOrderAsPackedAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                     data-order-id="{{ $order->id }}"
+                                                     data-so-number="{{ $order->so_number }}"
+                                                     title="Mark as Packed"
+                                                     style="background: {{ $isFullyPacked ? '#28a745' : '#ffc107' }}; color: {{ $isFullyPacked ? '#fff' : '#000' }}; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                 <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                             </button>
+                                             @if($isAdmin)
+                                                 <a href="{{ route('marketing.sales-orders.edit', $order->id) }}" class="btn btn-warning shadow btn-xs sharp" title="Edit Order" style="padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-pencil-alt"></i></a>
+                                                 <form action="{{ route('marketing.sales-orders.destroy', $order->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete Order {{ $order->so_number }}?');">
+                                                     @csrf
+                                                     @method('DELETE')
+                                                     <button type="submit" class="btn btn-danger shadow btn-xs sharp" title="Delete Order" style="padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-trash"></i></button>
+                                                 </form>
+                                             @endif
+                                         </div>
+                                     </td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -1218,66 +1234,98 @@ $txnTypeLabels = [
     @endphp
     <div class="modal fade team-stock-modal" id="teamStockPackModal{{ $tt->id }}" tabindex="-1" aria-hidden="true" data-transfer-id="{{ $tt->id }}">
         <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title text-white"><i class="fas fa-boxes me-2"></i>Team Stock Transfer Items to Pack ({{ $tt->transfer_number }})</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header px-4 py-3 bg-light border-bottom d-flex align-items-center justify-content-between">
+                    <h4 class="modal-title fw-bold text-dark mb-0">Packing Details - {{ $tt->transfer_number }}</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
-                            <span class="badge bg-danger fs-6">{{ $tt->team_name }}</span>
+                <div class="modal-body p-4" style="max-height: 80vh; overflow-y: auto;">
+                    
+                    <!-- Top Information Grid (2 Columns) -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border">
+                                <h6 class="fw-bold text-dark mb-3">Order Information</h6>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Transfer Number:</label>
+                                    <input type="text" class="form-control form-control-sm fw-bold bg-white" value="{{ $tt->transfer_number }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Date Created:</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" value="{{ $tt->created_at->format('M d, Y h:i A') }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Target Sales Team:</label>
+                                    <input type="text" class="form-control form-control-sm bg-white fw-bold text-danger" value="{{ $tt->team_name }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Requested By:</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" value="{{ $tt->transferredByUser->name ?? 'N/A' }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Remarks / Special Instructions:</label>
+                                    <textarea id="ts_remarks_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-semibold mb-1" rows="2" placeholder="Enter remarks or special instructions...">{{ $tt->notes }}</textarea>
+                                    <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="alert('Remarks saved!')"><i class="fas fa-save me-1"></i>Save Remarks</button>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Packing Status:</label>
+                                    <select id="ts_packingStatus_{{ $tt->id }}" class="form-select form-select-sm fw-bold">
+                                        <option value="not_started" {{ $tt->status !== 'completed' ? 'selected' : '' }}>Not Started</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="completed" {{ $tt->status === 'completed' ? 'selected' : '' }}>Completed</option>
+                                    </select>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Number of Boxes:</label>
+                                    <input type="number" id="ts_boxes_{{ $tt->id }}" placeholder="Enter number of boxes" min="0" class="form-control form-control-sm">
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-3">
-                            <small class="text-muted d-block mb-1">Requested By:</small>
-                            <strong>{{ $tt->transferredByUser->name ?? 'N/A' }}</strong>
-                            <small class="d-block text-muted">{{ $tt->created_at->format('M d, Y h:i A') }}</small>
-                        </div>
-                        <div class="col-md-3">
-                            <small class="text-muted d-block mb-1">Total Books Value:</small>
-                            <span class="fs-5 fw-bold text-success">₱{{ number_format($totalTransferAmount, 2) }}</span>
-                        </div>
-                        <div class="col-md-3">
-                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
-                            <span class="fw-semibold text-dark">{{ $tt->notes ?: 'None' }}</span>
+
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-3">Barcode Scanning & Quick Action</h6>
+                                    <label class="form-label fw-bold text-dark mb-1"><i class="fas fa-barcode text-danger me-1"></i>Scan Book Barcode / ISBN:</label>
+                                    <div class="input-group input-group-sm mb-3">
+                                        <span class="input-group-text bg-danger text-white"><i class="fas fa-search"></i></span>
+                                        <input type="text" id="ts_barcode_input_{{ $tt->id }}" class="form-control form-control-sm fw-bold ts-barcode-input-field" placeholder="Scan or type ISBN/barcode and press Enter..." data-transfer-id="{{ $tt->id }}">
+                                        <button type="button" class="btn btn-danger btn-sm fw-bold" onclick="onTSManualScanClick({{ $tt->id }})">Scan</button>
+                                    </div>
+                                    <div id="ts_scan_feedback_{{ $tt->id }}" class="p-2 rounded text-center small fw-bold bg-success text-white border mb-3">
+                                        Ready to scan
+                                    </div>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-outline-success btn-sm w-100 fw-bold py-2" onclick="markAllTeamStockItemsPacked({{ $tt->id }})">
+                                        <i class="fas fa-check-double me-1"></i>Pack All Items Quickly
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    @if($tt->notes)
-                    <div class="alert alert-warning border border-warning mb-3 py-2">
-                        <strong class="text-dark"><i class="fas fa-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $tt->notes }}
-                    </div>
-                    @endif
-
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-book me-2"></i>Items to Pack:</h6>
-                            <span id="ts_pack_progress_{{ $tt->id }}" class="badge bg-secondary fs-6 px-3 py-1">0 / {{ $tt->items->count() }} Items Packed</span>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-success fw-bold" onclick="markAllTeamStockItemsPacked({{ $tt->id }})">
-                            <i class="fas fa-check-double me-1"></i>Pack All Items
-                        </button>
-                    </div>
-                    <div class="table-responsive mb-3">
-                        <table class="table table-bordered table-hover align-middle mb-0">
+                    <!-- Items to Pack Section -->
+                    <h6 class="fw-bold text-dark mb-2">Items to Pack</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered align-middle mb-0" style="font-size: 13px;">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Item Title / Book Details</th>
-                                    <th>Type</th>
-                                    <th class="text-end">Unit Price</th>
-                                    <th class="text-center">Qty to Pack</th>
-                                    <th class="text-end">Subtotal Price</th>
-                                    <th class="text-center">Status</th>
-                                    <th class="text-center" style="width: 130px;">Action</th>
+                                    <th style="width: 40px;">#</th>
+                                    <th>PRODUCT</th>
+                                    <th style="width: 110px;" class="text-center">QTY TO PACK</th>
+                                    <th style="width: 110px;" class="text-end">UNIT PRICE</th>
+                                    <th style="width: 110px;" class="text-end">SUBTOTAL</th>
+                                    <th style="width: 100px;" class="text-center">PACKED QTY</th>
+                                    <th style="width: 120px;" class="text-center">STATUS</th>
+                                    <th style="width: 150px;">NOTES</th>
+                                    <th style="width: 130px;" class="text-center">PACKED DATE</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($tt->items as $idx => $tItem)
                                 @php
                                     $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
-                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
-                                    
                                     $unitPrice = 0;
                                     $barcodes = [];
                                     if ($tItem->bookIndex) {
@@ -1288,14 +1336,12 @@ $txnTypeLabels = [
                                             if (!empty($tItem->bookIndex->book->barcode)) $barcodes[] = (string)$tItem->bookIndex->book->barcode;
                                             if (!empty($tItem->bookIndex->book->nbs_barcode)) $barcodes[] = (string)$tItem->bookIndex->book->nbs_barcode;
                                             if (!empty($tItem->bookIndex->book->sku)) $barcodes[] = (string)$tItem->bookIndex->book->sku;
-                                            if (!empty($tItem->bookIndex->book->item_code)) $barcodes[] = (string)$tItem->bookIndex->book->item_code;
                                         }
                                     } elseif ($tItem->book) {
                                         $unitPrice = (float)($tItem->book->price ?: 0);
                                         if (!empty($tItem->book->barcode)) $barcodes[] = (string)$tItem->book->barcode;
                                         if (!empty($tItem->book->nbs_barcode)) $barcodes[] = (string)$tItem->book->nbs_barcode;
                                         if (!empty($tItem->book->sku)) $barcodes[] = (string)$tItem->book->sku;
-                                        if (!empty($tItem->book->item_code)) $barcodes[] = (string)$tItem->book->item_code;
                                     } elseif ($tItem->bookBundle) {
                                         $unitPrice = (float)($tItem->bookBundle->price ?: 0);
                                         if (!empty($tItem->bookBundle->sku)) $barcodes[] = (string)$tItem->bookBundle->sku;
@@ -1303,59 +1349,91 @@ $txnTypeLabels = [
                                     $itemSubtotal = $unitPrice * $tItem->quantity;
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = htmlspecialchars(json_encode($uniqueBarcodes), ENT_QUOTES, 'UTF-8');
+                                    $isItemPacked = $tt->status === 'completed';
                                 @endphp
-                                <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}">
+                                <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPacked ? '#d4edda' : '#f8d7da' }};">
+                                    <td>{{ $idx + 1 }}</td>
                                     <td class="fw-bold text-dark">
                                         <div>{{ $itemName }}</div>
                                         @if(!empty($uniqueBarcodes))
-                                            <small class="text-muted"><i class="fas fa-barcode me-1"></i>ISBN/Barcode: {{ implode(', ', $uniqueBarcodes) }}</small>
-                                        @else
-                                            <small class="text-muted font-italic">No barcode registered</small>
+                                            <small class="text-muted d-block"><i class="fas fa-barcode me-1"></i>{{ implode(', ', $uniqueBarcodes) }}</small>
                                         @endif
                                     </td>
-                                    <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
-                                    <td class="text-end fw-semibold">₱{{ number_format($unitPrice, 2) }}</td>
-                                    <td class="text-center fw-bold text-primary">{{ number_format($tItem->quantity) }} pcs</td>
-                                    <td class="text-end fw-bold text-dark">₱{{ number_format($itemSubtotal, 2) }}</td>
+                                    <td class="text-center fw-bold text-primary">{{ number_format($tItem->quantity, 2) }}</td>
+                                    <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
+                                    <td class="text-end fw-bold">₱{{ number_format($itemSubtotal, 2) }}</td>
                                     <td class="text-center">
-                                        <span id="ts_status_badge_{{ $tt->id }}_{{ $idx }}" class="badge bg-warning text-dark ts-status-badge px-2 py-1">
-                                            <i class="fas fa-clock me-1"></i>Not Packed
-                                        </span>
+                                        <input type="number" id="ts_packed_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $tItem->quantity }}" value="{{ $isItemPacked ? $tItem->quantity : 0 }}" onchange="updateTeamStockPackingProgress({{ $tt->id }})" style="width: 60px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
                                     </td>
                                     <td class="text-center">
-                                        <button type="button" id="ts_toggle_btn_{{ $tt->id }}_{{ $idx }}" class="btn btn-xs btn-outline-success ts-pack-toggle-btn fw-semibold" onclick="toggleTeamStockItemPack({{ $tt->id }}, {{ $idx }})">
-                                            <i class="fas fa-check me-1"></i>Mark Packed
-                                        </button>
+                                        <select id="ts_packed_status_{{ $tt->id }}_{{ $idx }}" class="ts-status-select" onchange="onTSStatusSelectChange({{ $tt->id }}, {{ $idx }})" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                            <option value="Not Packed" {{ !$isItemPacked ? 'selected' : '' }}>Not Packed</option>
+                                            <option value="In Progress">In Progress</option>
+                                            <option value="Packed" {{ $isItemPacked ? 'selected' : '' }}>Packed</option>
+                                        </select>
+                                        <span id="ts_status_badge_{{ $tt->id }}_{{ $idx }}" class="d-none {{ $isItemPacked ? 'bg-success' : 'bg-warning' }}"></span>
+                                    </td>
+                                    <td>
+                                        <input type="text" id="ts_notes_{{ $tt->id }}_{{ $idx }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="date" id="ts_date_{{ $tt->id }}_{{ $idx }}" value="{{ date('Y-m-d') }}" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
                                     </td>
                                 </tr>
                                 @endforeach
                             </tbody>
-                            <tfoot>
-                                <tr class="table-light fw-bold">
-                                    <td colspan="3" class="text-end text-dark fs-6">Total Transfer Amount:</td>
-                                    <td class="text-center text-primary fs-6">{{ number_format($tt->items->sum('quantity')) }} pcs</td>
-                                    <td class="text-end text-success fs-6">₱{{ number_format($totalTransferAmount, 2) }}</td>
-                                    <td colspan="2"></td>
-                                </tr>
-                            </tfoot>
                         </table>
                     </div>
-                </div>
-                <div class="modal-footer bg-light d-flex align-items-center justify-content-between">
-                    <div id="ts_footer_status_{{ $tt->id }}" class="text-muted fw-semibold">
-                        <i class="fas fa-box-open me-1"></i>Status: <span class="badge bg-info text-white">Ready for Packing</span>
+
+                    <!-- Bottom Summary & Actions (2 Columns) -->
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border">
+                                <h6 class="fw-bold text-dark mb-3">Packing Summary</h6>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Total Items:</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" value="{{ $tt->items->count() }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Items Packed:</label>
+                                    <input type="text" id="ts_items_packed_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-bold text-success" value="{{ $tt->status === 'completed' ? $tt->items->count() : 0 }}" readonly>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Packing Progress:</label>
+                                    <div class="progress" style="height: 18px; border-radius: 9px; background: #e9ecef;">
+                                        <div id="ts_progress_bar_{{ $tt->id }}" class="progress-bar bg-success" style="width: {{ $tt->status === 'completed' ? '100%' : '0%' }}; font-size: 11px; font-weight: bold;">
+                                            {{ $tt->status === 'completed' ? '100%' : '0%' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                                <h6 class="fw-bold text-dark mb-3">Actions</h6>
+                                <div class="d-flex flex-column gap-2">
+                                    <button type="button" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;" onclick="alert('Packing details saved!')">
+                                        <i class="fas fa-save me-1"></i>Save Packing
+                                    </button>
+
+                                    @if($tt->status !== 'completed')
+                                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="w-100 m-0">
+                                        @csrf
+                                        <button type="submit" id="ts_modal_complete_btn_{{ $tt->id }}" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" style="background-color: #0d6efd; border: none;">
+                                            <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
+                                        </button>
+                                    </form>
+                                    @endif
+
+                                    <button type="button" class="btn btn-secondary w-100 fw-bold py-2" data-bs-dismiss="modal">
+                                        <i class="fas fa-times me-1"></i>Close Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        @if($tt->status !== 'completed')
-                        <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="d-inline">
-                            @csrf
-                            <button type="submit" id="ts_modal_complete_btn_{{ $tt->id }}" class="btn btn-success fw-bold" style="background-color: #28a745; border: none;">
-                                <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
-                            </button>
-                        </form>
-                        @endif
-                    </div>
+
                 </div>
             </div>
         </div>
@@ -3179,6 +3257,8 @@ $txnTypeLabels = [
 
         function processTeamStockBarcodeScan(transferId, rawBarcode) {
             const normalized = normalizeTeamStockBarcode(rawBarcode);
+            const feedbackEl = document.getElementById(`ts_scan_feedback_${transferId}`);
+
             if (!normalized) return false;
 
             const rows = document.querySelectorAll(`#teamStockPackModal${transferId} .ts-item-row`);
@@ -3205,48 +3285,75 @@ $txnTypeLabels = [
                 }
             });
 
+            if (matched && feedbackEl) {
+                feedbackEl.className = 'p-2 rounded text-center small fw-bold bg-success text-white border';
+                feedbackEl.innerHTML = `<i class="fas fa-check-circle me-1"></i>SCANNED: "${matchedTitle}" - Marked as Packed!`;
+            } else if (!matched && feedbackEl) {
+                feedbackEl.className = 'p-2 rounded text-center small fw-bold bg-danger text-white border';
+                feedbackEl.innerHTML = `<i class="fas fa-times-circle me-1"></i>Barcode "${rawBarcode}" not found in this transfer!`;
+            }
+
             return matched;
         }
 
-        function markTeamStockItemAsPacked(transferId, index, title) {
-            const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
-            const toggleBtn = document.getElementById(`ts_toggle_btn_${transferId}_${index}`);
-            const row = document.getElementById(`ts_row_${transferId}_${index}`);
+        function onTSManualScanClick(transferId) {
+            const input = document.getElementById(`ts_barcode_input_${transferId}`);
+            if (input && input.value.trim()) {
+                processTeamStockBarcodeScan(transferId, input.value.trim());
+                input.value = '';
+                input.focus();
+            }
+        }
 
-            if (badge) {
-                badge.className = 'badge bg-success text-white ts-status-badge px-2 py-1';
-                badge.innerHTML = '<i class="fas fa-check me-1"></i>Packed';
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.target.classList.contains('ts-barcode-input-field')) {
+                e.preventDefault();
+                const transferId = e.target.getAttribute('data-transfer-id');
+                if (transferId) {
+                    onTSManualScanClick(transferId);
+                }
             }
-            if (toggleBtn) {
-                toggleBtn.className = 'btn btn-xs btn-success ts-pack-toggle-btn fw-semibold';
-                toggleBtn.innerHTML = '<i class="fas fa-check-double me-1"></i>Packed';
+        });
+
+        function onTSStatusSelectChange(transferId, index) {
+            const select = document.getElementById(`ts_packed_status_${transferId}_${index}`);
+            const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
+            const row = document.getElementById(`ts_row_${transferId}_${index}`);
+            if (!select) return;
+
+            const val = select.value;
+            if (val === 'Packed') {
+                if (row) row.style.backgroundColor = '#d4edda';
+                if (badge) badge.className = 'd-none bg-success';
+            } else if (val === 'In Progress') {
+                if (row) row.style.backgroundColor = '#fff3cd';
+                if (badge) badge.className = 'd-none bg-warning';
+            } else {
+                if (row) row.style.backgroundColor = '#f8d7da';
+                if (badge) badge.className = 'd-none bg-danger';
             }
-            if (row) {
-                row.classList.add('table-success');
+            updateTeamStockPackingProgress(transferId);
+        }
+
+        function markTeamStockItemAsPacked(transferId, index, title) {
+            const select = document.getElementById(`ts_packed_status_${transferId}_${index}`);
+            const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
+            const row = document.getElementById(`ts_row_${transferId}_${index}`);
+            const qtyInput = document.getElementById(`ts_packed_qty_${transferId}_${index}`);
+
+            if (select) select.value = 'Packed';
+            if (badge) badge.className = 'd-none bg-success';
+            if (row) row.style.backgroundColor = '#d4edda';
+
+            if (qtyInput && qtyInput.max) {
+                qtyInput.value = qtyInput.max;
             }
 
             updateTeamStockPackingProgress(transferId);
         }
 
         function toggleTeamStockItemPack(transferId, index) {
-            const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
-            const toggleBtn = document.getElementById(`ts_toggle_btn_${transferId}_${index}`);
-            const row = document.getElementById(`ts_row_${transferId}_${index}`);
-
-            if (badge && badge.classList.contains('bg-success')) {
-                // Unpack
-                badge.className = 'badge bg-warning text-dark ts-status-badge px-2 py-1';
-                badge.innerHTML = '<i class="fas fa-clock me-1"></i>Not Packed';
-                if (toggleBtn) {
-                    toggleBtn.className = 'btn btn-xs btn-outline-success ts-pack-toggle-btn fw-semibold';
-                    toggleBtn.innerHTML = '<i class="fas fa-check me-1"></i>Mark Packed';
-                }
-                if (row) row.classList.remove('table-success');
-            } else {
-                // Pack
-                markTeamStockItemAsPacked(transferId, index);
-            }
-            updateTeamStockPackingProgress(transferId);
+            markTeamStockItemAsPacked(transferId, index);
         }
 
         function markAllTeamStockItemsPacked(transferId) {
@@ -3264,36 +3371,36 @@ $txnTypeLabels = [
 
             rows.forEach(row => {
                 const index = row.getAttribute('data-index');
+                const select = document.getElementById(`ts_packed_status_${transferId}_${index}`);
                 const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
-                if (badge && badge.classList.contains('bg-success')) {
+                if ((select && select.value === 'Packed') || (badge && badge.classList.contains('bg-success'))) {
                     packedCount++;
                 }
             });
 
-            const progressSpan = document.getElementById(`ts_pack_progress_${transferId}`);
-            if (progressSpan) {
-                progressSpan.textContent = `${packedCount} / ${totalCount} Items Packed`;
-                if (packedCount === totalCount && totalCount > 0) {
-                    progressSpan.className = 'badge bg-success fs-6 px-3 py-1';
+            const itemsPackedInput = document.getElementById(`ts_items_packed_${transferId}`);
+            if (itemsPackedInput) {
+                itemsPackedInput.value = packedCount;
+            }
+
+            const progressBar = document.getElementById(`ts_progress_bar_${transferId}`);
+            if (progressBar) {
+                const pct = totalCount > 0 ? Math.round((packedCount / totalCount) * 100) : 0;
+                progressBar.style.width = pct + '%';
+                progressBar.textContent = pct + '%';
+                if (pct === 100) {
+                    progressBar.className = 'progress-bar bg-success';
                 } else {
-                    progressSpan.className = 'badge bg-secondary fs-6 px-3 py-1';
+                    progressBar.className = 'progress-bar bg-warning text-dark';
                 }
             }
 
-            const footerStatus = document.getElementById(`ts_footer_status_${transferId}`);
-            const modalCompleteBtn = document.getElementById(`ts_modal_complete_btn_${transferId}`);
-            const mainStatusBadge = document.getElementById(`team_stock_transfer_status_badge_${transferId}`);
-
-            if (packedCount === totalCount && totalCount > 0) {
-                if (footerStatus) {
-                    footerStatus.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i>Status: <span class="badge bg-success text-white">Fully Packed & Ready to Complete</span>';
-                }
-                if (modalCompleteBtn) {
-                    modalCompleteBtn.classList.add('shadow-lg');
-                }
-                if (mainStatusBadge) {
-                    mainStatusBadge.className = 'badge bg-success text-white';
-                    mainStatusBadge.innerHTML = '<i class="fas fa-box me-1"></i>Packed';
+            const packingStatusSelect = document.getElementById(`ts_packingStatus_${transferId}`);
+            if (packingStatusSelect) {
+                if (packedCount === totalCount && totalCount > 0) {
+                    packingStatusSelect.value = 'completed';
+                } else if (packedCount > 0) {
+                    packingStatusSelect.value = 'in_progress';
                 }
             }
         }

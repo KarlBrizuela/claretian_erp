@@ -1389,7 +1389,9 @@ class MarketingController extends Controller
         $typeFilter = $request->input('type');
         $statusFilter = $request->input('status');
 
-        $query = \App\Models\SalesOrder::with('customer', 'preparedBy');
+        $query = \App\Models\SalesOrder::with('customer', 'preparedBy')
+            ->where('type', '!=', 'foreign')
+            ->where('so_number', 'not like', 'FORD-SO-%');
 
         if ($search) {
             $query->where(function($q) use ($search) {
@@ -3251,10 +3253,21 @@ class MarketingController extends Controller
     {
         $so = \App\Models\SalesOrder::findOrFail($id);
         
+        // 1. Restore stock if already gathered/deducted
+        \App\Http\Controllers\Production\LogisticController::restoreSalesOrderStock($so);
+
+        // 2. Delete associated pick lists & pick list items
+        $pickLists = \App\Models\PickList::where('sales_order_id', $so->id)->get();
+        foreach ($pickLists as $pl) {
+            \App\Models\PickListItem::where('pick_list_id', $pl->id)->delete();
+            $pl->delete();
+        }
+
+        // 3. Delete order items and sales order
         $so->items()->delete();
         $so->delete();
 
-        return redirect()->route('marketing.sales-orders.list')->with('success', 'Sales Order deleted successfully!');
+        return redirect()->route('marketing.sales-orders.list')->with('success', 'Sales Order deleted successfully! Deducted stock (if any) has been returned to inventory.');
     }
 
     // Ads and Promo

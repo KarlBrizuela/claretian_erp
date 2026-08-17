@@ -528,6 +528,19 @@
                                                 @else
                                                     <a href="{{ $item['url'] }}" class="btn btn-primary btn-xs"><i class="las la-eye"></i> Review</a>
                                                 @endif
+                                            @elseif($item['type'] === 'Auto Debit Letter' || $item['type'] === 'Auto Debit')
+                                                <a href="{{ route('production.ford.auto-debit.show', $item['id']) }}" class="btn btn-danger btn-xs text-white me-1" title="Review"><i class="las la-eye me-1"></i> Review</a>
+                                                @if(isset($item['original']->status) && ($item['original']->status === 'pending_director' || $item['original']->status === 'Pending Director Approval'))
+                                                    <form action="{{ route('production.ford.auto-debit.approve-director', $item['id']) }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-success btn-xs"><i class="las la-check me-1"></i> Approve</button>
+                                                    </form>
+                                                @elseif(isset($item['original']->status) && ($item['original']->status === 'pending_finance' || $item['original']->status === 'Pending Finance Approval'))
+                                                    <form action="{{ route('production.ford.auto-debit.approve-finance', $item['id']) }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-success btn-xs"><i class="las la-check me-1"></i> Approve</button>
+                                                    </form>
+                                                @endif
                                             @else
                                                 <button type="button" 
                                                         class="btn btn-primary btn-xs view-details-btn" 
@@ -1423,6 +1436,15 @@
                         'pending_director_approval': 'approved'
                     };
                     approveStatus = nextStatusMap[status] || 'approved';
+                } else if (type === 'Auto Debit Letter' || type === 'Auto Debit') {
+                    if (status === 'pending_director' || status === 'Pending Director Approval') {
+                        approveUrl = `{{ url('production/ford/auto-debit') }}/${id}/approve-director`;
+                    } else {
+                        approveUrl = `{{ url('production/ford/auto-debit') }}/${id}/approve-finance`;
+                    }
+                    rejectUrl = `{{ url('production/ford/auto-debit') }}/${id}/reject`;
+                    method = 'POST';
+                    approveStatus = (status === 'pending_director' || status === 'Pending Director Approval') ? 'pending_finance' : 'approved';
                 } else if (type === 'JV Request' || type === 'JV') {
                     // JV Requests live under Credit & Collection routes
                     approveUrl = `{{ url('admin-finance/credit-collection/jv-requests') }}/${id}/approve`;

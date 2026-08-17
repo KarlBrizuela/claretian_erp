@@ -21,7 +21,11 @@ class FreightQuotationController extends Controller
         $status = $request->query('status', 'all');
         $search = $request->query('search');
         
-        $query = FreightQuotation::with(['createdBy', 'respondedBy', 'salesOrder']);
+        $query = FreightQuotation::with(['createdBy', 'respondedBy', 'salesOrder'])
+            ->where(function($q) {
+                $q->where('source', 'marketing')->orWhereNull('source');
+            })
+            ->where('quote_number', 'not like', 'FRQ-FORD-%');
 
         if (auth()->user()->position !== 'Super Admin' && !str_contains(auth()->user()->position, 'Manager')) {
             $query->where(function($q) {
@@ -96,7 +100,8 @@ class FreightQuotationController extends Controller
                 'freight_mode' => 'nullable|string|max:255',
                 'forwarder' => 'nullable|string|max:255',
                 'freight_option' => 'nullable|string|in:freight_collect,freight_billing,bill_client',
-            'forwarder' => 'nullable|string|max:255',
+                'currency' => 'nullable|string|in:PHP,USD,EUR',
+                'forwarder' => 'nullable|string|max:255',
                 'cargo_qty' => 'nullable|array',
                 'cargo_qty.*' => 'nullable|integer|min:1',
                 'cargo_package_type' => 'nullable|array',
@@ -119,8 +124,10 @@ class FreightQuotationController extends Controller
             DB::beginTransaction();
 
             // Generate quote number
-            $quoteNumber = 'FRQ-' . date('Y') . '-' . str_pad(
-                FreightQuotation::whereYear('created_at', date('Y'))->count() + 1,
+            $source = $request->input('source', 'marketing');
+            $prefix = $source === 'ford' ? 'FRQ-FORD-' : 'FRQ-';
+            $quoteNumber = $prefix . date('Y') . '-' . str_pad(
+                FreightQuotation::whereYear('created_at', date('Y'))->where('source', $source)->count() + 1,
                 4,
                 '0',
                 STR_PAD_LEFT
@@ -158,11 +165,13 @@ class FreightQuotationController extends Controller
                 'freight_mode' => $validated['forwarder'] ?? $validated['freight_mode'] ?? null,
                 'forwarder' => $validated['forwarder'] ?? $validated['freight_mode'] ?? null,
                 'freight_option' => $validated['freight_option'] ?? null,
+                'currency' => $request->input('currency', 'PHP'),
                 'cargo_items' => !empty($cargoItems) ? json_encode($cargoItems) : null,
                 'estimated_freight' => 0,
                 'total_amount' => 0,
                 'status' => 'pending',
                 'workflow_status' => 'draft',
+                'source' => $source,
                 'created_by' => auth()->id(),
             ]);
 
@@ -175,12 +184,19 @@ class FreightQuotationController extends Controller
                 });
 
                 if (!empty($soItems)) {
-                    $soNumber = 'SO-' . date('Y') . '-' . str_pad(
-                        SalesOrder::whereYear('created_at', date('Y'))->count() + 1,
-                        4,
-                        '0',
-                        STR_PAD_LEFT
-                    );
+                    $isFordQuotation = ($validated['source'] ?? null) === 'ford' || $request->input('source') === 'ford';
+                    if ($isFordQuotation) {
+                        $soNumber = 'FORD-SO-' . date('Ymd') . '-' . rand(1000, 9999);
+                        $soType = 'foreign';
+                    } else {
+                        $soNumber = 'SO-' . date('Y') . '-' . str_pad(
+                            SalesOrder::whereYear('created_at', date('Y'))->count() + 1,
+                            4,
+                            '0',
+                            STR_PAD_LEFT
+                        );
+                        $soType = $validated['transaction_type'] ?? 'paid';
+                    }
 
                     // Calculate items total
                     $itemsTotal = 0;
@@ -195,14 +211,22 @@ class FreightQuotationController extends Controller
                     }
 
                     if (($validated['freight_option'] ?? null) === 'freight_collect') {
-                        $itemsTotal += 50.00;
+                        $serviceFee = 50.00;
+                        $fqCurr = $validated['currency'] ?? ($quotation->currency ?? 'PHP');
+                        if ($fqCurr === 'USD') {
+                            $serviceFee = 50.00 / 56.0;
+                        } elseif ($fqCurr === 'EUR') {
+                            $serviceFee = 50.00 / 62.0;
+                        }
+                        $itemsTotal += $serviceFee;
                     }
 
                     $salesOrder = SalesOrder::create([
                         'customer_id' => $validated['customer_id'],
                         'customer_representative' => $request->customer_representative ?? null,
                         'so_number' => $soNumber,
-                        'type' => $validated['transaction_type'] ?? 'paid',
+                        'type' => $soType,
+                        'currency' => $validated['currency'] ?? ($quotation->currency ?? 'PHP'),
                         'status' => 'draft',
                         'total_amount' => $itemsTotal,
                         'freight_option' => $validated['freight_option'] ?? ($quotation->freight_option ?? null),
@@ -315,25 +339,43 @@ class FreightQuotationController extends Controller
                     ->with('info', 'Sales Order already created from this quotation');
             }
 
-            // Generate SO number
-            $soNumber = 'SO-' . date('Y') . '-' . str_pad(
-                SalesOrder::whereYear('created_at', date('Y'))->count() + 1,
-                4,
-                '0',
-                STR_PAD_LEFT
-            );
+            // Generate SO number & type
+            $isFordQuotation = $freightQuotation->source === 'ford';
+            if ($isFordQuotation) {
+                $soNumber = 'FORD-SO-' . date('Ymd') . '-' . rand(1000, 9999);
+                $soType = 'foreign';
+            } else {
+                $soNumber = 'SO-' . date('Y') . '-' . str_pad(
+                    SalesOrder::whereYear('created_at', date('Y'))->count() + 1,
+                    4,
+                    '0',
+                    STR_PAD_LEFT
+                );
+                $soType = 'paid';
+            }
 
             // Create Sales Order with freight charges
             $customer = Customer::find($freightQuotation->customer_id) ?? 
                        Customer::find($freightQuotation->origin_contact);
 
-            $serviceFee = $freightQuotation->freight_option === 'freight_collect' ? 50.00 : 0;
+            $serviceFee = 0;
+            if ($freightQuotation->freight_option === 'freight_collect') {
+                $fqCurr = $freightQuotation->currency ?? 'PHP';
+                if ($fqCurr === 'USD') {
+                    $serviceFee = 50.00 / 56.0;
+                } elseif ($fqCurr === 'EUR') {
+                    $serviceFee = 50.00 / 62.0;
+                } else {
+                    $serviceFee = 50.00;
+                }
+            }
 
             $salesOrder = SalesOrder::create([
                 'customer_id' => $freightQuotation->customer_id ?? $customer?->customer_id,
                 'customer_representative' => $freightQuotation->customer_representative ?? null,
                 'so_number' => $soNumber,
-                'type' => 'paid',
+                'type' => $soType,
+                'currency' => $freightQuotation->currency ?? 'PHP',
                 'status' => 'pending_mkt_approval',
                 'total_amount' => $freightQuotation->total_amount + $serviceFee,
                 'freight_charges' => $freightQuotation->total_amount,
@@ -350,6 +392,11 @@ class FreightQuotationController extends Controller
                 'sales_order_id' => $salesOrder->id,
                 'workflow_status' => 'linked_to_so',
             ]);
+
+            if ($isFordQuotation) {
+                return redirect()->route('production.ford.sales-order')
+                    ->with('success', 'FORD Sales Order #' . $soNumber . ' created successfully with freight charges!');
+            }
 
             return redirect()->route('marketing.sales-orders.show', $salesOrder->id)
                 ->with('success', 'Sales Order #' . $soNumber . ' created successfully with freight charges of ₱' . number_format($freightQuotation->total_amount, 2));
@@ -432,12 +479,19 @@ class FreightQuotationController extends Controller
 
             try {
                 // Create sales order
-                $soNumber = 'SO-' . date('Y') . '-' . str_pad(
-                    SalesOrder::whereYear('created_at', date('Y'))->count() + 1,
-                    4,
-                    '0',
-                    STR_PAD_LEFT
-                );
+                $isFordQuotation = $freightQuotation->source === 'ford' || $request->input('source') === 'ford';
+                if ($isFordQuotation) {
+                    $soNumber = 'FORD-SO-' . date('Ymd') . '-' . rand(1000, 9999);
+                    $soType = 'foreign';
+                } else {
+                    $soNumber = 'SO-' . date('Y') . '-' . str_pad(
+                        SalesOrder::whereYear('created_at', date('Y'))->count() + 1,
+                        4,
+                        '0',
+                        STR_PAD_LEFT
+                    );
+                    $soType = $validated['type'];
+                }
 
                 // Calculate total
                 $totalAmount = 0;
@@ -458,14 +512,22 @@ class FreightQuotationController extends Controller
                 $totalAmount += $freightQuotation->total_amount;
 
                 if ($freightQuotation->freight_option === 'freight_collect') {
-                    $totalAmount += 50.00;
+                    $serviceFee = 50.00;
+                    $fqCurr = $freightQuotation->currency ?? 'PHP';
+                    if ($fqCurr === 'USD') {
+                        $serviceFee = 50.00 / 56.0;
+                    } elseif ($fqCurr === 'EUR') {
+                        $serviceFee = 50.00 / 62.0;
+                    }
+                    $totalAmount += $serviceFee;
                 }
 
                 $salesOrder = SalesOrder::create([
                     'customer_id' => $validated['customer_id'],
                     'customer_representative' => $freightQuotation->customer_representative ?? null,
                     'so_number' => $soNumber,
-                    'type' => $validated['type'],
+                    'type' => $soType,
+                    'currency' => $freightQuotation->currency ?? 'PHP',
                     'status' => 'draft',
                     'total_amount' => $totalAmount,
                     'freight_charges' => $freightQuotation->total_amount,
@@ -505,6 +567,11 @@ class FreightQuotationController extends Controller
                 ]);
 
                 DB::commit();
+
+                if ($isFordQuotation) {
+                    return redirect()->route('production.ford.sales-order')
+                        ->with('success', 'FORD Foreign Sales Order #' . $soNumber . ' created successfully with freight quotation linked!');
+                }
 
                 return redirect()->route('marketing.sales-orders.show', $salesOrder->id)
                     ->with('success', 'Sales Order #' . $soNumber . ' created successfully with freight quotation linked!');

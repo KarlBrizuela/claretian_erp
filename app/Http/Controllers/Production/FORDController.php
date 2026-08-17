@@ -252,34 +252,250 @@ class FORDController extends Controller
         ]);
     }
 
-    public function salesOrder()
+    public function salesOrder(Request $request)
     {
-        $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->where('type', 'foreign')
-            ->latest()
-            ->get();
+        $query = \App\Models\SalesOrder::with('customer', 'preparedBy')
+            ->where(function($q) {
+                $q->where('type', 'foreign')
+                  ->orWhere('so_number', 'like', 'FORD-SO-%');
+            });
 
-        $customers = \App\Models\Customer::orderBy('customer_name')->get();
-        $books = \App\Models\Book::orderBy('name', 'asc')->get();
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('so_number', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function($cq) use ($search) {
+                      $cq->where('customer_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        $orders = $query->latest()->get();
 
         return view('production.ford.sales-order', [
             'title' => 'Foreign Sales Orders',
-            'role' => 'FORD Staff',
+            'role' => auth()->user()->position ?? 'FORD Staff',
             'sidebar' => 'production',
             'orders' => $orders,
-            'customers' => $customers,
-            'books' => $books
         ]);
+    }
+
+    public function salesOrderCreate()
+    {
+        $customers = \App\Models\Customer::orderBy('customer_name')->get();
+        $books = \App\Models\Book::orderBy('name', 'asc')->get();
+        $products = (new \App\Http\Controllers\MarketingController)->getUnifiedProducts();
+        $areaSalesStaff = \App\Models\User::where(function($q) {
+            $q->where('position', 'like', '%Sales%')
+              ->orWhere('position', 'like', '%Area%');
+        })->get();
+
+        return view('production.ford.sales-order-create', [
+            'title' => 'Create Foreign Sales Order',
+            'role' => 'FORD Staff',
+            'sidebar' => 'production',
+            'customers' => $customers,
+            'books' => $books,
+            'products' => $products,
+            'areaSalesStaff' => $areaSalesStaff,
+        ]);
+    }
+
+    public function reviewSalesOrder($id)
+    {
+        $order = \App\Models\SalesOrder::with([
+            'customer', 
+            'items.book', 
+            'items.bookIndex.book', 
+            'items.bundle', 
+            'preparedBy'
+        ])->findOrFail($id);
+
+        return view('production.sales-orders.review', [
+            'title' => 'Review Sales Order #' . $order->so_number,
+            'role' => auth()->user()->position ?? 'Production Manager',
+            'sidebar' => 'production',
+            'order' => $order,
+        ]);
+    }
+
+    public function storeSalesOrder(Request $request)
+    {
+        $request->validate([
+            'so_number' => 'required|string|unique:sales_orders,so_number',
+            'customer_id' => 'nullable|integer',
+            'type' => 'nullable|string',
+            'currency' => 'nullable|string|in:PHP,USD,EUR',
+            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'proof_of_payment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
+
+        $customerObj = null;
+        if ($request->filled('customer_id')) {
+            $customerObj = \App\Models\Customer::find($request->customer_id);
+        }
+        if (!$customerObj && $request->filled('customer')) {
+            $customerObj = \App\Models\Customer::where('customer_name', $request->customer)->first();
+        }
+
+        $attachmentPath = null;
+        if ($request->hasFile('attachment')) {
+            $attachmentPath = $request->file('attachment')->store('sales_orders', 'public');
+        }
+
+        $proofOfPaymentPath = null;
+        if ($request->hasFile('proof_of_payment')) {
+            $proofOfPaymentPath = $request->file('proof_of_payment')->store('sales_orders', 'public');
+        }
+
+        $address = $request->billing_address ?? $request->address ?? ($customerObj ? ($customerObj->shipping_address ?? $customerObj->billing_address) : '');
+        $soType = $request->type ?? 'foreign';
+        $currency = $request->currency ?? 'USD';
+
+        $soData = [
+            'so_number' => $request->so_number,
+            'customer_id' => $customerObj ? $customerObj->customer_id : null,
+            'customer_representative' => $request->customer_representative ?? null,
+            'customer_contact' => $request->customer_contact ?? null,
+            'area_sales_staff_id' => $soType === 'area_sales_consignment' ? $request->area_sales_staff_id : null,
+            'billing_address' => $address,
+            'shipping_address' => $address,
+            'type' => $soType,
+            'currency' => $currency,
+            'status' => 'pending_prod_approval',
+            'terms' => $request->terms,
+            'ref_number' => $request->ref_number,
+            'remarks' => $request->remarks,
+            'prepared_by' => auth()->id(),
+            'attachment' => $attachmentPath,
+            'proof_of_payment' => $proofOfPaymentPath,
+            'freight_option' => $request->freight_option ?? null,
+            'forwarder' => $request->forwarder ?? null,
+            'total_amount' => 0,
+            'created_at' => $request->date ? \Carbon\Carbon::parse($request->date) : now(),
+        ];
+
+        $so = \App\Models\SalesOrder::create($soData);
+        $so->items()->delete();
+
+        $totalAmount = 0;
+        $mktCtrl = new \App\Http\Controllers\MarketingController();
+
+        // Standard structured items array (Marketing style)
+        if (!empty($request->items) && is_array($request->items)) {
+            foreach ($request->items as $item) {
+                if (empty($item['product_id'])) continue;
+
+                $target = $mktCtrl->resolveItemTarget($item['product_id']);
+                if (!$target['exists']) continue;
+
+                $qty = (int) ($item['quantity'] ?? 0);
+                $price = (float) ($item['price'] ?? 0);
+                $discVal = (float) ($item['discount_value'] ?? 0);
+                $discType = $item['discount_type'] ?? 'percentage';
+
+                $gross = $qty * $price;
+                $discAmount = $discType === 'percentage' ? ($gross * ($discVal / 100)) : $discVal;
+                $subtotal = max(0, $gross - $discAmount);
+                $totalAmount += $subtotal;
+
+                $so->items()->create([
+                    'book_id' => $target['book_id'],
+                    'bundle_id' => $target['bundle_id'],
+                    'book_index_id' => $target['book_index_id'],
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'discount_value' => $discVal,
+                    'discount_type' => $discType,
+                    'discount_amount' => $discAmount,
+                    'subtotal' => $subtotal,
+                    'unit' => $item['unit'] ?? 'pcs',
+                    'area' => $item['area'] ?? null,
+                    'source_price_at_sale' => $target['source_price'],
+                ]);
+            }
+        } 
+        // Simple arrays fallback (quantity[], unit_price[], description[], etc.)
+        elseif (!empty($request->quantity) && is_array($request->quantity)) {
+            foreach ($request->quantity as $i => $qty) {
+                $qtyVal = (float) $qty;
+                $priceVal = (float) ($request->unit_price[$i] ?? 0);
+                $amtVal = $qtyVal * $priceVal;
+                $totalAmount += $amtVal;
+
+                $so->items()->create([
+                    'book_id' => $request->book_id[$i] ?? null,
+                    'item_type' => 'book',
+                    'quantity' => $qtyVal,
+                    'price' => $priceVal,
+                    'total_price' => $amtVal,
+                    'subtotal' => $amtVal,
+                    'area' => $request->area[$i] ?? null,
+                ]);
+            }
+        }
+
+        // Apply Overall Header Discount
+        $discountAmount = 0;
+        $discountPercentage = 0;
+        if ($request->filled('discount_value') && $request->discount_value > 0) {
+            $discVal = (float) $request->discount_value;
+            if ($request->discount_type === 'percentage') {
+                $discountPercentage = $discVal;
+                $discountAmount = $totalAmount * ($discountPercentage / 100);
+            } else {
+                $discountAmount = $discVal;
+                $discountPercentage = 0;
+            }
+        }
+
+        $serviceFee = 0;
+        if ($request->filled('freight_option')) {
+            $serviceFee = ($currency === 'USD' || $currency === 'EUR') ? 1.00 : 50.00;
+        }
+
+        $finalTotal = $totalAmount - $discountAmount + $serviceFee;
+
+        $so->update([
+            'discount_amount' => $discountAmount,
+            'discount_percentage' => $discountPercentage,
+            'total_amount' => max(0, $finalTotal),
+        ]);
+
+        \App\Models\ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'FORD Sales Order Created',
+            'description' => 'Foreign Sales Order #' . $so->so_number . ' saved and submitted to FORD Supervisor for approval.',
+            'reference_type' => 'SalesOrder',
+            'reference_id' => $so->id,
+            'details' => json_encode(['so_number' => $so->so_number, 'total' => $finalTotal, 'currency' => $so->currency]),
+        ]);
+
+        return redirect()->route('production.ford.sales-order')
+            ->with('success', 'Foreign Sales Order #' . $so->so_number . ' has been created and submitted for FORD Supervisor approval.');
     }
 
     public function approveSalesOrder($id)
     {
-        // Role Enforcement: Production Manager
-        if (!str_contains(auth()->user()->position, 'Manager')) {
-            return redirect()->back()->with('error', 'Only Production Managers can approve Foreign Sales Orders.');
+        $userPos = auth()->user()->position ?? '';
+        $userRole = auth()->user()->role ?? '';
+        $isAllowed = str_contains(strtolower($userPos), 'manager') 
+            || str_contains(strtolower($userPos), 'supervisor') 
+            || str_contains(strtolower($userPos), 'admin') 
+            || str_contains(strtolower($userRole), 'admin') 
+            || str_contains(strtolower($userRole), 'supervisor')
+            || (isset(auth()->user()->is_admin) && auth()->user()->is_admin);
+
+        if (!$isAllowed) {
+            return redirect()->back()->with('error', 'Only Production Managers, Supervisors, and Admins can approve Foreign Sales Orders.');
         }
 
-        $order = \App\Models\SalesOrder::findOrFail($id);
+        $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
         
         $order->update([
             'status' => 'picking',
@@ -287,7 +503,55 @@ class FORDController extends Controller
             'prod_approved_at' => now()
         ]);
 
+        // Automatically generate PickList and PickListItems for Logistics
+        $existingPickList = \App\Models\PickList::where('sales_order_id', $order->id)->first();
+        if (!$existingPickList && $order->items && $order->items->count() > 0) {
+            $pickList = \App\Models\PickList::create([
+                'sales_order_id'   => $order->id,
+                'pick_list_number' => 'PL-' . $order->so_number . '-' . date('YmdHis'),
+                'status'           => 'in_progress',
+                'prepared_by'      => auth()->id(),
+            ]);
+
+            foreach ($order->items as $item) {
+                \App\Models\PickListItem::create([
+                    'pick_list_id'        => $pickList->id,
+                    'sales_order_item_id' => $item->id,
+                    'requested_qty'       => $item->quantity,
+                    'picked_qty'          => 0,
+                    'status'              => 'pending',
+                ]);
+            }
+        }
+
         return redirect()->back()->with('success', 'Foreign Sales Order #' . $order->so_number . ' has been approved by Production and sent to Logistics for picking.');
+    }
+
+    public function rejectSalesOrder(Request $request, $id)
+    {
+        $userPos = auth()->user()->position ?? '';
+        $userRole = auth()->user()->role ?? '';
+        $isAllowed = str_contains(strtolower($userPos), 'manager') 
+            || str_contains(strtolower($userPos), 'supervisor') 
+            || str_contains(strtolower($userPos), 'admin') 
+            || str_contains(strtolower($userRole), 'admin') 
+            || str_contains(strtolower($userRole), 'supervisor')
+            || (isset(auth()->user()->is_admin) && auth()->user()->is_admin);
+
+        if (!$isAllowed) {
+            return redirect()->back()->with('error', 'Only Production Managers, Supervisors, and Admins can reject Foreign Sales Orders.');
+        }
+
+        $order = \App\Models\SalesOrder::findOrFail($id);
+        $userTitle = auth()->user()->name . ' (Production Rejection)';
+        $remarksText = $request->remarks ? $request->remarks : 'Rejected by Production Supervisor';
+        $newRemarks = trim(($order->remarks ? $order->remarks . "\n" : '') . '[' . $userTitle . ']: ' . $remarksText);
+        $order->update([
+            'status' => 'cancelled',
+            'remarks' => $newRemarks
+        ]);
+
+        return redirect()->route('production.ford.sales-order')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');
     }
 
     public function transmittal()
@@ -618,6 +882,88 @@ class FORDController extends Controller
         return redirect()
             ->route('production.logistic.purchase-order.show', $po->id)
             ->with('success', 'Purchase Order #' . $po->po_number . ' saved and sent to Logistics.');
+    }
+
+    public function freightQuotationIndex(Request $request)
+    {
+        $status = $request->query('status', 'all');
+        $search = $request->query('search');
+        
+        $query = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy', 'salesOrder'])
+            ->where(function($q) {
+                $q->where('source', 'ford')->orWhere('quote_number', 'like', 'FRQ-FORD-%');
+            });
+
+        if ($status !== 'all') {
+            $query->where('workflow_status', $status);
+        }
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('quote_number', 'like', '%' . $search . '%')
+                  ->orWhere('origin_province', 'like', '%' . $search . '%')
+                  ->orWhere('destination_province', 'like', '%' . $search . '%')
+                  ->orWhere('service_mode', 'like', '%' . $search . '%')
+                  ->orWhere('customer_representative', 'like', '%' . $search . '%');
+            });
+        }
+
+        $quotations = $query->latest()->paginate(10)->withQueryString();
+
+        return view('marketing.freight-quotations.list', [
+            'title' => 'Freight Quotations (FORD)',
+            'role' => auth()->user()->position,
+            'sidebar' => 'production',
+            'quotations' => $quotations,
+            'currentStatus' => $status,
+            'search' => $search,
+            'isFord' => true,
+            'indexRoute' => 'production.ford.freight-quotation.index',
+            'createRoute' => 'production.ford.freight-quotation.create',
+            'showRoute' => 'production.ford.freight-quotation.show',
+        ]);
+    }
+
+    public function freightQuotationCreate()
+    {
+        $customers = \App\Models\Customer::all();
+        $products = (new \App\Http\Controllers\MarketingController)->getUnifiedProducts();
+        
+        return view('marketing.freight-quotations.create', [
+            'title' => 'Create Freight Quotation (FORD)',
+            'role' => auth()->user()->position,
+            'sidebar' => 'production',
+            'customers' => $customers,
+            'products' => $products,
+            'isFord' => true,
+            'storeRoute' => route('production.ford.freight-quotation.store'),
+        ]);
+    }
+
+    public function freightQuotationStore(Request $request)
+    {
+        $request->merge(['source' => 'ford']);
+        $fqCtrl = new \App\Http\Controllers\Marketing\FreightQuotationController();
+        $response = $fqCtrl->store($request);
+        
+        return redirect()->route('production.ford.freight-quotation.index')
+            ->with('success', 'Freight Quotation created successfully and sent to Logistics for review.');
+    }
+
+    public function freightQuotationShow($id)
+    {
+        $quotation = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy', 'salesOrder', 'items'])->findOrFail($id);
+        
+        return view('marketing.freight-quotations.show', [
+            'title' => 'Freight Quotation: ' . $quotation->quote_number,
+            'role' => auth()->user()->position,
+            'sidebar' => 'production',
+            'quotation' => $quotation,
+            'isFord' => true,
+            'indexRoute' => 'production.ford.freight-quotation.index',
+            'createSoRoute' => 'production.ford.freight-quotation.create-so-directly',
+            'proceedSoRoute' => 'production.ford.freight-quotation.proceed-to-so',
+        ]);
     }
 }
 

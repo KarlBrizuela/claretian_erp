@@ -16,8 +16,56 @@
         .step-icon.done { background: #d1e7dd; color: #0f5132; }
         .step-icon.pending { background: #fff3cd; color: #856404; }
         @media print {
-            .sidebar-wrapper, .header, .print-actions, .approval-trail { display: none !important; }
-            .content-body { margin-left: 0 !important; padding: 0 !important; }
+            @page {
+                size: A4 portrait;
+                margin: 20mm 20mm 20mm 20mm !important;
+            }
+            body, html {
+                background: #fff !important;
+                color: #000 !important;
+                font-family: 'Times New Roman', Times, serif !important;
+                width: 100% !important;
+            }
+            .sidebar-wrapper, .header, .print-actions, .approval-trail, .card-header, .alert, .nav-header, .deznav {
+                display: none !important;
+            }
+            .content-body, .container-fluid, .row, .col-xl-12, .card, .generated-letter-card, .card-body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+            .generated-letter {
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                font-size: 11pt !important;
+                line-height: 1.6 !important;
+            }
+            .memo-header {
+                margin-bottom: 20px !important;
+            }
+            .memo-header hr {
+                border: none !important;
+                border-top: 1px solid #777 !important;
+                margin: 15px 0 25px 0 !important;
+            }
+            .memo-body {
+                margin-bottom: 35px !important;
+                line-height: 1.8 !important;
+                font-size: 11pt !important;
+            }
+            .memo-body p {
+                margin-bottom: 18px !important;
+            }
+            .memo-signatories {
+                margin-top: 35px !important;
+                font-size: 11pt !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
         }
     </style>
     @endpush
@@ -30,63 +78,70 @@
                     <span class="badge bg-success px-3 py-2">Fully Approved</span>
                 </div>
                 <div class="card-body">
-                    <div class="generated-letter">
-                        <div class="memo-header">
-                            <div class="memo-header-row">
-                                <span class="memo-header-label">DATE</span>
-                                <span class="memo-header-value">: {{ date('F d, Y', strtotime($debit->date)) }}</span>
-                            </div>
-                            <div class="memo-header-row">
-                                <span class="memo-header-label">TO</span>
-                                <span class="memo-header-value">: BPI COMMONWEALTH AVE., Q.C.</span>
-                            </div>
-                            <div class="memo-header-row">
-                                <span class="memo-header-label">FROM</span>
-                                <span class="memo-header-value">: SR. ANNA MARIA R. VIOJAN, RMI / FR. DENNIS G. TAMAYO, CMF</span>
-                            </div>
+                    <div class="generated-letter" style="background: #fff; padding: 40px 50px; font-family: 'Times New Roman', Times, serif; color: #000; font-size: 11pt; line-height: 1.6; max-width: 800px; margin: 0 auto;">
+                        {{-- Memo Header --}}
+                        <div class="memo-header" style="margin-bottom: 25px;">
+                            <table style="width: 100%; border-collapse: collapse; font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #000;">
+                                <tr>
+                                    <td style="width: 80px; vertical-align: top; font-weight: bold; padding-bottom: 8px;">To</td>
+                                    <td style="width: 20px; vertical-align: top; font-weight: bold; padding-bottom: 8px;">:</td>
+                                    <td style="vertical-align: top; padding-bottom: 8px;">
+                                        <strong>Fr. Louie Guades III, CMF</strong><br>
+                                        Executive Director
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align: top; font-weight: bold; padding-bottom: 8px;">From</td>
+                                    <td style="vertical-align: top; font-weight: bold; padding-bottom: 8px;">:</td>
+                                    <td style="vertical-align: top; padding-bottom: 8px;">FORD</td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align: top; font-weight: bold; padding-bottom: 8px;">Re</td>
+                                    <td style="vertical-align: top; font-weight: bold; padding-bottom: 8px;">:</td>
+                                    <td style="vertical-align: top; padding-bottom: 8px;">
+                                        <strong>DEBITED AMOUNT FROM METROBANK ACCOUNT</strong>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align: top; font-weight: bold; padding-bottom: 8px;">Date</td>
+                                    <td style="vertical-align: top; font-weight: bold; padding-bottom: 8px;">:</td>
+                                    <td style="vertical-align: top; padding-bottom: 8px;">{{ date('F d, Y', strtotime($debit->date)) }}</td>
+                                </tr>
+                            </table>
+                            <hr style="border: none; border-top: 1px solid #777; margin: 15px 0 25px 0;">
                         </div>
 
-                        <div class="memo-body">
-                            @php
-                                function numberToWordsAF($num) {
-                                    $ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE',
-                                             'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN',
-                                             'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
-                                    $tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
-                                    if ($num == 0) return 'ZERO';
-                                    $str = '';
-                                    $numStr = number_format($num, 2, '.', '');
-                                    $parts = explode('.', $numStr);
-                                    $whole = (int) $parts[0];
-                                    $cents = (int) $parts[1];
-                                    if ($whole >= 1000000) { $str .= numberToWordsAF(floor($whole / 1000000)) . ' MILLION '; $whole %= 1000000; }
-                                    if ($whole >= 1000) { $str .= numberToWordsAF(floor($whole / 1000)) . ' THOUSAND '; $whole %= 1000; }
-                                    if ($whole >= 100) { $str .= $ones[floor($whole / 100)] . ' HUNDRED '; $whole %= 100; }
-                                    if ($whole >= 20) { $str .= $tens[floor($whole / 10)] . ' '; $whole %= 10; }
-                                    if ($whole > 0) $str .= $ones[$whole] . ' ';
-                                    if ($cents > 0) $str .= 'AND ' . $cents . '/100 ';
-                                    return trim($str);
-                                }
-                            @endphp
-                            <div class="memo-body-text">
-                                Please debit our Current Account Number <strong>3201-0268-07</strong> (Corporate Account - Claretian Communications Foundation, Inc.)
-                                the amount of <strong>{{ numberToWordsAF($debit->amount) }} PESOS</strong>
-                                (P <strong>{{ number_format($debit->amount, 2) }}</strong>)
-                                value on <span>{{ date('F d, Y', strtotime($debit->debit_date)) }}</span>;
-                                representing <span>{{ $debit->item_reason }}</span> for <span>{{ $debit->source_origin }}</span>.
-                            </div>
-                            <div class="memo-body-text">Thank you.</div>
+                        {{-- Memo Body --}}
+                        <div class="memo-body" style="line-height: 1.8; font-size: 11pt; margin-bottom: 45px;">
+                            <p style="margin-bottom: 20px; text-align: justify;">
+                                Please note that the amount of <strong>PHP {{ number_format($debit->amount, 2) }}</strong> was debited against our Metropolitan Bank account on {{ date('F d, Y', strtotime($debit->debit_date)) }}. Said amount represents the {{ $debit->item_reason }} for <strong>{{ strtoupper($debit->source_origin) }}</strong>.
+                            </p>
+                            <p style="margin-bottom: 20px;">
+                                For your reference, please see the attachment.
+                            </p>
+                            <p style="margin-bottom: 25px;">
+                                Thank you very much!
+                            </p>
                         </div>
 
-                        <div class="memo-footer">
-                            <div style="display: flex; gap: 50px;">
-                                <div style="flex: 1; text-align: center;">
-                                    <div class="sig-line"></div>
-                                    <strong>SR. ANNA MARIA R. VIOJAN, RMI</strong><br>Director Treasurer
+                        {{-- Memo Signatories --}}
+                        <div class="memo-signatories" style="font-size: 11pt; margin-top: 35px;">
+                            <div style="margin-bottom: 45px;">
+                                <div style="font-weight: bold; margin-bottom: 30px;">Prepared by:</div>
+                                <div style="font-style: italic; font-weight: 500;">{{ $debit->preparer->name ?? 'Jhay F. Santiago' }}</div>
+                                <div>Foreign Order & Rights Department</div>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div style="width: 45%;">
+                                    <div style="font-weight: bold; margin-bottom: 30px;">Noted by:</div>
+                                    <div>Fr. Louie R. Guades III, CMF</div>
+                                    <div>Executive Director</div>
                                 </div>
-                                <div style="flex: 1; text-align: center;">
-                                    <div class="sig-line"></div>
-                                    <strong>FR. DENNIS G. TAMAYO, CMF</strong><br>Executive Director
+                                <div style="width: 45%;">
+                                    <div style="font-weight: bold; margin-bottom: 30px;">Received by:</div>
+                                    <div>Lhai C. Abobon</div>
+                                    <div>Admin and Finance Manager</div>
                                 </div>
                             </div>
                         </div>

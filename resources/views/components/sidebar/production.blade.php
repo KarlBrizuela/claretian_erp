@@ -210,6 +210,7 @@
 			@if($user->hasPermission('production.ford.request_for_quotation'))
 			<a href="{{ route('production.ford.request-for-quotation') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.request-for-quotation') ? 'active' : '' }}">Request for Quotation</a>
 			@endif
+			<a href="{{ route('production.ford.freight-quotation.index') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.freight-quotation.*') ? 'active' : '' }}">Freight Quotation</a>
 			@if($user->hasPermission('production.ford.sales_order'))
 			<a href="{{ route('production.ford.sales-order') }}" class="modern-nav-subitem {{ request()->routeIs('production.ford.sales-order') ? 'active' : '' }}">Sales Order</a>
 			@endif

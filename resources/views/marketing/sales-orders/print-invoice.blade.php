@@ -136,6 +136,24 @@
             font-size: 5.5pt !important;
             margin-top: 2px !important;
         }
+        .totals-block {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .freight-line { order: 1; }
+        .subtotal-line { order: 2; }
+        .service-fee-line { order: 3; }
+        .discount-line { order: 4; }
+        .withholding-tax-line { order: 5; }
+        .total-sales-line { order: 6; }
+        .total-amount-due-line { order: 7; }
+
+        body.half-page-mode .freight-line { order: 1; }
+        body.half-page-mode .subtotal-line { order: 2; }
+        body.half-page-mode .service-fee-line { order: 3; }
+        body.half-page-mode .discount-line { order: 4; }
+        body.half-page-mode .total-sales-line { order: 5; }
         body.half-page-mode .withholding-tax-line,
         body.half-page-mode .total-amount-due-line {
             display: none !important;
@@ -473,7 +491,7 @@
                 </select>
             </div>
             <div class="form-check form-switch mb-0 ms-2">
-                <input class="form-check-input" type="checkbox" id="preprintedToggle" onchange="togglePreprintedMode(this)">
+                <input class="form-check-input" type="checkbox" id="preprintedToggle" onchange="togglePreprintedMode(this)" {{ (request('preprinted') || request('data_only')) ? 'checked' : '' }}>
                 <label class="form-check-label fw-bold small text-dark" for="preprintedToggle">Print Data Only (For Official BIR Paper)</label>
             </div>
             <button onclick="window.print()" class="btn btn-danger btn-sm px-4 shadow-sm" style="background:#ff0000; border: none;">
@@ -513,8 +531,14 @@
             $halfLabel = null;
         }
 
-        $isCash = in_array($order->payment_method, ['cash', 'gcash', 'paymaya', 'card', 'bank', 'check']) 
-                  || in_array($order->type, ['calculator_pos', 'ecom_direct', 'paid']);
+        $paymentMethodLower = strtolower($order->payment_method ?? '');
+        $termsValLower = strtolower($order->terms ?? '');
+        $transactionTypeLower = strtolower($order->transaction_type ?? '');
+
+        $isCash = in_array($paymentMethodLower, ['cash', 'gcash', 'paymaya', 'card', 'bank', 'check']) 
+                  || in_array($transactionTypeLower, ['cash', 'cod'])
+                  || in_array($order->type, ['calculator_pos', 'ecom_direct', 'paid'])
+                  || $termsValLower === 'cash' || $termsValLower === 'cod' || $termsValLower === 'c a s h';
         $custName = ($order->customer?->customer_name && $order->customer->customer_name !== 'N/A') ? $order->customer->customer_name : 'Cash Customer';
         
         $rawAddr = $order->billing_address ?: ($order->shipping_address ?: ($order->customer?->billing_address ?? ''));
@@ -528,6 +552,29 @@
         $dueDate = ($order->due_date && $order->due_date !== 'N/A') ? \Carbon\Carbon::parse($order->due_date)->format('m/d/Y') : '';
         $wht = (float) ($order->withholding_tax_amount ?? 0);
         $siNoDisplay = $activeInvoice->si_number ?? $order->so_number;
+
+        $itemsSubtotal = 0;
+        foreach ($itemsToPrint as $item) {
+            $qty = (float) $item->quantity;
+            $price = (float) ($item->unit_price ?? $item->price);
+            $itemsSubtotal += (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
+        }
+
+        $discount = (float) ($order->discount_amount ?? 0);
+        if ($discount == 0 && (float) ($order->discount_percentage ?? 0) > 0) {
+            $discount = $itemsSubtotal * ((float) $order->discount_percentage / 100);
+        }
+
+        $freight = (float) ($order->freight_charges ?? 0);
+        $serviceFee = (float) ($order->service_fee ?? ($order->freight_option === 'freight_collect' ? 50 : 0));
+
+        if ($discount > 0 || $freight > 0 || $serviceFee > 0) {
+            $calculatedTotalSales = max(0, $itemsSubtotal - $discount + $freight + $serviceFee);
+        } else {
+            $calculatedTotalSales = $totalSalesAmount > 0 ? $totalSalesAmount : $itemsSubtotal;
+        }
+
+        $totalAmountDue = max(0, $calculatedTotalSales - $wht);
     @endphp
 
     <div class="invoice-box">
@@ -633,14 +680,38 @@
                     </div>
                 </div>
                 <div class="totals-block text-end">
-                    <div class="withholding-tax-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;">
-                        <span class="total-label">LESS: WITHHOLDING TAX: </span><span style="padding: 0 8px; min-width: 90px; display: inline-block;">{{ $wht > 0 ? '₱' . number_format($wht, 2) : '' }}</span>
+                    <div class="freight-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
+                        @if($freight > 0)
+                            <span class="total-label">FREIGHT: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">₱{{ number_format($freight, 2) }}</span>
+                        @else
+                            &nbsp;
+                        @endif
                     </div>
-                    <div class="total-sales-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;">
-                        <span class="total-label">TOTAL SALES: </span><span style="padding: 0 8px; min-width: 90px; display: inline-block;">₱{{ number_format($totalSalesAmount, 2) }}</span>
+                    <div class="subtotal-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
+                        <span class="total-label">SUBTOTAL: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">₱{{ number_format($itemsSubtotal, 2) }}</span>
                     </div>
-                    <div class="total-amount-due-line total-sales-box" style="margin-top: 3px;">
-                        <span class="total-label">TOTAL AMOUNT DUE: </span><span style="font-weight: bold; padding: 0 8px;">{{ $wht > 0 ? '₱' . number_format(max(0, $totalSalesAmount - $wht), 2) : '' }}</span>
+                    <div class="service-fee-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
+                        @if($serviceFee > 0)
+                            <span class="total-label">SERVICE FEE: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">₱{{ number_format($serviceFee, 2) }}</span>
+                        @else
+                            &nbsp;
+                        @endif
+                    </div>
+                    <div class="discount-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
+                        @if($discount > 0)
+                            <span class="total-label">DISCOUNT: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">-₱{{ number_format($discount, 2) }}</span>
+                        @else
+                            &nbsp;
+                        @endif
+                    </div>
+                    <div class="withholding-tax-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
+                        <span class="total-label">LESS: WITHHOLDING TAX: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">{{ $wht > 0 ? '-₱' . number_format($wht, 2) : '' }}</span>
+                    </div>
+                    <div class="total-sales-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
+                        <span class="total-label">TOTAL SALES: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">₱{{ number_format($calculatedTotalSales, 2) }}</span>
+                    </div>
+                    <div class="total-amount-due-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
+                        <span class="total-label">TOTAL AMOUNT DUE: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">{{ $wht > 0 ? '₱' . number_format($totalAmountDue, 2) : '' }}</span>
                     </div>
                 </div>
             </div>
@@ -691,17 +762,21 @@
     <!-- 1 WHOLE PRE-PRINTED BIR OVERLAY (Exact Fit to whole.pdf) -->
     <div class="preprinted-overlay preprinted-overlay-whole">
         <!-- Customer Info -->
-        <div style="position: absolute; left: 1.55in; top: 1.94in; width: 4.3in; font-weight: bold; font-size: 10pt;">{{ $custName }}</div>
-        <div style="position: absolute; left: 1.55in; top: 2.22in; width: 4.3in; font-weight: bold; font-size: 9.5pt; line-height: 1.25; max-height: 0.5in; overflow: hidden;">{{ $custAddress }}</div>
+        <div style="position: absolute; left: 1.55in; top: 1.71in; width: 4.3in; font-weight: bold; font-size: 10pt;">{{ $custName }}</div>
+        <div style="position: absolute; left: 1.55in; top: 2.02in; width: 3.5in; font-weight: bold; font-size: 9.5pt; line-height: 1.25; white-space: normal; overflow-wrap: break-word;">{{ $custAddress }}</div>
+      
+        
+      
+      
         <div style="position: absolute; left: 1.45in; top: 2.84in; width: 4.3in; font-weight: bold; font-size: 10pt;">{{ $custTin }}</div>
 
         <!-- Transaction Details -->
-        <div style="position: absolute; left: 6.35in; top: 2.08in; width: 1.8in; font-weight: bold; font-size: 10pt;">{{ $orderDate }}</div>
-        <div style="position: absolute; left: 6.35in; top: 2.30in; width: 1.8in; font-weight: bold; font-size: 10pt;">{{ $termsVal }}</div>
-        <div style="position: absolute; left: 6.35in; top: 2.56in; width: 1.8in; font-weight: bold; font-size: 10pt;">{{ $dueDate }}</div>
+        <div style="position: absolute; left: 6.35in; top: 1.85in; width: 1.8in; font-weight: bold; font-size: 10pt;">{{ $orderDate }}</div>
+        <div style="position: absolute; left: 6.35in; top: 2.10in; width: 1.8in; font-weight: bold; font-size: 10pt;">{{ $termsVal }}</div>
+        <div style="position: absolute; left: 6.35in; top: 2.36in; width: 1.8in; font-weight: bold; font-size: 10pt;">{{ $dueDate }}</div>
 
         <!-- Line Items (Starts at Y = 3.54in) -->
-        <div style="position: absolute; left: 0.4in; top: 3.54in; width: 7.7in;">
+        <div style="position: absolute; left: 0.4in; top: 3.36in; width: 7.7in;">
             @foreach($itemsToPrint as $idx => $item)
                 @php
                     if ($item->bookIndex) {
@@ -714,36 +789,46 @@
                     $qty = (float) $item->quantity;
                     $price = (float) ($item->unit_price ?? $item->price);
                     $subtotal = (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
-                    $topOffset = $idx * 0.32;
+                    $topOffset = $idx * 0.15;
                 @endphp
-                <div style="position: absolute; top: {{ $topOffset }}in; left: 0.45in; width: 0.6in; text-align: center; font-weight: bold; font-size: 10pt;">{{ $qty }}</div>
-                <div style="position: absolute; top: {{ $topOffset }}in; left: 1.15in; width: 3.9in; font-weight: bold; font-size: 10pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $desc }}</div>
-                <div style="position: absolute; top: {{ $topOffset }}in; left: 5.15in; width: 0.6in; text-align: center; font-size: 10pt;">{{ ($item->area && $item->area !== 'N/A' && $item->area !== '-') ? $item->area : '' }}</div>
-                <div style="position: absolute; top: {{ $topOffset }}in; left: 5.55in; width: 0.9in; text-align: right; font-size: 10pt;">₱{{ number_format($price, 2) }}</div>
-                <div style="position: absolute; top: {{ $topOffset }}in; left: 6.35in; width: 0.9in; text-align: right; font-weight: bold; font-size: 10pt;">₱{{ number_format($subtotal, 2) }}</div>
+                <div style="position: absolute; top: {{ $topOffset }}in; left: 0.45in; width: 0.6in; text-align: center;  font-size: 6pt;">{{ $qty }}</div>
+                <div style="position: absolute; top: {{ $topOffset }}in; left: 1.15in; width: 3.9in;  font-size: 6pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $desc }}</div>
+                <div style="position: absolute; top: {{ $topOffset }}in; left: 5.15in; width: 0.6in; text-align: center; font-size: 6pt;">{{ ($item->area && $item->area !== 'N/A' && $item->area !== '-') ? $item->area : '' }}</div>
+                <div style="position: absolute; top: {{ $topOffset }}in; left: 5.55in; width: 0.9in; text-align: right; font-size: 6pt;">₱{{ number_format($price, 2) }}</div>
+                <div style="position: absolute; top: {{ $topOffset }}in; left: 6.52in; width: 0.9in; text-align: right;  font-size: 6pt;">₱{{ number_format($subtotal, 2) }}</div>
             @endforeach
         </div>
 
         <!-- Payment Checkmark -->
         @if($isCash)
-            <div style="position: absolute; left: 0.75in; top: 8.23in; font-size: 11pt; font-weight: bold;">✓</div>
+            <div style="position: absolute; left: 0.50in; top: 8.35in; font-size: 11pt; font-weight: bold;">✓</div>
         @else
-            <div style="position: absolute; left: 1.68in; top: 8.20in; font-size: 11pt; font-weight: bold;">✓</div>
+            <div style="position: absolute; left: 1.47in; top: 8.35in; font-size: 11pt; font-weight: bold;">✓</div>
         @endif
 
         <!-- Totals -->
-        @if($wht > 0)
-            <div style="position: absolute; left: 6.50in; top: 7.34in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">₱{{ number_format($wht, 2) }}</div>
+        <div style="position: absolute; left: 6.50in; top: 6.75in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">₱{{ number_format($itemsSubtotal, 2) }}</div>
+        @if($freight > 0)
+            <div style="position: absolute; left: 6.50in; top: 6.95in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">₱{{ number_format($freight, 2) }}</div>
         @endif
-        <div style="position: absolute; left: 6.05in; top: 7.95in; width: 1.45in; text-align: left; padding-left: 0.08in; font-weight: bold; font-size: 11pt;">₱{{ number_format($totalSalesAmount, 2) }}</div>
+        @if($serviceFee > 0)
+            <div style="position: absolute; left: 6.50in; top: 7.05in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">₱{{ number_format($serviceFee, 2) }}</div>
+        @endif
+        @if($discount > 0)
+            <div style="position: absolute; left: 6.50in; top: 7.15in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">-₱{{ number_format($discount, 2) }}</div>
+        @endif
         @if($wht > 0)
-            <div style="position: absolute; left: 6.50in; top: 7.90in; width: 1.5in; text-align: right; font-weight: bold; font-size: 11pt;">₱{{ number_format(max(0, $totalSalesAmount - $wht), 2) }}</div>
+            <div style="position: absolute; left: 6.50in; top: 7.34in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">-₱{{ number_format($wht, 2) }}</div>
+        @endif
+        <div style="position: absolute; left: 6.20in; top: 8.10in; width: 1.45in; text-align: left; padding-left: 0.08in; font-weight: bold; font-size: 11pt;">₱{{ number_format($calculatedTotalSales, 2) }}</div>
+        @if($wht > 0)
+            <div style="position: absolute; left: 6.50in; top: 7.90in; width: 1.5in; text-align: right; font-weight: bold; font-size: 11pt;">₱{{ number_format($totalAmountDue, 2) }}</div>
         @endif
 
         <!-- Signatories -->
-        <div style="position: absolute; left: 3.00in; top: 9.27in; width: 1.8in; text-align: center; font-weight: bold; font-size: 8pt;">{{ $order->preparedBy?->name ?? '' }}</div>
-        <div style="position: absolute; left: 4.87in; top: 9.27in; width: 1.8in; text-align: center; font-weight: bold; font-size: 8pt;">{{ $order->mktApprovedBy?->name ?? ($order->prodApprovedBy?->name ?? '') }}</div>
-        <div style="position: absolute; left: 6.51in; top: 9.27in; width: 1.4in; text-align: center; font-weight: bold; font-size: 8pt;">{{ $custName }}</div>
+        <div style="position: absolute; left: 3.02in; top: 9.54in; width: 1.8in; text-align: center; font-weight: bold; font-size: 8pt;">{{ $order->preparedBy?->name ?? '' }}</div>
+        <div style="position: absolute; left: 4.92in; top: 9.54in; width: 1.8in; text-align: center; font-weight: bold; font-size: 8pt;">{{ $order->mktApprovedBy?->name ?? ($order->prodApprovedBy?->name ?? '') }}</div>
+        <div style="position: absolute; left: 6.82in; top: 9.54in; width: 1.4in; text-align: center; font-weight: bold; font-size: 8pt;">{{ $custName }}</div>
     </div>
 
     <!-- 1/2 HALF PAGE PRE-PRINTED BIR OVERLAY (Exact Fit to half.pdf) -->
@@ -790,8 +875,18 @@
             <div style="position: absolute; left: 1.77in; top: 4.62in; font-size: 10pt; font-weight: bold;">✓</div>
         @endif
 
-        <!-- Totals (Total Sales only) -->
-        <div style="position: absolute; left: 6.50in; top: 4.54in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10.5pt;">₱{{ number_format($totalSalesAmount, 2) }}</div>
+        <!-- Totals -->
+        <div style="position: absolute; left: 6.50in; top: 4.10in; width: 1.5in; text-align: right; font-weight: bold; font-size: 9.5pt;">₱{{ number_format($itemsSubtotal, 2) }}</div>
+        @if($freight > 0)
+            <div style="position: absolute; left: 6.50in; top: 4.25in; width: 1.5in; text-align: right; font-weight: bold; font-size: 9.5pt;">₱{{ number_format($freight, 2) }}</div>
+        @endif
+        @if($serviceFee > 0)
+            <div style="position: absolute; left: 6.50in; top: 4.32in; width: 1.5in; text-align: right; font-weight: bold; font-size: 9.5pt;">₱{{ number_format($serviceFee, 2) }}</div>
+        @endif
+        @if($discount > 0)
+            <div style="position: absolute; left: 6.50in; top: 4.40in; width: 1.5in; text-align: right; font-weight: bold; font-size: 9.5pt;">-₱{{ number_format($discount, 2) }}</div>
+        @endif
+        <div style="position: absolute; left: 6.50in; top: 4.54in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10.5pt;">₱{{ number_format($calculatedTotalSales, 2) }}</div>
 
         <!-- Signatories -->
         <div style="position: absolute; left: 2.75in; top: 5.10in; width: 1.8in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $order->preparedBy?->name ?? '' }}</div>
@@ -818,11 +913,19 @@
             }
         }
 
-        // Initialize paper size on load
+        // Initialize paper size and preprinted mode on load
         document.addEventListener('DOMContentLoaded', function() {
             var select = document.getElementById('paperSizeSelect');
             if (select) {
                 changePaperSize(select.value);
+            }
+            var isDataOnly = {{ (request('preprinted') || request('data_only')) ? 'true' : 'false' }};
+            if (isDataOnly) {
+                var toggle = document.getElementById('preprintedToggle');
+                if (toggle) {
+                    toggle.checked = true;
+                    togglePreprintedMode(toggle);
+                }
             }
         });
     </script>

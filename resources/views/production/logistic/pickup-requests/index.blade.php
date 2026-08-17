@@ -118,6 +118,7 @@
                                 <th>Client / Receiver</th>
                                 <th>Address</th>
                                 <th>Requested Date</th>
+                                <th>Driver & Vehicle</th>
                                 <th>Details</th>
                                 <th>Status</th>
                                 <th class="text-end">Actions</th>
@@ -148,6 +149,19 @@
                                 <td class="align-middle">
                                     <i class="las la-calendar me-1 text-danger"></i>
                                     {{ $req->requested_date->format('M d, Y') }}
+                                </td>
+                                <td class="align-middle">
+                                    @php
+                                        $dName = $req->driver_name ?: ($req->driver ? ($req->driver->first_name . ' ' . $req->driver->last_name) : '');
+                                    @endphp
+                                    @if($dName)
+                                        <span class="text-black font-w600 d-block"><i class="las la-user-tag me-1 text-primary"></i>{{ $dName }}</span>
+                                    @endif
+                                    @if($req->vehicle)
+                                        <small class="text-muted d-block"><i class="las la-truck me-1 text-success"></i>{{ $req->vehicle }}</small>
+                                    @elseif(!$dName)
+                                        <span class="text-muted fs-12">Unassigned</span>
+                                    @endif
                                 </td>
                                 <td class="align-middle" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ $req->items_details }}">
                                     {{ $req->items_details }}
@@ -232,6 +246,25 @@
                                                             <input type="date" class="form-control" id="requested_dateEdit{{ $req->id }}" name="requested_date" value="{{ old('requested_date', $req->requested_date->format('Y-m-d')) }}" required>
                                                         </div>
 
+                                                        <!-- Driver & Vehicle -->
+                                                        <div class="row mb-3 text-start">
+                                                            <div class="col-md-6">
+                                                                <label for="driver_idEdit{{ $req->id }}" class="form-label fw-bold text-dark">Assigned Driver</label>
+                                                                <select class="form-select" id="driver_idEdit{{ $req->id }}" name="driver_id">
+                                                                    <option value="">-- Select Driver (Optional) --</option>
+                                                                    @foreach($drivers as $d)
+                                                                        <option value="{{ $d->id }}" {{ $req->driver_id == $d->id ? 'selected' : '' }}>
+                                                                            {{ $d->first_name }} {{ $d->last_name }}
+                                                                        </option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label for="vehicleEdit{{ $req->id }}" class="form-label fw-bold text-dark">Vehicle / Plate No.</label>
+                                                                <input type="text" class="form-control" id="vehicleEdit{{ $req->id }}" name="vehicle" value="{{ old('vehicle', $req->vehicle) }}" placeholder="e.g., L300 / NBO 1234">
+                                                            </div>
+                                                        </div>
+
                                                         <!-- Items -->
                                                         <div class="mb-3 text-start">
                                                             <label for="items_detailsEdit{{ $req->id }}" class="form-label fw-bold text-dark">Items Description & Quantity <span class="text-danger">*</span></label>
@@ -256,7 +289,7 @@
                             </tr>
                             @empty
                             <tr class="empty-row">
-                                <td colspan="8" class="text-center py-5">
+                                <td colspan="9" class="text-center py-5">
                                     <div class="text-muted">
                                         <i class="las la-clipboard-list fs-50 mb-3 d-block opacity-25"></i>
                                         No Logistics Service Orders created yet.
@@ -325,6 +358,25 @@
                             <input type="date" class="form-control" id="requested_dateCreate" name="requested_date" value="{{ old('requested_date', date('Y-m-d')) }}" required>
                         </div>
 
+                        <!-- Driver & Vehicle -->
+                        <div class="row mb-3 text-start">
+                            <div class="col-md-6">
+                                <label for="driver_idCreate" class="form-label fw-bold text-dark">Assigned Driver</label>
+                                <select class="form-select" id="driver_idCreate" name="driver_id">
+                                    <option value="">-- Select Driver (Optional) --</option>
+                                    @foreach($drivers as $d)
+                                        <option value="{{ $d->id }}" {{ old('driver_id') == $d->id ? 'selected' : '' }}>
+                                            {{ $d->first_name }} {{ $d->last_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="vehicleCreate" class="form-label fw-bold text-dark">Vehicle / Plate No.</label>
+                                <input type="text" class="form-control" id="vehicleCreate" name="vehicle" placeholder="e.g., L300 / NBO 1234, Motorcycle" value="{{ old('vehicle') }}">
+                            </div>
+                        </div>
+
                         <!-- Items -->
                         <div class="mb-3 text-start">
                             <label for="items_detailsCreate" class="form-label fw-bold text-dark">Items Description & Quantity <span class="text-danger">*</span></label>
@@ -355,7 +407,7 @@
             $('#requestsTable').DataTable({
                 order: [[0, 'desc']],
                 pageLength: 25,
-                columnDefs: [{ orderable: false, targets: 7 }],
+                columnDefs: [{ orderable: false, targets: 8 }],
                 language: {
                     emptyTable: "No orders found. Create a new request above.",
                     paginate: {

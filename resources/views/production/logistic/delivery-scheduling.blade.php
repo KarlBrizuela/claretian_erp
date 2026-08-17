@@ -204,6 +204,7 @@
                                                         <input type="checkbox" id="selectAllLandtrip" class="form-check-input" style="cursor: pointer; width: 18px; height: 18px;">
                                                     </th>
                                                     <th>SI / DR Reference</th>
+                                                    <th>Reference Number</th>
                                                     <th>Client</th>
                                                     <th>Address</th>
                                                     <th>Forwarder</th>
@@ -251,6 +252,18 @@
                                                         <span class="text-black font-w600 d-block">{{ $refDisplay }}</span>
                                                         <small class="text-muted">{{ $order->created_at->format('M d, Y') }}</small>
                                                     </td>
+                                                     <td class="align-middle">
+                                                         @php
+                                                             $refVal = !empty($order->ref_number) ? $order->ref_number : (!empty($order->reference_number) ? $order->reference_number : null);
+                                                         @endphp
+                                                         @if($refVal)
+                                                             <span class="badge bg-dark text-white font-monospace fs-13 px-2 py-1 fw-bold shadow-sm" title="Reference Number">
+                                                                 <i class="las la-hashtag me-1 text-warning"></i>{{ $refVal }}
+                                                             </span>
+                                                         @else
+                                                             <span class="text-muted font-w500 fs-13">—</span>
+                                                         @endif
+                                                     </td>
                                                     <td class="align-middle">
                                                         <span class="text-black d-block">{{ $order->customer->customer_name ?? 'N/A' }}</span>
                                                         @if(!empty($orderTeam))
@@ -388,7 +401,7 @@
                                                 </tr>
                                                 @empty
                                                 <tr class="empty-row">
-                                                    <td colspan="11" class="text-center py-5">
+                                                    <td colspan="12" class="text-center py-5">
                                                         <div class="text-muted">
                                                             <i class="las la-clipboard-list fs-50 mb-3 d-block opacity-25"></i>
                                                             No orders currently ready for Landtrip delivery schedule.
@@ -481,7 +494,13 @@
                                                     <!-- Status & Reference Badges -->
                                                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom">
                                                         <div>
+                                                            @php
+                                                                $refVal = !empty($order->ref_number) ? $order->ref_number : (!empty($order->reference_number) ? $order->reference_number : null);
+                                                            @endphp
                                                             <span class="fw-bold text-dark fs-15 me-2">SO #: {{ $order->so_number }}</span>
+                                                            @if($refVal)
+                                                                <span class="badge bg-dark text-white font-monospace fs-13 px-2 py-1 me-1 shadow-sm fw-bold"><i class="las la-hashtag me-1 text-warning"></i>Ref #: {{ $refVal }}</span>
+                                                            @endif
                                                             @if($hasSI)
                                                                 <span class="badge bg-success font-monospace me-1">SI #: {{ $siNum }}</span>
                                                             @endif
@@ -499,6 +518,9 @@
                                                         <div class="col-md-6">
                                                             <div class="p-3 bg-light rounded border h-100">
                                                                 <h6 class="fw-bold text-primary mb-2"><i class="las la-user-circle me-1"></i>Customer Details</h6>
+                                                                @if($refVal)
+                                                                    <div class="mb-2 fs-13"><strong class="text-dark">Reference No.:</strong> <span class="badge bg-warning text-dark font-monospace fs-13 px-2 py-1 ms-1 fw-bold border border-warning"><i class="las la-hashtag me-1"></i>{{ $refVal }}</span></div>
+                                                                @endif
                                                                 <div class="small mb-1"><strong>Client:</strong> {{ $order->customer->customer_name ?? 'N/A' }}</div>
                                                                 <div class="small mb-1"><strong>Contact:</strong> {{ $order->customer_contact ?? ($order->customer->phone ?? 'N/A') }}</div>
                                                                 <div class="small mb-1"><strong>Delivery Address:</strong> {{ $order->shipping_address ?? ($order->billing_address ?? 'Same as Billing') }}</div>
@@ -550,14 +572,16 @@
                                                                         $barcode = $item->bookIndex?->barcode ?? ($item->book?->barcode ?? ($item->bundle?->barcode ?? '—'));
                                                                         $unitPrice = $item->unit_price ?? ($item->price ?? 0);
                                                                         $subtotal = $unitPrice * $item->quantity;
+                                                                        $ordCurr = $order->currency ?? 'USD';
+                                                                        $ordSym = ($ordCurr === 'USD' ? '$' : ($ordCurr === 'EUR' ? '€' : '₱'));
                                                                     @endphp
                                                                     <tr>
                                                                         <td>{{ $index + 1 }}</td>
                                                                         <td class="fw-bold text-dark">{{ $itemName }}</td>
                                                                         <td class="text-center font-monospace small"><i class="las la-barcode me-1 opacity-50"></i>{{ $barcode }}</td>
                                                                         <td class="text-center fw-bold text-primary">{{ $item->quantity }}</td>
-                                                                        <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
-                                                                        <td class="text-end fw-bold">₱{{ number_format($subtotal, 2) }}</td>
+                                                                        <td class="text-end">{{ $ordSym }}{{ number_format($unitPrice, 2) }}</td>
+                                                                        <td class="text-end fw-bold">{{ $ordSym }}{{ number_format($subtotal, 2) }}</td>
                                                                     </tr>
                                                                     @empty
                                                                     <tr>
@@ -568,7 +592,7 @@
                                                                 <tfoot class="table-light">
                                                                     <tr>
                                                                         <th colspan="5" class="text-end fw-bold">Total Amount:</th>
-                                                                        <th class="text-end fw-bold text-danger">₱{{ number_format($order->total_amount, 2) }}</th>
+                                                                        <th class="text-end fw-bold text-danger">{{ $ordSym }}{{ number_format($order->total_amount, 2) }}</th>
                                                                     </tr>
                                                                 </tfoot>
                                                             </table>
@@ -592,6 +616,7 @@
                                         <thead>
                                             <tr>
                                                 <th>SI / DR Reference</th>
+                                                <th>Reference Number</th>
                                                 <th>Client & Team</th>
                                                 <th>Pickup Location / Address</th>
                                                 <th>Doc Status</th>
@@ -620,6 +645,18 @@
                                                 <td class="align-middle">
                                                     <span class="text-black font-w600 d-block">{{ $refDisplay }}</span>
                                                     <small class="text-muted">{{ $order->created_at->format('M d, Y') }}</small>
+                                                </td>
+                                                <td class="align-middle">
+                                                    @php
+                                                        $refVal = !empty($order->ref_number) ? $order->ref_number : (!empty($order->reference_number) ? $order->reference_number : null);
+                                                    @endphp
+                                                    @if($refVal)
+                                                        <span class="badge bg-dark text-white font-monospace fs-13 px-2 py-1 fw-bold shadow-sm" title="Reference Number">
+                                                            <i class="las la-hashtag me-1 text-warning"></i>{{ $refVal }}
+                                                        </span>
+                                                    @else
+                                                        <span class="text-muted font-w500 fs-13">—</span>
+                                                    @endif
                                                 </td>
                                                 <td class="align-middle">
                                                     <span class="text-black d-block">{{ $order->customer->customer_name ?? 'N/A' }}</span>
@@ -688,7 +725,7 @@
                                             </tr>
                                             @empty
                                             <tr class="empty-row">
-                                                <td colspan="6" class="text-center py-5">
+                                                <td colspan="7" class="text-center py-5">
                                                     <div class="text-muted">
                                                         <i class="las la-store-alt fs-50 mb-3 d-block opacity-25"></i>
                                                         No orders currently marked for office pickup.
@@ -726,7 +763,13 @@
                                                     <!-- Status & Reference Badges -->
                                                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom">
                                                         <div>
+                                                            @php
+                                                                $refVal = !empty($order->ref_number) ? $order->ref_number : (!empty($order->reference_number) ? $order->reference_number : null);
+                                                            @endphp
                                                             <span class="fw-bold text-dark fs-15 me-2">SO #: {{ $order->so_number }}</span>
+                                                            @if($refVal)
+                                                                <span class="badge bg-dark text-white font-monospace fs-13 px-2 py-1 me-1 shadow-sm fw-bold"><i class="las la-hashtag me-1 text-warning"></i>Ref #: {{ $refVal }}</span>
+                                                            @endif
                                                             @if($hasSI)
                                                                 <span class="badge bg-success font-monospace me-1">SI #: {{ $siNum }}</span>
                                                             @endif
@@ -746,6 +789,9 @@
                                                         <div class="col-md-6">
                                                             <div class="p-3 bg-light rounded border h-100">
                                                                 <h6 class="fw-bold text-primary mb-2"><i class="las la-user-circle me-1"></i>Customer Details</h6>
+                                                                @if($refVal)
+                                                                    <div class="mb-2 fs-13"><strong class="text-dark">Reference No.:</strong> <span class="badge bg-warning text-dark font-monospace fs-13 px-2 py-1 ms-1 fw-bold border border-warning"><i class="las la-hashtag me-1"></i>{{ $refVal }}</span></div>
+                                                                @endif
                                                                 <div class="small mb-1"><strong>Client:</strong> {{ $order->customer->customer_name ?? 'N/A' }}</div>
                                                                 <div class="small mb-1"><strong>Contact:</strong> {{ $order->customer_contact ?? ($order->customer->phone ?? 'N/A') }}</div>
                                                                 <div class="small mb-1"><strong>Address:</strong> {{ $order->shipping_address ?? ($order->billing_address ?? 'Same as Billing') }}</div>
@@ -815,7 +861,7 @@
                                                                 <tfoot class="table-light">
                                                                     <tr>
                                                                         <th colspan="5" class="text-end fw-bold">Total Amount:</th>
-                                                                        <th class="text-end fw-bold text-danger">₱{{ number_format($order->total_amount, 2) }}</th>
+                                                                        <th class="text-end fw-bold text-danger">{{ $ordSym }}{{ number_format($order->total_amount, 2) }}</th>
                                                                     </tr>
                                                                 </tfoot>
                                                             </table>
@@ -843,6 +889,7 @@
                                                 <th>Client / Receiver</th>
                                                 <th>Address / Location</th>
                                                 <th>Requested Date</th>
+                                                <th>Driver & Vehicle</th>
                                                 <th>Items Details</th>
                                                 <th>Remarks</th>
                                                 <th class="text-end">Actions</th>
@@ -874,6 +921,19 @@
                                                     <i class="las la-calendar me-1 text-danger"></i>
                                                     {{ $req->requested_date->format('M d, Y') }}
                                                 </td>
+                                                <td class="align-middle">
+                                                    @php
+                                                        $dName = $req->driver_name ?: ($req->driver ? ($req->driver->first_name . ' ' . $req->driver->last_name) : '');
+                                                    @endphp
+                                                    @if($dName)
+                                                        <span class="text-black font-w600 d-block"><i class="las la-user-tag me-1 text-primary"></i>{{ $dName }}</span>
+                                                    @endif
+                                                    @if($req->vehicle)
+                                                        <small class="text-muted d-block"><i class="las la-truck me-1 text-success"></i>{{ $req->vehicle }}</small>
+                                                    @elseif(!$dName)
+                                                        <span class="badge bg-light text-secondary border">Unassigned</span>
+                                                    @endif
+                                                </td>
                                                 <td class="align-middle" title="{{ $req->items_details }}">
                                                     {{ \Illuminate\Support\Str::limit($req->items_details, 40) }}
                                                 </td>
@@ -882,6 +942,9 @@
                                                 </td>
                                                 <td class="align-middle text-end">
                                                     <div class="d-flex justify-content-end align-items-center gap-2">
+                                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#assignDriverRequestModal{{ $req->id }}" title="Assign Driver & Vehicle">
+                                                            <i class="las la-user-plus me-1"></i> Assign Driver
+                                                        </button>
                                                         <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#viewRequestModal{{ $req->id }}">
                                                             <i class="las la-eye me-1"></i> View
                                                         </button>
@@ -896,6 +959,42 @@
                                                                 </button>
                                                             </form>
                                                         @endif
+                                                    </div>
+
+                                                    <!-- Assign Driver Modal -->
+                                                    <div class="modal fade" id="assignDriverRequestModal{{ $req->id }}" tabindex="-1" aria-hidden="true">
+                                                        <div class="modal-dialog modal-dialog-centered">
+                                                            <div class="modal-content text-start">
+                                                                <form action="{{ route('production.logistic.pickup-requests.assign-driver', $req->id) }}" method="POST">
+                                                                    @csrf
+                                                                    <div class="modal-header">
+                                                                        <h5 class="modal-title">Assign Driver & Vehicle — REQ-{{ str_pad($req->id, 5, '0', STR_PAD_LEFT) }}</h5>
+                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                    </div>
+                                                                    <div class="modal-body text-start">
+                                                                        <div class="mb-3 text-start">
+                                                                            <label class="form-label fw-bold text-dark">Select Driver</label>
+                                                                            <select class="form-select" name="driver_id">
+                                                                                <option value="">-- Select Driver (Optional) --</option>
+                                                                                @foreach($drivers as $d)
+                                                                                    <option value="{{ $d->id }}" {{ $req->driver_id == $d->id ? 'selected' : '' }}>
+                                                                                        {{ $d->first_name }} {{ $d->last_name }}
+                                                                                    </option>
+                                                                                @endforeach
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="mb-3 text-start">
+                                                                            <label class="form-label fw-bold text-dark">Vehicle / Plate No.</label>
+                                                                            <input type="text" class="form-control" name="vehicle" value="{{ old('vehicle', $req->vehicle) }}" placeholder="e.g., L300 / NBO 1234, Motorcycle">
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="modal-footer">
+                                                                        <button type="button" class="btn btn-secondary shadow-sm rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                                                                        <button type="submit" class="btn btn-primary shadow-sm rounded-pill px-4">Save Assignment</button>
+                                                                    </div>
+                                                                </form>
+                                                            </div>
+                                                        </div>
                                                     </div>
 
                                                     <!-- Details View Modal -->
@@ -922,6 +1021,19 @@
                                                                         <strong>Requested Date:</strong>
                                                                         <div>{{ $req->requested_date->format('M d, Y') }}</div>
                                                                     </div>
+                                                                    @if($req->driver_name || $req->vehicle)
+                                                                    <div class="mb-3 text-start">
+                                                                        <strong>Assigned Driver & Vehicle:</strong>
+                                                                        <div>
+                                                                            @if($req->driver_name)
+                                                                                <span class="fw-semibold text-dark"><i class="las la-user-tag me-1 text-primary"></i>{{ $req->driver_name }}</span>
+                                                                            @endif
+                                                                            @if($req->vehicle)
+                                                                                <span class="ms-2 text-muted"><i class="las la-truck me-1 text-success"></i>{{ $req->vehicle }}</span>
+                                                                            @endif
+                                                                        </div>
+                                                                    </div>
+                                                                    @endif
                                                                     <div class="mb-3 text-start">
                                                                         <strong>Items Details:</strong>
                                                                         <div class="bg-light p-2 rounded" style="white-space: pre-wrap;">{{ $req->items_details }}</div>
@@ -943,7 +1055,7 @@
                                             </tr>
                                             @empty
                                             <tr class="empty-row">
-                                                <td colspan="8" class="text-center py-5">
+                                                <td colspan="9" class="text-center py-5">
                                                     <div class="text-muted">
                                                         <i class="las la-clipboard-list fs-50 mb-3 d-block opacity-25"></i>
                                                         No approved pickup or delivery requests.
@@ -988,7 +1100,7 @@
             const deliveryTable = $('#deliveryTable').DataTable({
                 order: [[1, 'desc']],
                 pageLength: 25,
-                columnDefs: [{ orderable: false, targets: [0, 10] }],
+                columnDefs: [{ orderable: false, targets: [0, 11] }],
                 language: {
                     emptyTable: "No orders currently ready for Landtrip delivery schedule.",
                     paginate: {
@@ -1001,7 +1113,7 @@
             const pickupTable = $('#pickupTable').DataTable({
                 order: [[0, 'desc']],
                 pageLength: 25,
-                columnDefs: [{ orderable: false, targets: 5 }],
+                columnDefs: [{ orderable: false, targets: 6 }],
                 language: {
                     emptyTable: "No orders currently marked for office pickup.",
                     paginate: {

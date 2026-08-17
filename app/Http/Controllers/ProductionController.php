@@ -218,16 +218,17 @@ class ProductionController extends Controller
         
         foreach ($salesOrders as $so) {
             $isDR = $so->status === 'pending_dr_approval';
+            $symbol = ($so->currency === 'USD' ? '$' : '₱');
             $myApprovals[] = [
-                'type' => $isDR ? 'Delivery Receipt' : 'Sales Order',
+                'type' => $so->type === 'foreign' ? 'Foreign Sales Order' : ($isDR ? 'Delivery Receipt' : 'Sales Order'),
                 'id' => $so->id,
                 'reference_no' => $so->so_number,
                 'submitted_by' => $isDR ? ($so->drPreparedBy->name ?? ($so->preparedBy->name ?? 'N/A')) : ($so->preparedBy->name ?? 'N/A'),
                 'submitted_date' => $isDR ? ($so->dr_prepared_at ?? $so->created_at) : $so->created_at,
-                'amount' => '₱' . number_format($so->total_amount, 2),
+                'amount' => $symbol . number_format($so->total_amount, 2),
                 'attachment' => null,
                 'status' => $so->status,
-                'url' => route('production.logistic.delivery-receipt', $so->id),
+                'url' => $isDR ? route('production.logistic.delivery-receipt', $so->id) : route('production.sales-order.review', $so->id),
                 'original' => $so
             ];
         }
@@ -327,6 +328,7 @@ class ProductionController extends Controller
                 'amount' => '₱' . number_format($debit->amount, 2),
                 'attachment' => null,
                 'status' => $debit->status === 'pending_director' ? 'Pending Director' : 'Pending Finance',
+                'url' => route('production.ford.auto-debit.show', $debit->id),
                 'original' => $debit
             ];
         }

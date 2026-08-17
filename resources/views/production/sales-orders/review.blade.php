@@ -35,18 +35,28 @@
                     <div class="text-center text-uppercase fw-bold text-secondary">{{ str_replace('_', ' ', $order->type) }}</div>
                 </div>
 
+                @php
+                    $sym = ($order->currency === 'USD' ? '$' : ($order->currency === 'EUR' ? '€' : '₱'));
+                @endphp
+
                 <!-- Customer and Order Details -->
                 <div class="customer-section">
                     <div class="customer-details">
                         <h5 class="text-black fw-bold">Customer Information</h5>
                         <table class="table table-sm table-borderless">
+                            @php
+                                $companyRaw = $order->customer?->company_name;
+                                $companyDisplayName = ($companyRaw && strtolower($companyRaw) !== 'individual') 
+                                    ? $companyRaw 
+                                    : ($order->customer?->customer_name ?: ($order->customer_representative ?: 'Individual'));
+                            @endphp
                             <tr>
                                 <td class="fw-bold text-dark" style="width: 140px;">Company:</td>
-                                <td class="fw-bold text-black">{{ $order->customer->company_name ?: ($order->customer->customer_name ?? 'N/A') }}</td>
+                                <td class="fw-bold text-black">{{ $companyDisplayName }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Customer Name:</td>
-                                <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown Customer') }}</td>
+                                <td class="fw-bold text-black">{{ $order->customer_representative ?: ($order->customer?->customer_name ?? 'Unknown Customer') }}</td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Contact:</td>
@@ -83,6 +93,16 @@
                                 <td><span class="badge bg-warning text-white">{{ strtoupper(str_replace('_', ' ', $order->status)) }}</span></td>
                             </tr>
                             <tr>
+                                <td class="fw-bold text-dark">Currency:</td>
+                                <td class="fw-bold text-primary">{{ $order->currency ?: 'USD' }} ({{ $sym }})</td>
+                            </tr>
+                            @if($order->terms)
+                            <tr>
+                                <td class="fw-bold text-dark">Terms:</td>
+                                <td class="fw-bold text-black">{{ $order->terms }}</td>
+                            </tr>
+                            @endif
+                            <tr>
                                 <td class="fw-bold text-dark">Prepared By:</td>
                                 <td class="text-black">{{ $order->preparedBy->name ?? 'N/A' }}</td>
                             </tr>
@@ -96,10 +116,10 @@
                                     @endif
                                 </td>
                             </tr>
-                            @if($order->freight_option === 'bill_client' || $order->forwarder)
+                            @if($order->freight_option || $order->forwarder)
                             <tr>
                                 <td class="fw-bold text-dark">Forwarder:</td>
-                                <td class="fw-bold text-primary"><i class="las la-shipping-fast me-1"></i>{{ $order->forwarder ?? 'N/A' }}</td>
+                                <td class="fw-bold text-primary"><i class="las la-shipping-fast me-1"></i>{{ $order->forwarder ?: 'N/A' }}</td>
                             </tr>
                             @endif
                             <tr>
@@ -171,6 +191,9 @@
                             <th style="width: 150px;">AMOUNT</th>
                         </tr>
                     </thead>
+                    @php
+                        $sym = ($order->currency === 'USD' ? '$' : ($order->currency === 'EUR' ? '€' : '₱'));
+                    @endphp
                     <tbody>
                         @foreach($order->items as $item)
                         @php 
@@ -191,21 +214,21 @@
                                 </div>
                                 <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? $item->bundle?->sku ?? '-' }}</small>
                             </td>
-                            <td class="text-end">₱{{ number_format($item->price, 2) }}</td>
+                            <td class="text-end">{{ $sym }}{{ number_format($item->price, 2) }}</td>
                             <td class="text-center">
                                 @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
                                     @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
                                         {{ (float)$item->discount_value }}%
                                     @elseif(($item->discount_value ?? 0) > 0)
-                                        ₱{{ number_format($item->discount_value, 2) }}
+                                        {{ $sym }}{{ number_format($item->discount_value, 2) }}
                                     @else
-                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                        {{ $sym }}{{ number_format($item->discount_amount, 2) }}
                                     @endif
                                 @else
                                     -
                                 @endif
                             </td>
-                            <td class="text-end fw-bold">₱{{ number_format($item->subtotal, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $sym }}{{ number_format($item->subtotal, 2) }}</td>
                         </tr>
                         @endif
                         @endforeach
@@ -220,11 +243,11 @@
                             $discountAmount = (float) ($order->discount_amount ?? 0);
                             $discountPercentage = $order->discount_percentage ?? 0;
                             $freightCharges = $order->freight_charges ?? 0;
-                            $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
+                            $serviceFee = $order->freight_option ? (($order->currency === 'USD' || $order->currency === 'EUR') ? 1.00 : 50.00) : 0;
                         @endphp
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $sym }}{{ number_format($itemsSubtotal, 2) }}</td>
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
@@ -236,37 +259,47 @@
                                     @endif:
                                 </strong>
                             </td>
-                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
+                            <td class="text-end fw-bold text-danger">- {{ $sym }}{{ number_format($discountAmount, 2) }}</td>
                         </tr>
                         @endif
                         @if($freightCharges > 0)
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($freightCharges, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $sym }}{{ number_format($freightCharges, 2) }}</td>
                         </tr>
                         @endif
                         @if($serviceFee > 0)
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
+                            <td class="text-end fw-bold text-primary">+ {{ $sym }}{{ number_format($serviceFee, 2) }}</td>
                         </tr>
                         @endif
                         <tr style="background: #f8f9fa;">
                             <td colspan="5" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
-                            <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($totalSalesAmount, 2) }}</td>
+                            <td class="text-end fw-bold fs-5 text-primary">{{ $sym }}{{ number_format($totalSalesAmount, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>
 
                 <!-- Actions -->
-                <div class="d-flex justify-content-between align-items-center mt-4 form-actions">
-                    <div>
+                <div class="d-flex justify-content-between align-items-center mt-4 form-actions flex-wrap gap-3">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
                         <button type="button" class="btn btn-dark" onclick="window.history.back()">
                             <i class="las la-arrow-left me-2"></i>Back to Queue
                         </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                            <i class="las la-print me-1"></i>Print Order
+                        </button>
+                        <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-primary">
+                            <i class="las la-file-invoice me-1"></i>Print Sales Invoice
+                        </a>
+                        <a href="{{ route('marketing.sales-orders.shipping-label', $order->id) }}" target="_blank" class="btn btn-info text-white">
+                            <i class="las la-tag me-1"></i>Shipping Label
+                        </a>
                     </div>
-                    <div class="d-flex flex-column align-items-end gap-2 w-100 ms-3">
-                        <div class="w-100 text-start" style="max-width: 400px;">
+                    @if(in_array($order->status, ['draft', 'pending_mkt_approval', 'pending_acct_approval', 'pending_prod_approval']))
+                    <div class="d-flex flex-column align-items-end gap-2 w-100 ms-auto" style="max-width: 420px;">
+                        <div class="w-100 text-start">
                             <label class="form-label fw-bold text-dark small mb-1"><i class="las la-comment-alt text-primary me-1"></i> Action / Approval Remarks (Optional):</label>
                             <textarea id="prodApprovalRemarks" class="form-control form-control-sm" rows="2" placeholder="Enter optional notes before approving or rejecting..."></textarea>
                         </div>
@@ -287,6 +320,13 @@
                             </form>
                         </div>
                     </div>
+                    @else
+                    <div>
+                        <span class="badge bg-success fs-14 p-2 fw-bold">
+                            <i class="las la-check-circle me-1"></i> ORDER STATUS: {{ strtoupper(str_replace('_', ' ', $order->status)) }}
+                        </span>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

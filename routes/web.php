@@ -123,6 +123,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/pickup-requests/{id}/approve', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsApprove'])->name('pickup-requests.approve');
       Route::post('/pickup-requests/{id}/reject', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsReject'])->name('pickup-requests.reject');
       Route::post('/pickup-requests/{id}/complete', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsComplete'])->name('pickup-requests.complete');
+      Route::post('/pickup-requests/{id}/assign-driver', [App\Http\Controllers\Production\LogisticController::class, 'pickupRequestsAssignDriver'])->name('pickup-requests.assign-driver');
       
       Route::get('/shipping-label/{id}', [App\Http\Controllers\Production\LogisticController::class, 'shippingLabel'])->name('shipping-label');
 
@@ -228,10 +229,24 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/purchase-order', [App\Http\Controllers\Production\FORDController::class, 'purchaseOrder'])->name('purchase-order');
       Route::post('/purchase-order', [App\Http\Controllers\Production\FORDController::class, 'storeFordPurchaseOrder'])->name('purchase-order.store');
       Route::get('/request-for-quotation', [App\Http\Controllers\Production\FORDController::class, 'requestForQuotation'])->name('request-for-quotation');
+      Route::get('/freight-quotation', [App\Http\Controllers\Production\FORDController::class, 'freightQuotationIndex'])->name('freight-quotation.index');
+      Route::get('/freight-quotation/create', [App\Http\Controllers\Production\FORDController::class, 'freightQuotationCreate'])->name('freight-quotation.create');
+      Route::post('/freight-quotation/store', [App\Http\Controllers\Production\FORDController::class, 'freightQuotationStore'])->name('freight-quotation.store');
+      Route::get('/freight-quotation/{id}', [App\Http\Controllers\Production\FORDController::class, 'freightQuotationShow'])->name('freight-quotation.show');
       Route::get('/sales-order', [App\Http\Controllers\Production\FORDController::class, 'salesOrder'])->name('sales-order');
+      Route::get('/sales-order/create', [App\Http\Controllers\Production\FORDController::class, 'salesOrderCreate'])->name('sales-order.create');
+      Route::post('/sales-order/store', [App\Http\Controllers\Production\FORDController::class, 'storeSalesOrder'])->name('sales-order.store');
+      Route::get('/sales-order/{id}/review', [App\Http\Controllers\Production\FORDController::class, 'reviewSalesOrder'])->name('sales-order.review');
       Route::post('/sales-order/{id}/approve', [App\Http\Controllers\Production\FORDController::class, 'approveSalesOrder'])->name('sales-order.approve');
+      Route::post('/sales-order/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'rejectSalesOrder'])->name('sales-order.reject');
       Route::get('/transmittal', [App\Http\Controllers\Production\FORDController::class, 'transmittal'])->name('transmittal');
     });
+
+    // Top-level aliases for Production Sales Order review from approval queue
+    Route::get('/production/sales-order/{id}/review', [App\Http\Controllers\Production\FORDController::class, 'reviewSalesOrder'])->name('production.sales-order.review');
+    Route::get('/production/sales-order/{id}/detail', [App\Http\Controllers\Production\FORDController::class, 'reviewSalesOrder'])->name('production.sales-order.detail');
+    Route::post('/production/sales-order/{id}/approve', [App\Http\Controllers\Production\FORDController::class, 'approveSalesOrder'])->name('production.sales-order.approve');
+    Route::post('/production/sales-order/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'rejectSalesOrder'])->name('production.sales-order.reject');
 
     // Production Printing Services
     Route::prefix('production/printing')->name('production.printing.')->group(function () {

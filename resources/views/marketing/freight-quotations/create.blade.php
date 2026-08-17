@@ -7,13 +7,13 @@
                         <h5 class="mb-0"><i class="bi bi-truck me-2"></i>Create Freight Quotation Request</h5>
                     </div>
                     <div class="card-body">
-                        <form id="freightQuotationForm" method="POST" action="{{ route('marketing.freight-quotations.store') }}">
+                        <form id="freightQuotationForm" method="POST" action="{{ $storeRoute ?? route('marketing.freight-quotations.store') }}">
                             @csrf
 
                             <!-- Customer Selection Section -->
                             <h6 class="border-bottom pb-2 mb-3"><strong>Customer Information</strong></h6>
                             <div class="row mb-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Company:</label>
                                     <select class="form-control selectpicker @error('customer_id') is-invalid @enderror" 
                                             data-live-search="true" data-size="8" data-live-search-placeholder="Search company..."
@@ -33,15 +33,15 @@
                                     </select>
                                     @error('customer_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Customer Name:</label>
                                     <select class="form-control" name="customer_representative" id="fqRepresentativeSelect">
                                         <option value="">Select Representative...</option>
                                     </select>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Transaction Type:</label>
-                                    <select class="form-control @error('transaction_type') is-invalid @enderror" name="transaction_type" required>
+                                    <select class="form-control @error('transaction_type') is-invalid @enderror" name="transaction_type" id="fqTransactionType" required>
                                         <option value="paid" {{ old('transaction_type', 'paid') === 'paid' ? 'selected' : '' }}>Paid Transaction</option>
                                         <option value="charge" {{ old('transaction_type') === 'charge' ? 'selected' : '' }}>Charge Transaction</option>
                                         <option value="area_consignment" {{ old('transaction_type') === 'area_consignment' ? 'selected' : '' }}>Area Consignment</option>
@@ -53,6 +53,15 @@
                                         <option value="evaluation" {{ old('transaction_type') === 'evaluation' ? 'selected' : '' }}>Evaluation</option>
                                     </select>
                                     @error('transaction_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Currency:</label>
+                                    <select class="form-control @error('currency') is-invalid @enderror" name="currency" id="fqCurrencySelect" required>
+                                        <option value="PHP" {{ old('currency', 'PHP') === 'PHP' ? 'selected' : '' }}>PHP (₱)</option>
+                                        <option value="USD" {{ old('currency') === 'USD' ? 'selected' : '' }}>USD ($)</option>
+                                        <option value="EUR" {{ old('currency') === 'EUR' ? 'selected' : '' }}>EUR (€)</option>
+                                    </select>
+                                    @error('currency')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                             </div>
 
@@ -157,7 +166,7 @@
                                 <input type="text" class="form-control" name="forwarder" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO, AP Cargo, FedEx)" value="{{ old('forwarder') }}">
                             </div>
                             <div class="alert alert-info py-2 mb-3" id="serviceFeeNotice" style="display: none;">
-                                <strong>Service Fee:</strong> ₱ 50.00
+                                <strong>Service Fee:</strong> <span id="serviceFeeNoticeText">₱ 50.00</span>
                             </div>
 
                             <hr>
@@ -198,7 +207,7 @@
                                                     <input type="number" step="any" min="0" name="discount_value" id="discountValue" class="form-control form-control-sm text-end" style="width: 90px;" value="{{ old('discount_value', 0) }}" placeholder="0">
                                                     <select name="discount_type" id="discountType" class="form-select form-select-sm" style="width: 80px;">
                                                         <option value="percentage" {{ old('discount_type', 'percentage') === 'percentage' ? 'selected' : '' }}>%</option>
-                                                        <option value="amount" {{ old('discount_type') === 'amount' ? 'selected' : '' }}>₱</option>
+                                                        <option value="amount" {{ old('discount_type') === 'amount' ? 'selected' : '' }} class="fq-disc-amount-opt">₱</option>
                                                     </select>
                                                 </div>
                                             </td>
@@ -207,7 +216,7 @@
                                         </tr>
                                         <tr id="serviceFeeRow" style="display: none;">
                                             <td colspan="4" class="text-end"><strong>Service Fee:</strong></td>
-                                            <td class="text-end fw-bold">₱ 50.00</td>
+                                            <td class="text-end fw-bold" id="soServiceFee">₱ 50.00</td>
                                             <td></td>
                                         </tr>
                                         <tr>
@@ -320,6 +329,42 @@
                 freightOption.dispatchEvent(event);
             }
 
+            function getFQCurrencySymbol() {
+                const fqCurrencySelect = document.getElementById('fqCurrencySelect');
+                const curr = fqCurrencySelect ? fqCurrencySelect.value : 'PHP';
+                if (curr === 'USD') return '$';
+                if (curr === 'EUR') return '€';
+                return '₱';
+            }
+
+            function updateCurrencySymbols() {
+                const sym = getFQCurrencySymbol();
+                const fqCurrencySelect = document.getElementById('fqCurrencySelect');
+                const curr = fqCurrencySelect ? fqCurrencySelect.value : 'PHP';
+                
+                document.querySelectorAll('#discountType option[value="amount"], .so-discount-type option[value="amount"]').forEach(opt => {
+                    opt.textContent = sym;
+                });
+
+                let feeVal = 50.00;
+                if (curr === 'USD') feeVal = 50.00 / 56.0;
+                else if (curr === 'EUR') feeVal = 50.00 / 62.0;
+
+                const serviceFeeEl = document.getElementById('soServiceFee');
+                if (serviceFeeEl) serviceFeeEl.textContent = sym + ' ' + feeVal.toFixed(2);
+
+                const serviceFeeNoticeText = document.getElementById('serviceFeeNoticeText');
+                if (serviceFeeNoticeText) serviceFeeNoticeText.textContent = sym + ' ' + feeVal.toFixed(2);
+
+                document.querySelectorAll('#soItemsBody tr').forEach(row => calculateRow(row));
+                calculateSOSubtotal();
+            }
+
+            const fqCurrencySelectEl = document.getElementById('fqCurrencySelect');
+            if (fqCurrencySelectEl) {
+                fqCurrencySelectEl.addEventListener('change', updateCurrencySymbols);
+            }
+
             const discountValueInput = document.getElementById('discountValue');
             const discountTypeSelect = document.getElementById('discountType');
 
@@ -358,16 +403,36 @@
                 const netAfterOverallDiscount = Math.max(0, itemsNetTotal - overallDiscountAmount);
 
                 const isFreightCollect = freightOption && freightOption.value === 'freight_collect';
-                const serviceFeeAmount = isFreightCollect ? 50 : 0;
+                const fqCurrencySelect = document.getElementById('fqCurrencySelect');
+                const curr = fqCurrencySelect ? fqCurrencySelect.value : 'PHP';
+
+                let serviceFeeAmount = 0;
+                if (isFreightCollect) {
+                    if (curr === 'USD') {
+                        serviceFeeAmount = 50.00 / 56.0;
+                    } else if (curr === 'EUR') {
+                        serviceFeeAmount = 50.00 / 62.0;
+                    } else {
+                        serviceFeeAmount = 50.00;
+                    }
+                }
+
                 const finalTotal = netAfterOverallDiscount + serviceFeeAmount;
 
                 const subtotalEl = document.getElementById('soSubtotal');
                 const discountEl = document.getElementById('soTotalDiscount');
                 const totalEl = document.getElementById('soTotal');
+                const serviceFeeEl = document.getElementById('soServiceFee');
+                const sym = getFQCurrencySymbol();
 
-                if (subtotalEl) subtotalEl.textContent = '₱ ' + itemsNetTotal.toFixed(2);
-                if (discountEl) discountEl.textContent = '- ₱ ' + overallDiscountAmount.toFixed(2);
-                if (totalEl) totalEl.textContent = '₱ ' + finalTotal.toFixed(2);
+                let currentFeeVal = 50.00;
+                if (curr === 'USD') currentFeeVal = 50.00 / 56.0;
+                else if (curr === 'EUR') currentFeeVal = 50.00 / 62.0;
+
+                if (serviceFeeEl) serviceFeeEl.textContent = sym + ' ' + currentFeeVal.toFixed(2);
+                if (subtotalEl) subtotalEl.textContent = sym + ' ' + itemsNetTotal.toFixed(2);
+                if (discountEl) discountEl.textContent = '- ' + sym + ' ' + overallDiscountAmount.toFixed(2);
+                if (totalEl) totalEl.textContent = sym + ' ' + finalTotal.toFixed(2);
             }
 
             function calculateRow(row) {
@@ -380,7 +445,8 @@
                 let dAmt = discType === 'percentage' ? gross * (discVal / 100) : discVal;
                 const netSubtotal = Math.max(0, gross - dAmt);
 
-                row.querySelector('.so-item-amount').textContent = '₱ ' + netSubtotal.toFixed(2);
+                const sym = getFQCurrencySymbol();
+                row.querySelector('.so-item-amount').textContent = sym + ' ' + netSubtotal.toFixed(2);
                 calculateSOSubtotal();
             }
 
@@ -388,6 +454,7 @@
                 addSOBtn.addEventListener('click', function() {
                     const row = document.createElement('tr');
                     const uniqueId = Date.now() + Math.random().toString(36).substring(7);
+                    const sym = getFQCurrencySymbol();
                     
                     row.innerHTML = `
                         <td>
@@ -406,11 +473,11 @@
                                 <input type="number" step="any" min="0" class="form-control form-control-sm so-discount-val text-center px-1" name="so_items[new_${uniqueId}][discount_value]" placeholder="0" style="width: 60%; font-size: 0.85rem;">
                                 <select class="form-select form-select-sm so-discount-type px-1" name="so_items[new_${uniqueId}][discount_type]" style="width: 40%; font-size: 0.8rem;">
                                     <option value="percentage">%</option>
-                                    <option value="amount">₱</option>
+                                    <option value="amount">${sym}</option>
                                 </select>
                             </div>
                         </td>
-                        <td class="so-item-amount text-end fw-bold">₱ 0.00</td>
+                        <td class="so-item-amount text-end fw-bold">${sym} 0.00</td>
                         <td class="text-center">
                             <button type="button" class="btn btn-sm btn-danger so-remove-row" title="Remove Item" style="background: #ff0000; border: none; padding: 0.35rem 0.6rem;"><i class="fas fa-trash"></i></button>
                         </td>
@@ -522,6 +589,16 @@
                     populateRepresentatives(option);
                     if (isAutofillEnabled) {
                         performAutofill();
+                    }
+                });
+            }
+
+            const fqTransactionType = document.getElementById('fqTransactionType');
+            const fqCurrencySelect = document.getElementById('fqCurrencySelect');
+            if (fqTransactionType && fqCurrencySelect) {
+                fqTransactionType.addEventListener('change', function() {
+                    if (this.value === 'foreign') {
+                        fqCurrencySelect.value = 'USD';
                     }
                 });
             }

@@ -157,6 +157,8 @@
                                         $isbn = $bookIndex ? ($bookIndex->book?->isbn ?? $bookIndex->book?->sku) : ($book ? ($book->isbn ?? $book->sku) : ($bundle ? ($bundle->sku ?? '') : ''));
                                         $barcode = $bookIndex ? ($bookIndex->book?->barcode) : ($book ? ($book->barcode ?? '') : '');
                                         $pickedQtyInt = (int) $item->picked_qty;
+                                        $rowCurr = $pickList->salesOrder?->currency ?? 'USD';
+                                        $rowSym = ($rowCurr === 'USD' ? '$' : ($rowCurr === 'EUR' ? '€' : '₱'));
                                     @endphp
                                     <tr data-product="{{ $prodName }}">
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center;">{{ $loop->iteration }}</td>
@@ -164,8 +166,8 @@
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center; font-size: 0.8rem; font-family: monospace;">{{ $isbn ?: '—' }}</td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center; font-size: 0.8rem; font-family: monospace;">{{ $barcode ?: '—' }}</td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center;">{{ (int) $item->requested_qty }}</td>
-                                        <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: right;">₱{{ number_format($item->salesOrderItem?->price ?? 0, 2) }}</td>
-                                        <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: right;">₱{{ number_format($item->salesOrderItem?->subtotal ?? 0, 2) }}</td>
+                                        <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: right;">{{ $rowSym }}{{ number_format($item->salesOrderItem?->price ?? 0, 2) }}</td>
+                                        <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: right;">{{ $rowSym }}{{ number_format($item->salesOrderItem?->subtotal ?? 0, 2) }}</td>
                                         <td style="padding: 0.5rem; border: 1px solid #ddd; text-align: center;">
                                             <input type="number" class="picked-qty form-control form-control-sm text-center"
                                                    value="{{ $pickedQtyInt }}"
@@ -216,9 +218,13 @@
                         </div>
                         <div class="order-info-box">
                             <h5>Financial Summary</h5>
+                            @php
+                                $plCurr = $pickList->salesOrder?->currency ?? 'USD';
+                                $plSym = ($plCurr === 'USD' ? '$' : ($plCurr === 'EUR' ? '€' : '₱'));
+                            @endphp
                             <div class="form-group">
                                 <label>Total Amount:</label>
-                                <input type="text" value="₱{{ number_format($pickList->pickListItems->sum('salesOrderItem.subtotal'), 2) }}" readonly style="font-weight: bold; font-size: 1.1rem; color: #111;">
+                                <input type="text" value="{{ $plSym }}{{ number_format($pickList->pickListItems->sum('salesOrderItem.subtotal'), 2) }}" readonly style="font-weight: bold; font-size: 1.1rem; color: #111;">
                             </div>
                             <div class="form-group">
                                 <label>Date Created:</label>

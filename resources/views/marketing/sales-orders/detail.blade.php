@@ -434,6 +434,9 @@
                     <button type="button" class="btn btn-light border" onclick="window.print()">
                         <i class="las la-print me-2"></i>Print Order
                     </button>
+                    <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-primary">
+                        <i class="las la-file-invoice me-1"></i>Print Sales Invoice
+                    </a>
                     <button type="button" class="btn btn-info text-white" onclick="printShippingLabel('{{ route('marketing.sales-orders.shipping-label', $order->id) }}')">
                         <i class="las la-tag me-2"></i>Shipping Label
                     </button>

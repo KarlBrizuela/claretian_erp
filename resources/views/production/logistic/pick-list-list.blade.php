@@ -17,6 +17,11 @@ $txnTypeLabels = [
     'Credit'                => 'Credit',
     'Prepaid'               => 'Prepaid',
 ];
+$isAdmin = auth()->check() && (
+    auth()->user()->isSuperAdmin() || 
+    str_contains(strtolower(auth()->user()->position ?? ''), 'admin') || 
+    str_contains(strtolower(auth()->user()->department ?? ''), 'admin')
+);
 @endphp
     <div class="row">
         <div class="col-12">
@@ -102,6 +107,18 @@ $txnTypeLabels = [
                                                 <div class="workflow-actions">
                                                     <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                         <i class="las la-eye"></i>
+                                                    </a>
+                                                    @php
+                                                        $isFordSO = $pickList->salesOrder && ($pickList->salesOrder->type === 'foreign' || str_starts_with($pickList->salesOrder->so_number, 'FORD-SO-'));
+                                                        $editUrl = $isFordSO 
+                                                            ? route('production.sales-order.review', $pickList->salesOrder->id) 
+                                                            : ($pickList->salesOrder ? route('marketing.sales-orders.edit', $pickList->salesOrder->id) : route('production.logistic.pick-list-management') . '?id=' . $pickList->id);
+                                                    @endphp
+                                                    <a href="{{ $editUrl }}" class="btn btn-warning shadow btn-xs sharp me-1" title="Edit / Review Order">
+                                                        <i class="fas fa-pencil-alt"></i>
+                                                    </a>
+                                                    <a href="{{ route('production.logistic.pick-list-delete', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="Delete Pick List" onclick="return confirm('Are you sure you want to delete this Pick List?');">
+                                                        <i class="fas fa-trash"></i>
                                                     </a>
                                                     <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary shadow btn-xs sharp me-1" title="Shipping Label">
                                                         <i class="las la-tag"></i>
@@ -568,100 +585,367 @@ $txnTypeLabels = [
             </div>
         </div>
     @foreach($teamStockPickLists ?? [] as $tt)
-    <div class="modal fade" id="teamStockPickModal{{ $tt->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>Team Stock Transfer Items ({{ $tt->transfer_number }})</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    @php
+        $totalTransferAmount = $tt->items->sum(function($item) {
+            $price = 0;
+            if ($item->bookIndex) {
+                $price = (float)($item->bookIndex->price ?: ($item->bookIndex->book?->price ?: 0));
+            } elseif ($item->book) {
+                $price = (float)($item->book->price ?: 0);
+            } elseif ($item->bookBundle) {
+                $price = (float)($item->bookBundle->price ?: 0);
+            }
+            return $price * $item->quantity;
+        });
+    @endphp
+    <div class="modal fade team-stock-pick-modal" id="teamStockPickModal{{ $tt->id }}" tabindex="-1" aria-hidden="true" data-transfer-id="{{ $tt->id }}">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header px-4 py-3 bg-light border-bottom d-flex align-items-center justify-content-between">
+                    <h4 class="modal-title fw-bold text-dark mb-0">Pick List Details - {{ $tt->transfer_number }}</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
-                            <span class="badge bg-danger fs-6">{{ $tt->team_name }}</span>
+                <div class="modal-body p-4" style="max-height: 80vh; overflow-y: auto;">
+                    
+                    <!-- Top Information Grid (2 Columns) -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border">
+                                <h6 class="fw-bold text-dark mb-3">Order / Transfer Information</h6>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Transfer Number:</label>
+                                    <input type="text" class="form-control form-control-sm fw-bold bg-white" value="{{ $tt->transfer_number }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Date Created:</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" value="{{ $tt->created_at->format('M d, Y h:i A') }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Target Sales Team:</label>
+                                    <input type="text" class="form-control form-control-sm bg-white fw-bold text-danger" value="{{ $tt->team_name }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Requested By:</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" value="{{ $tt->transferredByUser->name ?? 'N/A' }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Remarks / Special Instructions:</label>
+                                    <textarea id="tsp_remarks_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-semibold mb-1" rows="2" placeholder="Enter remarks or special instructions...">{{ $tt->notes }}</textarea>
+                                    <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="alert('Remarks saved!')"><i class="las la-save me-1"></i>Save Remarks</button>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Picking Status:</label>
+                                    <select id="tsp_status_{{ $tt->id }}" class="form-select form-select-sm fw-bold">
+                                        <option value="pending" {{ $tt->status !== 'completed' ? 'selected' : '' }}>Pending Picklist</option>
+                                        <option value="in_progress">Picking</option>
+                                        <option value="completed" {{ $tt->status === 'completed' ? 'selected' : '' }}>Completed</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Requested By:</small>
-                            <strong>{{ $tt->transferredByUser->name ?? 'N/A' }}</strong>
-                            <small class="d-block text-muted">{{ $tt->created_at->format('M d, Y h:i A') }}</small>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
-                            <span class="fw-semibold text-dark">{{ $tt->notes ?: 'None' }}</span>
+
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-3">Barcode Scanning & Quick Action</h6>
+                                    <label class="form-label fw-bold text-dark mb-1"><i class="las la-barcode text-danger me-1"></i>Scan Book Barcode / ISBN:</label>
+                                    <div class="input-group input-group-sm mb-3">
+                                        <span class="input-group-text bg-danger text-white"><i class="las la-search"></i></span>
+                                        <input type="text" id="tsp_barcode_input_{{ $tt->id }}" class="form-control form-control-sm fw-bold tsp-barcode-input-field" placeholder="Scan or type ISBN/barcode and press Enter..." data-transfer-id="{{ $tt->id }}">
+                                        <button type="button" class="btn btn-danger btn-sm fw-bold" onclick="onTSPManualScanClick({{ $tt->id }})">Scan</button>
+                                    </div>
+                                    <div id="tsp_scan_feedback_{{ $tt->id }}" class="p-2 rounded text-center small fw-bold bg-success text-white border mb-3">
+                                        Ready to scan
+                                    </div>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-outline-success btn-sm w-100 fw-bold py-2" onclick="markAllTSPItemsPicked({{ $tt->id }})">
+                                        <i class="las la-check-double me-1"></i>Pick All Items Quickly
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    @if($tt->notes)
-                    <div class="alert alert-warning border border-warning mb-3 py-2">
-                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $tt->notes }}
-                    </div>
-                    @else
-                    <div class="alert alert-light border mb-3 py-2 text-muted">
-                        <i class="las la-info-circle me-1"></i>No remarks or notes specified for this transfer.
-                    </div>
-                    @endif
-
-                    <h6 class="fw-bold mb-2">Items to Pick from Main Warehouse:</h6>
-                    <div class="table-responsive mb-3">
-                        <table class="table table-bordered table-sm align-middle mb-0">
+                    <!-- Items to Pick Section -->
+                    <h6 class="fw-bold text-dark mb-2">Items to Pick from Main Warehouse</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered align-middle mb-0" style="font-size: 13px;">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Item Title</th>
-                                    <th>Barcode</th>
-                                    <th class="text-end">Price</th>
-                                    <th>Type</th>
-                                    <th class="text-center">Quantity to Pick & Transfer</th>
+                                    <th style="width: 40px;">#</th>
+                                    <th>PRODUCT / ITEM TITLE</th>
+                                    <th style="width: 110px;" class="text-center">QTY TO PICK</th>
+                                    <th style="width: 110px;" class="text-end">UNIT PRICE</th>
+                                    <th style="width: 110px;" class="text-end">SUBTOTAL</th>
+                                    <th style="width: 100px;" class="text-center">PICKED QTY</th>
+                                    <th style="width: 120px;" class="text-center">STATUS</th>
+                                    <th style="width: 150px;">NOTES</th>
+                                    <th style="width: 130px;" class="text-center">PICKED DATE</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($tt->items as $tItem)
+                                @foreach($tt->items as $idx => $tItem)
                                 @php
                                     $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
-                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
-
-                                    // Barcode resolution
-                                    $barcode = $tItem->bookIndex ? ($tItem->bookIndex->barcode ?: ($tItem->bookIndex->nbs_barcode ?: ($tItem->bookIndex->article ?: ($tItem->bookIndex->book?->barcode ?: $tItem->bookIndex->book?->sku))))
-                                              : ($tItem->book ? ($tItem->book->barcode ?: ($tItem->book->nbs_barcode ?: ($tItem->book->sku ?: $tItem->book->isbn)))
-                                              : ($tItem->bookBundle ? ($tItem->bookBundle->sku ?: '—') : '—'));
-
-                                    // Price resolution
-                                    $price = (float)($tItem->price > 0 ? $tItem->price 
-                                            : ($tItem->bookIndex ? ($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?: 0))
-                                            : ($tItem->book ? ($tItem->book->price ?: 0)
-                                            : ($tItem->bookBundle ? ($tItem->bookBundle->price ?: 0) : 0))));
+                                    $unitPrice = 0;
+                                    $barcodes = [];
+                                    if ($tItem->bookIndex) {
+                                        $unitPrice = (float)($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?: 0));
+                                        if (!empty($tItem->bookIndex->barcode)) $barcodes[] = (string)$tItem->bookIndex->barcode;
+                                        if (!empty($tItem->bookIndex->nbs_barcode)) $barcodes[] = (string)$tItem->bookIndex->nbs_barcode;
+                                        if ($tItem->bookIndex->book) {
+                                            if (!empty($tItem->bookIndex->book->barcode)) $barcodes[] = (string)$tItem->bookIndex->book->barcode;
+                                            if (!empty($tItem->bookIndex->book->nbs_barcode)) $barcodes[] = (string)$tItem->bookIndex->book->nbs_barcode;
+                                            if (!empty($tItem->bookIndex->book->sku)) $barcodes[] = (string)$tItem->bookIndex->book->sku;
+                                        }
+                                    } elseif ($tItem->book) {
+                                        $unitPrice = (float)($tItem->book->price ?: 0);
+                                        if (!empty($tItem->book->barcode)) $barcodes[] = (string)$tItem->book->barcode;
+                                        if (!empty($tItem->book->nbs_barcode)) $barcodes[] = (string)$tItem->book->nbs_barcode;
+                                        if (!empty($tItem->book->sku)) $barcodes[] = (string)$tItem->book->sku;
+                                    } elseif ($tItem->bookBundle) {
+                                        $unitPrice = (float)($tItem->bookBundle->price ?: 0);
+                                        if (!empty($tItem->bookBundle->sku)) $barcodes[] = (string)$tItem->bookBundle->sku;
+                                    }
+                                    $itemSubtotal = $unitPrice * $tItem->quantity;
+                                    $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
+                                    $barcodesJson = htmlspecialchars(json_encode($uniqueBarcodes), ENT_QUOTES, 'UTF-8');
+                                    $isItemPicked = $tt->status === 'completed';
                                 @endphp
-                                <tr>
-                                    <td class="fw-bold text-dark">{{ $itemName }}</td>
-                                    <td>
-                                        @if($barcode && $barcode !== '—')
-                                            <span class="badge bg-light text-dark border font-monospace"><i class="las la-barcode me-1 text-danger"></i>{{ $barcode }}</span>
-                                        @else
-                                            <span class="text-muted">—</span>
+                                <tr id="tsp_row_{{ $tt->id }}_{{ $idx }}" class="tsp-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPicked ? '#d4edda' : '#f8d7da' }};">
+                                    <td>{{ $idx + 1 }}</td>
+                                    <td class="fw-bold text-dark">
+                                        <div>{{ $itemName }}</div>
+                                        @if(!empty($uniqueBarcodes))
+                                            <small class="text-muted d-block"><i class="las la-barcode me-1"></i>{{ implode(', ', $uniqueBarcodes) }}</small>
                                         @endif
                                     </td>
-                                    <td class="text-end fw-bold">₱{{ number_format($price, 2) }}</td>
-                                    <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
-                                    <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                    <td class="text-center fw-bold text-primary">{{ number_format($tItem->quantity, 2) }}</td>
+                                    <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
+                                    <td class="text-end fw-bold">₱{{ number_format($itemSubtotal, 2) }}</td>
+                                    <td class="text-center">
+                                        <input type="number" id="tsp_picked_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $tItem->quantity }}" value="{{ $isItemPicked ? $tItem->quantity : 0 }}" onchange="updateTSPProgress({{ $tt->id }})" style="width: 60px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                    </td>
+                                    <td class="text-center">
+                                        <select id="tsp_item_status_{{ $tt->id }}_{{ $idx }}" class="tsp-status-select" onchange="onTSPStatusSelectChange({{ $tt->id }}, {{ $idx }})" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                            <option value="Pending" {{ !$isItemPicked ? 'selected' : '' }}>Pending</option>
+                                            <option value="Picking">Picking</option>
+                                            <option value="Picked" {{ $isItemPicked ? 'selected' : '' }}>Picked</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" id="tsp_notes_{{ $tt->id }}_{{ $idx }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="date" id="tsp_date_{{ $tt->id }}_{{ $idx }}" value="{{ date('Y-m-d') }}" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                    </td>
                                 </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
-                </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-success fw-bold">
-                            <i class="las la-check me-1"></i>Complete Pick & Transfer
-                        </button>
-                    </form>
+
+                    <!-- Bottom Summary & Actions (2 Columns) -->
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border">
+                                <h6 class="fw-bold text-dark mb-3">Picking Summary</h6>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Total Items:</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" value="{{ $tt->items->count() }}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Items Picked:</label>
+                                    <input type="text" id="tsp_items_picked_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-bold text-success" value="{{ $tt->status === 'completed' ? $tt->items->count() : 0 }}" readonly>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="fw-semibold small text-muted d-block mb-1">Picking Progress:</label>
+                                    <div class="progress" style="height: 18px; border-radius: 9px; background: #e9ecef;">
+                                        <div id="tsp_progress_bar_{{ $tt->id }}" class="progress-bar bg-success" style="width: {{ $tt->status === 'completed' ? '100%' : '0%' }}; font-size: 11px; font-weight: bold;">
+                                            {{ $tt->status === 'completed' ? '100%' : '0%' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                                <h6 class="fw-bold text-dark mb-3">Actions</h6>
+                                <div class="d-flex flex-column gap-2">
+                                    <button type="button" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;" onclick="alert('Pick list details saved!')">
+                                        <i class="las la-save me-1"></i>Save Picked Items
+                                    </button>
+
+                                    @if($tt->status !== 'completed')
+                                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" method="POST" class="w-100 m-0">
+                                        @csrf
+                                        <button type="submit" id="tsp_complete_btn_{{ $tt->id }}" class="btn btn-success w-100 fw-bold py-2 shadow-sm" style="background-color: #28a745; border: none;">
+                                            <i class="las la-check-circle me-1"></i>Complete Pick & Transfer
+                                        </button>
+                                    </form>
+                                    @endif
+
+                                    <button type="button" class="btn btn-secondary w-100 fw-bold py-2" data-bs-dismiss="modal">
+                                        <i class="las la-times me-1"></i>Close Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
     </div>
     @endforeach
+
+    <script>
+        function normalizeTSPBarcode(bc) {
+            if (!bc) return '';
+            return String(bc).trim().toLowerCase().replace(/[\s\-\_]/g, '');
+        }
+
+        function processTSPBarcodeScan(transferId, rawBarcode) {
+            const normalized = normalizeTSPBarcode(rawBarcode);
+            const feedbackEl = document.getElementById(`tsp_scan_feedback_${transferId}`);
+
+            if (!normalized) return false;
+
+            const rows = document.querySelectorAll(`#teamStockPickModal${transferId} .tsp-item-row`);
+            let matched = false;
+            let matchedTitle = '';
+
+            rows.forEach(row => {
+                if (matched) return;
+                const index = row.getAttribute('data-index');
+                const title = row.getAttribute('data-title');
+                let barcodes = [];
+                try {
+                    barcodes = JSON.parse(row.getAttribute('data-barcodes') || '[]');
+                } catch (e) {
+                    barcodes = [];
+                }
+
+                const normalizedBarcodes = barcodes.map(normalizeTSPBarcode);
+
+                if (normalizedBarcodes.includes(normalized)) {
+                    matched = true;
+                    matchedTitle = title;
+                    markTSPItemAsPicked(transferId, index, title);
+                }
+            });
+
+            if (matched && feedbackEl) {
+                feedbackEl.className = 'p-2 rounded text-center small fw-bold bg-success text-white border mb-3';
+                feedbackEl.innerHTML = `<i class="las la-check-circle me-1"></i>SCANNED: "${matchedTitle}" - Marked as Picked!`;
+            } else if (!matched && feedbackEl) {
+                feedbackEl.className = 'p-2 rounded text-center small fw-bold bg-danger text-white border mb-3';
+                feedbackEl.innerHTML = `<i class="las la-times-circle me-1"></i>Barcode "${rawBarcode}" not found in this transfer!`;
+            }
+
+            return matched;
+        }
+
+        function onTSPManualScanClick(transferId) {
+            const input = document.getElementById(`tsp_barcode_input_${transferId}`);
+            if (input && input.value.trim()) {
+                processTSPBarcodeScan(transferId, input.value.trim());
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.target.classList.contains('tsp-barcode-input-field')) {
+                e.preventDefault();
+                const transferId = e.target.getAttribute('data-transfer-id');
+                if (transferId) {
+                    onTSPManualScanClick(transferId);
+                }
+            }
+        });
+
+        function onTSPStatusSelectChange(transferId, index) {
+            const select = document.getElementById(`tsp_item_status_${transferId}_${index}`);
+            const row = document.getElementById(`tsp_row_${transferId}_${index}`);
+            if (!select) return;
+
+            const val = select.value;
+            if (val === 'Picked') {
+                if (row) row.style.backgroundColor = '#d4edda';
+            } else if (val === 'Picking') {
+                if (row) row.style.backgroundColor = '#fff3cd';
+            } else {
+                if (row) row.style.backgroundColor = '#f8d7da';
+            }
+            updateTSPProgress(transferId);
+        }
+
+        function markTSPItemAsPicked(transferId, index, title) {
+            const select = document.getElementById(`tsp_item_status_${transferId}_${index}`);
+            const row = document.getElementById(`tsp_row_${transferId}_${index}`);
+            const qtyInput = document.getElementById(`tsp_picked_qty_${transferId}_${index}`);
+
+            if (select) select.value = 'Picked';
+            if (row) row.style.backgroundColor = '#d4edda';
+
+            if (qtyInput && qtyInput.max) {
+                qtyInput.value = qtyInput.max;
+            }
+
+            updateTSPProgress(transferId);
+        }
+
+        function markAllTSPItemsPicked(transferId) {
+            const rows = document.querySelectorAll(`#teamStockPickModal${transferId} .tsp-item-row`);
+            rows.forEach(row => {
+                const index = row.getAttribute('data-index');
+                markTSPItemAsPicked(transferId, index);
+            });
+        }
+
+        function updateTSPProgress(transferId) {
+            const rows = document.querySelectorAll(`#teamStockPickModal${transferId} .tsp-item-row`);
+            let pickedCount = 0;
+            const totalCount = rows.length;
+
+            rows.forEach(row => {
+                const index = row.getAttribute('data-index');
+                const select = document.getElementById(`tsp_item_status_${transferId}_${index}`);
+                if (select && select.value === 'Picked') {
+                    pickedCount++;
+                }
+            });
+
+            const itemsPickedInput = document.getElementById(`tsp_items_picked_${transferId}`);
+            if (itemsPickedInput) {
+                itemsPickedInput.value = pickedCount;
+            }
+
+            const progressBar = document.getElementById(`tsp_progress_bar_${transferId}`);
+            if (progressBar) {
+                const pct = totalCount > 0 ? Math.round((pickedCount / totalCount) * 100) : 0;
+                progressBar.style.width = pct + '%';
+                progressBar.textContent = pct + '%';
+                if (pct === 100) {
+                    progressBar.className = 'progress-bar bg-success';
+                } else {
+                    progressBar.className = 'progress-bar bg-warning text-dark';
+                }
+            }
+
+            const tspStatusSelect = document.getElementById(`tsp_status_${transferId}`);
+            if (tspStatusSelect) {
+                if (pickedCount === totalCount && totalCount > 0) {
+                    tspStatusSelect.value = 'completed';
+                } else if (pickedCount > 0) {
+                    tspStatusSelect.value = 'in_progress';
+                }
+            }
+        }
+    </script>
 
     @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">

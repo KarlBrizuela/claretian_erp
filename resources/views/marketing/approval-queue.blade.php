@@ -1363,9 +1363,21 @@
                 modal.find('#ca-modal-status').html(`<span class="status-badge status-${config.badge === 'warning' ? 'pending' : (config.badge === 'danger' ? 'danger' : 'success')}">${config.text}</span>`);
 
                 // Update Form Actions
-                var actionUrl = '/employee/cash-advance/' + id;
-                modal.find('#ca-approve-form').attr('action', actionUrl);
-                modal.find('#ca-reject-form').attr('action', actionUrl);
+                var triggerType = button.attr('data-type') || '';
+                var approveActionUrl = '/employee/cash-advance/' + id;
+                var rejectActionUrl = '/employee/cash-advance/' + id;
+
+                if (triggerType === 'Auto Debit Letter' || triggerType === 'Auto Debit') {
+                    if (status === 'pending_director' || status === 'Pending Director Approval') {
+                        approveActionUrl = '/production/ford/auto-debit/' + id + '/approve-director';
+                    } else {
+                        approveActionUrl = '/production/ford/auto-debit/' + id + '/approve-finance';
+                    }
+                    rejectActionUrl = '/production/ford/auto-debit/' + id + '/reject';
+                }
+
+                modal.find('#ca-approve-form').attr('action', approveActionUrl);
+                modal.find('#ca-reject-form').attr('action', rejectActionUrl);
                 
                 // Hide actions if view-only, completed, or rejected
                 var viewOnly = button.data('view-only') === true || button.data('view-only') === 'true';

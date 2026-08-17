@@ -1,11 +1,16 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
+    @php
+        $indexRoute = $indexRoute ?? 'marketing.freight-quotations.list';
+        $createRoute = $createRoute ?? 'marketing.freight-quotations.create';
+        $showRoute = $showRoute ?? 'marketing.freight-quotations.show';
+    @endphp
     <div class="container-fluid mt-4">
         <div class="row">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="bi bi-truck me-2"></i>Freight Quotations</h5>
-                        <a href="{{ route('marketing.freight-quotations.create') }}" class="btn btn-light btn-sm">
+                        <a href="{{ route($createRoute) }}" class="btn btn-light btn-sm">
                             <i class="bi bi-plus me-1"></i>New Quotation
                         </a>
                     </div>
@@ -13,30 +18,30 @@
                         <!-- Status Filters & Search Bar -->
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                             <div class="d-flex gap-1 flex-wrap">
-                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'all'])) }}" 
+                                <a href="{{ route($indexRoute, array_merge(request()->except('status', 'page'), ['status' => 'all'])) }}" 
                                    class="btn btn-sm {{ $currentStatus === 'all' ? 'btn-danger' : 'btn-outline-secondary' }}">
                                     All
                                 </a>
-                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'draft'])) }}" 
+                                <a href="{{ route($indexRoute, array_merge(request()->except('status', 'page'), ['status' => 'draft'])) }}" 
                                    class="btn btn-sm {{ $currentStatus === 'draft' ? 'btn-primary' : 'btn-outline-secondary' }}">
                                     <i class="bi bi-pencil-square me-1"></i>Draft
                                 </a>
-                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'pending_logistics'])) }}" 
+                                <a href="{{ route($indexRoute, array_merge(request()->except('status', 'page'), ['status' => 'pending_logistics'])) }}" 
                                    class="btn btn-sm {{ $currentStatus === 'pending_logistics' ? 'btn-warning' : 'btn-outline-secondary' }}">
                                     <i class="bi bi-hourglass-split me-1"></i>Pending Review
                                 </a>
-                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'approved'])) }}" 
+                                <a href="{{ route($indexRoute, array_merge(request()->except('status', 'page'), ['status' => 'approved'])) }}" 
                                    class="btn btn-sm {{ $currentStatus === 'approved' ? 'btn-success' : 'btn-outline-secondary' }}">
                                     <i class="bi bi-check-circle me-1"></i>Approved
                                 </a>
-                                <a href="{{ route('marketing.freight-quotations.list', array_merge(request()->except('status', 'page'), ['status' => 'linked_to_so'])) }}" 
+                                <a href="{{ route($indexRoute, array_merge(request()->except('status', 'page'), ['status' => 'linked_to_so'])) }}" 
                                    class="btn btn-sm {{ $currentStatus === 'linked_to_so' ? 'btn-info' : 'btn-outline-secondary' }}">
                                     <i class="bi bi-link-45deg me-1"></i>Linked to SO
                                 </a>
                             </div>
 
                             <!-- Search Form -->
-                            <form action="{{ route('marketing.freight-quotations.list') }}" method="GET" class="d-flex align-items-center gap-1">
+                            <form action="{{ route($indexRoute) }}" method="GET" class="d-flex align-items-center gap-1">
                                 <input type="hidden" name="status" value="{{ $currentStatus }}">
                                 <div style="width: 220px; height: 32px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; padding: 0 10px; box-sizing: border-box;">
                                     <i class="fas fa-search text-muted me-2" style="font-size: 0.85rem;"></i>
@@ -115,10 +120,14 @@
                                                 </td>
                                                 <td>{{ $quotation->service_mode }}</td>
                                                 <td>
+                                                    @php
+                                                        $fqCurr = $quotation->currency ?? 'PHP';
+                                                        $fqSym = ($fqCurr === 'USD' ? '$' : ($fqCurr === 'EUR' ? '€' : '₱'));
+                                                    @endphp
                                                     @if(in_array($quotation->workflow_status, ['approved', 'linked_to_so']))
-                                                        <strong class="text-success">₱ {{ number_format($quotation->total_amount, 2) }}</strong>
+                                                        <strong class="text-success">{{ $fqSym }}{{ number_format($quotation->total_amount, 2) }}</strong>
                                                     @elseif($quotation->total_amount > 0)
-                                                        <strong class="text-danger">₱ {{ number_format($quotation->total_amount, 2) }}</strong>
+                                                        <strong class="text-danger">{{ $fqSym }}{{ number_format($quotation->total_amount, 2) }}</strong>
                                                     @else
                                                         <span class="text-muted">Pending quote</span>
                                                     @endif
@@ -126,7 +135,7 @@
                                                 <td><small>{{ $quotation->created_at->format('M d, Y') }}</small></td>
                                                 <td>
                                                     <div class="d-flex gap-1 align-items-center">
-                                                        <a href="{{ route('marketing.freight-quotations.show', $quotation->id) }}" 
+                                                        <a href="{{ route($showRoute, $quotation->id) }}" 
                                                            class="btn btn-sm btn-outline-primary">
                                                             <i class="bi bi-eye me-1"></i>View
                                                         </a>

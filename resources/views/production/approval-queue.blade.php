@@ -400,6 +400,19 @@
                                                                     <strong>Requested Date:</strong>
                                                                     <div>{{ $approval['original']->requested_date->format('M d, Y') }}</div>
                                                                 </div>
+                                                                @if($approval['original']->driver_name || $approval['original']->vehicle)
+                                                                <div class="mb-3 text-start">
+                                                                    <strong>Assigned Driver & Vehicle:</strong>
+                                                                    <div>
+                                                                        @if($approval['original']->driver_name)
+                                                                            <span class="fw-semibold text-dark"><i class="las la-user-tag me-1 text-primary"></i>{{ $approval['original']->driver_name }}</span>
+                                                                        @endif
+                                                                        @if($approval['original']->vehicle)
+                                                                            <span class="ms-2 text-muted"><i class="las la-truck me-1 text-success"></i>{{ $approval['original']->vehicle }}</span>
+                                                                        @endif
+                                                                    </div>
+                                                                </div>
+                                                                @endif
                                                                 <div class="mb-3 text-start">
                                                                     <strong>Items Details:</strong>
                                                                     <div class="bg-light p-2 rounded" style="white-space: pre-wrap;">{{ $approval['original']->items_details }}</div>
@@ -508,6 +521,19 @@
                                                         </div>
                                                     @endif
                                                 </div>
+                                             @elseif($approval['type'] === 'Auto Debit Letter' || $approval['type'] === 'Auto Debit')
+                                                 <a href="{{ route('production.ford.auto-debit.show', $approval['id']) }}" class="btn btn-danger btn-sm text-white me-1"><i class="las la-eye me-1"></i> Review</a>
+                                                 @if(isset($approval['original']->status) && ($approval['original']->status === 'pending_director' || $approval['original']->status === 'Pending Director Approval'))
+                                                     <form action="{{ route('production.ford.auto-debit.approve-director', $approval['id']) }}" method="POST" class="d-inline">
+                                                         @csrf
+                                                         <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve</button>
+                                                     </form>
+                                                 @elseif(isset($approval['original']->status) && ($approval['original']->status === 'pending_finance' || $approval['original']->status === 'Pending Finance Approval'))
+                                                     <form action="{{ route('production.ford.auto-debit.approve-finance', $approval['id']) }}" method="POST" class="d-inline">
+                                                         @csrf
+                                                         <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve</button>
+                                                     </form>
+                                                 @endif
                                             @else
                                                 <button type="button" 
                                                         class="btn btn-primary btn-sm"
@@ -1465,23 +1491,31 @@
                 // Update Form Actions based on type/module
                 var triggerType = button.attr('data-type') || '';
                 var triggerModule = button.attr('data-module') || (original.module || '');
-                var actionUrl = '/employee/cash-advance/' + id; // default for cash advances
+                var approveActionUrl = actionUrl;
+                var rejectActionUrl = actionUrl;
 
                 if (triggerType === 'Material') {
                     // Material requests live under admin-finance MIS or GSD controllers depending on module
                     if (triggerModule === 'GSD') {
-                        actionUrl = '/admin-finance/gsd/material-requests/' + id;
+                        approveActionUrl = rejectActionUrl = '/admin-finance/gsd/material-requests/' + id;
                     } else {
-                        actionUrl = '/admin-finance/mis/material-requests/' + id;
+                        approveActionUrl = rejectActionUrl = '/admin-finance/mis/material-requests/' + id;
                     }
                 } else if (triggerType === 'CCTV') {
-                    actionUrl = '/my-requests/cctv-requests/' + id;
+                    approveActionUrl = rejectActionUrl = '/my-requests/cctv-requests/' + id;
+                } else if (triggerType === 'Auto Debit Letter' || triggerType === 'Auto Debit') {
+                    if (status === 'pending_director' || status === 'Pending Director Approval') {
+                        approveActionUrl = '/production/ford/auto-debit/' + id + '/approve-director';
+                    } else {
+                        approveActionUrl = '/production/ford/auto-debit/' + id + '/approve-finance';
+                    }
+                    rejectActionUrl = '/production/ford/auto-debit/' + id + '/reject';
                 } else if (triggerType === 'Cash Advance') {
-                    actionUrl = '/employee/cash-advance/' + id;
+                    approveActionUrl = rejectActionUrl = '/employee/cash-advance/' + id;
                 }
 
-                modal.find('#ca-approve-form').attr('action', actionUrl);
-                modal.find('#ca-reject-form').attr('action', actionUrl);
+                modal.find('#ca-approve-form').attr('action', approveActionUrl);
+                modal.find('#ca-reject-form').attr('action', rejectActionUrl);
                 
                 // Toggle footers: view-only shows only Close, actionable shows Reject + Approve
                 var viewOnly = button.attr('data-view-only') === 'true';

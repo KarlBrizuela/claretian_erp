@@ -61,16 +61,9 @@
                                         <option value="foreign" {{ old('type') === 'foreign' ? 'selected' : '' }}>Foreign Order</option>
                                         <option value="complimentary" {{ old('type') === 'complimentary' ? 'selected' : '' }}>Complimentary</option>
                                         <option value="cod" {{ old('type') === 'cod' ? 'selected' : '' }}>Due on Receipt (COD)</option>
-                                        <option value="evaluation" {{ old('type') === 'evaluation' ? 'selected' : '' }}>Evaluation</option>
-                                    </select>
-                                    @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                </div>
-                            </div>
-
-                            <!-- Sales Order Items -->
                                 <div class="col-md-4 text-end">
                                     <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545;">
-                                        ₱ {{ number_format($quotation->total_amount, 2) }}
+                                        {{ ($quotation->currency ?? 'PHP') === 'USD' ? '$' : (($quotation->currency ?? 'PHP') === 'EUR' ? '€' : '₱') }} {{ number_format($quotation->total_amount, 2) }}
                                     </div>
                                     <small class="text-muted">Freight charges included in SO</small>
                                 </div>
@@ -79,6 +72,7 @@
 
                         <form id="soForm" method="POST" action="{{ route('marketing.freight-quotations.create-so', $quotation->id) }}" enctype="multipart/form-data">
                             @csrf
+                            <input type="hidden" name="source" value="{{ $quotation->source }}">
 
                             <!-- Customer Selection -->
                             <h6 class="border-bottom pb-2 mb-3"><strong>Customer Information</strong></h6>
@@ -99,12 +93,12 @@
                                 <div class="col-md-6">
                                     <label class="form-label">Transaction Type:</label>
                                     <select class="form-control @error('type') is-invalid @enderror" name="type" required>
-                                        <option value="" selected disabled>Select Type</option>
+                                        <option value="" disabled>Select Type</option>
                                         <option value="paid" {{ old('type') === 'paid' ? 'selected' : '' }}>Paid Transaction</option>
                                         <option value="charge" {{ old('type') === 'charge' ? 'selected' : '' }}>Charge Transaction</option>
                                         <option value="area_consignment" {{ old('type') === 'area_consignment' ? 'selected' : '' }}>Area Consignment</option>
                                         <option value="direct_consignment" {{ old('type') === 'direct_consignment' ? 'selected' : '' }}>Direct Consignment</option>
-                                        <option value="foreign" {{ old('type') === 'foreign' ? 'selected' : '' }}>Foreign Order</option>
+                                        <option value="foreign" {{ (old('type') === 'foreign' || $quotation->source === 'ford' || ($quotation->currency ?? 'PHP') !== 'PHP') ? 'selected' : '' }}>Foreign Order</option>
                                         <option value="complimentary" {{ old('type') === 'complimentary' ? 'selected' : '' }}>Complimentary</option>
                                         <option value="cod" {{ old('type') === 'cod' ? 'selected' : '' }}>Due on Receipt (COD)</option>
                                         <option value="evaluation" {{ old('type') === 'evaluation' ? 'selected' : '' }}>Evaluation</option>

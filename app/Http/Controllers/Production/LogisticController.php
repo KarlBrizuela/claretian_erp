@@ -64,6 +64,32 @@ class LogisticController extends Controller
 
     public function pickListList()
     {
+        // Auto-heal: Ensure all sales orders in 'picking' status have a PickList
+        $pickingOrdersNoList = \App\Models\SalesOrder::with('items')
+            ->where('status', 'picking')
+            ->whereDoesntHave('pickLists')
+            ->get();
+
+        foreach ($pickingOrdersNoList as $pOrder) {
+            if ($pOrder->items && $pOrder->items->count() > 0) {
+                $pl = \App\Models\PickList::create([
+                    'sales_order_id'   => $pOrder->id,
+                    'pick_list_number' => 'PL-' . $pOrder->so_number . '-' . date('YmdHis'),
+                    'status'           => 'in_progress',
+                    'prepared_by'      => $pOrder->prepared_by ?: (auth()->id() ?: 1),
+                ]);
+                foreach ($pOrder->items as $pItem) {
+                    \App\Models\PickListItem::create([
+                        'pick_list_id'        => $pl->id,
+                        'sales_order_item_id' => $pItem->id,
+                        'requested_qty'       => $pItem->quantity,
+                        'picked_qty'          => 0,
+                        'status'              => 'pending',
+                    ]);
+                }
+            }
+        }
+
         // Get active pick lists (not completed) - EXCLUDING e-commerce direct and complimentary
         $pickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
             ->whereHas('salesOrder', function($query) {
@@ -353,26 +379,118 @@ class LogisticController extends Controller
         }
     }
 
+    public static function restoreSalesOrderStock(\App\Models\SalesOrder $so)
+    {
+        // Check if stock was gathered/deducted for this order
+        $isGathered = $so->gathered_at != null || in_array($so->status, ['pending_dr_prep', 'pending_si_prep', 'ready_for_packing', 'ready_for_delivery', 'completed']);
+        if (!$isGathered) {
+            return;
+        }
+
+        $pickLists = \App\Models\PickList::where('sales_order_id', $so->id)
+            ->with('pickListItems.salesOrderItem.book')
+            ->get();
+
+        $soCreator = $so->preparedBy ?: auth()->user();
+        $salesTeam = $soCreator ? $soCreator->sales_team : null;
+
+        foreach ($pickLists as $pl) {
+            foreach ($pl->pickListItems as $plItem) {
+                $soItem = $plItem->salesOrderItem;
+                if ($soItem) {
+                    $restoredQty = $plItem->picked_qty > 0 ? $plItem->picked_qty : $soItem->quantity;
+                    if ($restoredQty > 0) {
+                        if ($salesTeam) {
+                            // Restore Sales Team Stock
+                            $teamStock = \App\Models\TeamStock::where('team_name', $salesTeam)
+                                ->where(function($q) use ($soItem) {
+                                    if ($soItem->book_index_id) $q->where('book_index_id', $soItem->book_index_id);
+                                    elseif ($soItem->book_id) $q->where('book_id', $soItem->book_id);
+                                    elseif ($soItem->bundle_id) $q->where('book_bundle_id', $soItem->bundle_id);
+                                })->first();
+
+                            if ($teamStock) {
+                                $teamStock->quantity += $restoredQty;
+                                $teamStock->save();
+                            }
+
+                            // Restore Team SiteInventory
+                            $teamSite = \App\Models\Site::where('name', $salesTeam)->first();
+                            if ($teamSite) {
+                                $teamSiteInv = \App\Models\SiteInventory::where('site_id', $teamSite->id)
+                                    ->where(function($q) use ($soItem) {
+                                        if ($soItem->book_index_id) $q->where('book_index_id', $soItem->book_index_id);
+                                        elseif ($soItem->book_id) $q->where('book_id', $soItem->book_id);
+                                        elseif ($soItem->bundle_id) $q->where('book_bundle_id', $soItem->bundle_id);
+                                    })->first();
+
+                                if ($teamSiteInv) {
+                                    $teamSiteInv->quantity += $restoredQty;
+                                    $teamSiteInv->save();
+                                }
+                            }
+                        } else if ($soItem->book) {
+                            // Restore Main Warehouse Book Stock
+                            $book = $soItem->book;
+                            $book->stock += $restoredQty;
+                            $book->save();
+
+                            // Restore Main Warehouse SiteInventory
+                            $mainSiteInv = \App\Models\SiteInventory::where('site_id', 1)
+                                ->where('book_id', $book->id)
+                                ->first();
+                            if ($mainSiteInv) {
+                                $mainSiteInv->quantity += $restoredQty;
+                                $mainSiteInv->save();
+                            }
+                        }
+
+                        // Record Inventory Transaction for audit trail
+                        if ($soItem->book) {
+                            \App\Models\InventoryTransaction::create([
+                                'book_id' => $soItem->book->id,
+                                'type' => 'in',
+                                'quantity' => $restoredQty,
+                                'remarks' => 'Stock restored due to deletion of Sales Order ' . $so->so_number,
+                                'user_id' => auth()->id() ?? 1,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Reset gathered status flag so stock is not restored twice
+        $so->update([
+            'gathered_at' => null,
+            'gathered_by' => null,
+        ]);
+    }
+
     public function deletePickList($id)
     {
         try {
             $pickList = \App\Models\PickList::findOrFail($id);
+
+            if ($pickList->salesOrder) {
+                self::restoreSalesOrderStock($pickList->salesOrder);
+            }
             
             // Log the deletion
             \App\Models\ActivityLog::create([
                 'user_id' => auth()->id(),
                 'action' => 'Pick list deleted',
-                'description' => 'Pick list ' . $pickList->pick_list_number . ' was deleted',
+                'description' => 'Pick list ' . $pickList->pick_list_number . ' was deleted and stock restored',
                 'reference_type' => 'PickList',
                 'reference_id' => $pickList->id,
                 'details' => json_encode(['pick_list_number' => $pickList->pick_list_number])
             ]);
             
-            // Delete the pick list (cascade will handle pick_list_items)
+            // Delete items and pick list
+            \App\Models\PickListItem::where('pick_list_id', $pickList->id)->delete();
             $pickList->delete();
             
-            return redirect()->route('production.logistic.pick-list-list')
-                ->with('success', 'Pick list ' . $pickList->pick_list_number . ' has been deleted successfully.');
+            return redirect()->back()->with('success', 'Pick list ' . $pickList->pick_list_number . ' deleted successfully and stock returned to inventory.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Error deleting pick list: ' . $e->getMessage());
         }
@@ -460,9 +578,12 @@ class LogisticController extends Controller
 
     public function pickupRequestsIndex()
     {
-        $requests = \App\Models\PickupRequest::with('createdByUser')->orderBy('id', 'desc')->get();
+        $requests = \App\Models\PickupRequest::with(['createdByUser', 'driver'])->orderBy('id', 'desc')->get();
+        $drivers = \App\Models\User::where('position', 'Driver')->where('status', true)->get();
+
         return view('production.logistic.pickup-requests.index', [
             'requests' => $requests,
+            'drivers' => $drivers,
             'title' => 'Logistics Service Orders',
             'sidebar' => 'production'
         ]);
@@ -483,9 +604,19 @@ class LogisticController extends Controller
             'client_name' => 'required|string|max:255',
             'address' => 'required|string',
             'requested_date' => 'required|date',
+            'driver_id' => 'nullable',
+            'driver_name' => 'nullable|string|max:255',
+            'vehicle' => 'nullable|string|max:255',
             'items_details' => 'required|string',
             'remarks' => 'nullable|string',
         ]);
+
+        if (!empty($validated['driver_id'])) {
+            $driverUser = \App\Models\User::find($validated['driver_id']);
+            if ($driverUser) {
+                $validated['driver_name'] = trim(($driverUser->first_name ?? '') . ' ' . ($driverUser->last_name ?? ''));
+            }
+        }
 
         $validated['status'] = 'pending_approval';
         $validated['created_by'] = auth()->id();
@@ -514,9 +645,19 @@ class LogisticController extends Controller
             'client_name' => 'required|string|max:255',
             'address' => 'required|string',
             'requested_date' => 'required|date',
+            'driver_id' => 'nullable',
+            'driver_name' => 'nullable|string|max:255',
+            'vehicle' => 'nullable|string|max:255',
             'items_details' => 'required|string',
             'remarks' => 'nullable|string',
         ]);
+
+        if (!empty($validated['driver_id'])) {
+            $driverUser = \App\Models\User::find($validated['driver_id']);
+            if ($driverUser) {
+                $validated['driver_name'] = trim(($driverUser->first_name ?? '') . ' ' . ($driverUser->last_name ?? ''));
+            }
+        }
 
         $requestItem->update($validated);
 
@@ -560,6 +701,28 @@ class LogisticController extends Controller
             'status' => 'completed',
         ]);
         return redirect()->back()->with('success', 'Request marked as completed.');
+    }
+
+    public function pickupRequestsAssignDriver(Request $request, $id)
+    {
+        $requestItem = \App\Models\PickupRequest::findOrFail($id);
+
+        $validated = $request->validate([
+            'driver_id' => 'nullable',
+            'driver_name' => 'nullable|string|max:255',
+            'vehicle' => 'nullable|string|max:255',
+        ]);
+
+        if (!empty($validated['driver_id'])) {
+            $driverUser = \App\Models\User::find($validated['driver_id']);
+            if ($driverUser) {
+                $validated['driver_name'] = trim(($driverUser->first_name ?? '') . ' ' . ($driverUser->last_name ?? ''));
+            }
+        }
+
+        $requestItem->update($validated);
+
+        return redirect()->back()->with('success', 'Driver/Vehicle assigned to Request REQ-' . str_pad($requestItem->id, 5, '0', STR_PAD_LEFT) . ' successfully.');
     }
 
     public function markAsDelivered(Request $request, $id)
@@ -2600,20 +2763,19 @@ class LogisticController extends Controller
         try {
 
             $validated = $request->validate([
-                'estimated_freight' => 'required|numeric|min:0',
+                'estimated_freight' => 'nullable|numeric|min:0',
                 'valuation_percentage' => 'nullable|numeric|min:0|max:100',
                 'handling_percentage' => 'nullable|numeric|min:0|max:100',
-                'boxes_count' => 'required|integer|min:0',
+                'boxes_count' => 'nullable|integer|min:0',
                 'logistics_notes' => 'nullable|string',
             ], [
-                'estimated_freight.required' => 'Estimated freight is required',
                 'estimated_freight.min' => 'Estimated freight cannot be negative',
-                'boxes_count.required' => 'Number of boxes is required',
                 'boxes_count.min' => 'Number of boxes cannot be negative',
             ]);
 
             // Calculate charges
-            $estimatedFreight = (float) $validated['estimated_freight'];
+            $estimatedFreight = (float) ($validated['estimated_freight'] ?? 0);
+            $boxesCount = !empty($validated['boxes_count']) ? (int)$validated['boxes_count'] : 0;
             $valuationPercent = 0;
             $isFreightCollect = $freightQuotation->freight_option === 'freight_collect';
             $handlingPercent = $isFreightCollect ? (float) ($validated['handling_percentage'] ?? 20) : 0;
@@ -2630,7 +2792,7 @@ class LogisticController extends Controller
                 'handling_percentage' => $handlingPercent,
                 'handling_fee' => $handlingFee,
                 'total_amount' => $totalAmount,
-                'boxes_count' => $validated['boxes_count'],
+                'boxes_count' => $boxesCount,
                 'logistics_notes' => $validated['logistics_notes'] ?? null,
                 'status' => 'approved',
                 'workflow_status' => 'approved',

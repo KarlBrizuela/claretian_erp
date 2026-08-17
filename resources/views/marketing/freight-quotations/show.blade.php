@@ -99,6 +99,12 @@
                                         <p class="mb-0">{{ $quotation->freight_option ? ucwords(str_replace('_', ' ', $quotation->freight_option)) : 'N/A' }}</p>
                                     </div>
                                 </div>
+                                <div class="col-md-3">
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block mb-1"><strong>Currency</strong></small>
+                                        <p class="mb-0 fw-bold text-danger">{{ $quotation->currency ?? 'PHP' }} ({{ ($quotation->currency ?? 'PHP') === 'USD' ? '$' : (($quotation->currency ?? 'PHP') === 'EUR' ? '€' : '₱') }})</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

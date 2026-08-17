@@ -54,13 +54,17 @@
                     <div class="card-body p-2">
                         <!-- Sales Order Header - Prominent Display -->
                         @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->id)
+                            @php
+                                $ordCurr = $quotation->currency ?? ($quotation->salesOrder->currency ?? 'PHP');
+                                $ordSym = ($ordCurr === 'USD' ? '$' : ($ordCurr === 'EUR' ? '€' : '₱'));
+                            @endphp
                             <div class="alert alert-info border-2 mb-4" style="background-color: #e3f2fd; border-color: #2196F3;">
                                 <div class="row align-items-center">
                                     <div class="col-md-8">
                                         <h5 class="mb-2"><i class="bi bi-file-earmark-arrow-right me-2"></i>📦 Sales Order: <strong>{{ $quotation->salesOrder->so_number }}</strong></h5>
                                         <p class="mb-1"><strong>Company:</strong> {{ $quotation->salesOrder->customer?->customer_name ?? ($quotation->customer?->customer_name ?? 'N/A') }}</p>
                                         <p class="mb-1"><strong>Customer Name:</strong> {{ $quotation->salesOrder->customer_representative ?: ($quotation->customer_representative ?: 'N/A') }}</p>
-                                        <p class="mb-1"><strong>Items:</strong> {{ $quotation->salesOrder->items ? $quotation->salesOrder->items->sum('quantity') : 0 }} units | <strong>Total:</strong> ₱ {{ number_format($quotation->salesOrder->items ? $quotation->salesOrder->items->sum(function($item) { return $item->quantity * $item->price; }) : 0, 2) }}</p>
+                                        <p class="mb-1"><strong>Items:</strong> {{ $quotation->salesOrder->items ? $quotation->salesOrder->items->sum('quantity') : 0 }} units | <strong>Total:</strong> {{ $ordSym }} {{ number_format($quotation->salesOrder->items ? $quotation->salesOrder->items->sum(function($item) { return $item->quantity * $item->price; }) : 0, 2) }}</p>
                                         <p class="mb-0 text-muted"><strong>Delivery Address:</strong> {{ $quotation->salesOrder->billing_address ?? 'N/A' }}</p>
                                     </div>
                                     <div class="col-md-4 text-end">
@@ -145,6 +149,7 @@
                         <p><strong>Service Mode:</strong> {{ $quotation->service_mode }}</p>
                         <p><strong>Forwarder:</strong> {{ $quotation->forwarder ?? $quotation->freight_mode ?? 'N/A' }}</p>
                         <p><strong>Transaction Type:</strong> {{ $quotation->transaction_type ? ucwords(str_replace('_', ' ', $quotation->transaction_type)) : 'Paid' }}</p>
+                        <p><strong>Currency:</strong> <span class="badge bg-danger text-white fs-6">{{ $quotation->currency ?? 'PHP' }} ({{ ($quotation->currency ?? 'PHP') === 'USD' ? '$' : (($quotation->currency ?? 'PHP') === 'EUR' ? '€' : '₱') }})</span></p>
                         <p><strong>Freight Option:</strong> {{ $quotation->freight_option ? ucwords(str_replace('_', ' ', $quotation->freight_option)) : 'N/A' }}</p>
                         <p><strong>Service Fee:</strong> {{ $quotation->freight_option === 'freight_collect' ? 'Applies to Freight Collect' : 'No service fee for Freight Billing' }}</p>
 
@@ -291,18 +296,22 @@
 
                                         <div class="row g-2">
                                             <div class="col-md-6">
-                                                <label class="form-label fw-bold" style="font-size: 0.85rem;"> Number of Boxes: <span class="text-danger">*</span></label>
+                                                <label class="form-label fw-bold" style="font-size: 0.85rem;"> Number of Boxes:</label>
                                                 <input type="number" class="form-control form-control-sm @error('boxes_count') is-invalid @enderror" 
                                                        name="boxes_count" min="0" value="{{ old('boxes_count', $quotation->boxes_count ? $quotation->boxes_count : '') }}" 
-                                                       required placeholder="Enter number of boxes (e.g., 5)" style="height: 1.75rem; font-size: 0.85rem;">
+                                                       placeholder="Enter number of boxes (optional, e.g., 5)" style="height: 1.75rem; font-size: 0.85rem;">
                                                 @error('boxes_count')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
                                             </div>
                                             <div class="col-md-6">
-                                                <label class="form-label fw-bold" style="font-size: 0.85rem;"> Estimated Freight Charge (₱): <span class="text-danger">*</span></label>
+                                                @php
+                                                     $ordCurr = $quotation->currency ?? ($quotation->salesOrder->currency ?? 'PHP');
+                                                     $ordSym = ($ordCurr === 'USD' ? '$' : ($ordCurr === 'EUR' ? '€' : '₱'));
+                                                 @endphp
+                                                 <label class="form-label fw-bold" style="font-size: 0.85rem;"> Estimated Freight Charge ({{ $ordSym }}):</label>
                                                 <input type="number" class="form-control form-control-sm @error('estimated_freight') is-invalid @enderror" 
                                                        name="estimated_freight" step="0.01" min="0" 
-                                                       value="{{ old('estimated_freight', $quotation->estimated_freight > 0 ? $quotation->estimated_freight : ($quotation->workflow_status === 'approved' && $quotation->estimated_freight !== null ? $quotation->estimated_freight : '')) }}" required 
-                                                       placeholder="Enter freight charge (e.g., 500.00)" style="height: 1.75rem; font-size: 0.85rem;">
+                                                       value="{{ old('estimated_freight', $quotation->estimated_freight > 0 ? $quotation->estimated_freight : ($quotation->workflow_status === 'approved' && $quotation->estimated_freight !== null ? $quotation->estimated_freight : '')) }}" 
+                                                       placeholder="Enter freight charge (optional, e.g., 500.00)" style="height: 1.75rem; font-size: 0.85rem;">
                                                 @error('estimated_freight')<div class="invalid-feedback" style="font-size: 0.75rem;">{{ $message }}</div>@enderror
                                             </div>
                                         </div>
@@ -467,15 +476,15 @@
                                                         <span class="text-muted">-</span>
                                                     @endif
                                                 </td>
-                                                <td class="text-end">₱ {{ number_format($price, 2) }}</td>
+                                                <td class="text-end">{{ $ordSym }} {{ number_format($price, 2) }}</td>
                                                 <td class="text-end text-danger">
                                                     @if($discVal > 0)
-                                                        {{ $discType === 'percentage' ? $discVal . '%' : '₱' . number_format($discVal, 2) }}
+                                                        {{ $discType === 'percentage' ? $discVal . '%' : $ordSym . number_format($discVal, 2) }}
                                                     @else
                                                         —
                                                     @endif
                                                 </td>
-                                                <td class="text-end fw-bold">₱ {{ number_format($itemSubtotal, 2) }}</td>
+                                                <td class="text-end fw-bold">{{ $ordSym }} {{ number_format($itemSubtotal, 2) }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -483,11 +492,11 @@
                                          @if($totalItemDiscount > 0)
                                          <tr>
                                              <td colspan="7" class="text-end"><strong>Gross Subtotal:</strong></td>
-                                             <td class="text-end fw-bold">₱ {{ number_format($grossSubtotal, 2) }}</td>
+                                             <td class="text-end fw-bold">{{ $ordSym }} {{ number_format($grossSubtotal, 2) }}</td>
                                          </tr>
                                          <tr>
                                              <td colspan="7" class="text-end text-danger"><strong>Item Discounts:</strong></td>
-                                             <td class="text-end fw-bold text-danger">- ₱ {{ number_format($totalItemDiscount, 2) }}</td>
+                                             <td class="text-end fw-bold text-danger">- {{ $ordSym }} {{ number_format($totalItemDiscount, 2) }}</td>
                                          </tr>
                                          @endif
                                          <tr>
@@ -500,36 +509,41 @@
                                                  @endif
                                              </td>
                                              <td colspan="2"></td>
-                                             <td class="text-end fw-bold fs-5">₱ {{ number_format($totalAmount, 2) }}</td>
+                                             <td class="text-end fw-bold fs-5">{{ $ordSym }} {{ number_format($totalAmount, 2) }}</td>
                                          </tr>
                                          @php
                                              $topOrderDiscAmount = (float)($quotation->salesOrder->discount_amount ?? 0);
                                              $topOrderDiscVal = (float)($quotation->salesOrder->discount_percentage ?? 0);
                                              $topNetTotal = max(0, $totalAmount - $topOrderDiscAmount);
-                                             $topServiceFee = $quotation->freight_option === 'freight_collect' ? 50 : 0;
+                                             $topServiceFee = 0;
+                                             if ($quotation->freight_option === 'freight_collect') {
+                                                 if ($ordCurr === 'USD') $topServiceFee = 50.00 / 56.0;
+                                                 elseif ($ordCurr === 'EUR') $topServiceFee = 50.00 / 62.0;
+                                                 else $topServiceFee = 50.00;
+                                             }
                                              $topGrandTotal = $topNetTotal + $topServiceFee;
                                          @endphp
                                          @if($topOrderDiscAmount > 0)
                                          <tr>
                                              <td colspan="7" class="text-end text-danger">
-                                                 <strong>Order Discount{{ $topOrderDiscVal > 0 ? ' (' . $topOrderDiscVal . '%)' : ' (₱' . number_format($topOrderDiscAmount, 2) . ')' }}:</strong>
+                                                 <strong>Order Discount{{ $topOrderDiscVal > 0 ? ' (' . $topOrderDiscVal . '%)' : ' (' . $ordSym . number_format($topOrderDiscAmount, 2) . ')' }}:</strong>
                                              </td>
-                                             <td class="text-end fw-bold text-danger">- ₱ {{ number_format($topOrderDiscAmount, 2) }}</td>
+                                             <td class="text-end fw-bold text-danger">- {{ $ordSym }} {{ number_format($topOrderDiscAmount, 2) }}</td>
                                          </tr>
                                          @endif
                                          @if($topServiceFee > 0)
                                          <tr style="background-color: #fff3cd;">
                                              <td colspan="7" class="text-end text-success"><strong>Service Fee (Freight Collect):</strong></td>
-                                             <td class="text-end fw-bold text-success">₱ {{ number_format($topServiceFee, 2) }}</td>
+                                             <td class="text-end fw-bold text-success">{{ $ordSym }} {{ number_format($topServiceFee, 2) }}</td>
                                          </tr>
                                          <tr style="background-color: #e8f5e9;">
                                              <td colspan="7" class="text-end"><strong>Grand Total:</strong></td>
-                                             <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">₱ {{ number_format($topGrandTotal, 2) }}</td>
+                                             <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">{{ $ordSym }} {{ number_format($topGrandTotal, 2) }}</td>
                                          </tr>
                                          @else
                                          <tr style="background-color: #e8f5e9;">
                                              <td colspan="7" class="text-end"><strong>Grand Total:</strong></td>
-                                             <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">₱ {{ number_format($topGrandTotal, 2) }}</td>
+                                             <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">{{ $ordSym }} {{ number_format($topGrandTotal, 2) }}</td>
                                          </tr>
                                          @endif
                                      </tfoot>
@@ -602,15 +616,15 @@
                                                             $soItemName = $soBookIndex ? $soBookIndex->display_name : ($item->product_name ?? ($item->item_name ?? ($item->product?->name ?? ($item->book?->name ?? ($item->bundle?->name ?? 'N/A')))));
                                                         @endphp
                                                         <td>{{ $soItemName }}</td>
-                                                        <td class="text-end">₱ {{ number_format($item->price, 2) }}</td>
+                                                        <td class="text-end">{{ $ordSym }} {{ number_format($item->price, 2) }}</td>
                                                         <td class="text-end text-danger">
                                                             @if($discVal > 0)
-                                                                {{ $discType === 'percentage' ? $discVal . '%' : '₱' . number_format($discVal, 2) }}
+                                                                {{ $discType === 'percentage' ? $discVal . '%' : $ordSym . number_format($discVal, 2) }}
                                                             @else
                                                                 —
                                                             @endif
                                                         </td>
-                                                        <td class="text-end fw-bold">₱ {{ number_format($itemSubtotal, 2) }}</td>
+                                                        <td class="text-end fw-bold">{{ $ordSym }} {{ number_format($itemSubtotal, 2) }}</td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -618,43 +632,48 @@
                                                 @if($totalItemDiscount > 0)
                                                 <tr>
                                                     <td colspan="4" class="text-end"><strong>Gross Subtotal:</strong></td>
-                                                    <td class="text-end fw-bold">₱ {{ number_format($grossSubtotal, 2) }}</td>
+                                                    <td class="text-end fw-bold">{{ $ordSym }} {{ number_format($grossSubtotal, 2) }}</td>
                                                 </tr>
                                                 <tr>
                                                     <td colspan="4" class="text-end text-danger"><strong>Item Discounts:</strong></td>
-                                                    <td class="text-end fw-bold text-danger">- ₱ {{ number_format($totalItemDiscount, 2) }}</td>
+                                                    <td class="text-end fw-bold text-danger">- {{ $ordSym }} {{ number_format($totalItemDiscount, 2) }}</td>
                                                 </tr>
                                                 @endif
                                                 <tr>
                                                     <td colspan="4" class="text-end"><strong>Order Subtotal:</strong></td>
-                                                    <td class="text-end fw-bold">₱ {{ number_format($soSubtotal, 2) }}</td>
+                                                    <td class="text-end fw-bold">{{ $ordSym }} {{ number_format($soSubtotal, 2) }}</td>
                                                 </tr>
                                                 @php
                                                     $orderDiscAmount = (float)($quotation->salesOrder->discount_amount ?? 0);
                                                     $orderDiscVal = (float)($quotation->salesOrder->discount_percentage ?? 0);
                                                     $soNetTotal = max(0, $soSubtotal - $orderDiscAmount);
-                                                    $serviceFee = $quotation->freight_option === 'freight_collect' ? 50 : 0;
+                                                    $serviceFee = 0;
+                                                    if ($quotation->freight_option === 'freight_collect') {
+                                                        if ($ordCurr === 'USD') $serviceFee = 50.00 / 56.0;
+                                                        elseif ($ordCurr === 'EUR') $serviceFee = 50.00 / 62.0;
+                                                        else $serviceFee = 50.00;
+                                                    }
                                                     $grandTotal = $soNetTotal + $serviceFee;
                                                 @endphp
                                                 @if($orderDiscAmount > 0)
                                                 <tr>
-                                                    <td colspan="4" class="text-end text-danger"><strong>Order Discount{{ $orderDiscVal > 0 ? ' (' . $orderDiscVal . '%)' : ' (₱' . number_format($orderDiscAmount, 2) . ')' }}:</strong></td>
-                                                    <td class="text-end fw-bold text-danger">- ₱ {{ number_format($orderDiscAmount, 2) }}</td>
+                                                    <td colspan="4" class="text-end text-danger"><strong>Order Discount{{ $orderDiscVal > 0 ? ' (' . $orderDiscVal . '%)' : ' (' . $ordSym . number_format($orderDiscAmount, 2) . ')' }}:</strong></td>
+                                                    <td class="text-end fw-bold text-danger">- {{ $ordSym }} {{ number_format($orderDiscAmount, 2) }}</td>
                                                 </tr>
                                                 @endif
                                                 @if($serviceFee > 0)
                                                 <tr style="background-color: #fff3cd;">
                                                     <td colspan="4" class="text-end"><strong>Service Fee (Freight Collect):</strong></td>
-                                                    <td class="text-end fw-bold text-success">₱ {{ number_format($serviceFee, 2) }}</td>
+                                                    <td class="text-end fw-bold text-success">{{ $ordSym }} {{ number_format($serviceFee, 2) }}</td>
                                                 </tr>
                                                 <tr style="background-color: #e8f5e9;">
                                                     <td colspan="4" class="text-end"><strong>Grand Total:</strong></td>
-                                                    <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">₱ {{ number_format($grandTotal, 2) }}</td>
+                                                    <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">{{ $ordSym }} {{ number_format($grandTotal, 2) }}</td>
                                                 </tr>
                                                 @else
                                                 <tr style="background-color: #e8f5e9;">
                                                     <td colspan="4" class="text-end"><strong>Grand Total:</strong></td>
-                                                    <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">₱ {{ number_format($grandTotal, 2) }}</td>
+                                                    <td class="text-end fw-bold" style="font-size: 1.1rem; color: #2e7d32;">{{ $ordSym }} {{ number_format($grandTotal, 2) }}</td>
                                                 </tr>
                                                 @endif
                                             </tfoot>
