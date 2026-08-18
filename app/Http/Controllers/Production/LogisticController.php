@@ -469,6 +469,10 @@ class LogisticController extends Controller
 
     public function deletePickList($id)
     {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Unauthorized. Only Super Admin can delete pick lists.');
+        }
+
         try {
             $pickList = \App\Models\PickList::findOrFail($id);
 
@@ -3388,6 +3392,95 @@ class LogisticController extends Controller
         } catch (\Exception $e) {
             \DB::rollBack();
             return redirect()->back()->with('error', 'Failed to complete team stock packing: ' . $e->getMessage());
+        }
+    }
+
+    public function deleteTeamStockTransfer($id)
+    {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Unauthorized. Only Super Admin can delete team stock transfers.');
+        }
+
+        \DB::beginTransaction();
+        try {
+            $transfer = \App\Models\TeamStockTransfer::with('items')->findOrFail($id);
+
+            // Restore stock if it was already picked or completed
+            if (in_array($transfer->status, ['packing', 'completed'])) {
+                foreach ($transfer->items as $tItem) {
+                    $qty = $tItem->quantity;
+
+                    // 1. Restore Main Warehouse Stock
+                    if ($tItem->book_index_id) {
+                        $index = \App\Models\BookIndex::find($tItem->book_index_id);
+                        if ($index) {
+                            $index->main_stock = ($index->main_stock ?? 0) + $qty;
+                            $index->stock = ($index->stock ?? 0) + $qty;
+                            $index->save();
+                        }
+                    } elseif ($tItem->book_id) {
+                        $book = \App\Models\Book::find($tItem->book_id);
+                        if ($book) {
+                            $book->main_stock = ($book->main_stock ?? 0) + $qty;
+                            $book->stock = ($book->stock ?? 0) + $qty;
+                            $book->save();
+                        }
+                    } elseif ($tItem->book_bundle_id) {
+                        $bundle = \App\Models\BookBundle::find($tItem->book_bundle_id);
+                        if ($bundle) {
+                            $bundle->main_stock = ($bundle->main_stock ?? 0) + $qty;
+                            $bundle->stock = ($bundle->stock ?? 0) + $qty;
+                            $bundle->save();
+                        }
+                    }
+
+                    // 2. Restore Main Warehouse SiteInventory (site_id = 1)
+                    $mainSiteInv = \App\Models\SiteInventory::where('site_id', 1)
+                        ->where(function($q) use ($tItem) {
+                            if ($tItem->book_index_id) $q->where('book_index_id', $tItem->book_index_id);
+                            elseif ($tItem->book_id) $q->where('book_id', $tItem->book_id);
+                            elseif ($tItem->book_bundle_id) $q->where('book_bundle_id', $tItem->book_bundle_id);
+                        })->first();
+                    if ($mainSiteInv) {
+                        $mainSiteInv->quantity = $mainSiteInv->quantity + $qty;
+                        $mainSiteInv->save();
+                    }
+
+                    // 3. If completed, deduct credited Team Stock
+                    if ($transfer->status === 'completed') {
+                        $teamStock = \App\Models\TeamStock::where([
+                            'team_name' => $transfer->team_name,
+                            'book_id' => $tItem->book_id,
+                            'book_index_id' => $tItem->book_index_id,
+                            'book_bundle_id' => $tItem->book_bundle_id,
+                        ])->first();
+                        if ($teamStock) {
+                            $teamStock->quantity = max(0, $teamStock->quantity - $qty);
+                            $teamStock->save();
+                        }
+                    }
+                }
+            }
+
+            // Log activity
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Team stock transfer deleted',
+                'description' => 'Team stock transfer ' . $transfer->transfer_number . ' was deleted by Super Admin',
+                'reference_type' => 'TeamStockTransfer',
+                'reference_id' => $transfer->id,
+                'details' => json_encode(['transfer_number' => $transfer->transfer_number])
+            ]);
+
+            // Delete items and transfer record
+            \App\Models\TeamStockTransferItem::where('team_stock_transfer_id', $transfer->id)->delete();
+            $transfer->delete();
+
+            \DB::commit();
+            return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' deleted successfully.');
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return redirect()->back()->with('error', 'Error deleting team stock transfer: ' . $e->getMessage());
         }
     }
 

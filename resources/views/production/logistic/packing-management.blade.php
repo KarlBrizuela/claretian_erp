@@ -17,11 +17,7 @@ $txnTypeLabels = [
     'Credit'                => 'Credit',
     'Prepaid'               => 'Prepaid',
 ];
-$isAdmin = auth()->check() && (
-    auth()->user()->isSuperAdmin() || 
-    str_contains(strtolower(auth()->user()->position ?? ''), 'admin') || 
-    str_contains(strtolower(auth()->user()->department ?? ''), 'admin')
-);
+$isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
 @endphp
     @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
@@ -1197,6 +1193,15 @@ $isAdmin = auth()->check() && (
                                                             @csrf
                                                             <button type="submit" id="team_stock_complete_btn_main_{{ $tt->id }}" class="btn btn-xs btn-success fw-bold" style="background-color: #28a745; border: none;">
                                                                 <i class="fas fa-check me-1"></i>Mark Packed
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                    @if(auth()->check() && auth()->user()->isSuperAdmin())
+                                                        <form action="{{ route('production.logistic.team-stock-transfer.delete', $tt->id) }}" method="POST" class="d-inline m-0" onsubmit="return confirm('Are you sure you want to delete Team Stock Transfer {{ $tt->transfer_number }}?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-xs btn-danger fw-bold" style="background-color: #dc3545; border: none;" title="Delete Transfer">
+                                                                <i class="fas fa-trash me-1"></i>Delete
                                                             </button>
                                                         </form>
                                                     @endif

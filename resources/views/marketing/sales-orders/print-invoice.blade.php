@@ -708,7 +708,7 @@
                         <span class="total-label">LESS: WITHHOLDING TAX: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">{{ $wht > 0 ? '-₱' . number_format($wht, 2) : '' }}</span>
                     </div>
                     <div class="total-sales-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
-                        <span class="total-label">TOTAL SALES: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">₱{{ number_format($calculatedTotalSales, 2) }}</span>
+                        <span class="total-label">TOTAL SALES: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">{{ number_format($calculatedTotalSales, 2) }}</span>
                     </div>
                     <div class="total-amount-due-line" style="font-size: 8.5pt; font-weight: bold; margin-bottom: 3px; min-height: 16px;">
                         <span class="total-label">TOTAL AMOUNT DUE: </span><span style="padding: 0 8px; min-width: 115px; display: inline-block;">{{ $wht > 0 ? '₱' . number_format($totalAmountDue, 2) : '' }}</span>
@@ -801,37 +801,44 @@
 
         <!-- Payment Checkmark -->
         @if($isCash)
-            <div style="position: absolute; left: 0.50in; top: 8.35in; font-size: 11pt; font-weight: bold;">✓</div>
+            <div style="position: absolute; left: 0.48in; top: 8.35in; font-size: 11pt; font-weight: bold;">✓</div>
         @else
             <div style="position: absolute; left: 1.47in; top: 8.35in; font-size: 11pt; font-weight: bold;">✓</div>
         @endif
 
         <!-- Totals -->
-        <div style="position: absolute; left: 4.60in; top: 6.75in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
-            <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>₱{{ number_format($itemsSubtotal, 2) }}
-        </div>
+
         @if($freight > 0)
+            <div style="position: absolute; left: 4.60in; top: 6.75in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+            	<span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>₱{{ number_format($itemsSubtotal, 2) }}
+        	</div>
             <div style="position: absolute; left: 4.60in; top: 6.95in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
                 <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">FREIGHT:</span>₱{{ number_format($freight, 2) }}
             </div>
         @endif
         @if($serviceFee > 0)
-            <div style="position: absolute; left: 4.60in; top: 7.05in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+      		<div style="position: absolute; left: 4.60in; top: 6.75in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+            	<span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>₱{{ number_format($itemsSubtotal, 2) }}
+        	</div>
+            <div style="position: absolute; left: 4.60in; top: 6.95in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
                 <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">SERVICE FEE:</span>₱{{ number_format($serviceFee, 2) }}
             </div>
         @endif
         @if($discount > 0)
+            <div style="position: absolute; left: 4.60in; top: 6.75in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+            	<span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>₱{{ number_format($itemsSubtotal, 2) }}
+        	</div>
             <div style="position: absolute; left: 4.60in; top: 7.15in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
                 <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">DISCOUNT:</span>-₱{{ number_format($discount, 2) }}
             </div>
         @endif
         @if($wht > 0)
             <div style="position: absolute; left: 4.60in; top: 7.34in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
-                <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">LESS WHT:</span>-₱{{ number_format($wht, 2) }}
+                <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">LESS WHT:</span>-{{ number_format($wht, 2) }}
             </div>
         @endif
         <div style="position: absolute; left: 4.60in; top: 8.10in; width: 3.4in; text-align: right; font-weight: bold; font-size: 11pt;">
-            <span style="font-size: 9pt; font-weight: bold; margin-right: 6px;">TOTAL:</span>₱{{ number_format($calculatedTotalSales, 2) }}
+            <span style="font-size: 9pt; font-weight: bold; margin-right: 6px;"></span>₱{{ number_format($calculatedTotalSales, 2) }}
         </div>
         @if($wht > 0)
             <div style="position: absolute; left: 4.60in; top: 7.90in; width: 3.4in; text-align: right; font-weight: bold; font-size: 11pt;">
@@ -848,15 +855,15 @@
     <!-- 1/2 HALF PAGE PRE-PRINTED BIR OVERLAY (Exact Fit to half.pdf) -->
     <div class="preprinted-overlay preprinted-overlay-half">
         <!-- Customer Info -->
-        <div style="position: absolute; left: 1.20in; top: 1.44in; width: 4.2in; font-weight: bold; font-size: 9.5pt;">{{ $custName }}</div>
-        <div style="position: absolute; left: 1.20in; top: 1.70in; width: 4.2in; font-weight: bold; font-size: 9pt; line-height: 1.2; max-height: 0.45in; overflow: hidden;">{{ $custAddress }}</div>
+        <div style="position: absolute; left: 1.28in; top: 1.34in; width: 4.2in; font-weight: bold; font-size: 9.5pt;">{{ $custName }}</div>
+        <div style="position: absolute; left: 1.28in; top: 1.65in; width: 4.2in; font-weight: bold; font-size: 9pt; line-height: 1.2; max-height: 0.45in; overflow: hidden;">{{ $custAddress }}</div>
         <div style="position: absolute; left: 1.40in; top: 2.22in; width: 4.2in; font-weight: bold; font-size: 9.5pt;">{{ $custTin }}</div>
         <div style="position: absolute; left: 1.75in; top: 2.48in; width: 3.8in; font-weight: bold; font-size: 9.5pt;">{{ $order->customer?->business_style ?? '' }}</div>
 
         <!-- Transaction Details -->
-        <div style="position: absolute; left: 6.2in; top: 1.52in; width: 1.8in; font-weight: bold; font-size: 9.5pt;">{{ $orderDate }}</div>
-        <div style="position: absolute; left: 6.2in; top: 1.78in; width: 1.8in; font-weight: bold; font-size: 9.5pt;">{{ $termsVal }}</div>
-        <div style="position: absolute; left: 6.2in; top: 1.96in; width: 1.8in; font-weight: bold; font-size: 9.5pt;">{{ $dueDate }}</div>
+        <div style="position: absolute; left: 6.2in; top: 1.50in; width: 1.8in; font-weight: bold; font-size: 9.5pt;">{{ $orderDate }}</div>
+        <div style="position: absolute; left: 6.2in; top: 1.75in; width: 1.8in; font-weight: bold; font-size: 9.5pt;">{{ $termsVal }}</div>
+        <div style="position: absolute; left: 6.2in; top: 1.98in; width: 1.8in; font-weight: bold; font-size: 9.5pt;">{{ $dueDate }}</div>
 
         <!-- Line Items (Starts at Y = 3.12in) -->
         <div style="position: absolute; left: 0.4in; top: 3.12in; width: 7.7in;">
@@ -884,38 +891,46 @@
 
         <!-- Payment Checkmark -->
         @if($isCash)
-            <div style="position: absolute; left: 0.77in; top: 4.62in; font-size: 10pt; font-weight: bold;">✓</div>
+            <div style="position: absolute; left: 0.68in; top: 4.72in; font-size: 10pt; font-weight: bold;">✓</div>
         @else
             <div style="position: absolute; left: 1.77in; top: 4.62in; font-size: 10pt; font-weight: bold;">✓</div>
         @endif
 
         <!-- Totals -->
-        <div style="position: absolute; left: 4.60in; top: 4.10in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
-            <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>₱{{ number_format($itemsSubtotal, 2) }}
-        </div>
+
         @if($freight > 0)
+      
+         <div style="position: absolute; left: 4.60in; top: 4.10in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
+            <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>{{ number_format($itemsSubtotal, 2) }}
+        </div>
             <div style="position: absolute; left: 4.60in; top: 4.25in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
                 <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">FREIGHT:</span>₱{{ number_format($freight, 2) }}
             </div>
         @endif
         @if($serviceFee > 0)
-            <div style="position: absolute; left: 4.60in; top: 4.32in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
+               <div style="position: absolute; left: 4.60in; top: 4.10in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
+            <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>{{ number_format($itemsSubtotal, 2) }}
+        </div>
+            <div style="position: absolute; left: 4.60in; top: 4.25in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
                 <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">SERVICE FEE:</span>₱{{ number_format($serviceFee, 2) }}
             </div>
         @endif
         @if($discount > 0)
+               <div style="position: absolute; left: 4.60in; top: 4.10in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
+            <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>{{ number_format($itemsSubtotal, 2) }}
+        </div>
             <div style="position: absolute; left: 4.60in; top: 4.40in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
                 <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">DISCOUNT:</span>-₱{{ number_format($discount, 2) }}
             </div>
         @endif
-        <div style="position: absolute; left: 4.60in; top: 4.54in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10.5pt;">
-            <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">TOTAL:</span>₱{{ number_format($calculatedTotalSales, 2) }}
+        <div style="position: absolute; left: 4.60in; top: 4.70in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10.5pt;">
+            <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;"></span>₱{{ number_format($calculatedTotalSales, 2) }}
         </div>
 
         <!-- Signatories -->
-        <div style="position: absolute; left: 2.75in; top: 5.10in; width: 1.8in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $order->preparedBy?->name ?? '' }}</div>
-        <div style="position: absolute; left: 4.85in; top: 5.10in; width: 1.8in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $order->mktApprovedBy?->name ?? ($order->prodApprovedBy?->name ?? '') }}</div>
-        <div style="position: absolute; left: 6.75in; top: 5.10in; width: 1.4in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $custName }}</div>
+        <div style="position: absolute; left: 3.20in; top: 5.80in; width: 1.8in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $order->preparedBy?->name ?? '' }}</div>
+        <div style="position: absolute; left: 5.15in; top: 5.80in; width: 1.8in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $order->mktApprovedBy?->name ?? ($order->prodApprovedBy?->name ?? '') }}</div>
+        <div style="position: absolute; left: 6.95in; top: 5.80in; width: 1.5in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $custName }}</div>
     </div>
 
     <script>

@@ -196,6 +196,7 @@ Route::middleware(['auth'])->group(function () {
       // Team Stock Transfer Fulfillment Routes
       Route::match(['get', 'post'], '/team-stock-transfer/{id}/complete-pick', [App\Http\Controllers\Production\LogisticController::class, 'completeTeamStockPickList'])->name('team-stock-transfer.complete-pick');
       Route::match(['get', 'post'], '/team-stock-transfer/{id}/complete-pack', [App\Http\Controllers\Production\LogisticController::class, 'completeTeamStockPacking'])->name('team-stock-transfer.complete-pack');
+      Route::match(['get', 'post', 'delete'], '/team-stock-transfer/{id}/delete', [App\Http\Controllers\Production\LogisticController::class, 'deleteTeamStockTransfer'])->name('team-stock-transfer.delete');
 
       // Acknowledgement Receipt (Area Sales Consignment import)
       Route::get('/acknowledgement-receipt', [App\Http\Controllers\Production\LogisticController::class, 'acknowledgementReceipt'])->name('acknowledgement-receipt');

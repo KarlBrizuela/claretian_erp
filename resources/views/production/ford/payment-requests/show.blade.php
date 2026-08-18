@@ -44,23 +44,12 @@
                             @endif
                         @endif
 
-                        <button type="button" class="btn btn-danger" data-bs-toggle="collapse" data-bs-target="#rejectCollapse">
-                            <i class="las la-times-circle"></i> Reject Request
-                        </button>
-                    </div>
-
-                    <!-- Reject Collapse form -->
-                    <div class="collapse mt-3" id="rejectCollapse">
-                        <div class="card card-body bg-light border">
-                            <form action="{{ route('payment-requests.reject', $paymentRequest->id) }}" method="POST">
-                                @csrf
-                                <div class="form-group mb-3">
-                                    <label class="font-weight-bold">Reason for Rejection:</label>
-                                    <textarea name="rejection_reason" class="form-control" rows="3" placeholder="Explain why this request is being rejected..." required></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-danger">Submit Rejection</button>
-                            </form>
-                        </div>
+                        <form action="{{ route('payment-requests.reject', $paymentRequest->id) }}" method="POST" class="d-inline" id="rejectPaymentRequestForm">
+                            @csrf
+                            <button type="button" class="btn btn-danger" onclick="handlePaymentRequestReject(this.form)">
+                                <i class="las la-times-circle"></i> Reject Request
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -296,5 +285,38 @@
             }
         }
     </style>
+    @endpush
+
+    @push('scripts')
+    <script>
+        function handlePaymentRequestReject(form) {
+            if (typeof window.openTwoStepRejectionFlow === 'function') {
+                window.openTwoStepRejectionFlow('', function(reason) {
+                    let input = form.querySelector('input[name="rejection_reason"]');
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'rejection_reason';
+                        form.appendChild(input);
+                    }
+                    input.value = reason;
+                    form.submit();
+                });
+            } else {
+                let reason = prompt('Please enter rejection reason:');
+                if (reason !== null && reason.trim() !== '') {
+                    let input = form.querySelector('input[name="rejection_reason"]');
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'rejection_reason';
+                        form.appendChild(input);
+                    }
+                    input.value = reason.trim();
+                    form.submit();
+                }
+            }
+        }
+    </script>
     @endpush
 </x-app-layout>

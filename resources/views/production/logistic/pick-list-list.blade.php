@@ -108,18 +108,20 @@ $isAdmin = auth()->check() && (
                                                     <a href="{{ route('production.logistic.pick-list-details', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="View Details">
                                                         <i class="las la-eye"></i>
                                                     </a>
-                                                    @php
-                                                        $isFordSO = $pickList->salesOrder && ($pickList->salesOrder->type === 'foreign' || str_starts_with($pickList->salesOrder->so_number, 'FORD-SO-'));
-                                                        $editUrl = $isFordSO 
-                                                            ? route('production.sales-order.review', $pickList->salesOrder->id) 
-                                                            : ($pickList->salesOrder ? route('marketing.sales-orders.edit', $pickList->salesOrder->id) : route('production.logistic.pick-list-management') . '?id=' . $pickList->id);
-                                                    @endphp
-                                                    <a href="{{ $editUrl }}" class="btn btn-warning shadow btn-xs sharp me-1" title="Edit / Review Order">
-                                                        <i class="fas fa-pencil-alt"></i>
-                                                    </a>
-                                                    <a href="{{ route('production.logistic.pick-list-delete', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="Delete Pick List" onclick="return confirm('Are you sure you want to delete this Pick List?');">
-                                                        <i class="fas fa-trash"></i>
-                                                    </a>
+                                                    @if(auth()->check() && auth()->user()->isSuperAdmin())
+                                                         @php
+                                                             $isFordSO = $pickList->salesOrder && ($pickList->salesOrder->type === 'foreign' || str_starts_with($pickList->salesOrder->so_number, 'FORD-SO-'));
+                                                             $editUrl = $isFordSO 
+                                                                 ? route('production.sales-order.review', $pickList->salesOrder->id) 
+                                                                 : ($pickList->salesOrder ? route('marketing.sales-orders.edit', $pickList->salesOrder->id) : route('production.logistic.pick-list-management') . '?id=' . $pickList->id);
+                                                         @endphp
+                                                         <a href="{{ $editUrl }}" class="btn btn-warning shadow btn-xs sharp me-1" title="Edit / Review Order">
+                                                             <i class="fas fa-pencil-alt"></i>
+                                                         </a>
+                                                         <a href="{{ route('production.logistic.pick-list-delete', $pickList->id) }}" class="btn btn-danger shadow btn-xs sharp me-1" title="Delete Pick List" onclick="return confirm('Are you sure you want to delete this Pick List?');">
+                                                             <i class="fas fa-trash"></i>
+                                                         </a>
+                                                     @endif
                                                     <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-primary shadow btn-xs sharp me-1" title="Shipping Label">
                                                         <i class="las la-tag"></i>
                                                     </a>
@@ -568,6 +570,15 @@ $isAdmin = auth()->check() && (
                                                             <i class="las la-check me-1"></i>Complete Pick
                                                         </button>
                                                     </form>
+                                                    @if(auth()->check() && auth()->user()->isSuperAdmin())
+                                                        <form action="{{ route('production.logistic.team-stock-transfer.delete', $tt->id) }}" method="POST" class="d-inline m-0" onsubmit="return confirm('Are you sure you want to delete Team Stock Transfer {{ $tt->transfer_number }}?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-xs btn-danger fw-bold" style="background-color: #dc3545; border: none;" title="Delete Transfer">
+                                                                <i class="fas fa-trash me-1"></i>Delete
+                                                            </button>
+                                                        </form>
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>

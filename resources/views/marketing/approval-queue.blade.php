@@ -1284,37 +1284,205 @@
                 order: [[3, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
-            });
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    @foreach($pendingTeamStockTransfers as $teamTransfer)
+    <div class="modal fade" id="teamStockTransferModal{{ $teamTransfer->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>Review Team Stock Transfer ({{ $teamTransfer->transfer_number }})</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
+                            <span class="badge bg-danger fs-6">{{ $teamTransfer->team_name }}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Requested By:</small>
+                            <strong>{{ $teamTransfer->transferredByUser->name ?? 'N/A' }}</strong>
+                            <small class="d-block text-muted">{{ $teamTransfer->created_at->format('M d, Y h:i A') }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
+                            <span class="fw-semibold text-dark">{{ $teamTransfer->notes ?: 'None' }}</span>
+                        </div>
+                    </div>
+
+                    @if($teamTransfer->notes)
+                    <div class="alert alert-warning border border-warning mb-3 py-2">
+                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $teamTransfer->notes }}
+                    </div>
+                    @else
+                    <div class="alert alert-light border mb-3 py-2 text-muted">
+                        <i class="las la-info-circle me-1"></i>No remarks or notes specified for this transfer.
+                    </div>
+                    @endif
+
+                    <h6 class="fw-bold mb-2">Requested Items (Main Warehouse Transfer):</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Item Title</th>
+                                    <th>Type</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-center">Quantity to Transfer</th>
+                                    <th class="text-end">Total Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php $teamGrandTotal = 0; $teamTotalQty = 0; @endphp
+                                @foreach($teamTransfer->items as $tItem)
+                                @php
+                                    $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
+                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
+                                    $uPrice = (float) ($tItem->bookIndex ? ($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?? 0)) : ($tItem->book ? $tItem->book->price : ($tItem->bookBundle ? $tItem->bookBundle->price : 0)));
+                                    $barcodeVal = $tItem->bookIndex ? ($tItem->bookIndex->barcode ?: ($tItem->bookIndex->nbs_barcode ?: $tItem->bookIndex->article)) : ($tItem->book ? ($tItem->book->barcode ?: ($tItem->book->isbn ?: $tItem->book->item_code)) : ($tItem->bookBundle ? $tItem->bookBundle->sku : ''));
+                                    $subT = $tItem->quantity * $uPrice;
+                                    $teamGrandTotal += $subT;
+                                    $teamTotalQty += $tItem->quantity;
+                                @endphp
+                                <tr>
+                                    <td class="fw-bold text-dark">
+                                        {{ $itemName }}
+                                        @if($barcodeVal)
+                                            <br><small class="text-muted"><i class="las la-barcode me-1"></i>Barcode: <code>{{ $barcodeVal }}</code></small>
+                                        @endif
+                                    </td>
+                                    <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
+                                    <td class="text-end font-monospace text-muted">₱{{ number_format($uPrice, 2) }}</td>
+                                    <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
+                                    <td class="text-end font-monospace fw-bold text-dark">₱{{ number_format($subT, 2) }}</td>
+                                </tr>
+                                @endforeach
+                                @if(count($teamTransfer->items) > 0)
+                                <tr class="table-light fw-bold">
+                                    <td colspan="3" class="text-end small">Total Estimated Value:</td>
+                                    <td class="text-center text-success">{{ number_format($teamTotalQty) }} pcs</td>
+                                    <td class="text-end font-monospace text-danger">₱{{ number_format($teamGrandTotal, 2) }}</td>
+                                </tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <form action="{{ route('marketing.area-sales.team-stocks.reject', $teamTransfer->id) }}" method="POST" id="rejectTeamTransferForm{{ $teamTransfer->id }}" class="mb-3" style="display: none;">
+                        @csrf
+                        <input type="hidden" name="remarks" class="mkt-remarks-pass{{ $teamTransfer->id }}">
+                        <label class="form-label text-danger fw-bold">Reason for Rejection:</label>
+                        <textarea name="rejection_reason" class="form-control mb-2" rows="2" placeholder="Specify reason for rejection..." required></textarea>
+                        <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times-circle me-1"></i>Confirm Rejection</button>
+                        <button type="button" class="btn btn-light btn-sm ms-1" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').hide()">Cancel</button>
+                    </form>
+
+                    <form action="{{ route('marketing.area-sales.team-stocks.approve', $teamTransfer->id) }}" method="POST">
+                        @csrf
+                        <div class="mb-3 text-start">
+                            <label class="form-label fw-bold small text-dark mb-1"><i class="las la-comment-alt text-primary me-1"></i>Add Action / Approval Remarks (Optional):</label>
+                            <textarea name="approval_remarks" class="form-control form-control-sm" rows="2" placeholder="Type optional remarks before approving..." oninput="$('.mkt-remarks-pass{{ $teamTransfer->id }}').val(this.value)"></textarea>
+                        </div>
+                        <div class="modal-footer bg-light px-0 pb-0 pt-3 border-0">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-outline-danger" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').toggle()">
+                                <i class="las la-times me-1"></i> Reject Request
+                            </button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="las la-check me-1"></i> Approve & Forward to Admin & Finance
+                            </button>
+                        </div>
+                    </form>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
+    @push('scripts')
+    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
+    <script>
+        var stockTransferBatchData = @json($batchData);
+        var queueTable;
+        var myApprovalsTable;
+        var mySubmissionsTable;
+        var myApprovedTable;
+        function switchTab(btn, tabId) {
+            $('.tab-section').hide();
+            $('#' + tabId + '-content').show();
+            $('.tab-trigger').removeClass('active');
+            $(btn).addClass('active');
+            if (tabId === 'my-submissions' && mySubmissionsTable) mySubmissionsTable.columns.adjust().draw();
+            if (tabId === 'my-approved' && myApprovedTable) myApprovedTable.columns.adjust().draw();
+            if (tabId === 'my-approvals' && myApprovalsTable) myApprovalsTable.columns.adjust().draw();
+        }
+        function filterQueue(btn, filterValue) {
+            $('.filter-trigger').removeClass('active');
+            $(btn).addClass('active');
+            if (queueTable) {
+                if (!filterValue) {
+                    queueTable.column(0).search('').draw();
+                } else {
+                    queueTable.column(0).search(filterValue, false, true).draw();
+                }
+            }
+        }
+        let currentSOTypeFilter = '';
+        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, row, counter) {
+            if (settings.nTable.id !== 'myApprovalsTable') return true;
+            if (!currentSOTypeFilter) return true;
+            var nTr = settings.aoData[dataIndex] ? settings.aoData[dataIndex].nTr : null;
+            var soType = nTr ? ($(nTr).attr('data-so-type') || '') : '';
+            return soType === currentSOTypeFilter;
+        });
+        function filterBySOType(typeValue) {
+            currentSOTypeFilter = typeValue;
+            if (myApprovalsTable) {
+                myApprovalsTable.draw();
+            }
+        }
+        $(document).ready(function() {
+            queueTable = $('#approvalQueueTable').DataTable({
+                order: [[4, 'desc']],
+                pageLength: 10,
+                columnDefs: [{ orderable: false, targets: -1 }]
+            });
+            myApprovalsTable = $('#myApprovalsTable').DataTable({
+                order: [[4, 'desc']],
+                pageLength: 10,
+                columnDefs: [{ orderable: false, targets: -1 }]
+            });
+            mySubmissionsTable = $('#mySubmissionsTable').DataTable({
+                order: [[3, 'desc']],
+                pageLength: 10,
+                columnDefs: [{ orderable: false, targets: -1 }]
+            });
             myApprovedTable = $('#myApprovedTable').DataTable({
                 order: [[4, 'desc']],
                 pageLength: 10,
                 columnDefs: [{ orderable: false, targets: -1 }]
             });
-
-            // Modal Population
             $('#cashAdvanceApprovalModal').on('show.bs.modal', function (event) {
                 var button = $(event.relatedTarget);
                 var id = button.data('id');
                 var name = button.data('name');
                 var amount = button.data('amount');
-                var purpose = button.data('purpose');
                 var dateNeeded = button.data('date-needed');
                 var status = button.data('status') || 'pending_supervisor_approval';
                 var reference = 'CA-' + String(id).padStart(5, '0');
-
                 var modal = $(this);
                 modal.find('#ca-modal-name').text(name);
                 modal.find('#ca-modal-amount').text(amount);
                 modal.find('#ca-modal-date').text(dateNeeded);
                 modal.find('#ca-modal-reference-header').text(reference);
-
                 let original = {};
                 try {
                     original = typeof button.data('original') === 'string' ? JSON.parse(button.data('original')) : button.data('original');
                 } catch(e) {}
-
-                // Dynamic Details Logic
                 const fieldLabels = {
                     'purpose': 'Purpose / Justification',
                     'date_needed': 'Date Needed',
@@ -1332,7 +1500,6 @@
                     'approved_by_director', 'director_approved_at',
                     'rejected_by', 'rejected_at', 'rejection_reason', 'amount'
                 ];
-
                 let detailsHtml = `<div class="table-responsive"><table class="table table-sm table-borderless mb-0"><tbody>`;
                 Object.keys(original).forEach(key => {
                     const val = original[key];
@@ -1346,8 +1513,6 @@
                 });
                 detailsHtml += `</tbody></table></div>`;
                 modal.find('#ca-modal-details').html(detailsHtml);
-
-                // Status Configuration matching admin-finance logic
                 const statusConfig = {
                     'pending_supervisor_approval': { badge: 'warning', text: 'Manager Review' },
                     'pending_admin_approval': { badge: 'info', text: 'Finance Review (2nd Approval)' },
@@ -1358,12 +1523,9 @@
                 };
                 const config = statusConfig[status] || { badge: 'secondary', text: status.replace('_', ' ') };
                 modal.find('#ca-modal-status').html(`<span class="status-badge status-${config.badge === 'warning' ? 'pending' : (config.badge === 'danger' ? 'danger' : 'success')}">${config.text}</span>`);
-
-                // Update Form Actions
                 var triggerType = button.attr('data-type') || '';
                 var approveActionUrl = '/employee/cash-advance/' + id;
                 var rejectActionUrl = '/employee/cash-advance/' + id;
-
                 if (triggerType === 'Auto Debit Letter' || triggerType === 'Auto Debit') {
                     if (status === 'pending_director' || status === 'Pending Director Approval') {
                         approveActionUrl = '/production/ford/auto-debit/' + id + '/approve-director';
@@ -1372,40 +1534,32 @@
                     }
                     rejectActionUrl = '/production/ford/auto-debit/' + id + '/reject';
                 }
-
                 modal.find('#ca-approve-form').attr('action', approveActionUrl);
                 modal.find('#ca-reject-form').attr('action', rejectActionUrl);
-                
-                // Hide actions if view-only, completed, or rejected
                 var viewOnly = button.data('view-only') === true || button.data('view-only') === 'true';
                 if (viewOnly || status === 'approved' || status === 'rejected') {
                     modal.find('#ca-approve-form, #ca-reject-form').hide();
                 } else {
                     modal.find('#ca-approve-form, #ca-reject-form').show();
                 }
-
-                // Reset rejection container
-                $('#rejection-reason-container').hide();
             });
-
-            // Stock Transfer Modal Population
             $('#stockTransferApprovalModal').on('show.bs.modal', function (event) {
                 var button = $(event.relatedTarget);
-                var id = button.data('id');
-                var fromSite = button.data('from-site');
-                var toSite   = button.data('to-site');
-                var submittedBy = button.data('submitted-by') || 'N/A';
-                var dateSubmitted = button.data('date') || 'N/A';
-                var notes = button.data('notes') || '';
-                var reference = 'ST-' + String(id).padStart(5, '0');
-
+                if (button.length && !button.data('id')) {
+                    button = button.closest('[data-id]');
+                }
+                var id = button.data('id') || button.attr('data-id');
+                var fromSite = button.data('from-site') || button.attr('data-from-site');
+                var toSite   = button.data('to-site') || button.attr('data-to-site');
+                var submittedBy = button.data('submitted-by') || button.attr('data-submitted-by') || 'N/A';
+                var dateSubmitted = button.data('date') || button.attr('data-date') || 'N/A';
+                var notes = button.data('notes') || button.attr('data-notes') || '';
+                var reference = 'ST-' + String(id || 0).padStart(5, '0');
                 var itemsData = [];
-                // Look up items from the PHP-injected JS object (100% reliable)
-                var batchInfo = stockTransferBatchData[id];
+                var batchInfo = (typeof stockTransferBatchData !== 'undefined') ? stockTransferBatchData[id] : null;
                 if (batchInfo && Array.isArray(batchInfo.items) && batchInfo.items.length > 0) {
                     itemsData = batchInfo.items;
                 } else {
-                    // Fallback: try parsing data-items attribute
                     var itemsRaw = button.attr('data-items');
                     if (itemsRaw) {
                         try { itemsData = JSON.parse(itemsRaw); } catch(e) { itemsData = []; }
@@ -1414,17 +1568,12 @@
                         itemsData = [{ name: button.attr('data-book-name') || 'Unknown Item', type: 'Book', quantity: 1 }];
                     }
                 }
-
                 var modal = $(this);
-
-                // Populate info cards
                 modal.find('#st-submitted-by').text(submittedBy);
                 modal.find('#st-from-site').text(fromSite || 'N/A');
                 modal.find('#st-to-site').text(toSite || 'N/A');
                 modal.find('#st-modal-date').text(dateSubmitted);
                 modal.find('#st-modal-reference-header').text(reference + (itemsData.length > 1 ? ' (' + itemsData.length + ' items)' : ''));
-
-                // Build items table
                 var rowsHtml = '';
                 var totalQty = 0;
                 var grandTotalVal = 0;
@@ -1435,7 +1584,6 @@
                     var barcode = item.barcode || '';
                     var lineTotal = qty * unitPrice;
                     grandTotalVal += lineTotal;
-
                     var typeColor = item.type === 'Book' ? 'success' : (item.type === 'Bundle' ? 'warning' : 'secondary');
                     rowsHtml += `<tr>
                         <td class="fw-semibold text-dark">
@@ -1457,49 +1605,70 @@
                 }
                 modal.find('#st-items-body').html(rowsHtml);
                 modal.find('#st-modal-total').text(itemsData.length + ' title(s) · ' + totalQty + ' pcs total');
-
-                // Show notes if present
                 if (notes && notes.trim() !== '') {
                     modal.find('#st-notes-text').text(notes);
                     modal.find('#st-notes-row').show();
                 } else {
                     modal.find('#st-notes-row').hide();
                 }
-
                 modal.data('transfer-id', id);
+                modal.attr('data-transfer-id', id);
+                window.currentStockTransferId = id;
                 $('#st-rejection-reason-container').hide();
                 $('#st-rejection-reason-text').val('');
                 $('#st-approval-remarks').val('');
             });
-
-            // Stock Transfer Approve Button Handler
-            $(document).on('click', '#st-approve-btn', function() {
-                var transferId = $('#stockTransferApprovalModal').data('transfer-id');
+            $(document).on('click', '#st-approve-btn', function(e) {
+                e.preventDefault();
+                var modal = $('#stockTransferApprovalModal');
+                var transferId = modal.data('transfer-id') || modal.attr('data-transfer-id') || window.currentStockTransferId;
+                if (!transferId) {
+                    var refText = modal.find('#st-modal-reference-header').text();
+                    var match = refText.match(/ST-(\d+)/i);
+                    if (match) {
+                        transferId = parseInt(match[1], 10);
+                    }
+                }
                 if (transferId) {
                     approveStockTransfer(transferId);
+                } else {
+                    alert('Unable to identify stock transfer ID. Please refresh and try again.');
                 }
             });
-
-            // Stock Transfer Reject Button Handler
-            $(document).on('click', '#st-reject-btn, #st-confirm-reject-btn', function() {
-                var transferId = $('#stockTransferApprovalModal').data('transfer-id');
+            $(document).on('click', '#st-reject-btn, #st-confirm-reject-btn', function(e) {
+                e.preventDefault();
+                var modal = $('#stockTransferApprovalModal');
+                var transferId = modal.data('transfer-id') || modal.attr('data-transfer-id') || window.currentStockTransferId;
+                if (!transferId) {
+                    var refText = modal.find('#st-modal-reference-header').text();
+                    var match = refText.match(/ST-(\d+)/i);
+                    if (match) {
+                        transferId = parseInt(match[1], 10);
+                    }
+                }
                 if (transferId) {
                     rejectStockTransfer(transferId);
+                } else {
+                    alert('Unable to identify stock transfer ID. Please refresh and try again.');
                 }
             });
+            $(document).on('submit', '#ca-reject-form', function(e) {
+                const form = this;
+                if ($(form).data('rejection-confirmed') === true) {
+                    return true;
+                }
+                e.preventDefault();
+                let initialReason = ($(form).find('textarea[name="rejection_reason"]').val() || '').trim();
+                $('#cashAdvanceModal').modal('hide');
+                setTimeout(function() {
+                    window.openTwoStepRejectionFlow(initialReason, function(confirmedReason) {
+                        $(form).find('textarea[name="rejection_reason"]').val(confirmedReason);
+                        $(form).data('rejection-confirmed', true);
+                        form.submit();
+                    });
+                }, 300);
+            });
         });
-
-        function toggleRejection() {
-            var container = $('#rejection-reason-container');
-            container.toggle();
-        }
-
-        function toggleStRejection() {
-            var container = $('#st-rejection-reason-container');
-            container.toggle();
-        }
-
-        // Stock Transfer Approval AJAX Handler
         function approveStockTransfer(transferId) {
             var remarksVal = $('#st-approval-remarks').val();
             $.ajax({
@@ -1515,7 +1684,7 @@
                     if (response.success) {
                         alert(response.message);
                         $('#stockTransferApprovalModal').modal('hide');
-                        location.reload(); // Refresh page to update queue
+                        location.reload();
                     }
                 },
                 error: function(xhr) {
@@ -1527,13 +1696,9 @@
                 }
             });
         }
-
-        // Stock Transfer Rejection AJAX Handler
         function rejectStockTransfer(transferId) {
             var initialReason = ($('#st-approval-remarks').val() || $('textarea[name="rejection_reason"]').val() || '').trim();
-
             $('#stockTransferApprovalModal').modal('hide');
-
             setTimeout(function() {
                 window.openTwoStepRejectionFlow(initialReason, function(confirmedReason) {
                     $.ajax({
@@ -1562,28 +1727,6 @@
                 });
             }, 300);
         }
-
-        $(document).ready(function() {
-            $(document).on('submit', '#ca-reject-form', function(e) {
-                const form = this;
-                if ($(form).data('rejection-confirmed') === true) {
-                    return true;
-                }
-                e.preventDefault();
-
-                let initialReason = ($(form).find('textarea[name="rejection_reason"]').val() || '').trim();
-
-                $('#cashAdvanceModal').modal('hide');
-
-                setTimeout(function() {
-                    window.openTwoStepRejectionFlow(initialReason, function(confirmedReason) {
-                        $(form).find('textarea[name="rejection_reason"]').val(confirmedReason);
-                        $(form).data('rejection-confirmed', true);
-                        form.submit();
-                    });
-                }, 300);
-            });
-        });
     </script>
     @endpush
 </x-app-layout>

@@ -204,16 +204,8 @@
                                                 <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-info shadow btn-xs sharp" title="Print Sales Invoice Form"><i class="fas fa-print"></i></a>
                                             @endif
                                             
-                                            @php
-                                                $isAdmin = auth()->check() && (
-                                                    auth()->user()->isSuperAdmin() || 
-                                                    str_contains(strtolower(auth()->user()->position ?? ''), 'admin') || 
-                                                    str_contains(strtolower(auth()->user()->department ?? ''), 'admin')
-                                                );
-                                            @endphp
-
-                                            <!-- Edit & Delete Buttons (Admin or Draft/Approved) -->
-                                            @if($isAdmin || $order->status == 'draft' || $order->status == 'mkt_approved')
+                                            <!-- Edit & Delete Buttons (Super Admin Only) -->
+                                            @if(auth()->check() && auth()->user()->isSuperAdmin())
                                                 <a href="{{ route('marketing.sales-orders.edit', $order->id) }}" class="btn btn-warning shadow btn-xs sharp" title="Edit Order"><i class="fas fa-pencil-alt"></i></a>
                                                 
                                                 <button type="button" class="btn btn-danger shadow btn-xs sharp" title="Delete Order" 

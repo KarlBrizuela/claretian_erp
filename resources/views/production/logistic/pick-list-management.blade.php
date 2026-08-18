@@ -61,16 +61,18 @@
                                         <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum(fn($i) => $i->salesOrderItem->subtotal ?? 0), 2) }}</td>
                                         <td>{{ $pickList->created_at?->format('M d, Y') ?? 'N/A' }}</td>
                                         <td>
-                                            <button type="button" class="btn btn-sm btn-warning recreate-picklist-btn"
-                                                    data-order-id="{{ $pickList->salesOrder?->id ?? '' }}"
-                                                    data-pick-list-id="{{ $pickList->id }}"
-                                                    data-so-number="{{ $pickList->salesOrder?->so_number ?? 'N/A' }}"
-                                                    data-customer="{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}"
-                                                    data-date="{{ $pickList->created_at?->format('Y-m-d') ?? '' }}"
-                                                    data-items='{{ $pickListItemsJson }}'
-                                                    style="background: #ffc107; border: none; color: #000;">
-                                                <i class="las la-redo me-1"></i> Recreate
-                                            </button>
+                                            @if(auth()->check() && auth()->user()->isSuperAdmin())
+                                                <button type="button" class="btn btn-sm btn-warning recreate-picklist-btn"
+                                                        data-order-id="{{ $pickList->salesOrder?->id ?? '' }}"
+                                                        data-pick-list-id="{{ $pickList->id }}"
+                                                        data-so-number="{{ $pickList->salesOrder?->so_number ?? 'N/A' }}"
+                                                        data-customer="{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}"
+                                                        data-date="{{ $pickList->created_at?->format('Y-m-d') ?? '' }}"
+                                                        data-items='{{ $pickListItemsJson }}'
+                                                        style="background: #ffc107; border: none; color: #000;">
+                                                    <i class="las la-redo me-1"></i> Recreate
+                                                </button>
+                                            @endif
                                             <a href="{{ route('production.logistic.shipping-label', $pickList->salesOrder?->id ?? $pickList->id) }}" target="_blank" class="btn btn-sm btn-outline-primary ms-1" title="Print Shipping Label">
                                                 <i class="las la-tag me-1"></i> Label
                                             </a>

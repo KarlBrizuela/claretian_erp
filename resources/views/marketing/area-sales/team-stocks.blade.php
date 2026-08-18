@@ -276,11 +276,20 @@
                                             @endif
                                         </td>
                                         <td>{{ $tr->notes ?: '—' }}</td>
-                                        <td class="text-end">
-                                            <button type="button" class="btn btn-xs btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#transferDetailModal{{ $tr->id }}">
-                                                View Details
-                                            </button>
-                                        </td>
+                                         <td class="text-end">
+                                             <button type="button" class="btn btn-xs btn-outline-secondary me-1" data-bs-toggle="modal" data-bs-target="#transferDetailModal{{ $tr->id }}">
+                                                 View Details
+                                             </button>
+                                             @if(auth()->check() && auth()->user()->isSuperAdmin())
+                                                 <form action="{{ route('production.logistic.team-stock-transfer.delete', $tr->id) }}" method="POST" class="d-inline m-0" onsubmit="return confirm('Are you sure you want to delete Team Stock Transfer {{ $tr->transfer_number }}?');">
+                                                     @csrf
+                                                     @method('DELETE')
+                                                     <button type="submit" class="btn btn-xs btn-danger fw-bold" style="background-color: #dc3545; border: none;" title="Delete Transfer">
+                                                         <i class="fas fa-trash me-1"></i>Delete
+                                                     </button>
+                                                 </form>
+                                             @endif
+                                         </td>
                                     </tr>
                                     @empty
                                     <tr>
@@ -298,7 +307,7 @@
 
     <!-- New Transfer Modal -->
     <div class="modal fade" id="newTransferModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 1200px;">
             <div class="modal-content">
                 <form action="{{ route('marketing.area-sales.team-stocks.transfer') }}" method="POST">
                     @csrf
@@ -342,7 +351,7 @@
 
                         <div id="excelImportStatus" style="display: none;"></div>
 
-                        <div id="transferItemsContainer" style="max-height: 350px; min-height: 120px; overflow-y: auto; padding-right: 5px;">
+                        <div id="transferItemsContainer" style="max-height: 480px; min-height: 150px; overflow-y: auto; padding-right: 5px;">
                             <div class="transfer-item-row row g-2 mb-2 align-items-end">
                                 <div class="col-md-7">
                                     <label class="form-label small fw-bold mb-1">Product Title / Code (Main Warehouse Stock)</label>
@@ -393,7 +402,7 @@
     <!-- Transfer Detail Modals -->
     @foreach($transfers as $tr)
     <div class="modal fade" id="transferDetailModal{{ $tr->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-md">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold text-dark">Transfer Details: {{ $tr->transfer_number }}</h5>

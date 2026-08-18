@@ -2287,6 +2287,10 @@ class MarketingController extends Controller
 
     public function editSalesOrder($id)
     {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Unauthorized. Only Super Admin can edit sales orders.');
+        }
+
         $order = \App\Models\SalesOrder::with(['items.book', 'items.bookIndex.book', 'items.bundle'])->findOrFail($id);
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
         $products = $this->getUnifiedProducts();
@@ -2350,6 +2354,9 @@ class MarketingController extends Controller
 
     public function updateSalesOrder(Request $request, $id)
     {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Unauthorized. Only Super Admin can edit sales orders.');
+        }
         $so = \App\Models\SalesOrder::with('items')->findOrFail($id);
         
         $validated = $request->validate([
@@ -3319,6 +3326,10 @@ class MarketingController extends Controller
 
     public function destroySalesOrder($id)
     {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Unauthorized. Only Super Admin can delete sales orders.');
+        }
+
         $so = \App\Models\SalesOrder::findOrFail($id);
         
         // 1. Restore stock if already gathered/deducted

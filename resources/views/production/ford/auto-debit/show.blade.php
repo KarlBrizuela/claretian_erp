@@ -353,6 +353,19 @@
                     input.value = reason;
                     form.submit();
                 });
+            } else {
+                let reason = prompt('Please enter rejection reason:');
+                if (reason !== null && reason.trim() !== '') {
+                    let input = form.querySelector('input[name="rejection_reason"]');
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'rejection_reason';
+                        form.appendChild(input);
+                    }
+                    input.value = reason.trim();
+                    form.submit();
+                }
             }
         }
     </script>
