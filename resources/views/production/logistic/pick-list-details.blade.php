@@ -154,6 +154,7 @@
                                         $bookIndex = $soItem?->bookIndex;
                                         $bundle = $soItem?->bundle;
                                         $prodName = $bookIndex ? $bookIndex->display_name : ($book ? $book->name : ($bundle ? $bundle->name : ($soItem?->item_name ?? 'Unknown Product')));
+                                        $itemType = $soItem?->item_type ?? ($bookIndex ? 'Index' : ($bundle ? 'Bundle' : 'Book'));
                                         $isbn = $bookIndex ? ($bookIndex->book?->isbn ?? $bookIndex->book?->sku) : ($book ? ($book->isbn ?? $book->sku) : ($bundle ? ($bundle->sku ?? '') : ''));
                                         $barcode = $bookIndex ? ($bookIndex->book?->barcode) : ($book ? ($book->barcode ?? '') : '');
                                         $pickedQtyInt = (int) $item->picked_qty;
@@ -162,7 +163,16 @@
                                     @endphp
                                     <tr data-product="{{ $prodName }}">
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center;">{{ $loop->iteration }}</td>
-                                        <td style="padding: 0.6rem; border: 1px solid #ddd;">{{ $prodName }}</td>
+                                        <td style="padding: 0.6rem; border: 1px solid #ddd;">
+                                            {{ $prodName }}
+                                            @if($itemType === 'Bundle')
+                                                <span class="badge ms-1" style="background: #6f42c1; color: #fff; font-weight: 600;">Bundle</span>
+                                            @elseif($itemType === 'Index')
+                                                <span class="badge bg-info text-dark ms-1" style="font-weight: 600;">Index</span>
+                                            @else
+                                                <span class="badge bg-primary ms-1" style="font-weight: 600;">Book</span>
+                                            @endif
+                                        </td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center; font-size: 0.8rem; font-family: monospace;">{{ $isbn ?: '—' }}</td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center; font-size: 0.8rem; font-family: monospace;">{{ $barcode ?: '—' }}</td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center;">{{ (int) $item->requested_qty }}</td>
@@ -191,7 +201,7 @@
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="8" style="padding: 1rem; text-align: center; color: #999;">No items in this pick list.</td>
+                                        <td colspan="10" style="padding: 1rem; text-align: center; color: #999;">No items in this pick list.</td>
                                     </tr>
                                     @endforelse
                                 </tbody>

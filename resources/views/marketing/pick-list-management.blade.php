@@ -164,11 +164,14 @@
                             <tr>
                                 <td>1</td>
                                 <td>
-                                    <select class="product-select" onchange="loadProductLocation(this)">
-                                        <option value="">Select Product</option>
-                                        <option value="1">Holy Bible - NIV</option>
-                                        <option value="2">Purpose Driven Life</option>
-                                    </select>
+                                    <div class="d-flex align-items-center">
+                                        <select class="product-select flex-grow-1" onchange="loadProductLocation(this)">
+                                            <option value="">Select Product</option>
+                                            <option value="1">Holy Bible - NIV</option>
+                                            <option value="2">Purpose Driven Life</option>
+                                        </select>
+                                        <span class="badge bg-primary ms-1">Book</span>
+                                    </div>
                                 </td>
                                 <td>
                                     <select class="location-select">

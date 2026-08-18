@@ -23,14 +23,22 @@ class CustomerController extends Controller
             $query->where(function($q) use ($search) {
                 $q->whereRaw('LOWER(customer_name) LIKE ?', ["%{$search}%"])
                   ->orWhereRaw('LOWER(company_name) LIKE ?', ["%{$search}%"])
-                  ->orWhereRaw('LOWER(mobile) LIKE ?', ["%{$search}%"])
-                  ->orWhereRaw('LOWER(main_email) LIKE ?', ["%{$search}%"])
-                  ->orWhereRaw('LOWER(account_number) LIKE ?', ["%{$search}%"])
-                  ->orWhereRaw('LOWER(shipping_address) LIKE ?', ["%{$search}%"]);
+                  ->orWhereRaw('LOWER(COALESCE(first_name, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(last_name, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(mobile, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(main_phone, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(work_phone, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(main_email, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(account_number, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(rep, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(customer_type, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(custom_contact_person, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(shipping_address, "")) LIKE ?', ["%{$search}%"])
+                  ->orWhereRaw('LOWER(COALESCE(billing_address, "")) LIKE ?', ["%{$search}%"]);
             });
         }
 
-        $customers = $query->orderBy('customer_name', 'asc')->paginate(15)->withQueryString();
+        $customers = $query->orderBy('created_at', 'desc')->orderBy('customer_id', 'desc')->paginate(15)->withQueryString();
 
         return view('marketing.customers', [
             'customers' => $customers,

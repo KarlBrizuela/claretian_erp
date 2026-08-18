@@ -2721,27 +2721,62 @@ class MarketingController extends Controller
         return redirect()->back()->with('success', 'Invoice #' . $order->so_number . ' approved! Routed to Logistics for picking.');
     }
 
+    private function resolvePlatformSite($platformStr)
+    {
+        $platformStr = strtolower(trim($platformStr));
+        if (str_contains($platformStr, 'lazada')) {
+            return \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%lazada%'])->orWhereRaw('LOWER(code) LIKE ?', ['%lzd%'])->first();
+        }
+        if (str_contains($platformStr, 'shope') || str_contains($platformStr, 'shoppe')) {
+            return \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%shop%'])->orWhereRaw('LOWER(code) LIKE ?', ['%shp%'])->first();
+        }
+        if (str_contains($platformStr, 'tiktok') || str_contains($platformStr, 'tik')) {
+            return \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%tik%'])->orWhereRaw('LOWER(code) LIKE ?', ['%tik%'])->first();
+        }
+        if (str_contains($platformStr, 'cob')) {
+            return \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%cob%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%consignment%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%bookstore%'])
+                ->orWhereRaw('LOWER(code) LIKE ?', ['%cob%'])
+                ->first();
+        }
+        return \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%main%'])->first();
+    }
+
     public function directInvoiceEcom()
     {
         $customers = \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get();
         $products = $this->getUnifiedProducts();
 
-        // Load stocks for B2C platforms: Lazada (site_id=3), Shopee (site_id=4), TikTok (site_id=5), Main (site_id=1)
+        $lazadaSite = $this->resolvePlatformSite('lazada');
+        $shopeeSite = $this->resolvePlatformSite('shopee');
+        $tiktokSite = $this->resolvePlatformSite('tiktok');
+        $cobSite    = $this->resolvePlatformSite('cob');
+        $mainSite   = $this->resolvePlatformSite('main');
+
+        $lazadaSiteId = $lazadaSite?->id ?? 3;
+        $shopeeSiteId = $shopeeSite?->id ?? 4;
+        $tiktokSiteId = $tiktokSite?->id ?? 5;
+        $cobSiteId    = $cobSite?->id ?? 6;
+        $mainSiteId   = $mainSite?->id ?? 1;
+
+        // Load stocks for specific platform sites: Lazada, Shopee, TikTok, COB, Main (for Books, Indices, and Bundles)
         foreach ($products as $product) {
             $realId = $product->real_id ?? $product->id;
-            if (($product->type ?? 'book') === 'book') {
-                $product->lazada_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 3)->value('quantity') ?? 0;
-                $product->shopee_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 4)->value('quantity') ?? 0;
-                $product->tiktok_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 5)->value('quantity') ?? 0;
-                $product->cob_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 6)->value('quantity') ?? $product->stock ?? 0;
-                $product->main_stock = \DB::table('site_inventory')->where('book_id', $realId)->where('site_id', 1)->value('quantity') ?? 0;
-            } else {
-                $product->lazada_stock = $product->stock ?? 0;
-                $product->shopee_stock = $product->stock ?? 0;
-                $product->tiktok_stock = $product->stock ?? 0;
-                $product->cob_stock = $product->stock ?? 0;
-                $product->main_stock = $product->stock ?? 0;
+            $pType  = strtolower($product->type ?? 'book');
+
+            $colName = 'book_id';
+            if ($pType === 'book_index' || $pType === 'index') {
+                $colName = 'book_index_id';
+            } elseif ($pType === 'bundle' || $pType === 'book_bundle') {
+                $colName = 'book_bundle_id';
             }
+
+            $product->lazada_stock = \DB::table('site_inventory')->where($colName, $realId)->where('site_id', $lazadaSiteId)->value('quantity') ?? 0;
+            $product->shopee_stock = \DB::table('site_inventory')->where($colName, $realId)->where('site_id', $shopeeSiteId)->value('quantity') ?? 0;
+            $product->tiktok_stock = \DB::table('site_inventory')->where($colName, $realId)->where('site_id', $tiktokSiteId)->value('quantity') ?? 0;
+            $product->cob_stock    = \DB::table('site_inventory')->where($colName, $realId)->where('site_id', $cobSiteId)->value('quantity') ?? 0;
+            $product->main_stock   = \DB::table('site_inventory')->where($colName, $realId)->where('site_id', $mainSiteId)->value('quantity') ?? 0;
         }
 
         $invoices = \App\Models\SalesOrder::with('customer', 'preparedBy')
@@ -2778,18 +2813,8 @@ class MarketingController extends Controller
             'remarks' => 'nullable|string',
         ]);
 
-        // Determine platform site (Lazada, Shoppee, Tiktok, COB)
-        $platformStr = strtolower($request->ecom_platform);
-        $targetSite = null;
-        if ($platformStr === 'lazada') {
-            $targetSite = \App\Models\Site::whereRaw('LOWER(name) = ?', ['lazada'])->first();
-        } elseif ($platformStr === 'shopee' || $platformStr === 'shoppee') {
-            $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%shop%'])->first();
-        } elseif ($platformStr === 'tiktok') {
-            $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%tik%'])->first();
-        } elseif ($platformStr === 'cob') {
-            $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%cob%'])->first();
-        }
+        // Determine platform site (Lazada, Shopee, Tiktok, COB)
+        $targetSite = $this->resolvePlatformSite($request->ecom_platform);
         if (!$targetSite) {
             $targetSite = \App\Models\Site::where('name', 'Main Warehouse')->first();
         }
@@ -2799,12 +2824,27 @@ class MarketingController extends Controller
         foreach ($request->items as $item) {
             if (empty($item['product_id'])) continue;
             $target = $this->resolveItemTarget($item['product_id']);
-            $siteInv = ($targetSite && $target['book_id']) ? \App\Models\SiteInventory::where('site_id', $targetSite->id)->where('book_id', $target['book_id'])->first() : null;
-            $siteStock = $siteInv ? $siteInv->quantity : $target['stock'];
+
+            $siteInv = null;
+            if ($targetSite) {
+                $query = \App\Models\SiteInventory::where('site_id', $targetSite->id);
+                if ($target['book_id']) {
+                    $query->where('book_id', $target['book_id']);
+                } elseif ($target['book_index_id']) {
+                    $query->where('book_index_id', $target['book_index_id']);
+                } elseif ($target['bundle_id']) {
+                    $query->where('book_bundle_id', $target['bundle_id']);
+                } else {
+                    $query = null;
+                }
+                $siteInv = $query ? $query->first() : null;
+            }
+
+            $siteStock = $siteInv ? (int)$siteInv->quantity : (int)$target['stock'];
 
             if (!$target['exists'] || $siteStock < $item['quantity']) {
                 $bookName = $target['name'];
-                $siteNameLabel = $targetSite ? $targetSite->name : 'Site';
+                $siteNameLabel = $targetSite ? $targetSite->name : ucfirst($request->ecom_platform);
                 $insufficientItems[] = "$bookName (Available at $siteNameLabel: $siteStock pcs, Requested: {$item['quantity']} pcs)";
             }
         }
@@ -2924,37 +2964,65 @@ class MarketingController extends Controller
                 'source_price_at_sale' => $target['source_price'],
             ]);
 
-            // Deduct from specific platform site inventory (Lazada, Shoppee, Tiktok)
-            if ($targetSite && $book) {
-                $siteInv = \App\Models\SiteInventory::firstOrNew([
-                    'site_id' => $targetSite->id,
-                    'book_id' => $book->id
-                ]);
+            // Deduct from specific platform site inventory (Lazada, Shopee, Tiktok, COB) for Books, Indices, and Bundles
+            if ($targetSite) {
+                $siteInvQuery = \App\Models\SiteInventory::where('site_id', $targetSite->id);
+                $keyAttrs = ['site_id' => $targetSite->id];
+
+                if ($target['book_id']) {
+                    $siteInvQuery->where('book_id', $target['book_id']);
+                    $keyAttrs['book_id'] = $target['book_id'];
+                } elseif ($target['book_index_id']) {
+                    $siteInvQuery->where('book_index_id', $target['book_index_id']);
+                    $keyAttrs['book_index_id'] = $target['book_index_id'];
+                } elseif ($target['bundle_id']) {
+                    $siteInvQuery->where('book_bundle_id', $target['bundle_id']);
+                    $keyAttrs['book_bundle_id'] = $target['bundle_id'];
+                }
+
+                $siteInv = $siteInvQuery->first();
+                if (!$siteInv) {
+                    $siteInv = new \App\Models\SiteInventory($keyAttrs);
+                }
                 $siteInv->quantity = max(0, ($siteInv->quantity ?? 0) - $item['quantity']);
                 $siteInv->save();
             }
 
-            // Deduct master book stock
-            if ($book) {
+            // Deduct master stock & log transaction
+            if ($target['book_id'] && $book) {
                 $book->stock = max(0, ($book->stock ?? 0) - $item['quantity']);
                 $book->save();
-
-                // Record inventory transaction
-                \App\Models\InventoryTransaction::create([
-                    'book_id' => $book->id,
-                    'type' => 'out',
-                    'quantity' => $item['quantity'],
-                    'location' => $targetSite ? $targetSite->name : 'Main Warehouse',
-                    'source' => 'Direct E-Com (' . ucfirst($request->ecom_platform) . ')',
-                    'reference_number' => $invoiceNumber,
-                    'unit_cost' => $book->cost ?? 0,
-                    'total_cost' => $item['quantity'] * ($book->cost ?? 0),
-                    'notes' => 'Direct E-Com Invoice #' . $invoiceNumber . ' - Platform: ' . ucfirst($request->ecom_platform),
-                    'status' => 'completed',
-                    'transaction_date' => now(),
-                    'user_id' => auth()->id()
-                ]);
+            } elseif ($target['book_index_id']) {
+                $bookIndex = \App\Models\BookIndex::find($target['book_index_id']);
+                if ($bookIndex && isset($bookIndex->stock)) {
+                    $bookIndex->stock = max(0, ($bookIndex->stock ?? 0) - $item['quantity']);
+                    $bookIndex->save();
+                }
+            } elseif ($target['bundle_id']) {
+                $bundle = \App\Models\BookBundle::find($target['bundle_id']);
+                if ($bundle && isset($bundle->stock)) {
+                    $bundle->stock = max(0, ($bundle->stock ?? 0) - $item['quantity']);
+                    $bundle->save();
+                }
             }
+
+            // Record inventory transaction
+            \App\Models\InventoryTransaction::create([
+                'book_id' => $target['book_id'],
+                'book_index_id' => $target['book_index_id'],
+                'book_bundle_id' => $target['bundle_id'],
+                'type' => 'out',
+                'quantity' => $item['quantity'],
+                'location' => $targetSite ? $targetSite->name : 'Main Warehouse',
+                'source' => 'Direct E-Com (' . ucfirst($request->ecom_platform) . ')',
+                'reference_number' => $invoiceNumber,
+                'unit_cost' => $target['source_price'] ?? 0,
+                'total_cost' => $item['quantity'] * ($target['source_price'] ?? 0),
+                'notes' => 'Direct E-Com Invoice #' . $invoiceNumber . ' - Platform: ' . ucfirst($request->ecom_platform),
+                'status' => 'completed',
+                'transaction_date' => now(),
+                'user_id' => auth()->id()
+            ]);
         }
 
         $so->update(['total_amount' => $totalAmount]);

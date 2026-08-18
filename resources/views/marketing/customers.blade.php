@@ -1747,13 +1747,16 @@
                     
                     // Show success modal
                     document.getElementById('successMessage').textContent = 'Customer saved successfully!';
-                    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                    const successModalElement = document.getElementById('successModal');
+                    const successModal = new bootstrap.Modal(successModalElement);
                     successModal.show();
                     
-                    // Add reload functionality to OK button if not already there
-                    document.getElementById('successOkBtn').onclick = function() {
-                        window.location.reload();
+                    const reloadWithNewCustomer = function() {
+                        window.location.href = '{{ route("marketing.customers") }}';
                     };
+                    
+                    document.getElementById('successOkBtn').onclick = reloadWithNewCustomer;
+                    successModalElement.addEventListener('hidden.bs.modal', reloadWithNewCustomer, { once: true });
                 } else {
                     let errorMsg = result.message || 'Failed to save customer.';
                     if (result.errors) {
@@ -2683,59 +2686,47 @@
             });
         }
 
-        // Customer Search Functionality (Enter Key for Server Pagination + Filter for Current Page)
+        // Customer Search Functionality (Debounced Server Search across all DB records)
         const customerSearchInput = document.getElementById('customerSearch');
         if (customerSearchInput) {
+            let searchDebounceTimeout = null;
+
+            const executeServerSearch = function(val) {
+                const searchTerm = (val || '').trim();
+                const url = new URL(window.location.href);
+                const currentSearch = url.searchParams.get('search') || '';
+
+                if (searchTerm === currentSearch) return;
+
+                if (searchTerm) {
+                    url.searchParams.set('search', searchTerm);
+                } else {
+                    url.searchParams.delete('search');
+                }
+                url.searchParams.delete('page');
+                window.location.href = url.toString();
+            };
+
             customerSearchInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    const searchTerm = this.value.trim();
-                    const url = new URL(window.location.href);
-                    if (searchTerm) {
-                        url.searchParams.set('search', searchTerm);
-                    } else {
-                        url.searchParams.delete('search');
-                    }
-                    url.searchParams.delete('page');
-                    window.location.href = url.toString();
+                    clearTimeout(searchDebounceTimeout);
+                    executeServerSearch(this.value);
                 }
             });
 
             customerSearchInput.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                const rows = document.querySelectorAll('#customerTableBody tr:not(#noResultsRow)');
-                let hasVisibleRows = false;
-                let totalActualRows = 0;
-                
-                rows.forEach(row => {
-                    if (row.cells.length <= 1 && row.textContent.includes('No customers found')) {
-                        return; 
-                    }
-                    
-                    totalActualRows++;
-                    const text = row.textContent.toLowerCase();
-                    if (text.includes(searchTerm)) {
-                        row.style.display = '';
-                        hasVisibleRows = true;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-                
-                if (totalActualRows > 0) {
-                    let noResultsRow = document.getElementById('noResultsRow');
-                    if (!hasVisibleRows) {
-                        if (!noResultsRow) {
-                            noResultsRow = document.createElement('tr');
-                            noResultsRow.id = 'noResultsRow';
-                            noResultsRow.innerHTML = '<td colspan="8" class="text-center py-4">No customers match your search.</td>';
-                            document.getElementById('customerTableBody').appendChild(noResultsRow);
-                        }
-                        noResultsRow.style.display = '';
-                    } else if (noResultsRow) {
-                        noResultsRow.style.display = 'none';
-                    }
+                const searchTerm = this.value;
+                clearTimeout(searchDebounceTimeout);
+
+                if (searchTerm.trim() === '') {
+                    executeServerSearch('');
+                    return;
                 }
+
+                searchDebounceTimeout = setTimeout(() => {
+                    executeServerSearch(searchTerm);
+                }, 500);
             });
         }
 

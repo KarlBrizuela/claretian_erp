@@ -1350,11 +1350,21 @@ $isAdmin = auth()->check() && (
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = htmlspecialchars(json_encode($uniqueBarcodes), ENT_QUOTES, 'UTF-8');
                                     $isItemPacked = $tt->status === 'completed';
+                                    $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                 @endphp
                                 <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPacked ? '#d4edda' : '#f8d7da' }};">
                                     <td>{{ $idx + 1 }}</td>
                                     <td class="fw-bold text-dark">
-                                        <div>{{ $itemName }}</div>
+                                        <div>
+                                            {{ $itemName }}
+                                            @if($tItemType === 'Bundle')
+                                                <span class="badge ms-1" style="background:#6f42c1; color:#fff;">Bundle</span>
+                                            @elseif($tItemType === 'Index')
+                                                <span class="badge bg-info text-dark ms-1">Index</span>
+                                            @else
+                                                <span class="badge bg-primary ms-1">Book</span>
+                                            @endif
+                                        </div>
                                         @if(!empty($uniqueBarcodes))
                                             <small class="text-muted d-block"><i class="fas fa-barcode me-1"></i>{{ implode(', ', $uniqueBarcodes) }}</small>
                                         @endif
@@ -2571,13 +2581,21 @@ $isAdmin = auth()->check() && (
     'N/A';
 
     
+                        const itemType = item.item_type || (item.bundle_id || item.bundle || item.book_bundle || item.bookBundle ? 'Bundle' : (item.book_index_id || item.book_index || item.bookIndex ? 'Index' : 'Book'));
+                        let typeBadgeHtml = '<span class="badge bg-primary ms-1">Book</span>';
+                        if (itemType === 'Bundle') {
+                            typeBadgeHtml = '<span class="badge ms-1" style="background:#6f42c1; color:#fff;">Bundle</span>';
+                        } else if (itemType === 'Index') {
+                            typeBadgeHtml = '<span class="badge bg-info text-dark ms-1">Index</span>';
+                        }
+
                         const unitPrice = parseFloat(item.price || 0).toFixed(2);
                         const subtotalPrice = parseFloat(item.subtotal || (item.quantity * (item.price || 0)) || 0).toFixed(2);
 
                         html += `
                             <tr id="packing_item_row_${index}">
                                 <td>${index + 1}</td>
-                                <td class="fw-bold">${prodName}</td>
+                                <td class="fw-bold">${prodName} ${typeBadgeHtml}</td>
                                 <td><input type="number" value="${item.quantity}" readonly style="width: 100%; border: none; background: transparent; font-weight: 600;"></td>
                                 <td>₱${unitPrice}</td>
                                 <td>₱${subtotalPrice}</td>

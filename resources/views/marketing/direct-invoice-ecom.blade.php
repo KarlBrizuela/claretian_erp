@@ -450,6 +450,9 @@
                     // Update all active row select dropdowns
                     document.querySelectorAll('.product-select').forEach(select => {
                         const selectedValue = select.value;
+                        if ($(select).hasClass("select2-hidden-accessible")) {
+                            $(select).select2('destroy');
+                        }
                         updateSelectOptions(select, platform);
                         $(select).val(selectedValue);
                         $(select).select2({
@@ -473,7 +476,7 @@
                         } else if (platform === 'tiktok') {
                             stock = opt.dataset.stockTiktok || 0;
                         } else if (platform === 'cob') {
-                            stock = opt.dataset.stockCob || opt.dataset.stockMain || 0;
+                            stock = opt.dataset.stockCob || 0;
                         } else {
                             stock = opt.dataset.stockMain || 0;
                         }

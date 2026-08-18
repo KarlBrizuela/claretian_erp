@@ -27,6 +27,11 @@ class SalesOrderItem extends Model
         'selected_qty',
     ];
 
+    protected $appends = [
+        'item_name',
+        'item_type',
+    ];
+
     public function order()
     {
         return $this->belongsTo(SalesOrder::class, 'sales_order_id');
@@ -73,6 +78,31 @@ class SalesOrderItem extends Model
         }
 
         return $this->product_name ?? ($this->description ?? 'Unknown Item');
+    }
+
+    /**
+     * Get item type string: 'Book', 'Index', or 'Bundle'
+     */
+    public function getItemTypeAttribute()
+    {
+        if ($this->bundle_id || $this->bundle) {
+            return 'Bundle';
+        }
+        if ($this->book_index_id || $this->bookIndex) {
+            return 'Index';
+        }
+        if ($this->book_id || $this->book) {
+            return 'Book';
+        }
+        return 'Book';
+    }
+
+    /**
+     * Get item type label for display
+     */
+    public function getItemTypeLabelAttribute()
+    {
+        return $this->item_type;
     }
 
     /**

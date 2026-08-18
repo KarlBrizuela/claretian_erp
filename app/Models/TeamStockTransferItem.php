@@ -37,6 +37,25 @@ class TeamStockTransferItem extends Model
         return $this->belongsTo(BookBundle::class);
     }
 
+    protected $appends = [
+        'product_name',
+        'item_type',
+    ];
+
+    public function getItemTypeAttribute()
+    {
+        if ($this->book_bundle_id || $this->bookBundle) {
+            return 'Bundle';
+        }
+        if ($this->book_index_id || $this->bookIndex) {
+            return 'Index';
+        }
+        if ($this->book_id || $this->book) {
+            return 'Book';
+        }
+        return 'Book';
+    }
+
     public function getProductNameAttribute()
     {
         if ($this->book_index_id && $this->bookIndex) {
