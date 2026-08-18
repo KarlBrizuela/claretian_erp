@@ -1497,7 +1497,7 @@
                 $('#modalApprovalRemarks').val('');
             });
 
-            $(document).on('submit', '#approveForm, #rejectForm', function() {
+            $(document).on('submit', '#approveForm', function() {
                 const remarksVal = $('#modalApprovalRemarks').val();
                 $(this).find('input[name="remarks"], input[name="approval_remarks"]').remove();
                 if (remarksVal && remarksVal.trim() !== '') {
@@ -1514,13 +1514,34 @@
                 }
             });
 
-            $('#approveForm').on('submit', function(e) {
-                const action = $(this).attr('action') || '';
-                if (!action.includes('/stock-transfers/') || !action.includes('/accounting-approve')) {
-                    return;
+            $(document).on('submit', '#rejectForm', function(e) {
+                const form = this;
+                if ($(form).data('rejection-confirmed') === true) {
+                    return true;
                 }
-
                 e.preventDefault();
+
+                const remarksInput = $('#modalApprovalRemarks');
+                let initialReason = remarksInput.val() ? remarksInput.val().trim() : '';
+
+                $('#actionModal').modal('hide');
+
+                setTimeout(function() {
+                    window.openTwoStepRejectionFlow(initialReason, function(confirmedReason) {
+                        remarksInput.val(confirmedReason);
+                        $(form).find('input[name="remarks"], input[name="approval_remarks"], input[name="rejection_reason"]').remove();
+                        $('<input>').attr({ type: 'hidden', name: 'remarks', value: confirmedReason }).appendTo(form);
+                        $('<input>').attr({ type: 'hidden', name: 'approval_remarks', value: confirmedReason }).appendTo(form);
+                        $('<input>').attr({ type: 'hidden', name: 'rejection_reason', value: confirmedReason }).appendTo(form);
+                        $(form).data('rejection-confirmed', true);
+                        form.submit();
+                    });
+                }, 300);
+            });
+
+            $(document).on('submit', '#approveForm[action*="/stock-transfers/"][action*="/accounting-approve"]', function(e) {
+                e.preventDefault();
+                const action = $(this).attr('action');
                 const remarksVal = $('#modalApprovalRemarks').val();
                 fetch(action, {
                     method: 'POST',
@@ -1539,7 +1560,6 @@
                         alert(data.message || 'Unable to approve stock transfer.');
                         return;
                     }
-
                     alert(data.message || 'Stock transfer approved and forwarded to Logistics.');
                     window.location.reload();
                 })

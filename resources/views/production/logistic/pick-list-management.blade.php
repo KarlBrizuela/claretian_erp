@@ -687,14 +687,15 @@
         @php
             $preloadOrderItems = $preloadOrder->items->map(function($item) {
                 return [
-                    'product' => $item->book->name ?? 'Unknown',
-                    'quantity' => $item->quantity,
-                    'price' => $item->price,
-                    'subtotal' => $item->subtotal,
-                    'unit' => $item->unit,
+                    'product'   => $item->item_name ?? ($item->bookIndex?->display_name ?? ($item->book?->name ?? ($item->bundle?->name ?? 'Unknown'))),
+                    'item_type' => $item->item_type ?? ($item->bookIndex ? 'Index' : ($item->bundle ? 'Bundle' : 'Book')),
+                    'quantity'  => $item->quantity,
+                    'price'     => $item->price,
+                    'subtotal'  => $item->subtotal,
+                    'unit'      => $item->unit,
                     'picked_qty' => 0,
-                    'status' => 'pending',
-                    'notes' => '',
+                    'status'    => 'pending',
+                    'notes'     => '',
                 ];
             })->toArray();
         @endphp
@@ -886,10 +887,17 @@
                     // Fill items table
                     pickListBody.innerHTML = '';
                     orderData.items.forEach((item, idx) => {
+                        const itemType = item.item_type || 'Book';
+                        let typeBadge = '<span class="badge bg-primary ms-1">Book</span>';
+                        if (itemType === 'Bundle') {
+                            typeBadge = '<span class="badge ms-1" style="background:#6f42c1; color:#fff;">Bundle</span>';
+                        } else if (itemType === 'Index') {
+                            typeBadge = '<span class="badge bg-info text-dark ms-1">Index</span>';
+                        }
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
                             <td>${idx + 1}</td>
-                            <td class="fw-bold">${item.product}</td>
+                            <td class="fw-bold">${item.product} ${typeBadge}</td>
                             <td style="text-align:center;">${item.quantity} ${item.unit || 'pcs'}</td>
                             <td style="text-align:right;">₱${parseFloat(item.price).toFixed(2)}</td>
                             <td style="text-align:right;">₱${parseFloat(item.subtotal).toFixed(2)}</td>

@@ -688,35 +688,64 @@ $isAdmin = auth()->check() && (
                                 @foreach($tt->items as $idx => $tItem)
                                 @php
                                     $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
+                                    $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                     $unitPrice = 0;
                                     $barcodes = [];
                                     if ($tItem->bookIndex) {
-                                        $unitPrice = (float)($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?: 0));
                                         if (!empty($tItem->bookIndex->barcode)) $barcodes[] = (string)$tItem->bookIndex->barcode;
                                         if (!empty($tItem->bookIndex->nbs_barcode)) $barcodes[] = (string)$tItem->bookIndex->nbs_barcode;
+                                        if (!empty($tItem->bookIndex->article)) $barcodes[] = (string)$tItem->bookIndex->article;
                                         if ($tItem->bookIndex->book) {
                                             if (!empty($tItem->bookIndex->book->barcode)) $barcodes[] = (string)$tItem->bookIndex->book->barcode;
                                             if (!empty($tItem->bookIndex->book->nbs_barcode)) $barcodes[] = (string)$tItem->bookIndex->book->nbs_barcode;
                                             if (!empty($tItem->bookIndex->book->sku)) $barcodes[] = (string)$tItem->bookIndex->book->sku;
+                                            if (!empty($tItem->bookIndex->book->item_code)) $barcodes[] = (string)$tItem->bookIndex->book->item_code;
                                         }
-                                    } elseif ($tItem->book) {
-                                        $unitPrice = (float)($tItem->book->price ?: 0);
+                                    }
+                                    if ($tItem->book) {
                                         if (!empty($tItem->book->barcode)) $barcodes[] = (string)$tItem->book->barcode;
                                         if (!empty($tItem->book->nbs_barcode)) $barcodes[] = (string)$tItem->book->nbs_barcode;
                                         if (!empty($tItem->book->sku)) $barcodes[] = (string)$tItem->book->sku;
+                                        if (!empty($tItem->book->item_code)) $barcodes[] = (string)$tItem->book->item_code;
+                                    }
+                                    if ($tItem->bookBundle) {
+                                        if (!empty($tItem->bookBundle->sku)) $barcodes[] = (string)$tItem->bookBundle->sku;
+                                        if (!empty($tItem->bookBundle->name)) $barcodes[] = (string)$tItem->bookBundle->name;
+                                    }
+                                    if (!empty($tItem->barcode)) $barcodes[] = (string)$tItem->barcode;
+                                    if (!empty($tItem->nbs_barcode)) $barcodes[] = (string)$tItem->nbs_barcode;
+                                    if (!empty($tItem->sku)) $barcodes[] = (string)$tItem->sku;
+                                    if (!empty($tItem->item_code)) $barcodes[] = (string)$tItem->item_code;
+                                    if (!empty($tItem->isbn)) $barcodes[] = (string)$tItem->isbn;
+
+                                    if ($tItem->bookIndex) {
+                                        $unitPrice = (float)($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?: 0));
+                                    } elseif ($tItem->book) {
+                                        $unitPrice = (float)($tItem->book->price ?: 0);
                                     } elseif ($tItem->bookBundle) {
                                         $unitPrice = (float)($tItem->bookBundle->price ?: 0);
-                                        if (!empty($tItem->bookBundle->sku)) $barcodes[] = (string)$tItem->bookBundle->sku;
+                                    } else {
+                                        $unitPrice = 0;
                                     }
+
                                     $itemSubtotal = $unitPrice * $tItem->quantity;
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
-                                    $barcodesJson = htmlspecialchars(json_encode($uniqueBarcodes), ENT_QUOTES, 'UTF-8');
+                                    $barcodesJson = json_encode($uniqueBarcodes);
                                     $isItemPicked = $tt->status === 'completed';
                                 @endphp
                                 <tr id="tsp_row_{{ $tt->id }}_{{ $idx }}" class="tsp-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPicked ? '#d4edda' : '#f8d7da' }};">
                                     <td>{{ $idx + 1 }}</td>
                                     <td class="fw-bold text-dark">
-                                        <div>{{ $itemName }}</div>
+                                        <div>
+                                            {{ $itemName }}
+                                            @if($tItemType === 'Bundle')
+                                                <span class="badge ms-1" style="background:#6f42c1; color:#fff;">Bundle</span>
+                                            @elseif($tItemType === 'Index')
+                                                <span class="badge bg-info text-dark ms-1">Index</span>
+                                            @else
+                                                <span class="badge bg-primary ms-1">Book</span>
+                                            @endif
+                                        </div>
                                         @if(!empty($uniqueBarcodes))
                                             <small class="text-muted d-block"><i class="las la-barcode me-1"></i>{{ implode(', ', $uniqueBarcodes) }}</small>
                                         @endif
@@ -804,14 +833,15 @@ $isAdmin = auth()->check() && (
     <script>
         function normalizeTSPBarcode(bc) {
             if (!bc) return '';
-            return String(bc).trim().toLowerCase().replace(/[\s\-\_]/g, '');
+            return String(bc).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
         }
 
         function processTSPBarcodeScan(transferId, rawBarcode) {
-            const normalized = normalizeTSPBarcode(rawBarcode);
+            const rawTrimmed = (rawBarcode || '').trim();
+            const normalized = normalizeTSPBarcode(rawTrimmed);
             const feedbackEl = document.getElementById(`tsp_scan_feedback_${transferId}`);
 
-            if (!normalized) return false;
+            if (!normalized && !rawTrimmed) return false;
 
             const rows = document.querySelectorAll(`#teamStockPickModal${transferId} .tsp-item-row`);
             let matched = false;
@@ -820,17 +850,32 @@ $isAdmin = auth()->check() && (
             rows.forEach(row => {
                 if (matched) return;
                 const index = row.getAttribute('data-index');
-                const title = row.getAttribute('data-title');
+                const title = (row.getAttribute('data-title') || '').trim();
                 let barcodes = [];
                 try {
-                    barcodes = JSON.parse(row.getAttribute('data-barcodes') || '[]');
+                    let rawAttr = row.getAttribute('data-barcodes') || '[]';
+                    const txt = document.createElement('textarea');
+                    txt.innerHTML = rawAttr;
+                    rawAttr = txt.value;
+                    barcodes = JSON.parse(rawAttr);
                 } catch (e) {
-                    barcodes = [];
+                    const rawAttr = row.getAttribute('data-barcodes') || '';
+                    barcodes = rawAttr.replace(/[\[\]"'\&quot\;]/g, '').split(',').map(s => s.trim()).filter(Boolean);
+                }
+
+                if (!Array.isArray(barcodes)) {
+                    barcodes = [String(barcodes)];
                 }
 
                 const normalizedBarcodes = barcodes.map(normalizeTSPBarcode);
+                const normalizedTitle = normalizeTSPBarcode(title);
 
-                if (normalizedBarcodes.includes(normalized)) {
+                const isMatch = (normalized && normalizedBarcodes.includes(normalized)) ||
+                                (normalized && normalizedTitle.includes(normalized)) ||
+                                (rawTrimmed && barcodes.some(b => String(b).trim().toLowerCase() === rawTrimmed.toLowerCase())) ||
+                                (rawTrimmed && title.toLowerCase().includes(rawTrimmed.toLowerCase()));
+
+                if (isMatch) {
                     matched = true;
                     matchedTitle = title;
                     markTSPItemAsPicked(transferId, index, title);
@@ -842,7 +887,7 @@ $isAdmin = auth()->check() && (
                 feedbackEl.innerHTML = `<i class="las la-check-circle me-1"></i>SCANNED: "${matchedTitle}" - Marked as Picked!`;
             } else if (!matched && feedbackEl) {
                 feedbackEl.className = 'p-2 rounded text-center small fw-bold bg-danger text-white border mb-3';
-                feedbackEl.innerHTML = `<i class="las la-times-circle me-1"></i>Barcode "${rawBarcode}" not found in this transfer!`;
+                feedbackEl.innerHTML = `<i class="las la-times-circle me-1"></i>Barcode "${rawTrimmed}" not found in this transfer!`;
             }
 
             return matched;

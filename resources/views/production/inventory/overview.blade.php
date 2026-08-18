@@ -2992,24 +2992,29 @@
         };
 
         window.rejectTransfer = function(transferId) {
-            if (confirm('Reject this transfer?')) {
-                fetch(`/stock-transfers/${transferId}/reject`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showNotification('Transfer rejected!', 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    } else {
-                        showNotification('Error: ' + data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    showNotification('An error occurred', 'error');
+            if (typeof window.openTwoStepRejectionFlow === 'function') {
+                window.openTwoStepRejectionFlow('', function(reason) {
+                    const formData = new FormData();
+                    formData.append('rejection_reason', reason);
+                    formData.append('remarks', reason);
+
+                    fetch(`/stock-transfers/${transferId}/reject`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json'
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Transfer rejected!', 'success');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            showNotification('Error: ' + data.message, 'error');
+                        }
+                    });
                 });
             }
         };

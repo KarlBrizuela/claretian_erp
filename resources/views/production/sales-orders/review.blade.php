@@ -335,27 +335,12 @@
     @push('scripts')
     <script>
         function confirmReject() {
-            if (typeof showAppModal === 'function') {
-                showAppModal('Reject Sales Order', 'Please provide a reason for rejection:', {
-                    type: 'input',
-                    placeholder: 'Enter rejection remarks...',
-                    confirmText: 'Confirm Reject',
-                    confirmClass: 'btn-danger',
-                    onConfirm: function(remarks) {
-                        if (remarks) {
-                            document.getElementById('rejectRemarks').value = remarks;
-                            document.getElementById('rejectForm').submit();
-                        } else {
-                            alert('Rejection reason is required.');
-                        }
-                    }
-                });
-            } else {
-                let remarks = prompt('Please provide a reason for rejection:');
-                if (remarks) {
-                    document.getElementById('rejectRemarks').value = remarks;
+            let initialReason = document.getElementById('prodApprovalRemarks') ? document.getElementById('prodApprovalRemarks').value : '';
+            if (typeof window.openTwoStepRejectionFlow === 'function') {
+                window.openTwoStepRejectionFlow(initialReason, function(reason) {
+                    document.getElementById('rejectRemarks').value = reason;
                     document.getElementById('rejectForm').submit();
-                }
+                });
             }
         }
     </script>

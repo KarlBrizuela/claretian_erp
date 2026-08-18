@@ -1537,7 +1537,9 @@ class LogisticController extends Controller
         }
 
         // Proof of Payment is required before moving to Acknowledgement Receipt
-        if (empty($order->proof_of_payment)) {
+        // (except for COD orders where payment is collected on delivery)
+        $isPopExempt = in_array($order->type, ['cod', 'ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary']);
+        if (!$isPopExempt && empty($order->proof_of_payment)) {
             return redirect()->back()->with('error', "Proof of Payment is required to move Sales Order {$order->so_number} to Acknowledgement Receipt. Please upload Proof of Payment first.");
         }
 

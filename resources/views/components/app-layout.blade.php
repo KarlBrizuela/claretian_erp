@@ -284,6 +284,8 @@
         })();
     </script>
 
+    @include('partials.rejection-modals')
+
     @stack('scripts')
 
 </body>

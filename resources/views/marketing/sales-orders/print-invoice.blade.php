@@ -807,22 +807,36 @@
         @endif
 
         <!-- Totals -->
-        <div style="position: absolute; left: 6.50in; top: 6.75in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">₱{{ number_format($itemsSubtotal, 2) }}</div>
+        <div style="position: absolute; left: 4.60in; top: 6.75in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+            <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>₱{{ number_format($itemsSubtotal, 2) }}
+        </div>
         @if($freight > 0)
-            <div style="position: absolute; left: 6.50in; top: 6.95in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">₱{{ number_format($freight, 2) }}</div>
+            <div style="position: absolute; left: 4.60in; top: 6.95in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+                <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">FREIGHT:</span>₱{{ number_format($freight, 2) }}
+            </div>
         @endif
         @if($serviceFee > 0)
-            <div style="position: absolute; left: 6.50in; top: 7.05in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">₱{{ number_format($serviceFee, 2) }}</div>
+            <div style="position: absolute; left: 4.60in; top: 7.05in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+                <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">SERVICE FEE:</span>₱{{ number_format($serviceFee, 2) }}
+            </div>
         @endif
         @if($discount > 0)
-            <div style="position: absolute; left: 6.50in; top: 7.15in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">-₱{{ number_format($discount, 2) }}</div>
+            <div style="position: absolute; left: 4.60in; top: 7.15in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+                <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">DISCOUNT:</span>-₱{{ number_format($discount, 2) }}
+            </div>
         @endif
         @if($wht > 0)
-            <div style="position: absolute; left: 6.50in; top: 7.34in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10pt;">-₱{{ number_format($wht, 2) }}</div>
+            <div style="position: absolute; left: 4.60in; top: 7.34in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10pt;">
+                <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">LESS WHT:</span>-₱{{ number_format($wht, 2) }}
+            </div>
         @endif
-        <div style="position: absolute; left: 6.20in; top: 8.10in; width: 1.45in; text-align: left; padding-left: 0.08in; font-weight: bold; font-size: 11pt;">₱{{ number_format($calculatedTotalSales, 2) }}</div>
+        <div style="position: absolute; left: 4.60in; top: 8.10in; width: 3.4in; text-align: right; font-weight: bold; font-size: 11pt;">
+            <span style="font-size: 9pt; font-weight: bold; margin-right: 6px;">TOTAL:</span>₱{{ number_format($calculatedTotalSales, 2) }}
+        </div>
         @if($wht > 0)
-            <div style="position: absolute; left: 6.50in; top: 7.90in; width: 1.5in; text-align: right; font-weight: bold; font-size: 11pt;">₱{{ number_format($totalAmountDue, 2) }}</div>
+            <div style="position: absolute; left: 4.60in; top: 7.90in; width: 3.4in; text-align: right; font-weight: bold; font-size: 11pt;">
+                <span style="font-size: 9pt; font-weight: bold; margin-right: 6px;">TOTAL DUE:</span>₱{{ number_format($totalAmountDue, 2) }}
+            </div>
         @endif
 
         <!-- Signatories -->
@@ -876,17 +890,27 @@
         @endif
 
         <!-- Totals -->
-        <div style="position: absolute; left: 6.50in; top: 4.10in; width: 1.5in; text-align: right; font-weight: bold; font-size: 9.5pt;">₱{{ number_format($itemsSubtotal, 2) }}</div>
+        <div style="position: absolute; left: 4.60in; top: 4.10in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
+            <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">SUBTOTAL:</span>₱{{ number_format($itemsSubtotal, 2) }}
+        </div>
         @if($freight > 0)
-            <div style="position: absolute; left: 6.50in; top: 4.25in; width: 1.5in; text-align: right; font-weight: bold; font-size: 9.5pt;">₱{{ number_format($freight, 2) }}</div>
+            <div style="position: absolute; left: 4.60in; top: 4.25in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
+                <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">FREIGHT:</span>₱{{ number_format($freight, 2) }}
+            </div>
         @endif
         @if($serviceFee > 0)
-            <div style="position: absolute; left: 6.50in; top: 4.32in; width: 1.5in; text-align: right; font-weight: bold; font-size: 9.5pt;">₱{{ number_format($serviceFee, 2) }}</div>
+            <div style="position: absolute; left: 4.60in; top: 4.32in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
+                <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">SERVICE FEE:</span>₱{{ number_format($serviceFee, 2) }}
+            </div>
         @endif
         @if($discount > 0)
-            <div style="position: absolute; left: 6.50in; top: 4.40in; width: 1.5in; text-align: right; font-weight: bold; font-size: 9.5pt;">-₱{{ number_format($discount, 2) }}</div>
+            <div style="position: absolute; left: 4.60in; top: 4.40in; width: 3.4in; text-align: right; font-weight: bold; font-size: 9.5pt;">
+                <span style="font-size: 8pt; font-weight: bold; margin-right: 6px;">DISCOUNT:</span>-₱{{ number_format($discount, 2) }}
+            </div>
         @endif
-        <div style="position: absolute; left: 6.50in; top: 4.54in; width: 1.5in; text-align: right; font-weight: bold; font-size: 10.5pt;">₱{{ number_format($calculatedTotalSales, 2) }}</div>
+        <div style="position: absolute; left: 4.60in; top: 4.54in; width: 3.4in; text-align: right; font-weight: bold; font-size: 10.5pt;">
+            <span style="font-size: 8.5pt; font-weight: bold; margin-right: 6px;">TOTAL:</span>₱{{ number_format($calculatedTotalSales, 2) }}
+        </div>
 
         <!-- Signatories -->
         <div style="position: absolute; left: 2.75in; top: 5.10in; width: 1.8in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $order->preparedBy?->name ?? '' }}</div>

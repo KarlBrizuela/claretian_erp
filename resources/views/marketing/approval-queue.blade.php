@@ -1085,9 +1085,6 @@
                             <button type="button" class="btn btn-danger px-4 py-2 fw-semibold" id="st-reject-btn">
                                 <i class="las la-times-circle me-1"></i>Reject
                             </button>
-                                    <button type="button" class="btn btn-light btn-sm flex-grow-1 border" onclick="toggleStRejection()">Cancel</button>
-                                </div>
-                            </div>
                             <button type="button" class="btn btn-success px-4 py-2 fw-semibold" id="st-approve-btn">
                                 <i class="las la-check-circle me-1"></i>Approve Transfer
                             </button>
@@ -1483,8 +1480,8 @@
                 }
             });
 
-            // Stock Transfer Confirm Reject Button Handler
-            $(document).on('click', '#st-confirm-reject-btn', function() {
+            // Stock Transfer Reject Button Handler
+            $(document).on('click', '#st-reject-btn, #st-confirm-reject-btn', function() {
                 var transferId = $('#stockTransferApprovalModal').data('transfer-id');
                 if (transferId) {
                     rejectStockTransfer(transferId);
@@ -1533,32 +1530,60 @@
 
         // Stock Transfer Rejection AJAX Handler
         function rejectStockTransfer(transferId) {
-            var reason = $('textarea[name="rejection_reason"]').val();
-            $.ajax({
-                url: '/stock-transfers/' + transferId + '/reject',
-                type: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                },
-                data: {
-                    'rejection_reason': reason
-                },
-                success: function(response) {
-                    if (response.success) {
-                        alert(response.message);
-                        $('#stockTransferApprovalModal').modal('hide');
-                        location.reload(); // Refresh page to update queue
-                    }
-                },
-                error: function(xhr) {
-                    let message = 'Error rejecting transfer';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        message = xhr.responseJSON.message;
-                    }
-                    alert(message);
-                }
-            });
+            var initialReason = ($('#st-approval-remarks').val() || $('textarea[name="rejection_reason"]').val() || '').trim();
+
+            $('#stockTransferApprovalModal').modal('hide');
+
+            setTimeout(function() {
+                window.openTwoStepRejectionFlow(initialReason, function(confirmedReason) {
+                    $.ajax({
+                        url: '/stock-transfers/' + transferId + '/reject',
+                        type: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        data: {
+                            'rejection_reason': confirmedReason,
+                            'remarks': confirmedReason,
+                            'approval_remarks': confirmedReason
+                        },
+                        success: function(response) {
+                            alert(response.message || 'Stock transfer rejected.');
+                            location.reload();
+                        },
+                        error: function(xhr) {
+                            let message = 'Error rejecting transfer';
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                message = xhr.responseJSON.message;
+                            }
+                            alert(message);
+                        }
+                    });
+                });
+            }, 300);
         }
+
+        $(document).ready(function() {
+            $(document).on('submit', '#ca-reject-form', function(e) {
+                const form = this;
+                if ($(form).data('rejection-confirmed') === true) {
+                    return true;
+                }
+                e.preventDefault();
+
+                let initialReason = ($(form).find('textarea[name="rejection_reason"]').val() || '').trim();
+
+                $('#cashAdvanceModal').modal('hide');
+
+                setTimeout(function() {
+                    window.openTwoStepRejectionFlow(initialReason, function(confirmedReason) {
+                        $(form).find('textarea[name="rejection_reason"]').val(confirmedReason);
+                        $(form).data('rejection-confirmed', true);
+                        form.submit();
+                    });
+                }, 300);
+            });
+        });
     </script>
     @endpush
 </x-app-layout>

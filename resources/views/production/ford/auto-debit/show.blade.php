@@ -310,7 +310,7 @@
                                 </form>
                                 <form action="{{ route('production.ford.auto-debit.reject', $debit->id) }}" method="POST" class="d-inline">
                                     @csrf
-                                    <button type="submit" class="btn btn-danger text-white rounded shadow-sm px-4" onclick="return confirm('Are you sure you want to reject this Auto Debit letter?')">
+                                    <button type="button" class="btn btn-danger text-white rounded shadow-sm px-4" onclick="handleAutoDebitReject(this.form)">
                                         <i class="las la-times me-1"></i>Reject
                                     </button>
                                 </form>
@@ -323,7 +323,7 @@
                                 </form>
                                 <form action="{{ route('production.ford.auto-debit.reject', $debit->id) }}" method="POST" class="d-inline">
                                     @csrf
-                                    <button type="submit" class="btn btn-danger text-white rounded shadow-sm px-4" onclick="return confirm('Are you sure you want to reject this Auto Debit letter?')">
+                                    <button type="button" class="btn btn-danger text-white rounded shadow-sm px-4" onclick="handleAutoDebitReject(this.form)">
                                         <i class="las la-times me-1"></i>Reject
                                     </button>
                                 </form>
@@ -337,4 +337,24 @@
             </div>
         </div>
     </div>
+
+    @push('scripts')
+    <script>
+        function handleAutoDebitReject(form) {
+            if (typeof window.openTwoStepRejectionFlow === 'function') {
+                window.openTwoStepRejectionFlow('', function(reason) {
+                    let input = form.querySelector('input[name="rejection_reason"]');
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'rejection_reason';
+                        form.appendChild(input);
+                    }
+                    input.value = reason;
+                    form.submit();
+                });
+            }
+        }
+    </script>
+    @endpush
 </x-app-layout>

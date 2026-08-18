@@ -1538,9 +1538,12 @@
         }
 
         function submitRejection() {
-            const reason = $('#rejection_reason_input').val();
+            const reason = $('#rejection_reason_input').val() ? $('#rejection_reason_input').val().trim() : '';
             if (!reason) {
                 alert('Please provide a reason for rejection.');
+                return;
+            }
+            if (!confirm('Are you sure you want to reject this request with reason: "' + reason + '"?')) {
                 return;
             }
             $('#hidden_rejection_reason').val(reason);
@@ -1578,34 +1581,38 @@
         }
 
         function rejectTransfer(transferId) {
-            const reason = prompt('Reason for rejection:');
+            var initialReason = $('#rejection_reason_input').val() ? $('#rejection_reason_input').val().trim() : '';
 
-            if (reason === null) {
-                return;
-            }
+            $('#stockTransferModal').modal('hide');
+            $('#cashAdvanceModal').modal('hide');
 
-            const formData = new FormData();
-            formData.append('rejection_reason', reason);
+            setTimeout(function() {
+                window.openTwoStepRejectionFlow(initialReason, function(confirmedReason) {
+                    const formData = new FormData();
+                    formData.append('rejection_reason', confirmedReason);
+                    formData.append('remarks', confirmedReason);
+                    formData.append('approval_remarks', confirmedReason);
 
-            fetch(`/stock-transfers/${transferId}/reject`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json'
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Stock transfer rejected.');
-                    location.reload();
-                    return;
-                }
-
-                alert(data.message || 'Unable to reject stock transfer.');
-            })
-            .catch(() => alert('Unable to reject stock transfer.'));
+                    fetch(`/stock-transfers/${transferId}/reject`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json'
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Stock transfer rejected successfully.');
+                            location.reload();
+                            return;
+                        }
+                        alert(data.message || 'Unable to reject stock transfer.');
+                    })
+                    .catch(() => alert('Unable to reject stock transfer.'));
+                });
+            }, 300);
         }
         
         function assignLogisticsTransfer(transferId) {
