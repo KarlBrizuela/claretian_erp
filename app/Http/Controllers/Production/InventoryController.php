@@ -72,13 +72,29 @@ class InventoryController extends Controller
             'In Transit Warehouse',
         ];
 
+        $siteSearch = $request->input('site_search');
+
+        // Sync TeamStock into SiteInventory so team site columns in Master Registry are always 100% up-to-date
+        \App\Services\StockDeductionService::syncTeamSitesInventory();
+
         // Fetch physical sites with fresh inventory after any sync
-        $sites = Site::where('is_active', true)
+        $sitesBaseQuery = Site::where('is_active', true)
             ->whereNotIn('name', $masterCategoryWarehouseNames)
             ->with(['inventory' => function ($q) {
                 $q->where('quantity', '>', 0)->with(['book', 'bookIndex.book', 'bookBundle']);
-            }])
-            ->get();
+            }]);
+
+        $allSites = (clone $sitesBaseQuery)->get();
+
+        $sitesQuery = clone $sitesBaseQuery;
+        if (!empty($siteSearch)) {
+            $sitesQuery->where(function($q) use ($siteSearch) {
+                $q->where('name', 'like', '%' . $siteSearch . '%')
+                  ->orWhere('code', 'like', '%' . $siteSearch . '%')
+                  ->orWhere('location', 'like', '%' . $siteSearch . '%');
+            });
+        }
+        $sites = $sitesQuery->paginate(10, ['*'], 'sites_page')->withQueryString();
 
         // Get all books
         $allBooks = Book::with(['inventory.site'])->get();
@@ -206,6 +222,8 @@ class InventoryController extends Controller
             })
             ->map(function ($items) use (&$batchData) {
                 $first = $items->first();
+                $first->total_quantity = (int) $items->sum('quantity');
+                $first->items_count = (int) $items->count();
                 $batchItems = $items->map(function($i) {
                     $unitPrice = (float) (
                         $i->bookIndex ? ($i->bookIndex->price ?: ($i->bookIndex->book?->price ?? 0))
@@ -252,6 +270,9 @@ class InventoryController extends Controller
 
         $isAccountingReviewer = $this->isAccountingReviewer($user);
         $isLogisticsAssigner = $this->isLogisticsAssigner($user);
+
+        $allIndices = \App\Models\BookIndex::with(['book', 'inventory'])->get();
+        $allBundles = \App\Models\BookBundle::with(['books', 'inventory'])->get();
 
         // Fetch book indices
         $indicesQuery = \App\Models\BookIndex::with('book')->latest();
@@ -366,6 +387,7 @@ class InventoryController extends Controller
             'recentMovements',
             'totalMovements',
             'sites',
+            'allSites',
             'pendingTransfers',
             'mainWarehouse',
             'stockTransferWorkflow',
@@ -374,6 +396,8 @@ class InventoryController extends Controller
             'isLogisticsAssigner',
             'indices',
             'bundles',
+            'allIndices',
+            'allBundles',
             'consignmentStaff',
             'directConsignmentCustomers',
             'batchData'
@@ -728,7 +752,34 @@ class InventoryController extends Controller
 
     public function reconcileStock(Request $request)
     {
+        if (!auth()->check() || (!auth()->user()->isSuperAdmin() && auth()->user()->position !== 'Super Admin' && auth()->user()->id != 1)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Only Super Admin can perform stock recalculation.'
+            ], 403);
+        }
+
         try {
+            // 1. Restore stock for any cancelled orders that still have stock_deducted = true
+            $cancelledOrders = \App\Models\SalesOrder::where('status', 'cancelled')
+                ->where('stock_deducted', true)
+                ->get();
+            foreach ($cancelledOrders as $order) {
+                \App\Services\StockDeductionService::restoreForSalesOrder($order, 'Recalculation Cancellation');
+                $order->update(['stock_deducted' => false]);
+            }
+
+            // 2. Process any active Sales Orders that were created without deducting stock
+            $undeductedOrders = \App\Models\SalesOrder::where('stock_deducted', false)
+                ->whereNotIn('status', ['cancelled'])
+                ->get();
+            foreach ($undeductedOrders as $order) {
+                \App\Services\StockDeductionService::deductForSalesOrder($order);
+            }
+
+            // 3. Sync TeamStock to SiteInventory for all team sites
+            \App\Services\StockDeductionService::syncTeamSitesInventory();
+
             $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
             $mainSiteId = $mainWarehouse ? $mainWarehouse->id : 1;
 
@@ -750,7 +801,7 @@ class InventoryController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Stock successfully recalculated and synchronized across all ' . count($books) . ' books!'
+                'message' => 'Stock successfully recalculated and synchronized across all items and sites!'
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -1,7 +1,12 @@
-<x-app-layout :title="'Inventory Overview'" :sidebar="'production'">
-@push('styles')
-    <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
-    <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
+<?php if (isset($component)) { $__componentOriginalc254754b9d5db91d5165876f9d051922ca0066f4 = $component; } ?>
+<?php $component = $__env->getContainer()->make(Illuminate\View\AnonymousComponent::class, ['view' => 'components.app-layout','data' => ['title' => 'Inventory Overview','sidebar' => 'production']]); ?>
+<?php $component->withName('app-layout'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php $component->withAttributes(['title' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute('Inventory Overview'),'sidebar' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute('production')]); ?>
+<?php $__env->startPush('styles'); ?>
+    <link href="<?php echo e(asset('vendor/datatables/css/jquery.dataTables.min.css')); ?>" rel="stylesheet">
+    <link href="<?php echo e(asset('vendor/select2/css/select2.min.css')); ?>" rel="stylesheet">
     <style>
         /* Site Inventory Modal Extra Large & Single Scrollbar Enforcement */
         .site-inventory-modal .modal-dialog {
@@ -72,7 +77,7 @@
             display: block !important;
         }
     </style>
-@endpush
+<?php $__env->stopPush(); ?>
     <div class="container-fluid">
         <!-- Add Project Modal -->
         <div class="modal fade" id="addProjectSidebar">
@@ -129,7 +134,7 @@
                     </li>
                 </ul>
             </div>
-            @if(auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->position === 'Super Admin' || auth()->user()->id == 1))
+            <?php if(auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->position === 'Super Admin' || auth()->user()->id == 1)): ?>
             <div class="col-md-4 text-end">
                 <button type="button" id="reconcileStockBtn" class="btn btn-sm btn-outline-danger fw-bold px-3 shadow-sm" onclick="reconcileStockUI()">
                     <i class="las la-sync me-1"></i>Recalculate & Sync Stock
@@ -139,8 +144,8 @@
                     if (!confirm('Recalculate and synchronize all Master Book Stock levels with Warehouse Inventory?')) {
                         return;
                     }
-                    const token = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
-                    fetch('{{ route("production.inventory.reconcile-stock") }}', {
+                    const token = document.querySelector('meta[name="csrf-token"]')?.content || '<?php echo e(csrf_token()); ?>';
+                    fetch('<?php echo e(route("production.inventory.reconcile-stock")); ?>', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -162,7 +167,7 @@
                 };
                 </script>
             </div>
-            @endif
+            <?php endif; ?>
         </div>
 
         <!-- Tab Content -->
@@ -178,7 +183,7 @@
                             <div class="card-body box-style">
                                 <div class="media align-items-center">
                                     <div class="media-body me-3">
-                                        <h2 class="num-text text-black font-w700">{{ $totalBooks }}</h2>
+                                        <h2 class="num-text text-black font-w700"><?php echo e($totalBooks); ?></h2>
                                         <span class="fs-14">Master Book Records</span>
                                     </div>
                                     <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-primary-light">
@@ -194,7 +199,7 @@
                             <div class="card-body box-style">
                                 <div class="media align-items-center">
                                     <div class="media-body me-3">
-                                        <h2 class="num-text text-black font-w700">{{ $lowStock }}</h2>
+                                        <h2 class="num-text text-black font-w700"><?php echo e($lowStock); ?></h2>
                                         <span class="fs-14">Low Stock Items</span>
                                     </div>
                                     <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-warning-light">
@@ -210,7 +215,7 @@
                             <div class="card-body box-style">
                                 <div class="media align-items-center">
                                     <div class="media-body me-3">
-                                        <h2 class="num-text text-black font-w700">{{ $outOfStock }}</h2>
+                                        <h2 class="num-text text-black font-w700"><?php echo e($outOfStock); ?></h2>
                                         <span class="fs-14">Out of Stock</span>
                                     </div>
                                     <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-danger-light">
@@ -220,24 +225,7 @@
                             </div>
                         </div>
                     </div>
-                    {{-- 
-                    <div class="col-xl-3 col-xxl-3 col-lg-6 col-sm-6">
-                        <div class="card card-bd">
-                            <div class="bg-success card-border"></div>
-                            <div class="card-body box-style">
-                                <div class="media align-items-center">
-                                    <div class="media-body me-3">
-                                        <h2 class="num-text text-black font-w700">₱{{ number_format($inventoryValue, 2) }}</h2>
-                                        <span class="fs-14">Inventory Value</span>
-                                    </div>
-                                    <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-success-light">
-                                        <i class="las la-coins fs-36 text-success"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    --}}
+                    
                 </div>
         
                 <!-- Product Inventory Table with Sub-Tabs -->
@@ -282,17 +270,17 @@
                                 </div>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
                                     <!-- Search Form -->
-                                    <form action="{{ route('production.inventory.overview') }}" method="GET" class="d-flex align-items-center gap-2">
+                                    <form action="<?php echo e(route('production.inventory.overview')); ?>" method="GET" class="d-flex align-items-center gap-2">
                                         <div style="width: 250px; height: 38px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #f8f9fa; padding: 0 12px; box-sizing: border-box;">
                                             <span class="las la-search text-muted me-2" style="font-size: 1.1rem; line-height: 1;"></span>
                                             <input type="text" name="search" class="form-control" 
-                                                   placeholder="Search registry..." value="{{ request('search') }}" 
+                                                   placeholder="Search registry..." value="<?php echo e(request('search')); ?>" 
                                                    style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.85rem; color: #333; outline: none !important; box-shadow: none !important;">
-                                            @if(request('search'))
-                                                <a href="{{ route('production.inventory.overview') }}" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
+                                            <?php if(request('search')): ?>
+                                                <a href="<?php echo e(route('production.inventory.overview')); ?>" class="text-muted d-inline-flex align-items-center justify-content-center ms-2" title="Clear search" style="text-decoration: none;">
                                                     <span class="las la-times-circle" style="color: #999; font-size: 1.25rem; cursor: pointer;"></span>
                                                 </a>
-                                            @endif
+                                            <?php endif; ?>
                                         </div>
                                         <button type="submit" class="btn btn-primary text-white rounded d-inline-flex align-items-center justify-content-center gap-2" style="height: 38px; padding: 0 1.2rem; border: none; font-size: 0.85rem; font-weight: 500; background-color: #D9251C; border-color: #D9251C; box-shadow: 0 4px 6px rgba(217, 37, 28, 0.15);">
                                             <span class="las la-search" style="font-size: 1rem; color: #fff;"></span>
@@ -325,8 +313,8 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse($books as $book)
-                                                    @php
+                                                    <?php $__empty_1 = true; $__currentLoopData = $books; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $book): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                                    <?php
                                                         // Get Main Warehouse inventory for this book
                                                         $mainWarehouseQuantity = 0;
                                                         if($mainWarehouse) {
@@ -334,49 +322,50 @@
                                                                 ->where('book_id', $book->id)
                                                                 ->sum('quantity');
                                                         }
-                                                    @endphp
+                                                    ?>
                                                     <tr>
-                                                        <td><strong>#{{ $book->sku }}</strong></td>
-                                                        <td>{{ $book->name }}</td>
-                                                        <td>{{ $book->category }}</td>
-                                                        <td>₱{{ number_format($book->cost, 2) }}</td>
-                                                        <td><strong>{{ $mainWarehouseQuantity }}</strong></td>
-                                                        <td><strong>{{ $book->max_stock ?? 'N/A' }}</strong></td>
+                                                        <td><strong>#<?php echo e($book->sku); ?></strong></td>
+                                                        <td><?php echo e($book->name); ?></td>
+                                                        <td><?php echo e($book->category); ?></td>
+                                                        <td>₱<?php echo e(number_format($book->cost, 2)); ?></td>
+                                                        <td><strong><?php echo e($mainWarehouseQuantity); ?></strong></td>
+                                                        <td><strong><?php echo e($book->max_stock ?? 'N/A'); ?></strong></td>
                                                         <td>
-                                                            @if($mainWarehouseQuantity == 0)
+                                                            <?php if($mainWarehouseQuantity == 0): ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-danger me-1"></i> Out of Stock
                                                                 </div>
-                                                            @elseif($mainWarehouseQuantity <= ($book->reorder_point ?? 0))
+                                                            <?php elseif($mainWarehouseQuantity <= ($book->reorder_point ?? 0)): ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-warning me-1"></i> Low Stock
                                                                 </div>
-                                                            @else
+                                                            <?php else: ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-success me-1"></i> In Stock
                                                                 </div>
-                                                            @endif
+                                                            <?php endif; ?>
                                                         </td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-danger" onclick="openStockManagementModal({{ $book->id }}, '{{ addslashes($book->name) }}', {{ $book->stock }}, {{ $book->max_stock ?? 0 }})">
+                                                            <button class="btn btn-sm btn-danger" onclick="openStockManagementModal(<?php echo e($book->id); ?>, '<?php echo e(addslashes($book->name)); ?>', <?php echo e($book->stock); ?>, <?php echo e($book->max_stock ?? 0); ?>)">
                                                                 <i class="las la-pen"></i>
                                                             </button>
                                                         </td>
                                                     </tr>
-                                                    @empty
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                                     <tr>
                                                         <td colspan="8" class="text-center">No master books found.</td>
                                                     </tr>
-                                                    @endforelse
+                                                    <?php endif; ?>
                                                 </tbody>
                                             </table>
                                         </div>
                                         <div class="d-flex justify-content-between align-items-center mt-4">
                                             <div class="pagination-info">
-                                                Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
+                                                Showing <?php echo e($books->firstItem() ?? 0); ?> to <?php echo e($books->lastItem() ?? 0); ?> of <?php echo e($books->total()); ?> entries
                                             </div>
                                             <nav>
-                                                {{ $books->appends(['search' => request('search')])->links() }}
+                                                <?php echo e($books->appends(['search' => request('search')])->links()); ?>
+
                                             </nav>
                                         </div>
                                     </div>
@@ -407,47 +396,50 @@
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            @forelse($consignmentStaff as $staffId => $data)
-                                                                @php $bookCount = count($data->books); $rowIdx = 0; @endphp
-                                                                @foreach($data->books as $bookData)
-                                                                @php $rowIdx++; @endphp
+                                                            <?php $__empty_1 = true; $__currentLoopData = $consignmentStaff; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $staffId => $data): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                                                <?php $bookCount = count($data->books); $rowIdx = 0; ?>
+                                                                <?php $__currentLoopData = $data->books; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $bookData): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                                <?php $rowIdx++; ?>
                                                                 <tr>
-                                                                    @if($rowIdx === 1)
-                                                                    <td class="text-center text-muted align-middle" rowspan="{{ $bookCount + 1 }}">
+                                                                    <?php if($rowIdx === 1): ?>
+                                                                    <td class="text-center text-muted align-middle" rowspan="<?php echo e($bookCount + 1); ?>">
                                                                         <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #1a5276;">
                                                                             <i class="las la-user fs-16"></i>
                                                                         </div>
                                                                     </td>
-                                                                    <td class="fw-bold text-black align-middle" rowspan="{{ $bookCount + 1 }}">
-                                                                        {{ $data->staff->name ?? 'Area Sales Team' }}
+                                                                    <td class="fw-bold text-black align-middle" rowspan="<?php echo e($bookCount + 1); ?>">
+                                                                        <?php echo e($data->staff->name ?? 'Area Sales Team'); ?>
+
                                                                         <div class="mt-1">
-                                                                            <span class="badge bg-primary px-2 py-1 fs-11">{{ $data->orders_count }} {{ Str::plural('Order', $data->orders_count) }}</span>
+                                                                            <span class="badge bg-primary px-2 py-1 fs-11"><?php echo e($data->orders_count); ?> <?php echo e(Str::plural('Order', $data->orders_count)); ?></span>
                                                                         </div>
                                                                     </td>
-                                                                    @endif
-                                                                    <td><strong>#{{ $bookData['sku'] ?? 'N/A' }}</strong></td>
-                                                                    <td class="fw-bold text-black">{{ $bookData['name'] }}</td>
+                                                                    <?php endif; ?>
+                                                                    <td><strong>#<?php echo e($bookData['sku'] ?? 'N/A'); ?></strong></td>
+                                                                    <td class="fw-bold text-black"><?php echo e($bookData['name']); ?></td>
                                                                     <td class="text-center">
                                                                         <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
-                                                                            {{ number_format($bookData['total_qty']) }}
+                                                                            <?php echo e(number_format($bookData['total_qty'])); ?>
+
                                                                         </span>
                                                                     </td>
                                                                 </tr>
-                                                                @endforeach
-                                                                {{-- Subtotal row --}}
+                                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                                                
                                                                 <tr class="bg-light">
                                                                     <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
                                                                     <td class="text-center">
                                                                         <span class="badge bg-success fs-14 fw-bold px-3 py-2">
-                                                                            {{ number_format($data->total_items) }}
+                                                                            <?php echo e(number_format($data->total_items)); ?>
+
                                                                         </span>
                                                                     </td>
                                                                 </tr>
-                                                            @empty
+                                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                                             <tr>
                                                                 <td colspan="5" class="text-center py-4 text-muted">No Area Consignment inventory found.</td>
                                                             </tr>
-                                                            @endforelse
+                                                            <?php endif; ?>
                                                         </tbody>
                                                     </table>
                                                 </div>
@@ -467,47 +459,50 @@
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            @forelse($directConsignmentCustomers as $custId => $cData)
-                                                                @php $bCount = count($cData->books); $rIdx = 0; @endphp
-                                                                @foreach($cData->books as $bData)
-                                                                @php $rIdx++; @endphp
+                                                            <?php $__empty_1 = true; $__currentLoopData = $directConsignmentCustomers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $custId => $cData): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                                                <?php $bCount = count($cData->books); $rIdx = 0; ?>
+                                                                <?php $__currentLoopData = $cData->books; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $bData): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                                <?php $rIdx++; ?>
                                                                 <tr>
-                                                                    @if($rIdx === 1)
-                                                                    <td class="text-center text-muted align-middle" rowspan="{{ $bCount + 1 }}">
+                                                                    <?php if($rIdx === 1): ?>
+                                                                    <td class="text-center text-muted align-middle" rowspan="<?php echo e($bCount + 1); ?>">
                                                                         <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #c0392b;">
                                                                             <i class="las la-store fs-16"></i>
                                                                         </div>
                                                                     </td>
-                                                                    <td class="fw-bold text-black align-middle" rowspan="{{ $bCount + 1 }}">
-                                                                        {{ $cData->customer_name }}
+                                                                    <td class="fw-bold text-black align-middle" rowspan="<?php echo e($bCount + 1); ?>">
+                                                                        <?php echo e($cData->customer_name); ?>
+
                                                                         <div class="mt-1">
-                                                                            <span class="badge bg-danger px-2 py-1 fs-11">{{ $cData->orders_count }} {{ Str::plural('Order', $cData->orders_count) }}</span>
+                                                                            <span class="badge bg-danger px-2 py-1 fs-11"><?php echo e($cData->orders_count); ?> <?php echo e(Str::plural('Order', $cData->orders_count)); ?></span>
                                                                         </div>
                                                                     </td>
-                                                                    @endif
-                                                                    <td><strong>#{{ $bData['sku'] ?? 'N/A' }}</strong></td>
-                                                                    <td class="fw-bold text-black">{{ $bData['name'] }}</td>
+                                                                    <?php endif; ?>
+                                                                    <td><strong>#<?php echo e($bData['sku'] ?? 'N/A'); ?></strong></td>
+                                                                    <td class="fw-bold text-black"><?php echo e($bData['name']); ?></td>
                                                                     <td class="text-center">
                                                                         <span class="badge bg-light text-danger border border-danger fw-bold px-2 py-1 fs-13">
-                                                                            {{ number_format($bData['total_qty']) }}
+                                                                            <?php echo e(number_format($bData['total_qty'])); ?>
+
                                                                         </span>
                                                                     </td>
                                                                 </tr>
-                                                                @endforeach
-                                                                {{-- Subtotal row --}}
+                                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                                                
                                                                 <tr class="bg-light">
                                                                     <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
                                                                     <td class="text-center">
                                                                         <span class="badge bg-danger fs-14 fw-bold px-3 py-2">
-                                                                            {{ number_format($cData->total_items) }}
+                                                                            <?php echo e(number_format($cData->total_items)); ?>
+
                                                                         </span>
                                                                     </td>
                                                                 </tr>
-                                                            @empty
+                                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                                             <tr>
                                                                 <td colspan="5" class="text-center py-4 text-muted">No Direct Consignment inventory found.</td>
                                                             </tr>
-                                                            @endforelse
+                                                            <?php endif; ?>
                                                         </tbody>
                                                     </table>
                                                 </div>
@@ -523,129 +518,136 @@
                                                           <th style="width: 80px;"><strong>TYPE</strong></th>
                                                           <th style="width: 140px;"><strong>ITEM ID / SKU</strong></th>
                                                           <th style="min-width: 200px;"><strong>ITEM TITLE</strong></th>
-                                                          @foreach($allSites ?? $sites as $site)
+                                                          <?php $__currentLoopData = $allSites ?? $sites; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                                               <th class="text-center" style="min-width: 110px;">
                                                                   <span class="fs-11 text-uppercase text-muted d-block" style="letter-spacing: 0.5px;">SITE</span>
-                                                                  <strong>{{ $site->name }}</strong>
+                                                                  <strong><?php echo e($site->name); ?></strong>
                                                               </th>
-                                                          @endforeach
+                                                          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                           <th class="text-center bg-light" style="width: 130px;"><strong>TOTAL STOCK</strong></th>
                                                       </tr>
                                                   </thead>
                                                   <tbody>
-                                                      {{-- 1. Books --}}
-                                                      @foreach($books as $book)
-                                                      @php
+                                                      
+                                                      <?php $__currentLoopData = $books; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $book): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                      <?php
                                                           $bookInventories = $book->inventory->keyBy('site_id');
                                                           $totalSiteStock = $book->inventory->sum('quantity');
-                                                      @endphp
+                                                      ?>
                                                       <tr>
                                                           <td><span class="badge bg-danger">BOOK</span></td>
-                                                          <td><strong>#{{ $book->sku ?? $book->id }}</strong></td>
-                                                          <td class="fw-bold text-black">{{ $book->name }}</td>
-                                                          @foreach($allSites ?? $sites as $site)
-                                                              @php
+                                                          <td><strong>#<?php echo e($book->sku ?? $book->id); ?></strong></td>
+                                                          <td class="fw-bold text-black"><?php echo e($book->name); ?></td>
+                                                          <?php $__currentLoopData = $allSites ?? $sites; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                              <?php
                                                                   $siteQty = isset($bookInventories[$site->id]) ? (float)$bookInventories[$site->id]->quantity : 0;
-                                                              @endphp
+                                                              ?>
                                                               <td class="text-center">
-                                                                  @if($siteQty > 0)
+                                                                  <?php if($siteQty > 0): ?>
                                                                       <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
-                                                                          {{ number_format($siteQty) }}
+                                                                          <?php echo e(number_format($siteQty)); ?>
+
                                                                       </span>
-                                                                  @else
+                                                                  <?php else: ?>
                                                                       <span class="text-muted small" style="opacity: 0.4;">0</span>
-                                                                  @endif
+                                                                  <?php endif; ?>
                                                               </td>
-                                                          @endforeach
+                                                          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                           <td class="text-center bg-light">
-                                                              <span class="badge {{ $totalSiteStock > 0 ? 'bg-success' : 'bg-danger' }} fs-14 fw-bold px-3 py-2">
-                                                                  {{ number_format($totalSiteStock) }}
+                                                              <span class="badge <?php echo e($totalSiteStock > 0 ? 'bg-success' : 'bg-danger'); ?> fs-14 fw-bold px-3 py-2">
+                                                                  <?php echo e(number_format($totalSiteStock)); ?>
+
                                                               </span>
                                                           </td>
                                                       </tr>
-                                                      @endforeach
+                                                      <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
 
-                                                      {{-- 2. Book Indices --}}
-                                                      @foreach($allIndices ?? $indices ?? [] as $index)
-                                                      @php
+                                                      
+                                                      <?php $__currentLoopData = $allIndices ?? $indices ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                      <?php
                                                           $indexInventories = $index->inventory ? $index->inventory->keyBy('site_id') : collect([]);
                                                           $totalIndexStock = $index->inventory ? $index->inventory->sum('quantity') : 0;
                                                           $bookTitle = $index->book ? ($index->book->name ?? $index->book->title ?? '') : '';
                                                           $idxVal = $index->index_value ?? $index->name ?? ('Index #' . $index->id);
                                                           $displayTitle = $bookTitle ? ($bookTitle . ' — ' . $idxVal) : $idxVal;
-                                                      @endphp
+                                                      ?>
                                                       <tr>
                                                           <td><span class="badge bg-info text-white">INDEX</span></td>
-                                                          <td><strong>#{{ $index->barcode ?? $index->article ?? $index->id }}</strong></td>
-                                                          <td class="fw-bold text-black">{{ $displayTitle }}</td>
-                                                          @foreach($allSites ?? $sites as $site)
-                                                              @php
+                                                          <td><strong>#<?php echo e($index->barcode ?? $index->article ?? $index->id); ?></strong></td>
+                                                          <td class="fw-bold text-black"><?php echo e($displayTitle); ?></td>
+                                                          <?php $__currentLoopData = $allSites ?? $sites; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                              <?php
                                                                   $siteQty = isset($indexInventories[$site->id]) ? (float)$indexInventories[$site->id]->quantity : 0;
-                                                              @endphp
+                                                              ?>
                                                               <td class="text-center">
-                                                                  @if($siteQty > 0)
+                                                                  <?php if($siteQty > 0): ?>
                                                                       <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
-                                                                          {{ number_format($siteQty) }}
+                                                                          <?php echo e(number_format($siteQty)); ?>
+
                                                                       </span>
-                                                                  @else
+                                                                  <?php else: ?>
                                                                       <span class="text-muted small" style="opacity: 0.4;">0</span>
-                                                                  @endif
+                                                                  <?php endif; ?>
                                                               </td>
-                                                          @endforeach
+                                                          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                           <td class="text-center bg-light">
-                                                              <span class="badge {{ $totalIndexStock > 0 ? 'bg-success' : 'bg-danger' }} fs-14 fw-bold px-3 py-2">
-                                                                  {{ number_format($totalIndexStock) }}
+                                                              <span class="badge <?php echo e($totalIndexStock > 0 ? 'bg-success' : 'bg-danger'); ?> fs-14 fw-bold px-3 py-2">
+                                                                  <?php echo e(number_format($totalIndexStock)); ?>
+
                                                               </span>
                                                           </td>
                                                       </tr>
-                                                      @endforeach
+                                                      <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
 
-                                                      {{-- 3. Book Bundles --}}
-                                                      @foreach($allBundles ?? $bundles ?? [] as $bundle)
-                                                      @php
+                                                      
+                                                      <?php $__currentLoopData = $allBundles ?? $bundles ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $bundle): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                      <?php
                                                           $bundleInventories = $bundle->inventory ? $bundle->inventory->keyBy('site_id') : collect([]);
                                                           $totalBundleStock = $bundle->inventory ? $bundle->inventory->sum('quantity') : 0;
-                                                      @endphp
+                                                      ?>
                                                       <tr>
                                                           <td><span class="badge bg-warning text-dark">BUNDLE</span></td>
-                                                          <td><strong>#{{ $bundle->sku ?? ('BND-' . $bundle->id) }}</strong></td>
-                                                          <td class="fw-bold text-black">{{ $bundle->name }}</td>
-                                                          @foreach($allSites ?? $sites as $site)
-                                                              @php
+                                                          <td><strong>#<?php echo e($bundle->sku ?? ('BND-' . $bundle->id)); ?></strong></td>
+                                                          <td class="fw-bold text-black"><?php echo e($bundle->name); ?></td>
+                                                          <?php $__currentLoopData = $allSites ?? $sites; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                              <?php
                                                                   $siteQty = isset($bundleInventories[$site->id]) ? (float)$bundleInventories[$site->id]->quantity : 0;
-                                                              @endphp
+                                                              ?>
                                                               <td class="text-center">
-                                                                  @if($siteQty > 0)
+                                                                  <?php if($siteQty > 0): ?>
                                                                       <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
-                                                                          {{ number_format($siteQty) }}
+                                                                          <?php echo e(number_format($siteQty)); ?>
+
                                                                       </span>
-                                                                  @else
+                                                                  <?php else: ?>
                                                                       <span class="text-muted small" style="opacity: 0.4;">0</span>
-                                                                  @endif
+                                                                  <?php endif; ?>
                                                               </td>
-                                                          @endforeach
+                                                          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                           <td class="text-center bg-light">
-                                                              <span class="badge {{ $totalBundleStock > 0 ? 'bg-success' : 'bg-danger' }} fs-14 fw-bold px-3 py-2">
-                                                                  {{ number_format($totalBundleStock) }}
+                                                              <span class="badge <?php echo e($totalBundleStock > 0 ? 'bg-success' : 'bg-danger'); ?> fs-14 fw-bold px-3 py-2">
+                                                                  <?php echo e(number_format($totalBundleStock)); ?>
+
                                                               </span>
                                                           </td>
                                                       </tr>
-                                                      @endforeach
+                                                      <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
 
-                                                      @if(count($books) == 0 && count($allIndices ?? $indices ?? []) == 0 && count($allBundles ?? $bundles ?? []) == 0)
+                                                      <?php if(count($books) == 0 && count($allIndices ?? $indices ?? []) == 0 && count($allBundles ?? $bundles ?? []) == 0): ?>
                                                       <tr>
-                                                          <td colspan="{{ count($allSites ?? $sites) + 4 }}" class="text-center py-4 text-muted">No items found in master registry.</td>
+                                                          <td colspan="<?php echo e(count($allSites ?? $sites) + 4); ?>" class="text-center py-4 text-muted">No items found in master registry.</td>
                                                       </tr>
-                                                      @endif
+                                                      <?php endif; ?>
                                                   </tbody>
                                               </table>
                                           </div>
                                           <div class="d-flex justify-content-between align-items-center mt-4">
                                               <div class="pagination-info">
-                                                  Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
+                                                  Showing <?php echo e($books->firstItem() ?? 0); ?> to <?php echo e($books->lastItem() ?? 0); ?> of <?php echo e($books->total()); ?> entries
                                               </div>
                                               <nav>
-                                                  {{ $books->appends(['search' => request('search')])->links() }}
+                                                  <?php echo e($books->appends(['search' => request('search')])->links()); ?>
+
                                               </nav>
                                           </div>
                                       </div>
@@ -669,8 +671,8 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse($nonBooks as $item)
-                                                    @php
+                                                    <?php $__empty_1 = true; $__currentLoopData = $nonBooks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $item): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                                    <?php
                                                         // Get Main Warehouse inventory for this non-book
                                                         $mainWarehouseQuantity = 0;
                                                         if($mainWarehouse) {
@@ -678,49 +680,50 @@
                                                                 ->where('book_id', $item->id)
                                                                 ->sum('quantity');
                                                         }
-                                                    @endphp
+                                                    ?>
                                                     <tr>
-                                                        <td><strong>#{{ $item->sku }}</strong></td>
-                                                        <td>{{ $item->name }}</td>
-                                                        <td>{{ $item->category }}</td>
-                                                        <td>₱{{ number_format($item->cost, 2) }}</td>
-                                                        <td><strong>{{ $mainWarehouseQuantity }}</strong></td>
-                                                        <td><strong>{{ $item->max_stock ?? 'N/A' }}</strong></td>
+                                                        <td><strong>#<?php echo e($item->sku); ?></strong></td>
+                                                        <td><?php echo e($item->name); ?></td>
+                                                        <td><?php echo e($item->category); ?></td>
+                                                        <td>₱<?php echo e(number_format($item->cost, 2)); ?></td>
+                                                        <td><strong><?php echo e($mainWarehouseQuantity); ?></strong></td>
+                                                        <td><strong><?php echo e($item->max_stock ?? 'N/A'); ?></strong></td>
                                                         <td>
-                                                            @if($mainWarehouseQuantity == 0)
+                                                            <?php if($mainWarehouseQuantity == 0): ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-danger me-1"></i> Out of Stock
                                                                 </div>
-                                                            @elseif($mainWarehouseQuantity <= ($item->reorder_point ?? 0))
+                                                            <?php elseif($mainWarehouseQuantity <= ($item->reorder_point ?? 0)): ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-warning me-1"></i> Low Stock
                                                                 </div>
-                                                            @else
+                                                            <?php else: ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-success me-1"></i> In Stock
                                                                 </div>
-                                                            @endif
+                                                            <?php endif; ?>
                                                         </td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-danger" onclick="openStockManagementModal({{ $item->id }}, '{{ addslashes($item->name) }}', {{ $item->stock }}, {{ $item->max_stock ?? 0 }})">
+                                                            <button class="btn btn-sm btn-danger" onclick="openStockManagementModal(<?php echo e($item->id); ?>, '<?php echo e(addslashes($item->name)); ?>', <?php echo e($item->stock); ?>, <?php echo e($item->max_stock ?? 0); ?>)">
                                                                 <i class="las la-pen"></i>
                                                             </button>
                                                         </td>
                                                     </tr>
-                                                    @empty
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                                     <tr>
                                                         <td colspan="8" class="text-center">No non-books found.</td>
                                                     </tr>
-                                                    @endforelse
+                                                    <?php endif; ?>
                                                 </tbody>
                                             </table>
                                         </div>
                                         <div class="d-flex justify-content-between align-items-center mt-4">
                                             <div class="pagination-info">
-                                                Showing {{ $nonBooks->firstItem() ?? 0 }} to {{ $nonBooks->lastItem() ?? 0 }} of {{ $nonBooks->total() }} entries
+                                                Showing <?php echo e($nonBooks->firstItem() ?? 0); ?> to <?php echo e($nonBooks->lastItem() ?? 0); ?> of <?php echo e($nonBooks->total()); ?> entries
                                             </div>
                                             <nav>
-                                                {{ $nonBooks->appends(['search' => request('search')])->links() }}
+                                                <?php echo e($nonBooks->appends(['search' => request('search')])->links()); ?>
+
                                             </nav>
                                         </div>
                                     </div>
@@ -740,51 +743,52 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse($indices as $index)
-                                                    @php
+                                                    <?php $__empty_1 = true; $__currentLoopData = $indices; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                                    <?php
                                                         $mainWarehouseQty = 0;
                                                         if($mainWarehouse) {
                                                             $mainWarehouseQty = $mainWarehouse->inventory()
                                                                 ->where('book_index_id', $index->id)
                                                                 ->sum('quantity');
                                                         }
-                                                    @endphp
+                                                    ?>
                                                     <tr>
-                                                        <td><strong>#IDX-{{ str_pad($index->id, 4, '0', STR_PAD_LEFT) }}</strong></td>
-                                                        <td>{{ $index->book->name ?? 'N/A' }}</td>
-                                                        <td><span class="badge badge-info light">{{ $index->index_value }}</span></td>
-                                                        <td><strong>{{ $mainWarehouseQty }}</strong></td>
+                                                        <td><strong>#IDX-<?php echo e(str_pad($index->id, 4, '0', STR_PAD_LEFT)); ?></strong></td>
+                                                        <td><?php echo e($index->book->name ?? 'N/A'); ?></td>
+                                                        <td><span class="badge badge-info light"><?php echo e($index->index_value); ?></span></td>
+                                                        <td><strong><?php echo e($mainWarehouseQty); ?></strong></td>
                                                         <td>
-                                                            @if($mainWarehouseQty == 0)
+                                                            <?php if($mainWarehouseQty == 0): ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-danger me-1"></i> Out of Stock
                                                                 </div>
-                                                            @else
+                                                            <?php else: ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-success me-1"></i> In Stock
                                                                 </div>
-                                                            @endif
+                                                            <?php endif; ?>
                                                         </td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-danger" onclick="openIndexStockModal({{ $index->id }}, '{{ addslashes($index->book->name ?? 'N/A') }}', '{{ addslashes($index->index_value) }}', {{ $mainWarehouseQty }})">
+                                                            <button class="btn btn-sm btn-danger" onclick="openIndexStockModal(<?php echo e($index->id); ?>, '<?php echo e(addslashes($index->book->name ?? 'N/A')); ?>', '<?php echo e(addslashes($index->index_value)); ?>', <?php echo e($mainWarehouseQty); ?>)">
                                                                 <i class="las la-pen"></i>
                                                             </button>
                                                         </td>
                                                     </tr>
-                                                    @empty
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                                     <tr>
                                                         <td colspan="6" class="text-center">No book indices found.</td>
                                                     </tr>
-                                                    @endforelse
+                                                    <?php endif; ?>
                                                 </tbody>
                                             </table>
                                         </div>
                                         <div class="d-flex justify-content-between align-items-center mt-4">
                                             <div class="pagination-info">
-                                                Showing {{ $indices->firstItem() ?? 0 }} to {{ $indices->lastItem() ?? 0 }} of {{ $indices->total() }} entries
+                                                Showing <?php echo e($indices->firstItem() ?? 0); ?> to <?php echo e($indices->lastItem() ?? 0); ?> of <?php echo e($indices->total()); ?> entries
                                             </div>
                                             <nav>
-                                                {{ $indices->appends(['search' => request('search')])->links() }}
+                                                <?php echo e($indices->appends(['search' => request('search')])->links()); ?>
+
                                             </nav>
                                         </div>
                                     </div>
@@ -805,58 +809,59 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse($bundles as $bundle)
-                                                    @php
+                                                    <?php $__empty_1 = true; $__currentLoopData = $bundles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $bundle): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                                    <?php
                                                         $mainWarehouseQty = 0;
                                                         if($mainWarehouse) {
                                                             $mainWarehouseQty = $mainWarehouse->inventory()
                                                                 ->where('book_bundle_id', $bundle->id)
                                                                 ->sum('quantity');
                                                         }
-                                                    @endphp
+                                                    ?>
                                                     <tr>
-                                                        <td><strong>#{{ $bundle->sku ?? 'N/A' }}</strong></td>
-                                                        <td>{{ $bundle->name }}</td>
+                                                        <td><strong>#<?php echo e($bundle->sku ?? 'N/A'); ?></strong></td>
+                                                        <td><?php echo e($bundle->name); ?></td>
                                                         <td>
                                                             <ul class="mb-0 list-unstyled">
-                                                                @foreach($bundle->books as $b)
-                                                                    <li><small>• {{ $b->name }} (Qty: {{ $b->pivot->quantity }})</small></li>
-                                                                @endforeach
+                                                                <?php $__currentLoopData = $bundle->books; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $b): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                                    <li><small>• <?php echo e($b->name); ?> (Qty: <?php echo e($b->pivot->quantity); ?>)</small></li>
+                                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                             </ul>
                                                         </td>
-                                                        <td>₱{{ number_format($bundle->price, 2) }}</td>
-                                                        <td><strong>{{ $mainWarehouseQty }}</strong></td>
+                                                        <td>₱<?php echo e(number_format($bundle->price, 2)); ?></td>
+                                                        <td><strong><?php echo e($mainWarehouseQty); ?></strong></td>
                                                         <td>
-                                                            @if($mainWarehouseQty == 0)
+                                                            <?php if($mainWarehouseQty == 0): ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-danger me-1"></i> Out of Stock
                                                                 </div>
-                                                            @else
+                                                            <?php else: ?>
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fa fa-circle text-success me-1"></i> In Stock
                                                                 </div>
-                                                            @endif
+                                                            <?php endif; ?>
                                                         </td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-danger" onclick="openBundleStockModal({{ $bundle->id }}, '{{ addslashes($bundle->name) }}', {{ $mainWarehouseQty }})">
+                                                            <button class="btn btn-sm btn-danger" onclick="openBundleStockModal(<?php echo e($bundle->id); ?>, '<?php echo e(addslashes($bundle->name)); ?>', <?php echo e($mainWarehouseQty); ?>)">
                                                                 <i class="las la-pen"></i>
                                                             </button>
                                                         </td>
                                                     </tr>
-                                                    @empty
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                                     <tr>
                                                         <td colspan="7" class="text-center">No book bundles found.</td>
                                                     </tr>
-                                                    @endforelse
+                                                    <?php endif; ?>
                                                 </tbody>
                                             </table>
                                         </div>
                                         <div class="d-flex justify-content-between align-items-center mt-4">
                                             <div class="pagination-info">
-                                                Showing {{ $bundles->firstItem() ?? 0 }} to {{ $bundles->lastItem() ?? 0 }} of {{ $bundles->total() }} entries
+                                                Showing <?php echo e($bundles->firstItem() ?? 0); ?> to <?php echo e($bundles->lastItem() ?? 0); ?> of <?php echo e($bundles->total()); ?> entries
                                             </div>
                                             <nav>
-                                                {{ $bundles->appends(['search' => request('search')])->links() }}
+                                                <?php echo e($bundles->appends(['search' => request('search')])->links()); ?>
+
                                             </nav>
                                         </div>
                                     </div>
@@ -910,8 +915,8 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @forelse($recentMovements as $transaction)
-                                            @php
+                                            <?php $__empty_1 = true; $__currentLoopData = $recentMovements; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $transaction): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                            <?php
                                                 $src = strtolower(($transaction->source ?? '') . ' ' . ($transaction->notes ?? '') . ' ' . ($transaction->reference_number ?? ''));
                                                 $cat = 'so';
                                                 if (str_contains($src, 'transfer') || str_contains($src, 'st-')) {
@@ -925,44 +930,45 @@
                                                 } elseif ($transaction->sales_order_item_id || str_contains($src, 'so-') || str_contains($src, 'sales order') || $transaction->type == 'out') {
                                                     $cat = 'so';
                                                 }
-                                            @endphp
-                                            <tr class="stock-movement-row" data-movement-type="{{ $cat }}">
-                                                <td><strong>#{{ $transaction->book->sku ?? $transaction->book_id }}</strong></td>
-                                                <td>{{ $transaction->book->name ?? 'Unknown' }}</td>
+                                            ?>
+                                            <tr class="stock-movement-row" data-movement-type="<?php echo e($cat); ?>">
+                                                <td><strong>#<?php echo e($transaction->book->sku ?? $transaction->book_id); ?></strong></td>
+                                                <td><?php echo e($transaction->book->name ?? 'Unknown'); ?></td>
                                                 <td>
-                                                    @if($cat == 'transfer')
+                                                    <?php if($cat == 'transfer'): ?>
                                                         <span class="badge light" style="background-color: #cfe2ff; color: #084298; font-weight: 600;">Stock Transfer</span>
-                                                    @elseif($cat == 'stockin')
+                                                    <?php elseif($cat == 'stockin'): ?>
                                                         <span class="badge light badge-success">Stock In</span>
-                                                    @elseif($cat == 'pos')
+                                                    <?php elseif($cat == 'pos'): ?>
                                                         <span class="badge light" style="background-color: #e0cffc; color: #5925dc; font-weight: 600;">POS</span>
-                                                    @elseif($cat == 'ecom')
+                                                    <?php elseif($cat == 'ecom'): ?>
                                                         <span class="badge light" style="background-color: #cff4fc; color: #055160; font-weight: 600;">E-Com</span>
-                                                    @elseif($cat == 'so')
+                                                    <?php elseif($cat == 'so'): ?>
                                                         <span class="badge light" style="background-color: #fff3cd; color: #664d03; font-weight: 600;">Sales Order</span>
-                                                    @else
+                                                    <?php else: ?>
                                                         <span class="badge light badge-danger">Stock Out</span>
-                                                    @endif
+                                                    <?php endif; ?>
                                                 </td>
-                                                <td class="{{ $transaction->type == 'out' ? 'text-danger' : 'text-success' }}">
-                                                    {{ $transaction->type == 'out' ? '-' : '+' }}{{ $transaction->quantity }}
+                                                <td class="<?php echo e($transaction->type == 'out' ? 'text-danger' : 'text-success'); ?>">
+                                                    <?php echo e($transaction->type == 'out' ? '-' : '+'); ?><?php echo e($transaction->quantity); ?>
+
                                                 </td>
-                                                <td>{{ $transaction->created_at->format('Y-m-d') }}</td>
+                                                <td><?php echo e($transaction->created_at->format('Y-m-d')); ?></td>
                                                 <td>
-                                                    @if($transaction->status == 'completed')
+                                                    <?php if($transaction->status == 'completed'): ?>
                                                         <span class="badge light badge-success">Completed</span>
-                                                    @elseif($transaction->status == 'pending')
+                                                    <?php elseif($transaction->status == 'pending'): ?>
                                                         <span class="badge light badge-warning">Pending</span>
-                                                    @else
+                                                    <?php else: ?>
                                                         <span class="badge light badge-danger">Cancelled</span>
-                                                    @endif
+                                                    <?php endif; ?>
                                                 </td>
                                             </tr>
-                                            @empty
+                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                             <tr>
                                                 <td colspan="6" class="text-center">No recent movements.</td>
                                             </tr>
-                                            @endforelse
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -1095,20 +1101,20 @@
                                 </button>
                             </div>
                             <div class="card-body">
-                                {{-- Search bar for sites --}}
+                                
                                 <div class="mb-3">
-                                    <form method="GET" action="{{ url()->current() }}" class="d-flex gap-2">
-                                        {{-- Preserve other query params --}}
-                                        @if(request('search'))<input type="hidden" name="search" value="{{ request('search') }}">@endif
-                                        @if(request('page'))<input type="hidden" name="page" value="{{ request('page') }}">@endif
+                                    <form method="GET" action="<?php echo e(url()->current()); ?>" class="d-flex gap-2">
+                                        
+                                        <?php if(request('search')): ?><input type="hidden" name="search" value="<?php echo e(request('search')); ?>"><?php endif; ?>
+                                        <?php if(request('page')): ?><input type="hidden" name="page" value="<?php echo e(request('page')); ?>"><?php endif; ?>
                                         <div class="input-group" style="max-width: 350px;">
                                             <span class="input-group-text bg-white border-end-0"><i class="las la-search text-muted"></i></span>
-                                            <input type="text" name="site_search" class="form-control border-start-0 ps-0" placeholder="Search sites..." value="{{ request('site_search') }}">
+                                            <input type="text" name="site_search" class="form-control border-start-0 ps-0" placeholder="Search sites..." value="<?php echo e(request('site_search')); ?>">
                                         </div>
                                         <button type="submit" class="btn btn-sm btn-primary px-3">Search</button>
-                                        @if(request('site_search'))
-                                            <a href="{{ url()->current() }}?{{ http_build_query(request()->except('site_search', 'sites_page')) }}" class="btn btn-sm btn-outline-secondary px-3">Clear</a>
-                                        @endif
+                                        <?php if(request('site_search')): ?>
+                                            <a href="<?php echo e(url()->current()); ?>?<?php echo e(http_build_query(request()->except('site_search', 'sites_page'))); ?>" class="btn btn-sm btn-outline-secondary px-3">Clear</a>
+                                        <?php endif; ?>
                                     </form>
                                 </div>
 
@@ -1126,58 +1132,59 @@
                                             </tr>
                                         </thead>
                                         <tbody id="sitesTableBody">
-                                            @forelse($sites ?? [] as $site)
+                                            <?php $__empty_1 = true; $__currentLoopData = $sites ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                                             <tr>
-                                                <td><strong>{{ $site->name }}</strong></td>
-                                                <td>{{ $site->code ?? 'N/A' }}</td>
-                                                <td>{{ $site->location ?? 'N/A' }}</td>
-                                                <td>{{ $site->getTotalInventoryQuantity() }} items</td>
-                                                <td>₱{{ number_format($site->getTotalInventoryValue(), 2) }}</td>
+                                                <td><strong><?php echo e($site->name); ?></strong></td>
+                                                <td><?php echo e($site->code ?? 'N/A'); ?></td>
+                                                <td><?php echo e($site->location ?? 'N/A'); ?></td>
+                                                <td><?php echo e($site->getTotalInventoryQuantity()); ?> items</td>
+                                                <td>₱<?php echo e(number_format($site->getTotalInventoryValue(), 2)); ?></td>
                                                 <td>
-                                                    @if($site->is_active)
+                                                    <?php if($site->is_active): ?>
                                                         <span class="badge light badge-success">Active</span>
-                                                    @else
+                                                    <?php else: ?>
                                                         <span class="badge light badge-danger">Inactive</span>
-                                                    @endif
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#viewSiteInventory{{ $site->id }}" title="View Inventory">
+                                                    <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#viewSiteInventory<?php echo e($site->id); ?>" title="View Inventory">
                                                         <i class="las la-boxes"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editSiteModal{{ $site->id }}" title="Edit Site">
+                                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editSiteModal<?php echo e($site->id); ?>" title="Edit Site">
                                                         <i class="las la-pen"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-danger" onclick="deleteSite({{ $site->id }}, '{{ $site->name }}')" title="Delete Site">
+                                                    <button class="btn btn-sm btn-danger" onclick="deleteSite(<?php echo e($site->id); ?>, '<?php echo e($site->name); ?>')" title="Delete Site">
                                                         <i class="las la-trash"></i>
                                                     </button>
                                                 </td>
                                             </tr>
-                                            @empty
+                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                             <tr>
                                                 <td colspan="7" class="text-center">
-                                                    @if(request('site_search'))
-                                                        No sites found matching "{{ request('site_search') }}". <a href="{{ url()->current() }}?{{ http_build_query(request()->except('site_search', 'sites_page')) }}">Clear search</a>
-                                                    @else
+                                                    <?php if(request('site_search')): ?>
+                                                        No sites found matching "<?php echo e(request('site_search')); ?>". <a href="<?php echo e(url()->current()); ?>?<?php echo e(http_build_query(request()->except('site_search', 'sites_page'))); ?>">Clear search</a>
+                                                    <?php else: ?>
                                                         No sites found. <a href="#" data-bs-toggle="modal" data-bs-target="#addSiteModal">Add a new site</a>
-                                                    @endif
+                                                    <?php endif; ?>
                                                 </td>
                                             </tr>
-                                            @endforelse
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
 
-                                {{-- Pagination --}}
-                                @if($sites instanceof \Illuminate\Pagination\LengthAwarePaginator && $sites->hasPages())
+                                
+                                <?php if($sites instanceof \Illuminate\Pagination\LengthAwarePaginator && $sites->hasPages()): ?>
                                 <div class="d-flex justify-content-between align-items-center mt-3">
                                     <div class="text-muted small">
-                                        Showing {{ $sites->firstItem() }} to {{ $sites->lastItem() }} of {{ $sites->total() }} sites
+                                        Showing <?php echo e($sites->firstItem()); ?> to <?php echo e($sites->lastItem()); ?> of <?php echo e($sites->total()); ?> sites
                                     </div>
                                     <nav>
-                                        {{ $sites->appends(request()->except('sites_page'))->links() }}
+                                        <?php echo e($sites->appends(request()->except('sites_page'))->links()); ?>
+
                                     </nav>
                                 </div>
-                                @endif
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -1205,40 +1212,40 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @forelse($pendingTransfers ?? [] as $transfer)
+                                            <?php $__empty_1 = true; $__currentLoopData = $pendingTransfers ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $transfer): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                                             <tr>
-                                                <td>{{ $transfer->fromSite->name }}</td>
-                                                <td>{{ $transfer->toSite->name }}</td>
-                                                <td>{{ $transfer->item_name }}</td>
-                                                <td><strong>{{ $transfer->quantity }}</strong></td>
-                                                <td>{{ $transfer->approval_division ?? 'Production' }} Manager/Supervisor</td>
+                                                <td><?php echo e($transfer->fromSite->name); ?></td>
+                                                <td><?php echo e($transfer->toSite->name); ?></td>
+                                                <td><?php echo e($transfer->item_name); ?></td>
+                                                <td><strong><?php echo e($transfer->quantity); ?></strong></td>
+                                                <td><?php echo e($transfer->approval_division ?? 'Production'); ?> Manager/Supervisor</td>
                                                 <td>
-                                                    @if($transfer->status == 'pending')
+                                                    <?php if($transfer->status == 'pending'): ?>
                                                         <span class="badge light badge-warning">Pending</span>
-                                                    @elseif($transfer->status == 'completed')
+                                                    <?php elseif($transfer->status == 'completed'): ?>
                                                         <span class="badge light badge-success">Completed</span>
-                                                    @else
+                                                    <?php else: ?>
                                                         <span class="badge light badge-danger">Rejected</span>
-                                                    @endif
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td>
-                                                    @if($transfer->status == 'pending' && $transfer->canBeApprovedBy(auth()->user()))
-                                                        <button class="btn btn-xs btn-success" onclick="approveTransfer({{ $transfer->id }})">
+                                                    <?php if($transfer->status == 'pending' && $transfer->canBeApprovedBy(auth()->user())): ?>
+                                                        <button class="btn btn-xs btn-success" onclick="approveTransfer(<?php echo e($transfer->id); ?>)">
                                                             <i class="las la-check"></i> Approve
                                                         </button>
-                                                        <button class="btn btn-xs btn-danger" onclick="rejectTransfer({{ $transfer->id }})">
+                                                        <button class="btn btn-xs btn-danger" onclick="rejectTransfer(<?php echo e($transfer->id); ?>)">
                                                             <i class="las la-times"></i> Reject
                                                         </button>
-                                                    @elseif($transfer->status == 'pending')
+                                                    <?php elseif($transfer->status == 'pending'): ?>
                                                         <span class="text-muted small">Waiting for approval</span>
-                                                    @endif
+                                                    <?php endif; ?>
                                                 </td>
                                             </tr>
-                                            @empty
+                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                             <tr>
                                                 <td colspan="7" class="text-center">No pending transfers</td>
                                             </tr>
-                                            @endforelse
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -1275,45 +1282,47 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @forelse($stockTransferWorkflow ?? [] as $transfer)
-                                            @php
+                                            <?php $__empty_1 = true; $__currentLoopData = $stockTransferWorkflow ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $transfer): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                            <?php
                                                 $itemCount = $transfer->items_count ?? 1;
                                                 $totQty = $transfer->total_quantity ?? $transfer->quantity;
-                                            @endphp
+                                            ?>
                                             <tr>
-                                                <td><strong>ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                                                <td><strong>ST-<?php echo e(str_pad($transfer->id, 5, '0', STR_PAD_LEFT)); ?></strong></td>
                                                 <td>
-                                                    <div>{{ $transfer->fromSite->name ?? 'N/A' }}</div>
-                                                    <small class="text-muted">to {{ $transfer->toSite->name ?? 'N/A' }}</small>
+                                                    <div><?php echo e($transfer->fromSite->name ?? 'N/A'); ?></div>
+                                                    <small class="text-muted">to <?php echo e($transfer->toSite->name ?? 'N/A'); ?></small>
                                                 </td>
                                                 <td>
-                                                    @if($itemCount > 1)
-                                                        <strong>Multiple Books</strong> <small class="text-muted">({{ $itemCount }} titles)</small>
-                                                    @else
-                                                        {{ $transfer->item_name ?? 'N/A' }}
-                                                    @endif
+                                                    <?php if($itemCount > 1): ?>
+                                                        <strong>Multiple Books</strong> <small class="text-muted">(<?php echo e($itemCount); ?> titles)</small>
+                                                    <?php else: ?>
+                                                        <?php echo e($transfer->item_name ?? 'N/A'); ?>
+
+                                                    <?php endif; ?>
                                                 </td>
-                                                <td><strong>{{ number_format($totQty) }}</strong></td>
-                                                <td>{{ $transfer->createdBy->name ?? 'N/A' }}</td>
+                                                <td><strong><?php echo e(number_format($totQty)); ?></strong></td>
+                                                <td><?php echo e($transfer->createdBy->name ?? 'N/A'); ?></td>
                                                 <td>
-                                                    @if($transfer->logisticsAssignedTo && $transfer->logistics_assigned_to != $transfer->created_by)
-                                                        {{ $transfer->logisticsAssignedTo->name }}
-                                                    @endif
+                                                    <?php if($transfer->logisticsAssignedTo && $transfer->logistics_assigned_to != $transfer->created_by): ?>
+                                                        <?php echo e($transfer->logisticsAssignedTo->name); ?>
+
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td>
-                                                    @if($transfer->status === 'pending')
+                                                    <?php if($transfer->status === 'pending'): ?>
                                                         <span class="badge light badge-warning">Manager/Supervisor Approval</span>
-                                                    @elseif($transfer->status === 'accounting_review')
+                                                    <?php elseif($transfer->status === 'accounting_review'): ?>
                                                         <span class="badge light badge-info">Accounting Review</span>
-                                                    @elseif($transfer->status === 'logistics_assignment')
+                                                    <?php elseif($transfer->status === 'logistics_assignment'): ?>
                                                         <span class="badge light badge-primary">For Logistics Assignment</span>
-                                                    @elseif($transfer->status === 'logistics_assigned')
+                                                    <?php elseif($transfer->status === 'logistics_assigned'): ?>
                                                         <span class="badge light badge-secondary">Assigned to Logistics</span>
-                                                    @elseif($transfer->status === 'completed')
+                                                    <?php elseif($transfer->status === 'completed'): ?>
                                                         <span class="badge light badge-success">Completed</span>
-                                                    @else
+                                                    <?php else: ?>
                                                         <span class="badge light badge-danger">Rejected</span>
-                                                    @endif
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td style="min-width: 220px;">
                                                     <div class="d-flex align-items-center gap-1">
@@ -1321,45 +1330,46 @@
                                                                 class="btn btn-xs btn-outline-info" 
                                                                 data-bs-toggle="modal" 
                                                                 data-bs-target="#viewWorkflowTransferModal" 
-                                                                data-id="{{ $transfer->id }}"
-                                                                data-ref="ST-{{ str_pad($transfer->id, 5, '0', STR_PAD_LEFT) }}"
-                                                                data-from="{{ $transfer->fromSite->name ?? 'N/A' }}"
-                                                                data-to="{{ $transfer->toSite->name ?? 'N/A' }}"
-                                                                data-requested="{{ $transfer->createdBy->name ?? 'N/A' }}"
-                                                                data-assigned="{{ ($transfer->logisticsAssignedTo && $transfer->logistics_assigned_to != $transfer->created_by) ? $transfer->logisticsAssignedTo->name : 'Unassigned' }}"
-                                                                data-date="{{ optional($transfer->created_at)->format('M. d, Y h:i A') }}"
-                                                                data-status="{{ ucfirst(str_replace('_', ' ', $transfer->status)) }}"
-                                                                data-notes="{{ $transfer->notes ?? '' }}">
+                                                                data-id="<?php echo e($transfer->id); ?>"
+                                                                data-ref="ST-<?php echo e(str_pad($transfer->id, 5, '0', STR_PAD_LEFT)); ?>"
+                                                                data-from="<?php echo e($transfer->fromSite->name ?? 'N/A'); ?>"
+                                                                data-to="<?php echo e($transfer->toSite->name ?? 'N/A'); ?>"
+                                                                data-requested="<?php echo e($transfer->createdBy->name ?? 'N/A'); ?>"
+                                                                data-assigned="<?php echo e(($transfer->logisticsAssignedTo && $transfer->logistics_assigned_to != $transfer->created_by) ? $transfer->logisticsAssignedTo->name : 'Unassigned'); ?>"
+                                                                data-date="<?php echo e(optional($transfer->created_at)->format('M. d, Y h:i A')); ?>"
+                                                                data-status="<?php echo e(ucfirst(str_replace('_', ' ', $transfer->status))); ?>"
+                                                                data-notes="<?php echo e($transfer->notes ?? ''); ?>">
                                                             <i class="las la-eye"></i> View
                                                         </button>
 
-                                                        @if($transfer->status === 'logistics_assigned' && $transfer->canBeCompletedBy(auth()->user()))
-                                                            <button class="btn btn-xs btn-success" onclick="completeLogisticsTransfer({{ $transfer->id }})">
+                                                        <?php if($transfer->status === 'logistics_assigned' && $transfer->canBeCompletedBy(auth()->user())): ?>
+                                                            <button class="btn btn-xs btn-success" onclick="completeLogisticsTransfer(<?php echo e($transfer->id); ?>)">
                                                                 <i class="las la-check-double"></i> Mark Completed
                                                             </button>
-                                                        @elseif($transfer->status === 'logistics_assignment' && ($isLogisticsAssigner ?? false))
+                                                        <?php elseif($transfer->status === 'logistics_assignment' && ($isLogisticsAssigner ?? false)): ?>
                                                             <div class="d-flex gap-1">
-                                                                <select class="form-control form-control-sm" id="assignLogistics{{ $transfer->id }}">
+                                                                <select class="form-control form-control-sm" id="assignLogistics<?php echo e($transfer->id); ?>">
                                                                     <option value="">Select staff</option>
-                                                                    @foreach($logisticsUsers ?? [] as $logisticsUser)
-                                                                        <option value="{{ $logisticsUser->id }}" {{ $transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : '' }}>
-                                                                            {{ $logisticsUser->name }}
+                                                                    <?php $__currentLoopData = $logisticsUsers ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $logisticsUser): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                                        <option value="<?php echo e($logisticsUser->id); ?>" <?php echo e($transfer->logistics_assigned_to == $logisticsUser->id ? 'selected' : ''); ?>>
+                                                                            <?php echo e($logisticsUser->name); ?>
+
                                                                         </option>
-                                                                    @endforeach
+                                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                                 </select>
-                                                                <button class="btn btn-xs btn-primary" onclick="assignLogisticsTransfer({{ $transfer->id }})">
+                                                                <button class="btn btn-xs btn-primary" onclick="assignLogisticsTransfer(<?php echo e($transfer->id); ?>)">
                                                                     Assign
                                                                 </button>
                                                             </div>
-                                                        @endif
+                                                        <?php endif; ?>
                                                     </div>
                                                 </td>
                                             </tr>
-                                            @empty
+                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                             <tr>
                                                 <td colspan="8" class="text-center">No stock transfers found</td>
                                             </tr>
-                                            @endforelse
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -1372,48 +1382,48 @@
     </div>
 
     <!-- Per-Site Modals -->
-    @forelse($sites ?? [] as $site)
+    <?php $__empty_1 = true; $__currentLoopData = $sites ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
         <!-- View Site Inventory Modal -->
-        <div class="modal fade site-inventory-modal" id="viewSiteInventory{{ $site->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal fade site-inventory-modal" id="viewSiteInventory<?php echo e($site->id); ?>" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-xl modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header bg-info text-white">
-                        <h6 class="modal-title text-white"><i class="las la-boxes me-2"></i>Inventory at {{ $site->name }}</h6>
+                        <h6 class="modal-title text-white"><i class="las la-boxes me-2"></i>Inventory at <?php echo e($site->name); ?></h6>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body px-4 py-3" style="max-height: 85vh !important; overflow-y: auto !important; overflow-x: hidden !important;">
-                        @php
+                        <?php
                             $booksInv = $site->inventory->filter(fn($inv) => !empty($inv->book_id) && empty($inv->book_index_id) && empty($inv->book_bundle_id));
                             $indicesInv = $site->inventory->filter(fn($inv) => !empty($inv->book_index_id));
                             $bundlesInv = $site->inventory->filter(fn($inv) => !empty($inv->book_bundle_id));
-                        @endphp
+                        ?>
 
-                        @if($site->inventory->count() > 0)
+                        <?php if($site->inventory->count() > 0): ?>
                             <!-- Nav tabs inside modal -->
                             <ul class="nav nav-tabs nav-tabs-primary mb-3" role="tablist">
                                 <li class="nav-item">
-                                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#site-books-{{ $site->id }}" type="button">
-                                        <i class="las la-book me-1"></i> Books <span class="badge bg-primary text-white ms-1">{{ $booksInv->count() }}</span>
+                                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#site-books-<?php echo e($site->id); ?>" type="button">
+                                        <i class="las la-book me-1"></i> Books <span class="badge bg-primary text-white ms-1"><?php echo e($booksInv->count()); ?></span>
                                     </button>
                                 </li>
                                 <li class="nav-item">
-                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-indices-{{ $site->id }}" type="button">
-                                        <i class="las la-bookmark me-1"></i> Indices <span class="badge bg-info text-white ms-1">{{ $indicesInv->count() }}</span>
+                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-indices-<?php echo e($site->id); ?>" type="button">
+                                        <i class="las la-bookmark me-1"></i> Indices <span class="badge bg-info text-white ms-1"><?php echo e($indicesInv->count()); ?></span>
                                     </button>
                                 </li>
                                 <li class="nav-item">
-                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-bundles-{{ $site->id }}" type="button">
-                                        <i class="las la-boxes me-1"></i> Bundles <span class="badge bg-warning text-white ms-1">{{ $bundlesInv->count() }}</span>
+                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-bundles-<?php echo e($site->id); ?>" type="button">
+                                        <i class="las la-boxes me-1"></i> Bundles <span class="badge bg-warning text-white ms-1"><?php echo e($bundlesInv->count()); ?></span>
                                     </button>
                                 </li>
                             </ul>
 
                             <div class="tab-content">
                                 <!-- Books Tab -->
-                                <div class="tab-pane fade show active" id="site-books-{{ $site->id }}">
-                                    @if($booksInv->count() > 0)
+                                <div class="tab-pane fade show active" id="site-books-<?php echo e($site->id); ?>">
+                                    <?php if($booksInv->count() > 0): ?>
                                         <div class="table-responsive">
-                                            <table class="table table-sm align-middle" id="site-books-table-{{ $site->id }}">
+                                            <table class="table table-sm align-middle" id="site-books-table-<?php echo e($site->id); ?>">
                                                 <thead>
                                                     <tr>
                                                         <th>Book Title</th>
@@ -1423,35 +1433,35 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @foreach($booksInv as $inv)
+                                                    <?php $__currentLoopData = $booksInv; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $inv): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                                     <tr class="paginate-row">
-                                                        <td>{{ $inv->book->name ?? 'Unknown' }}</td>
-                                                        <td><strong>{{ $inv->quantity }}</strong></td>
-                                                        <td>{{ $inv->reorder_point ?? 'N/A' }}</td>
+                                                        <td><?php echo e($inv->book->name ?? 'Unknown'); ?></td>
+                                                        <td><strong><?php echo e($inv->quantity); ?></strong></td>
+                                                        <td><?php echo e($inv->reorder_point ?? 'N/A'); ?></td>
                                                         <td>
-                                                            @if($inv->getStockStatus() == 'out_of_stock')
+                                                            <?php if($inv->getStockStatus() == 'out_of_stock'): ?>
                                                                 <span class="badge light badge-danger">Out of Stock</span>
-                                                            @elseif($inv->getStockStatus() == 'low_stock')
+                                                            <?php elseif($inv->getStockStatus() == 'low_stock'): ?>
                                                                 <span class="badge light badge-warning">Low Stock</span>
-                                                            @else
+                                                            <?php else: ?>
                                                                 <span class="badge light badge-success">In Stock</span>
-                                                            @endif
+                                                            <?php endif; ?>
                                                         </td>
                                                     </tr>
-                                                    @endforeach
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                 </tbody>
                                             </table>
                                         </div>
-                                    @else
+                                    <?php else: ?>
                                         <div class="alert alert-light text-center my-3 text-muted">No books inventory at this site</div>
-                                    @endif
+                                    <?php endif; ?>
                                 </div>
 
                                 <!-- Indices Tab -->
-                                <div class="tab-pane fade" id="site-indices-{{ $site->id }}">
-                                    @if($indicesInv->count() > 0)
+                                <div class="tab-pane fade" id="site-indices-<?php echo e($site->id); ?>">
+                                    <?php if($indicesInv->count() > 0): ?>
                                         <div class="table-responsive">
-                                            <table class="table table-sm align-middle" id="site-indices-table-{{ $site->id }}">
+                                            <table class="table table-sm align-middle" id="site-indices-table-<?php echo e($site->id); ?>">
                                                 <thead>
                                                     <tr>
                                                         <th>Index Name</th>
@@ -1461,38 +1471,39 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @foreach($indicesInv as $inv)
+                                                    <?php $__currentLoopData = $indicesInv; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $inv): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                                     <tr class="paginate-row">
                                                         <td>
-                                                            {{ $inv->bookIndex->book->name ?? 'Unknown Book' }}
-                                                            <span class="badge bg-info text-white ms-1">{{ $inv->bookIndex->index_value ?? 'Index' }}</span>
+                                                            <?php echo e($inv->bookIndex->book->name ?? 'Unknown Book'); ?>
+
+                                                            <span class="badge bg-info text-white ms-1"><?php echo e($inv->bookIndex->index_value ?? 'Index'); ?></span>
                                                         </td>
-                                                        <td><strong>{{ $inv->quantity }}</strong></td>
-                                                        <td>{{ $inv->reorder_point ?? 'N/A' }}</td>
+                                                        <td><strong><?php echo e($inv->quantity); ?></strong></td>
+                                                        <td><?php echo e($inv->reorder_point ?? 'N/A'); ?></td>
                                                         <td>
-                                                            @if($inv->getStockStatus() == 'out_of_stock')
+                                                            <?php if($inv->getStockStatus() == 'out_of_stock'): ?>
                                                                 <span class="badge light badge-danger">Out of Stock</span>
-                                                            @elseif($inv->getStockStatus() == 'low_stock')
+                                                            <?php elseif($inv->getStockStatus() == 'low_stock'): ?>
                                                                 <span class="badge light badge-warning">Low Stock</span>
-                                                            @else
+                                                            <?php else: ?>
                                                                 <span class="badge light badge-success">In Stock</span>
-                                                            @endif
+                                                            <?php endif; ?>
                                                         </td>
                                                     </tr>
-                                                    @endforeach
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                 </tbody>
                                             </table>
                                         </div>
-                                    @else
+                                    <?php else: ?>
                                         <div class="alert alert-light text-center my-3 text-muted">No index inventory at this site</div>
-                                    @endif
+                                    <?php endif; ?>
                                 </div>
 
                                 <!-- Bundles Tab -->
-                                <div class="tab-pane fade" id="site-bundles-{{ $site->id }}">
-                                    @if($bundlesInv->count() > 0)
+                                <div class="tab-pane fade" id="site-bundles-<?php echo e($site->id); ?>">
+                                    <?php if($bundlesInv->count() > 0): ?>
                                         <div class="table-responsive">
-                                            <table class="table table-sm align-middle" id="site-bundles-table-{{ $site->id }}">
+                                            <table class="table table-sm align-middle" id="site-bundles-table-<?php echo e($site->id); ?>">
                                                 <thead>
                                                     <tr>
                                                         <th>Bundle Name</th>
@@ -1502,70 +1513,72 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @foreach($bundlesInv as $inv)
+                                                    <?php $__currentLoopData = $bundlesInv; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $inv): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                                     <tr class="paginate-row">
                                                         <td>
-                                                            {{ $inv->bookBundle->name ?? 'Unknown Bundle' }}
+                                                            <?php echo e($inv->bookBundle->name ?? 'Unknown Bundle'); ?>
+
                                                             <span class="badge bg-warning text-white ms-1">Bundle</span>
                                                         </td>
-                                                        <td><strong>{{ $inv->quantity }}</strong></td>
-                                                        <td>{{ $inv->reorder_point ?? 'N/A' }}</td>
+                                                        <td><strong><?php echo e($inv->quantity); ?></strong></td>
+                                                        <td><?php echo e($inv->reorder_point ?? 'N/A'); ?></td>
                                                         <td>
-                                                            @if($inv->getStockStatus() == 'out_of_stock')
+                                                            <?php if($inv->getStockStatus() == 'out_of_stock'): ?>
                                                                 <span class="badge light badge-danger">Out of Stock</span>
-                                                            @elseif($inv->getStockStatus() == 'low_stock')
+                                                            <?php elseif($inv->getStockStatus() == 'low_stock'): ?>
                                                                 <span class="badge light badge-warning">Low Stock</span>
-                                                            @else
+                                                            <?php else: ?>
                                                                 <span class="badge light badge-success">In Stock</span>
-                                                            @endif
+                                                            <?php endif; ?>
                                                         </td>
                                                     </tr>
-                                                    @endforeach
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                 </tbody>
                                             </table>
                                         </div>
-                                    @else
+                                    <?php else: ?>
                                         <div class="alert alert-light text-center my-3 text-muted">No bundle inventory at this site</div>
-                                    @endif
+                                    <?php endif; ?>
                                 </div>
                             </div>
-                        @else
+                        <?php else: ?>
                             <div class="alert alert-info text-center my-3">No inventory at this site</div>
-                        @endif
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Edit Site Modal -->
-        <div class="modal fade" id="editSiteModal{{ $site->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="editSiteModal<?php echo e($site->id); ?>" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header bg-warning text-white">
                         <h6 class="modal-title text-white">
                             <i class="las la-edit me-2"></i>
-                            Edit {{ $site->name }}
+                            Edit <?php echo e($site->name); ?>
+
                         </h6>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <form class="editSiteForm" data-site-id="{{ $site->id }}">
-                        @csrf
+                    <form class="editSiteForm" data-site-id="<?php echo e($site->id); ?>">
+                        <?php echo csrf_field(); ?>
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label font-w600">Site Name *</label>
-                                <input type="text" name="name" class="form-control" value="{{ $site->name }}" required>
+                                <input type="text" name="name" class="form-control" value="<?php echo e($site->name); ?>" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label font-w600">Site Code</label>
-                                <input type="text" name="code" class="form-control" value="{{ $site->code ?? '' }}">
+                                <input type="text" name="code" class="form-control" value="<?php echo e($site->code ?? ''); ?>">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label font-w600">Location</label>
-                                <input type="text" name="location" class="form-control" value="{{ $site->location ?? '' }}">
+                                <input type="text" name="location" class="form-control" value="<?php echo e($site->location ?? ''); ?>">
                             </div>
                             <div class="mb-0">
                                 <label class="form-label font-w600">Description</label>
-                                <textarea name="description" class="form-control" rows="3">{{ $site->description ?? '' }}</textarea>
+                                <textarea name="description" class="form-control" rows="3"><?php echo e($site->description ?? ''); ?></textarea>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -1576,8 +1589,8 @@
                 </div>
             </div>
         </div>
-    @empty
-    @endforelse
+    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+    <?php endif; ?>
 
     <!-- Stock Management Modal -->
     <div class="modal fade" id="stockManagementModal" tabindex="-1" aria-hidden="true">
@@ -1595,9 +1608,9 @@
                     <div class="mb-3">
                         <label class="form-label font-w600">Site *</label>
                         <select class="form-control" id="mgmtSiteSelect" onchange="onStockMgmtSiteChange()">
-                            @foreach($sites ?? [] as $site)
-                                <option value="{{ $site->id }}">{{ $site->name }}</option>
-                            @endforeach
+                            <?php $__currentLoopData = $sites ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($site->id); ?>"><?php echo e($site->name); ?></option>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                         </select>
                     </div>
                     <div class="row">
@@ -1793,7 +1806,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="addSiteForm">
-                    @csrf
+                    <?php echo csrf_field(); ?>
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label font-w600">Site Name *</label>
@@ -1830,16 +1843,16 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="transferStockForm">
-                    @csrf
+                    <?php echo csrf_field(); ?>
                     <div class="modal-body">
                         <!-- From Site Selection -->
                         <div class="mb-3">
                             <label class="form-label font-w600">From Site *</label>
                             <select name="from_site_id" class="form-control select2-single" required id="fromSiteSelect" style="width: 100%;">
                                 <option value="">-- Select Source Site --</option>
-                                @foreach($allSites ?? $sites ?? [] as $site)
-                                    <option value="{{ $site->id }}">{{ $site->name }}</option>
-                                @endforeach
+                                <?php $__currentLoopData = $allSites ?? $sites ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <option value="<?php echo e($site->id); ?>"><?php echo e($site->name); ?></option>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                             </select>
                         </div>
 
@@ -1918,9 +1931,9 @@
                             <label class="form-label font-w600">To Site *</label>
                             <select name="to_site_id" class="form-control select2-single" required id="toSiteSelect" style="width: 100%;">
                                 <option value="">-- Select Destination Site --</option>
-                                @foreach($allSites ?? $sites ?? [] as $site)
-                                    <option value="{{ $site->id }}">{{ $site->name }}</option>
-                                @endforeach
+                                <?php $__currentLoopData = $allSites ?? $sites ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $site): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <option value="<?php echo e($site->id); ?>"><?php echo e($site->name); ?></option>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                             </select>
                         </div>
 
@@ -2091,9 +2104,9 @@
 
     <!-- Toast Notification Container -->
     <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px;"></div>
-@push('scripts')
-    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
-    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
+<?php $__env->startPush('scripts'); ?>
+    <script src="<?php echo e(asset('vendor/datatables/js/jquery.dataTables.min.js')); ?>"></script>
+    <script src="<?php echo e(asset('vendor/select2/js/select2.full.min.js')); ?>"></script>
     <script>
         function switchConsignmentSubTab(btn, targetPaneId) {
             $('.c-sub-btn').removeClass('active btn-danger').addClass('btn-outline-danger');
@@ -2101,7 +2114,7 @@
             $('#area-consignment-pane, #direct-consignment-pane').removeClass('show active').css('display', 'none');
             $('#' + targetPaneId).addClass('show active').css('display', 'block');
         }
-        var workflowBatchData = @json($batchData ?? []);
+        var workflowBatchData = <?php echo json_encode($batchData ?? [], 15, 512) ?>;
 
         $(document).on('show.bs.modal', '#viewWorkflowTransferModal', function (event) {
             var button = $(event.relatedTarget);
@@ -2415,7 +2428,7 @@
                     return;
                 }
 
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '<?php echo e(csrf_token()); ?>';
 
                 if (saveBtn) {
                     saveBtn.disabled = true;
@@ -2495,7 +2508,7 @@
                     return;
                 }
 
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '<?php echo e(csrf_token()); ?>';
 
                 if (saveBtn) {
                     saveBtn.disabled = true;
@@ -2648,7 +2661,7 @@
         let nextRowId = 1;
 
         // Store master books and sites inventory data safely
-        @php
+        <?php
             $formattedSitesInventory = [];
             foreach($allSites ?? $sites ?? [] as $site) {
                 $formattedSitesInventory[$site->id] = collect($site->inventory ?? [])->map(function($inv) {
@@ -2670,9 +2683,9 @@
                     'quantity' => (int)($book->stock ?? 0)
                 ];
             })->values()->toArray();
-        @endphp
-        const masterBooksData = @json($formattedMasterBooks);
-        const sitesInventoryData = @json($formattedSitesInventory);
+        ?>
+        const masterBooksData = <?php echo json_encode($formattedMasterBooks, 15, 512) ?>;
+        const sitesInventoryData = <?php echo json_encode($formattedSitesInventory, 15, 512) ?>;
 
         // Initialize transfer modal from master inventory
         window.initTransferModalFromMaster = function() {
@@ -3824,7 +3837,7 @@
             if (!confirm('Recalculate and synchronize all Master Book Stock levels with Warehouse Inventory?')) {
                 return;
             }
-            fetch('{{ route("production.inventory.reconcile-stock") }}', {
+            fetch('<?php echo e(route("production.inventory.reconcile-stock")); ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -3845,5 +3858,10 @@
             });
         };
     </script>
-@endpush
-</x-app-layout>
+<?php $__env->stopPush(); ?>
+ <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalc254754b9d5db91d5165876f9d051922ca0066f4)): ?>
+<?php $component = $__componentOriginalc254754b9d5db91d5165876f9d051922ca0066f4; ?>
+<?php unset($__componentOriginalc254754b9d5db91d5165876f9d051922ca0066f4); ?>
+<?php endif; ?>

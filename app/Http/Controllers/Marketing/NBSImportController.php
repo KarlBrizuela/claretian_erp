@@ -268,15 +268,20 @@ class NBSImportController extends Controller
 
         $orders = [];
         $missingBooks = [];
+        $lastPoNumber = '';
 
         for ($i = 1; $i < count($lines); $i++) {
             $row = $lines[$i];
             if (empty(array_filter($row))) continue;
 
             $poNumber = $getValue($row, 'po_number');
+            if (!$poNumber && !empty($lastPoNumber)) {
+                $poNumber = $lastPoNumber;
+            }
             if (!$poNumber) {
                 continue;
             }
+            $lastPoNumber = $poNumber;
 
             $bookArticle = $getValue($row, 'book_article');
             $qty = (float)$getValue($row, 'qty');

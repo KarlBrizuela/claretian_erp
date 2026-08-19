@@ -9,6 +9,7 @@ use App\Models\BookBundle;
 use App\Models\SiteInventory;
 use App\Models\TeamStock;
 use App\Models\ConsignmentInventory;
+use App\Models\Site;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -27,19 +28,19 @@ class StockDeductionService
         try {
             $order->load(['items', 'preparedBy']);
             
-            // Determine team name (if creator or staff is assigned to a team)
+            // Determine team name (if user/staff is assigned to a sales team)
             $userTeam = null;
-            if ($order->type === 'area_sales_consignment' && $order->area_sales_staff_id) {
+            if ($order->area_sales_staff_id) {
                 $staff = \App\Models\User::find($order->area_sales_staff_id);
                 if ($staff && !empty($staff->sales_team)) {
-                    $userTeam = $staff->sales_team;
+                    $userTeam = trim($staff->sales_team);
                 }
             }
             if (empty($userTeam) && $order->preparedBy && !empty($order->preparedBy->sales_team)) {
-                $userTeam = $order->preparedBy->sales_team;
+                $userTeam = trim($order->preparedBy->sales_team);
             }
             if (empty($userTeam) && auth()->check() && !empty(auth()->user()->sales_team)) {
-                $userTeam = auth()->user()->sales_team;
+                $userTeam = trim(auth()->user()->sales_team);
             }
 
             $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) || str_starts_with($order->so_number, 'SO-NBS-');
@@ -58,6 +59,8 @@ class StockDeductionService
                     ]);
                     $ts->quantity = max(0, ($ts->quantity ?? 0) - $qty);
                     $ts->save();
+
+                    self::syncTeamSitesInventory();
                 } else {
                     // Deduct from Main Warehouse & Sync SiteInventory
                     $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
@@ -133,18 +136,19 @@ class StockDeductionService
         try {
             $order->load(['items', 'preparedBy']);
 
+            // Determine team name (if user/staff is assigned to a sales team)
             $userTeam = null;
-            if ($order->type === 'area_sales_consignment' && $order->area_sales_staff_id) {
+            if ($order->area_sales_staff_id) {
                 $staff = \App\Models\User::find($order->area_sales_staff_id);
                 if ($staff && !empty($staff->sales_team)) {
-                    $userTeam = $staff->sales_team;
+                    $userTeam = trim($staff->sales_team);
                 }
             }
             if (empty($userTeam) && $order->preparedBy && !empty($order->preparedBy->sales_team)) {
-                $userTeam = $order->preparedBy->sales_team;
+                $userTeam = trim($order->preparedBy->sales_team);
             }
             if (empty($userTeam) && auth()->check() && !empty(auth()->user()->sales_team)) {
-                $userTeam = auth()->user()->sales_team;
+                $userTeam = trim(auth()->user()->sales_team);
             }
 
             foreach ($order->items as $item) {
@@ -161,6 +165,8 @@ class StockDeductionService
                     ]);
                     $ts->quantity = ($ts->quantity ?? 0) + $qty;
                     $ts->save();
+
+                    self::syncTeamSitesInventory();
                 } else {
                     // Restore to Main Warehouse & Sync SiteInventory
                     $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
@@ -307,6 +313,42 @@ class StockDeductionService
             DB::rollBack();
             Log::error('Failed to adjust DR return stock for Sales Order #' . $order->so_number . ': ' . $e->getMessage());
             throw $e;
+        }
+    }
+
+    /**
+     * Synchronize TeamStock records into SiteInventory for Team sites (e.g. 'Team A', 'Team B', 'Team C')
+     */
+    public static function syncTeamSitesInventory()
+    {
+        $teamStocks = TeamStock::all();
+        foreach ($teamStocks as $ts) {
+            $teamName = trim($ts->team_name);
+            if (empty($teamName)) continue;
+
+            $teamSite = Site::where('name', $teamName)
+                ->orWhere('name', 'Site ' . $teamName)
+                ->orWhere('code', strtolower(str_replace(' ', '_', $teamName)))
+                ->first();
+
+            if ($teamSite) {
+                if ($ts->book_id) {
+                    SiteInventory::updateOrCreate(
+                        ['site_id' => $teamSite->id, 'book_id' => $ts->book_id],
+                        ['quantity' => max(0, (float)$ts->quantity)]
+                    );
+                } elseif ($ts->book_index_id) {
+                    SiteInventory::updateOrCreate(
+                        ['site_id' => $teamSite->id, 'book_index_id' => $ts->book_index_id],
+                        ['quantity' => max(0, (float)$ts->quantity)]
+                    );
+                } elseif ($ts->book_bundle_id) {
+                    SiteInventory::updateOrCreate(
+                        ['site_id' => $teamSite->id, 'book_bundle_id' => $ts->book_bundle_id],
+                        ['quantity' => max(0, (float)$ts->quantity)]
+                    );
+                }
+            }
         }
     }
 }

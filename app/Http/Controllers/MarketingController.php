@@ -2163,6 +2163,9 @@ class MarketingController extends Controller
             ]);
         }
 
+        // Deduct stock immediately upon Sales Order creation
+        \App\Services\StockDeductionService::deductForSalesOrder($so);
+
         $message = $action === 'draft' 
             ? 'Sales Order saved as draft. Please request freight quotation from Logistics.'
             : 'Sales Order created and routed successfully!';
@@ -2690,6 +2693,9 @@ class MarketingController extends Controller
         }
 
         $so->update(['total_amount' => $totalAmount]);
+
+        // Deduct stock immediately upon Sales Order creation
+        \App\Services\StockDeductionService::deductForSalesOrder($so);
 
         $statusMsg = $initialStatus === 'picking'
             ? 'Invoice created and auto-approved! Routed to Logistics for picking.'

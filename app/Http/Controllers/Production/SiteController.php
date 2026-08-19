@@ -276,6 +276,33 @@ class SiteController extends Controller
 
                 $sourceInventory = $invQuery->lockForUpdate()->first();
 
+                // Auto-sync if source site is Main Warehouse and SiteInventory is missing or has less than master stock
+                $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+                $mainSiteId = $mainWarehouse ? $mainWarehouse->id : 1;
+
+                if ((int)$request->from_site_id === (int)$mainSiteId) {
+                    $availableMasterStock = 0;
+                    if ($type === 'book') {
+                        $bk = Book::find($itemId);
+                        $availableMasterStock = $bk ? (int)$bk->stock : 0;
+                    } elseif ($type === 'index') {
+                        $idx = BookIndex::find($itemId);
+                        $availableMasterStock = $idx ? (int)($idx->stock ?? $idx->quantity ?? 0) : 0;
+                    } elseif ($type === 'bundle') {
+                        $bd = BookBundle::find($itemId);
+                        $availableMasterStock = $bd ? (int)($bd->stock ?? $bd->quantity ?? 0) : 0;
+                    }
+
+                    if ($availableMasterStock > 0 && (!$sourceInventory || $sourceInventory->quantity < $availableMasterStock)) {
+                        $keyAttrs = ['site_id' => $mainSiteId];
+                        if ($type === 'book') $keyAttrs['book_id'] = $itemId;
+                        elseif ($type === 'index') $keyAttrs['book_index_id'] = $itemId;
+                        elseif ($type === 'bundle') $keyAttrs['book_bundle_id'] = $itemId;
+
+                        $sourceInventory = SiteInventory::updateOrCreate($keyAttrs, ['quantity' => $availableMasterStock]);
+                    }
+                }
+
                 if (!$sourceInventory || $sourceInventory->quantity < $quantity) {
                     $label = $type === 'book'
                         ? ('Book #' . $itemId)
