@@ -3296,21 +3296,18 @@ class LogisticController extends Controller
                 if ($tItem->book_index_id) {
                     $index = \App\Models\BookIndex::find($tItem->book_index_id);
                     if ($index) {
-                        $index->main_stock = max(0, ($index->main_stock ?? $index->stock ?? 0) - $qty);
                         $index->stock = max(0, ($index->stock ?? $index->quantity ?? 0) - $qty);
                         $index->save();
                     }
                 } elseif ($tItem->book_id) {
                     $book = \App\Models\Book::find($tItem->book_id);
                     if ($book) {
-                        $book->main_stock = max(0, ($book->main_stock ?? $book->stock ?? 0) - $qty);
                         $book->stock = max(0, ($book->stock ?? 0) - $qty);
                         $book->save();
                     }
                 } elseif ($tItem->book_bundle_id) {
                     $bundle = \App\Models\BookBundle::find($tItem->book_bundle_id);
                     if ($bundle) {
-                        $bundle->main_stock = max(0, ($bundle->main_stock ?? $bundle->stock ?? 0) - $qty);
                         $bundle->stock = max(0, ($bundle->stock ?? $bundle->quantity ?? 0) - $qty);
                         $bundle->save();
                     }
@@ -3414,21 +3411,18 @@ class LogisticController extends Controller
                     if ($tItem->book_index_id) {
                         $index = \App\Models\BookIndex::find($tItem->book_index_id);
                         if ($index) {
-                            $index->main_stock = ($index->main_stock ?? 0) + $qty;
                             $index->stock = ($index->stock ?? 0) + $qty;
                             $index->save();
                         }
                     } elseif ($tItem->book_id) {
                         $book = \App\Models\Book::find($tItem->book_id);
                         if ($book) {
-                            $book->main_stock = ($book->main_stock ?? 0) + $qty;
                             $book->stock = ($book->stock ?? 0) + $qty;
                             $book->save();
                         }
                     } elseif ($tItem->book_bundle_id) {
                         $bundle = \App\Models\BookBundle::find($tItem->book_bundle_id);
                         if ($bundle) {
-                            $bundle->main_stock = ($bundle->main_stock ?? 0) + $qty;
                             $bundle->stock = ($bundle->stock ?? 0) + $qty;
                             $bundle->save();
                         }

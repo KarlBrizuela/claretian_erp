@@ -310,6 +310,9 @@
             <div class="footer">
                 <div class="order-ref">
                     <strong>Ref:</strong> {{ $order->so_number }}
+                    @if($order->cancellation_date)
+                        <br><span style="color: #cc0000; font-weight: 700;">Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                    @endif
                     @if($order->remarks)
                         <br><small style="color:#555;">Remarks: {{ \Illuminate\Support\Str::limit($order->remarks, 30) }}</small>
                     @endif

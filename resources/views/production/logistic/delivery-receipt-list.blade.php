@@ -222,7 +222,12 @@
                                         };
                                     @endphp
                                     <tr data-so-number="{{ $order->so_number }}" data-customer="{{ $order->customer->customer_name ?? '' }}" data-customer-id="{{ $order->customer_id ?? '' }}" data-status="{{ $order->status }}" data-days-remaining="{{ $daysRemaining !== null ? $daysRemaining : '' }}">
-                                        <td><strong>{{ $order->so_number }}</strong></td>
+                                        <td>
+                                            <strong>{{ $order->so_number }}</strong>
+                                            @if($order->cancellation_date)
+                                                <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                            @endif
+                                        </td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>
                                         <td>
@@ -475,7 +480,12 @@
                                         <td class="text-center">
                                             <input type="checkbox" class="form-check-input completed-dr-cb" value="{{ $order->id }}" style="cursor: pointer; width: 18px; height: 18px;">
                                         </td>
-                                        <td><strong>{{ $order->so_number }}</strong></td>
+                                        <td>
+                                            <strong>{{ $order->so_number }}</strong>
+                                            @if($order->cancellation_date)
+                                                <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                            @endif
+                                        </td>
                                         <td data-order="{{ $drDateObj ? $drDateObj->timestamp : ($order->id ?? 0) }}"><span class="badge bg-light text-dark border text-nowrap"><i class="las la-calendar me-1"></i>{{ $drDateFormatted }}</span></td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
                                         <td>₱{{ number_format($order->total_amount, 2) }}</td>

@@ -33,6 +33,12 @@
                         <label>Sales Order:</label>
                         <input type="text" class="form-control" placeholder="Sales Order" value="{{ $order ? $order->so_number : '' }}" readonly>
                     </div>
+                    @if($order?->cancellation_date)
+                    <div class="form-info-item">
+                        <label class="text-danger fw-bold">Cancel Date:</label>
+                        <input type="text" class="form-control fw-bold text-danger" value="{{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}" readonly style="color: #dc3545 !important;">
+                    </div>
+                    @endif
                 </div>
 
                 @if($order)

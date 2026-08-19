@@ -41,7 +41,7 @@ class NBSImportController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('PO Template');
         
-        // Clean headers including Discount, Discount Type & Cancellation Date
+        // Clean headers including Discount, Discount Type, Cancellation Date, Remarks & Address
         $headers = [
             'PO Number',         // A
             'PO Date',           // B
@@ -51,6 +51,8 @@ class NBSImportController extends Controller
             'NBS Branch',        // F
             'Discount',          // G
             'Discount Type',     // H
+            'Remarks',           // I
+            'Address',           // J
         ];
         
         foreach ($headers as $colIndex => $header) {
@@ -75,7 +77,7 @@ class NBSImportController extends Controller
                 'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
-        $sheet->getStyle('A1:H1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:J1')->applyFromArray($headerStyle);
 
         // Column Widths
         $colWidths = [
@@ -87,6 +89,8 @@ class NBSImportController extends Controller
             'F' => 30,
             'G' => 15,
             'H' => 18,
+            'I' => 25,
+            'J' => 35,
         ];
         foreach ($colWidths as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
@@ -121,6 +125,8 @@ class NBSImportController extends Controller
         $sheet->setCellValue('F2', $sampleBranch);
         $sheet->setCellValue('G2', 10);
         $sheet->setCellValue('H2', '%');
+        $sheet->setCellValue('I2', 'Sample Order Remarks');
+        $sheet->setCellValue('J2', 'Sample Delivery Address, Quezon City');
 
         if (!empty($subBranches)) {
             $branchSheet = $spreadsheet->createSheet();
@@ -242,6 +248,8 @@ class NBSImportController extends Controller
             'nbs_branch'        => $findCol(['nbs branch', 'branch']),
             'discount'          => $findCol(['discount', 'discount value', 'disc', 'discount_val', 'discount amount']),
             'discount_type'     => $findCol(['discount type', 'disc type', 'discount_type', 'type']),
+            'remarks'           => $findCol(['remarks', 'remark', 'notes', 'instruction', 'instructions']),
+            'address'           => $findCol(['address', 'shipping address', 'delivery address', 'ship address', 'location']),
         ];
 
         // Validate critical fields are mapped
@@ -333,8 +341,17 @@ class NBSImportController extends Controller
                     'po_date'           => $getValue($row, 'po_date'),
                     'cancellation_date' => $getValue($row, 'cancellation_date'),
                     'nbs_branch'        => $getValue($row, 'nbs_branch'),
+                    'remarks'           => $getValue($row, 'remarks'),
+                    'address'           => $getValue($row, 'address'),
                     'items'             => []
                 ];
+            } else {
+                if (empty($orders[$poNumber]['remarks']) && $getValue($row, 'remarks')) {
+                    $orders[$poNumber]['remarks'] = $getValue($row, 'remarks');
+                }
+                if (empty($orders[$poNumber]['address']) && $getValue($row, 'address')) {
+                    $orders[$poNumber]['address'] = $getValue($row, 'address');
+                }
             }
 
             // Determine unit price and description
@@ -465,6 +482,7 @@ class NBSImportController extends Controller
 
                 $branchRepresentative = !empty($poData['nbs_branch']) ? $poData['nbs_branch'] : $defaultBranchName;
                 $remarksStr = !empty($poData['remarks']) ? $poData['remarks'] : null;
+                $addressStr = !empty($poData['address']) ? $poData['address'] : null;
                 $cancelDate = !empty($poData['cancellation_date']) ? $poData['cancellation_date'] : null;
 
                 // Create SalesOrder in "pending_mkt_approval" status for Marketing Approval Queue
@@ -473,8 +491,10 @@ class NBSImportController extends Controller
                     'customer_representative' => $branchRepresentative,
                     'so_number'               => 'SO-NBS-' . $poNum . '-' . date('His'),
                     'type'                    => 'direct_consignment',
+                    'transaction_type'        => 'direct_consignment',
                     'ref_number'              => $poNum,
                     'remarks'                 => $remarksStr,
+                    'shipping_address'        => $addressStr,
                     'status'                  => 'pending_mkt_approval',
                     'prepared_by'             => auth()->id(),
                     'total_amount'            => 0,
@@ -704,15 +724,16 @@ class NBSImportController extends Controller
                 $customer = Customer::where('account_number', $vendorCode)->first();
                 
                 $so = SalesOrder::create([
-                    'customer_id' => $customer ? $customer->customer_id : $abacusCustomer->customer_id, 
-                    'so_number' => 'SO-NBS-' . $poNum . '-' . date('His'),
-                    'type' => 'direct_consignment',
-                    'ref_number' => $poNum,
-                    'remarks' => ($poData['remarks'] ?? '') . ($customer ? '' : " (Vendor Code: $vendorCode)"),
-                    'status' => 'draft',
-                    'prepared_by' => auth()->id(),
-                    'discount_percentage' => $poData['items'][0]['discount_percent'] ?? 0,
-                    'total_amount' => 0,
+                    'customer_id'        => $customer ? $customer->customer_id : $abacusCustomer->customer_id, 
+                    'so_number'          => 'SO-NBS-' . $poNum . '-' . date('His'),
+                    'type'               => 'direct_consignment',
+                    'transaction_type'   => 'direct_consignment',
+                    'ref_number'         => $poNum,
+                    'remarks'            => ($poData['remarks'] ?? '') . ($customer ? '' : " (Vendor Code: $vendorCode)"),
+                    'status'             => 'draft',
+                    'prepared_by'        => auth()->id(),
+                    'discount_percentage'=> $poData['items'][0]['discount_percent'] ?? 0,
+                    'total_amount'       => 0,
                 ]);
 
                 $totalAmount = 0;

@@ -127,6 +127,12 @@
                                 <td class="fw-bold text-dark">Order Type:</td>
                                 <td class="text-black text-uppercase">{{ str_replace('_', ' ', $order->type) }}</td>
                             </tr>
+                            @if($order->cancellation_date)
+                            <tr>
+                                <td class="fw-bold text-danger">Cancellation Date:</td>
+                                <td class="text-danger fw-bold">{{ \Carbon\Carbon::parse($order->cancellation_date)->format('F d, Y') }}</td>
+                            </tr>
+                            @endif
                             @if($order->plate_number)
                             <tr>
                                 <td class="fw-bold text-dark">Vehicle:</td>

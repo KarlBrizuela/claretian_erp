@@ -798,7 +798,7 @@
 
     <!-- Cash Advance Approval Modal -->
     <div class="modal fade" id="cashAdvanceApprovalModal" tabindex="-1" aria-labelledby="cashAdvanceApprovalModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 1200px;">
             <div class="modal-content border-0 shadow-lg">
                 <!-- Header -->
                 <div class="modal-header border-0 text-white position-relative" style="background: #dc3545; padding: 1.5rem 2rem;">
@@ -932,7 +932,7 @@
 
     <!-- Stock Transfer Approval Modal -->
     <div class="modal fade" id="stockTransferApprovalModal" tabindex="-1" aria-labelledby="stockTransferApprovalModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 1200px;">
             <div class="modal-content border-0 shadow-lg">
                 <!-- Header -->
                 <div class="modal-header border-0 text-white position-relative" style="background: #dc3545; padding: 1.5rem 2rem;">
@@ -1084,70 +1084,6 @@
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-danger px-4 py-2 fw-semibold" id="st-reject-btn">
                                 <i class="las la-times-circle me-1"></i>Reject
-                            </button>
-                            <button type="button" class="btn btn-success px-4 py-2 fw-semibold" id="st-approve-btn">
-                                <i class="las la-check-circle me-1"></i>Approve Transfer
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    @foreach($pendingTeamStockTransfers as $teamTransfer)
-    <div class="modal fade" id="teamStockTransferModal{{ $teamTransfer->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>Review Team Stock Transfer ({{ $teamTransfer->transfer_number }})</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
-                            <span class="badge bg-danger fs-6">{{ $teamTransfer->team_name }}</span>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Requested By:</small>
-                            <strong>{{ $teamTransfer->transferredByUser->name ?? 'N/A' }}</strong>
-                            <small class="d-block text-muted">{{ $teamTransfer->created_at->format('M d, Y h:i A') }}</small>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
-                            <span class="fw-semibold text-dark">{{ $teamTransfer->notes ?: 'None' }}</span>
-                        </div>
-                    </div>
-
-                    @if($teamTransfer->notes)
-                    <div class="alert alert-warning border border-warning mb-3 py-2">
-                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $teamTransfer->notes }}
-                    </div>
-                    @else
-                    <div class="alert alert-light border mb-3 py-2 text-muted">
-                        <i class="las la-info-circle me-1"></i>No remarks or notes specified for this transfer.
-                    </div>
-                    @endif
-
-                    <h6 class="fw-bold mb-2">Requested Items (Main Warehouse Transfer):</h6>
-                    <div class="table-responsive mb-3">
-                        <table class="table table-bordered table-sm align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Item Title</th>
-                                    <th>Type</th>
-                                    <th class="text-end">Unit Price</th>
-                                    <th class="text-center">Quantity to Transfer</th>
-                                    <th class="text-end">Total Price</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @php $teamGrandTotal = 0; $teamTotalQty = 0; @endphp
-                                @foreach($teamTransfer->items as $tItem)
-                                @php
-                                    $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
-                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
                                     $uPrice = (float) ($tItem->bookIndex ? ($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?? 0)) : ($tItem->book ? $tItem->book->price : ($tItem->bookBundle ? $tItem->bookBundle->price : 0)));
                                     $barcodeVal = $tItem->bookIndex ? ($tItem->bookIndex->barcode ?: ($tItem->bookIndex->nbs_barcode ?: $tItem->bookIndex->article)) : ($tItem->book ? ($tItem->book->barcode ?: ($tItem->book->isbn ?: $tItem->book->item_code)) : ($tItem->bookBundle ? $tItem->bookBundle->sku : ''));
                                     $subT = $tItem->quantity * $uPrice;
@@ -1197,12 +1133,12 @@
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             <button type="button" class="btn btn-outline-danger" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').toggle()">
                                 <i class="las la-times me-1"></i> Reject Request
-                            </button>
-                            <button type="submit" class="btn btn-success">
+                                     <button type="submit" class="btn btn-success">
                                 <i class="las la-check me-1"></i> Approve & Forward to Admin & Finance
                             </button>
                         </div>
                     </form>
+                </div>
             </div>
         </div>
     </div>
@@ -1212,200 +1148,6 @@
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
         // PHP batch data injected directly — 100% reliable, no HTML encoding issues
-        var stockTransferBatchData = @json($batchData);
-
-        // Global variables to hold table instances
-        var queueTable;
-        var myApprovalsTable;
-        var mySubmissionsTable;
-        var myApprovedTable;
-
-        // Global function for bottom card tab switching
-        function switchTab(btn, tabId) {
-            $('.tab-section').hide();
-            $('#' + tabId + '-content').show();
-
-            $('.tab-trigger').removeClass('active');
-            $(btn).addClass('active');
-
-            // Re-draw tables to fix alignment in hidden tabs
-            if (tabId === 'my-submissions' && mySubmissionsTable) mySubmissionsTable.columns.adjust().draw();
-            if (tabId === 'my-approved' && myApprovedTable) myApprovedTable.columns.adjust().draw();
-            if (tabId === 'my-approvals' && myApprovalsTable) myApprovalsTable.columns.adjust().draw();
-        }
-
-        // Global function for top card filtering
-        function filterQueue(btn, filterValue) {
-            $('.filter-trigger').removeClass('active');
-            $(btn).addClass('active');
-
-            if (queueTable) {
-                if (!filterValue) {
-                    queueTable.column(0).search('').draw();
-                } else {
-                    queueTable.column(0).search(filterValue, false, true).draw();
-                }
-            }
-        }
-
-        // Filter For Approval table by SO transaction type (reads data-so-type on <tr>)
-        let currentSOTypeFilter = '';
-
-        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, row, counter) {
-            if (settings.nTable.id !== 'myApprovalsTable') return true;
-            if (!currentSOTypeFilter) return true;
-            var nTr = settings.aoData[dataIndex] ? settings.aoData[dataIndex].nTr : null;
-            var soType = nTr ? ($(nTr).attr('data-so-type') || '') : '';
-            return soType === currentSOTypeFilter;
-        });
-
-        function filterBySOType(typeValue) {
-            currentSOTypeFilter = typeValue;
-            if (myApprovalsTable) {
-                myApprovalsTable.draw();
-            }
-        }
-
-        $(document).ready(function() {
-            // Initialize Tables
-            queueTable = $('#approvalQueueTable').DataTable({
-                order: [[4, 'desc']],
-                pageLength: 10,
-                columnDefs: [{ orderable: false, targets: -1 }]
-            });
-
-            myApprovalsTable = $('#myApprovalsTable').DataTable({
-                order: [[4, 'desc']],
-                pageLength: 10,
-                columnDefs: [{ orderable: false, targets: -1 }]
-            });
-
-            mySubmissionsTable = $('#mySubmissionsTable').DataTable({
-                order: [[3, 'desc']],
-                pageLength: 10,
-                columnDefs: [{ orderable: false, targets: -1 }]
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    @foreach($pendingTeamStockTransfers as $teamTransfer)
-    <div class="modal fade" id="teamStockTransferModal{{ $teamTransfer->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>Review Team Stock Transfer ({{ $teamTransfer->transfer_number }})</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Target Sales Team:</small>
-                            <span class="badge bg-danger fs-6">{{ $teamTransfer->team_name }}</span>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Requested By:</small>
-                            <strong>{{ $teamTransfer->transferredByUser->name ?? 'N/A' }}</strong>
-                            <small class="d-block text-muted">{{ $teamTransfer->created_at->format('M d, Y h:i A') }}</small>
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block mb-1">Remarks / Notes:</small>
-                            <span class="fw-semibold text-dark">{{ $teamTransfer->notes ?: 'None' }}</span>
-                        </div>
-                    </div>
-
-                    @if($teamTransfer->notes)
-                    <div class="alert alert-warning border border-warning mb-3 py-2">
-                        <strong class="text-dark"><i class="las la-comment-alt me-1"></i>Remarks / Notes:</strong> {{ $teamTransfer->notes }}
-                    </div>
-                    @else
-                    <div class="alert alert-light border mb-3 py-2 text-muted">
-                        <i class="las la-info-circle me-1"></i>No remarks or notes specified for this transfer.
-                    </div>
-                    @endif
-
-                    <h6 class="fw-bold mb-2">Requested Items (Main Warehouse Transfer):</h6>
-                    <div class="table-responsive mb-3">
-                        <table class="table table-bordered table-sm align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Item Title</th>
-                                    <th>Type</th>
-                                    <th class="text-end">Unit Price</th>
-                                    <th class="text-center">Quantity to Transfer</th>
-                                    <th class="text-end">Total Price</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @php $teamGrandTotal = 0; $teamTotalQty = 0; @endphp
-                                @foreach($teamTransfer->items as $tItem)
-                                @php
-                                    $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
-                                    $itemType = $tItem->bookIndex ? 'Book Index' : ($tItem->bookBundle ? 'Book Bundle' : 'Book');
-                                    $uPrice = (float) ($tItem->bookIndex ? ($tItem->bookIndex->price ?: ($tItem->bookIndex->book?->price ?? 0)) : ($tItem->book ? $tItem->book->price : ($tItem->bookBundle ? $tItem->bookBundle->price : 0)));
-                                    $barcodeVal = $tItem->bookIndex ? ($tItem->bookIndex->barcode ?: ($tItem->bookIndex->nbs_barcode ?: $tItem->bookIndex->article)) : ($tItem->book ? ($tItem->book->barcode ?: ($tItem->book->isbn ?: $tItem->book->item_code)) : ($tItem->bookBundle ? $tItem->bookBundle->sku : ''));
-                                    $subT = $tItem->quantity * $uPrice;
-                                    $teamGrandTotal += $subT;
-                                    $teamTotalQty += $tItem->quantity;
-                                @endphp
-                                <tr>
-                                    <td class="fw-bold text-dark">
-                                        {{ $itemName }}
-                                        @if($barcodeVal)
-                                            <br><small class="text-muted"><i class="las la-barcode me-1"></i>Barcode: <code>{{ $barcodeVal }}</code></small>
-                                        @endif
-                                    </td>
-                                    <td><span class="badge bg-secondary">{{ $itemType }}</span></td>
-                                    <td class="text-end font-monospace text-muted">₱{{ number_format($uPrice, 2) }}</td>
-                                    <td class="text-center fw-bold text-success">{{ number_format($tItem->quantity) }} pcs</td>
-                                    <td class="text-end font-monospace fw-bold text-dark">₱{{ number_format($subT, 2) }}</td>
-                                </tr>
-                                @endforeach
-                                @if(count($teamTransfer->items) > 0)
-                                <tr class="table-light fw-bold">
-                                    <td colspan="3" class="text-end small">Total Estimated Value:</td>
-                                    <td class="text-center text-success">{{ number_format($teamTotalQty) }} pcs</td>
-                                    <td class="text-end font-monospace text-danger">₱{{ number_format($teamGrandTotal, 2) }}</td>
-                                </tr>
-                                @endif
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <form action="{{ route('marketing.area-sales.team-stocks.reject', $teamTransfer->id) }}" method="POST" id="rejectTeamTransferForm{{ $teamTransfer->id }}" class="mb-3" style="display: none;">
-                        @csrf
-                        <input type="hidden" name="remarks" class="mkt-remarks-pass{{ $teamTransfer->id }}">
-                        <label class="form-label text-danger fw-bold">Reason for Rejection:</label>
-                        <textarea name="rejection_reason" class="form-control mb-2" rows="2" placeholder="Specify reason for rejection..." required></textarea>
-                        <button type="submit" class="btn btn-danger btn-sm"><i class="las la-times-circle me-1"></i>Confirm Rejection</button>
-                        <button type="button" class="btn btn-light btn-sm ms-1" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').hide()">Cancel</button>
-                    </form>
-
-                    <form action="{{ route('marketing.area-sales.team-stocks.approve', $teamTransfer->id) }}" method="POST">
-                        @csrf
-                        <div class="mb-3 text-start">
-                            <label class="form-label fw-bold small text-dark mb-1"><i class="las la-comment-alt text-primary me-1"></i>Add Action / Approval Remarks (Optional):</label>
-                            <textarea name="approval_remarks" class="form-control form-control-sm" rows="2" placeholder="Type optional remarks before approving..." oninput="$('.mkt-remarks-pass{{ $teamTransfer->id }}').val(this.value)"></textarea>
-                        </div>
-                        <div class="modal-footer bg-light px-0 pb-0 pt-3 border-0">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-outline-danger" onclick="$('#rejectTeamTransferForm{{ $teamTransfer->id }}').toggle()">
-                                <i class="las la-times me-1"></i> Reject Request
-                            </button>
-                            <button type="submit" class="btn btn-success">
-                                <i class="las la-check me-1"></i> Approve & Forward to Admin & Finance
-                            </button>
-                        </div>
-                    </form>
-            </div>
-        </div>
-    </div>
-    @endforeach
-
-    @push('scripts')
-    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
-    <script>
         var stockTransferBatchData = @json($batchData);
         var queueTable;
         var myApprovalsTable;

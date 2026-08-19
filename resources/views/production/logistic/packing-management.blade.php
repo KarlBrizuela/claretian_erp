@@ -163,7 +163,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                 @endphp
                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                     <td><input type="checkbox" class="order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
-                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -282,7 +287,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -364,7 +374,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -448,7 +463,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -532,7 +552,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr class="packing-row" data-order-id="{{ $order->id }}">
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -646,7 +671,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -722,7 +752,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -798,7 +833,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -874,7 +914,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -950,7 +995,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 @endphp
                                                 <tr>
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -1026,7 +1076,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     $platformClass = 'platform-' . strtolower($order->ecom_platform ?? 'default');
                                                 @endphp
                                                 <tr>
-                                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                                     <td>
                                                         @php $ordType = $order->type ?: ($order->transaction_type ?? ''); @endphp
                                         <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$ordType] ?? (ucwords(str_replace('_', ' ', $ordType)) ?: 'N/A') }}</span>
@@ -1089,7 +1144,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                             $pStatus = $pData['status'] ?? 'ready';
                                         @endphp
                                         <tr>
-                                            <td><strong>{{ $order->so_number }}</strong></td>
+                                            <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->cancellation_date)
+                                            <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                        @endif
+                                    </td>
                                             <td>
                                                 <span class="badge bg-light text-dark border">{{ $order->transaction_type ?? 'N/A' }}</span>
                                             </td>
@@ -1510,6 +1570,10 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                         <div style="margin-bottom: 0.75rem;">
                             <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Order Date:</label>
                             <input type="text" id="detailOrderDate" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div id="detailCancellationDateContainer" style="display: none; margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #dc3545; display: block; margin-bottom: 0.25rem;">Cancellation Date:</label>
+                            <input type="text" id="detailCancellationDate" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #dc3545; border-radius: 4px; background: #fff; color: #dc3545; font-weight: 700;">
                         </div>
                         <div style="margin-bottom: 0.75rem;">
                             <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Company:</label>
@@ -2515,6 +2579,15 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                     // Populate order info
                     setInputValue('detailSONumber', order.so_number);
                     setInputValue('detailOrderDate', new Date(order.created_at).toLocaleDateString());
+                    const cancelContainer = document.getElementById('detailCancellationDateContainer');
+                    if (cancelContainer) {
+                        if (order.cancellation_date) {
+                            cancelContainer.style.display = 'block';
+                            setInputValue('detailCancellationDate', new Date(order.cancellation_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }));
+                        } else {
+                            cancelContainer.style.display = 'none';
+                        }
+                    }
                     setInputValue('detailCustomerName', order.display_company_name || order.customer?.company_name || order.customer?.customer_name || 'N/A');
                     setInputValue('detailRepresentative', order.customer_representative || order.customer?.customer_name || 'N/A');
                     setInputValue('detailAccountNumber', order.display_account_number || order.customer?.account_number || 'N/A');

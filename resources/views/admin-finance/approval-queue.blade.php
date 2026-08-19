@@ -839,7 +839,7 @@
 
     <!-- Request Details Modal -->
     <div class="modal fade" id="requestDetailsModal" tabindex="-1" aria-labelledby="requestDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 1200px;">
             <div class="modal-content border-0 shadow-lg">
                 <!-- Header -->
                 <div class="modal-header border-0 text-white position-relative" style="background: #dc3545; padding: 1.5rem 2rem;">
@@ -1370,9 +1370,9 @@
                     descriptionHtml += `</tbody></table></div>
                         <div class="mt-3 pt-2 border-top">
                             <h6 class="fw-bold fs-12 text-muted mb-2"><i class="las la-books text-danger me-1"></i>BOOKS INCLUDED IN TRANSFER (${itemsList.length} titles · ${totQty} pcs total · ₱${totAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})</h6>
-                            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                            <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
                                 <table class="table table-sm table-bordered align-middle mb-0 small">
-                                    <thead class="table-light" style="position: sticky; top: 0;">
+                                    <thead class="table-light" style="position: sticky; top: 0; z-index: 2;">
                                         <tr>
                                             <th style="width: 40%;">Book Title / Code</th>
                                             <th style="width: 15%;">Type</th>

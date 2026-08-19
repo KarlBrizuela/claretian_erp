@@ -966,7 +966,7 @@
 
     <!-- Cash Advance Approval Modal -->
     <div class="modal fade" id="cashAdvanceModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 1200px;">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header border-0 text-white position-relative" style="background: #dc3545; padding: 1.5rem 2rem;">
                     <div class="d-flex align-items-center">
@@ -1090,7 +1090,7 @@
 
     <!-- Stock Transfer Details Modal -->
     <div class="modal fade" id="stockTransferModal" tabindex="-1" aria-labelledby="stockTransferModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 1200px;">
             <div class="modal-content border-0 shadow-lg">
                 <!-- Header -->
                 <div class="modal-header border-0 text-white position-relative" style="background: #dc3545; padding: 1.5rem 2rem;">
@@ -1254,7 +1254,7 @@
 
     @foreach($pendingTeamTransfers as $teamTransfer)
     <div class="modal fade" id="prodTeamStockTransferModal{{ $teamTransfer->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 1100px;">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>Review Team Stock Transfer ({{ $teamTransfer->transfer_number }})</h5>
@@ -1295,9 +1295,9 @@
                     @endif
 
                     <h6 class="fw-bold mb-2">Requested Items (Main Warehouse Transfer):</h6>
-                    <div class="table-responsive mb-3">
-                        <table class="table table-bordered table-sm align-middle mb-0">
-                            <thead class="table-light">
+                    <div class="table-responsive mb-3" style="max-height: 380px; overflow-y: auto;">
+                        <table class="table table-bordered table-sm align-middle mb-0" style="position: relative;">
+                            <thead class="table-light" style="position: sticky; top: 0; z-index: 2;">
                                 <tr>
                                     <th>Item Title</th>
                                     <th>Type</th>

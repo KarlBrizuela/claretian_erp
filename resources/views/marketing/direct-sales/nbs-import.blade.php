@@ -83,7 +83,7 @@
                             <div class="small text-muted">
                                 <strong class="text-dark">Supported import formats:</strong>
                                 <ul class="mb-0 mt-1 ps-3">
-                                    <li><strong>Bulk Excel (.xlsx)</strong> — Select a branch above, download the template, fill in the PO data (including <em>Discount</em> &amp; <em>Discount Type</em>: % or ₱), then upload here. The <em>NBS Branch</em> column will already have a dropdown with the sub-branches of your chosen branch. Orders go straight to <strong>Logistics Pick Lists</strong>.</li>
+                                    <li><strong>Bulk Excel (.xlsx)</strong> — Select a branch above, download the template, fill in the PO data (including <em>Discount</em>, <em>Discount Type</em>, <em>Remarks</em>, and <em>Address</em>), then upload here. The <em>NBS Branch</em> column will already have a dropdown with the sub-branches of your chosen branch. Orders go straight to <strong>Logistics Pick Lists</strong>.</li>
                                     <li><strong>Legacy NBS Export (.csv)</strong> — Standard HD/DT CSV export. Creates Sales Orders in <em>draft</em> status for marketing review.</li>
                                 </ul>
                             </div>

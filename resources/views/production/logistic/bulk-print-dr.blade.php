@@ -311,6 +311,12 @@
                 <td class="label-col">Address:</td>
                 <td class="val-col" colspan="3">{{ $order->shipping_address ?: ($order->customer->shipping_address ?? $order->customer->billing_address ?? 'N/A') }}</td>
             </tr>
+            @if($order->cancellation_date)
+            <tr>
+                <td class="label-col" style="color: #dc3545;">Cancel Date:</td>
+                <td class="val-col" colspan="3" style="color: #dc3545; font-weight: bold;">{{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</td>
+            </tr>
+            @endif
             @if($order->remarks || $order->notes || ($deliveryReceipt->remarks ?? null))
             <tr>
                 <td class="label-col">Remarks:</td>

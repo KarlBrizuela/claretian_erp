@@ -60,6 +60,12 @@
                                 <label>Order Date:</label>
                                 <input type="text" value="{{ optional(optional($so)->created_at)->format('M d, Y') ?? 'N/A' }}" readonly>
                             </div>
+                            @if($so?->cancellation_date)
+                            <div class="form-group">
+                                <label class="text-danger fw-bold">Cancellation Date:</label>
+                                <input type="text" class="fw-bold text-danger" value="{{ \Carbon\Carbon::parse($so->cancellation_date)->format('M d, Y') }}" readonly style="color: #dc3545 !important;">
+                            </div>
+                            @endif
                             <div class="form-group">
                                 <label>Company:</label>
                                 <input type="text" value="{{ $displayCompanyName }}" readonly>

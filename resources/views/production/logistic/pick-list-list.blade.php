@@ -84,7 +84,12 @@ $isAdmin = auth()->check() && (
                                         @forelse($pickLists as $pickList)
                                         <tr>
                                             <td><strong>{{ $pickList->pick_list_number }}</strong></td>
-                                            <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                            <td>
+                                                {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @if($pickList->salesOrder?->cancellation_date)
+                                                    <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
+                                                @endif
+                                            </td>
                                             <td>
                                                 @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
                                                 <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
@@ -197,7 +202,12 @@ $isAdmin = auth()->check() && (
                                                 @forelse($ecomByPlatform['lazada'] as $pickList)
                                                 <tr>
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
-                                                    <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>
+                                                {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @if($pickList->salesOrder?->cancellation_date)
+                                                    <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
+                                                @endif
+                                            </td>
                                                     <td>
                                                         @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
                                                 <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
@@ -268,7 +278,12 @@ $isAdmin = auth()->check() && (
                                                 @forelse($ecomByPlatform['shopee'] as $pickList)
                                                 <tr>
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
-                                                    <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>
+                                                {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @if($pickList->salesOrder?->cancellation_date)
+                                                    <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
+                                                @endif
+                                            </td>
                                                     <td>
                                                         @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
                                                 <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
@@ -339,7 +354,12 @@ $isAdmin = auth()->check() && (
                                                 @forelse($ecomByPlatform['tiktok'] as $pickList)
                                                 <tr>
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
-                                                    <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>
+                                                {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @if($pickList->salesOrder?->cancellation_date)
+                                                    <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
+                                                @endif
+                                            </td>
                                                     <td>
                                                         @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
                                                 <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
@@ -410,7 +430,12 @@ $isAdmin = auth()->check() && (
                                                 @forelse($ecomByPlatform['cob'] as $pickList)
                                                 <tr>
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
-                                                    <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                                    <td>
+                                                {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @if($pickList->salesOrder?->cancellation_date)
+                                                    <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
+                                                @endif
+                                            </td>
                                                     <td>
                                                         @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
                                                 <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
@@ -482,7 +507,12 @@ $isAdmin = auth()->check() && (
                                         @forelse($complimentaryPickLists as $pickList)
                                         <tr>
                                             <td><strong>{{ $pickList->pick_list_number }}</strong></td>
-                                            <td>{{ $pickList->salesOrder->so_number ?? 'N/A' }}</td>
+                                            <td>
+                                                {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @if($pickList->salesOrder?->cancellation_date)
+                                                    <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
+                                                @endif
+                                            </td>
                                             <td>
                                                 @php $soType = $pickList->salesOrder?->type ?: ($pickList->salesOrder?->transaction_type ?? ''); @endphp
                                                 <span class="badge bg-light text-dark border">{{ $txnTypeLabels[$soType] ?? (ucwords(str_replace('_', ' ', $soType)) ?: 'N/A') }}</span>
