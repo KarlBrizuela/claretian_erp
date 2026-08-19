@@ -679,9 +679,8 @@ $isAdmin = auth()->check() && (
                                 <div class="mb-0">
                                     <label class="fw-semibold small text-muted d-block mb-1">Picking Status:</label>
                                     <select name="status" id="tsp_status_{{ $tt->id }}" class="form-select form-select-sm fw-bold">
-                                        <option value="pending" {{ $tt->status !== 'completed' ? 'selected' : '' }}>Pending Picklist</option>
-                                        <option value="in_progress">Picking</option>
-                                        <option value="completed" {{ $tt->status === 'completed' ? 'selected' : '' }}>Completed</option>
+                                        <option value="pending_picklist" {{ $tt->status === 'pending_picklist' ? 'selected' : '' }}>Pending Picklist</option>
+                                        <option value="picking" {{ $tt->status === 'picking' ? 'selected' : '' }}>Picking</option>
                                     </select>
                                 </div>
                             </div>

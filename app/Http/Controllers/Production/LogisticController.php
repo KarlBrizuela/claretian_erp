@@ -3417,7 +3417,9 @@ class LogisticController extends Controller
             if ($request->has('notes')) {
                 $transfer->notes = $request->notes;
             }
-            if ($request->has('status')) {
+            // Only allow safe status transitions from the save-pick-items form.
+            // Completion should only happen via the dedicated completeTeamStockPickList endpoint.
+            if ($request->has('status') && in_array($request->status, ['pending_picklist', 'picking'])) {
                 $transfer->status = $request->status;
             }
             $transfer->save();
