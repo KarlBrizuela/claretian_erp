@@ -83,6 +83,10 @@
                                 <input type="text" value="{{ $so?->customer_contact ?: ($so?->customer?->mobile ?: ($so?->customer?->main_phone ?: 'N/A')) }}" readonly>
                             </div>
                             <div class="form-group">
+                                <label>Address:</label>
+                                <input type="text" value="{{ $so?->shipping_address ?: ($so?->customer?->address ?: ($so?->customer?->business_address ?? 'N/A')) }}" readonly>
+                            </div>
+                            <div class="form-group">
                                 <label>Freight Option:</label>
                                 <input type="text" value="{{ $pickList->salesOrder?->freight_option ? ucfirst(str_replace('_', ' ', $pickList->salesOrder->freight_option)) : 'N/A' }}" readonly>
                             </div>

@@ -2789,6 +2789,8 @@ public function checkVoucher()
       'remarks' => $newRemarks
     ]);
 
+    \App\Services\StockDeductionService::restoreForSalesOrder($order, 'Admin/Finance Rejection');
+
     return redirect()->route('admin-finance.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');
   }
 

@@ -568,6 +568,30 @@ class ProductionController extends Controller
 
         $order->update($updateData);
 
+        // Ensure PickList is created for picking orders
+        $order->load('items');
+        if ($order->items && $order->items->count() > 0) {
+            $existingPickList = \App\Models\PickList::where('sales_order_id', $order->id)->first();
+            if (!$existingPickList) {
+                $pickList = \App\Models\PickList::create([
+                    'sales_order_id'   => $order->id,
+                    'pick_list_number' => 'PL-' . $order->so_number . '-' . date('YmdHis'),
+                    'status'           => 'in_progress',
+                    'prepared_by'      => auth()->id(),
+                ]);
+
+                foreach ($order->items as $item) {
+                    \App\Models\PickListItem::create([
+                        'pick_list_id'        => $pickList->id,
+                        'sales_order_item_id' => $item->id,
+                        'requested_qty'       => $item->quantity,
+                        'picked_qty'          => 0,
+                        'status'              => 'pending',
+                    ]);
+                }
+            }
+        }
+
         return redirect()->route('production.approval-queue')->with('success', 'Sales Order #' . $order->so_number . ' has been approved and sent to Logistics for picking.');
     }
 
@@ -581,6 +605,9 @@ class ProductionController extends Controller
             'status' => 'cancelled',
             'remarks' => $newRemarks
         ]);
+
+        // Restore stock when SO is rejected
+        \App\Services\StockDeductionService::restoreForSalesOrder($order, 'Production Rejection');
 
         return redirect()->route('production.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');
     }

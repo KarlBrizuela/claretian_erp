@@ -1652,7 +1652,7 @@ class MarketingController extends Controller
             $itemsSubtotal = $order->items->filter(function($item) {
                 return $item->book || $item->bookIndex || $item->bundle;
             })->sum(function($item) {
-                return ($item->subtotal > 0) ? (float)$item->subtotal : ((float)$item->quantity * (float)$item->price);
+                return ($item->subtotal !== null) ? (float)$item->subtotal : ((float)$item->quantity * (float)$item->price);
             });
             $discountAmount = (float) ($order->discount_amount ?? 0);
             $freightCharges = (float) ($order->freight_charges ?? 0);
@@ -1904,6 +1904,20 @@ class MarketingController extends Controller
         return response()->json([
             'team_name' => $teamName ?: 'Main Warehouse',
             'products' => $products
+        ]);
+    }
+
+    public function consignmentInventoryIndex()
+    {
+        $items = \App\Models\ConsignmentInventory::with(['salesOrder', 'customer', 'book', 'bookIndex.book', 'bookBundle'])
+            ->latest()
+            ->get();
+
+        return view('marketing.consignment-inventory', [
+            'title' => 'Consignment Inventory',
+            'role' => 'Marketing Manager',
+            'sidebar' => 'marketing',
+            'items' => $items,
         ]);
     }
 
@@ -2165,11 +2179,11 @@ class MarketingController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         
+        // NBS PO import / Consignments go to pending_prod_approval (Logistics Approval Queue)
         // E-com direct orders go directly to pending_si_prep (Sales Invoice Prep)
-        // Area Consignment / NBS PO orders go directly to picking & create Pick List
         // All other SO types proceed to Accounting approval after Marketing Manager approval
-        if (str_starts_with($order->so_number, 'SO-NBS-') || $order->type === 'area_consignment') {
-            $nextStatus = 'picking';
+        if (str_starts_with($order->so_number, 'SO-NBS-') || in_array($order->type, ['area_consignment', 'direct_consignment'])) {
+            $nextStatus = 'pending_prod_approval';
         } elseif ($order->type === 'ecom_direct') {
             $nextStatus = 'pending_si_prep';
         } else {
@@ -2216,7 +2230,9 @@ class MarketingController extends Controller
         }
 
         $successMsg = 'Sales Order #' . $order->so_number . ' has been approved by Marketing.';
-        if ($nextStatus === 'picking') {
+        if ($nextStatus === 'pending_prod_approval') {
+            $successMsg .= ' It has been routed to Logistics / Production Approval Queue.';
+        } elseif ($nextStatus === 'picking') {
             $successMsg .= ' It has been routed to Logistics Pick Lists.';
         } elseif ($order->type === 'ecom_direct') {
             $successMsg .= ' It now appears in the Sales Invoice list for preparation.';
@@ -2241,6 +2257,9 @@ class MarketingController extends Controller
             'status' => 'cancelled',
             'remarks' => $newRemarks
         ]);
+
+        // Restore stock when SO is rejected
+        \App\Services\StockDeductionService::restoreForSalesOrder($order, 'Marketing Rejection');
 
         return redirect()->route('marketing.approval-queue')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');
     }

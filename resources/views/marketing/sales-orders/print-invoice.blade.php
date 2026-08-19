@@ -557,7 +557,7 @@
         foreach ($itemsToPrint as $item) {
             $qty = (float) $item->quantity;
             $price = (float) ($item->unit_price ?? $item->price);
-            $itemsSubtotal += (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
+            $itemsSubtotal += (float) ($item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($qty * $price)));
         }
 
         $discount = (float) ($order->discount_amount ?? 0);
@@ -648,7 +648,7 @@
                             }
                             $qty = (float) $item->quantity;
                             $price = (float) ($item->unit_price ?? $item->price);
-                            $subtotal = (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
+                            $subtotal = (float) ($item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($qty * $price)));
                         @endphp
                         <tr>
                             <td style="text-align: center; font-weight: bold;">{{ $qty }}</td>
@@ -788,7 +788,7 @@
                     }
                     $qty = (float) $item->quantity;
                     $price = (float) ($item->unit_price ?? $item->price);
-                    $subtotal = (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
+                    $subtotal = (float) ($item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($qty * $price)));
                     $topOffset = $idx * 0.15;
                 @endphp
                 <div style="position: absolute; top: {{ $topOffset }}in; left: 0.45in; width: 0.6in; text-align: center;  font-size: 6pt;">{{ $qty }}</div>
@@ -878,7 +878,7 @@
                     }
                     $qty = (float) $item->quantity;
                     $price = (float) ($item->unit_price ?? $item->price);
-                    $subtotal = (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
+                    $subtotal = (float) ($item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($qty * $price)));
                     $topOffset = $idx * 0.28;
                 @endphp
                 <div style="position: absolute; top: {{ $topOffset }}in; left: 0.45in; width: 0.6in; text-align: center; font-weight: bold; font-size: 9.5pt;">{{ $qty }}</div>

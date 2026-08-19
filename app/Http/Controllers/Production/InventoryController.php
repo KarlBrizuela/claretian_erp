@@ -276,24 +276,28 @@ class InventoryController extends Controller
         }
         $bundles = $bundlesQuery->paginate(10, ['*'], 'bundles_page')->withQueryString();
 
-        // Fetch consignment inventory: group by area sales staff
-        $consignmentOrders = \App\Models\SalesOrder::with(['areaSalesStaff', 'items.book'])
+        // Fetch consignment inventory: 1. Area Consignment (grouped by area sales staff)
+        $areaOrders = \App\Models\SalesOrder::with(['areaSalesStaff', 'preparedBy', 'items.book', 'items.bookIndex', 'items.bookBundle'])
             ->whereIn('type', ['area_consignment', 'area_sales_consignment'])
-            ->whereNotIn('status', ['draft', 'cancelled'])
-            ->whereNotNull('area_sales_staff_id')
+            ->whereNotIn('status', ['cancelled'])
             ->get();
 
-        // Group by staff, then aggregate books per staff
-        $consignmentStaff = $consignmentOrders->groupBy('area_sales_staff_id')->map(function ($orders) {
-            $staff = $orders->first()->areaSalesStaff;
+        $consignmentStaff = $areaOrders->groupBy(function($order) {
+            return $order->area_sales_staff_id ?: ($order->prepared_by ?: 0);
+        })->map(function ($orders) {
+            $first = $orders->first();
+            $staff = $first->areaSalesStaff ?: $first->preparedBy;
             $bookMap = [];
             foreach ($orders as $order) {
                 foreach ($order->items as $item) {
-                    if (!$item->book_id) continue;
-                    $key = $item->book_id;
+                    $name = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bookBundle ? $item->bookBundle->name : 'N/A'));
+                    $sku = $item->bookIndex ? ($item->bookIndex->barcode ?: $item->bookIndex->article) : ($item->book ? ($item->book->sku ?: $item->book->item_code) : ($item->bookBundle ? $item->bookBundle->sku : ''));
+                    $key = ($item->book_index_id ? 'idx_' . $item->book_index_id : ($item->book_id ? 'bk_' . $item->book_id : 'bdl_' . $item->book_bundle_id));
+
                     if (!isset($bookMap[$key])) {
                         $bookMap[$key] = [
-                            'book' => $item->book,
+                            'name' => $name,
+                            'sku' => $sku,
                             'total_qty' => 0,
                             'order_count' => 0,
                         ];
@@ -305,10 +309,51 @@ class InventoryController extends Controller
             return (object) [
                 'staff' => $staff,
                 'orders_count' => $orders->count(),
-                'books' => collect($bookMap)->sortBy(fn($b) => $b['book']->name ?? ''),
+                'books' => collect($bookMap)->sortBy(fn($b) => $b['name']),
                 'total_items' => collect($bookMap)->sum('total_qty'),
             ];
         })->sortBy(fn($s) => $s->staff->name ?? '');
+
+        // Fetch consignment inventory: 2. Direct Consignment (grouped by customer / NBS)
+        $directOrders = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bookBundle'])
+            ->where(function($q) {
+                $q->where('type', 'direct_consignment')
+                  ->orWhere('so_number', 'like', 'SO-NBS-%');
+            })
+            ->whereNotIn('status', ['cancelled'])
+            ->get();
+
+        $directConsignmentCustomers = $directOrders->groupBy(function($order) {
+            return $order->customer_id ?: ($order->customer_representative ?: 'NBS Consignment');
+        })->map(function ($orders) {
+            $first = $orders->first();
+            $customerName = $first->customer ? $first->customer->customer_name : ($first->customer_representative ?: 'Direct Consignment Customer');
+            $bookMap = [];
+            foreach ($orders as $order) {
+                foreach ($order->items as $item) {
+                    $name = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bookBundle ? $item->bookBundle->name : 'N/A'));
+                    $sku = $item->bookIndex ? ($item->bookIndex->barcode ?: $item->bookIndex->article) : ($item->book ? ($item->book->sku ?: $item->book->item_code) : ($item->bookBundle ? $item->bookBundle->sku : ''));
+                    $key = ($item->book_index_id ? 'idx_' . $item->book_index_id : ($item->book_id ? 'bk_' . $item->book_id : 'bdl_' . $item->book_bundle_id));
+
+                    if (!isset($bookMap[$key])) {
+                        $bookMap[$key] = [
+                            'name' => $name,
+                            'sku' => $sku,
+                            'total_qty' => 0,
+                            'order_count' => 0,
+                        ];
+                    }
+                    $bookMap[$key]['total_qty'] += (int) $item->quantity;
+                    $bookMap[$key]['order_count']++;
+                }
+            }
+            return (object) [
+                'customer_name' => $customerName,
+                'orders_count' => $orders->count(),
+                'books' => collect($bookMap)->sortBy(fn($b) => $b['name']),
+                'total_items' => collect($bookMap)->sum('total_qty'),
+            ];
+        })->sortBy(fn($c) => $c->customer_name);
 
         return view('production.inventory.overview', compact(
             'totalBooks', 
@@ -330,6 +375,7 @@ class InventoryController extends Controller
             'indices',
             'bundles',
             'consignmentStaff',
+            'directConsignmentCustomers',
             'batchData'
         ));
     }
@@ -676,6 +722,40 @@ class InventoryController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update stock: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function reconcileStock(Request $request)
+    {
+        try {
+            $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+            $mainSiteId = $mainWarehouse ? $mainWarehouse->id : 1;
+
+            $syncedCount = 0;
+            $books = Book::all();
+            foreach ($books as $b) {
+                $siteInv = SiteInventory::where('site_id', $mainSiteId)
+                    ->where('book_id', $b->id)
+                    ->first();
+
+                if (!$siteInv || (int)$siteInv->quantity !== (int)$b->stock) {
+                    SiteInventory::updateOrCreate(
+                        ['site_id' => $mainSiteId, 'book_id' => $b->id],
+                        ['quantity' => $b->stock]
+                    );
+                    $syncedCount++;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock successfully recalculated and synchronized across all ' . count($books) . ' books!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to recalculate stock: ' . $e->getMessage()
             ], 500);
         }
     }

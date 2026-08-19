@@ -47,6 +47,11 @@ class SalesOrderItem extends Model
         return $this->belongsTo(BookBundle::class, 'bundle_id');
     }
 
+    public function bookBundle()
+    {
+        return $this->belongsTo(BookBundle::class, 'bundle_id');
+    }
+
     public function bookIndex()
     {
         return $this->belongsTo(BookIndex::class, 'book_index_id');

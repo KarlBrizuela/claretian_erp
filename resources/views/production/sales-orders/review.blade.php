@@ -238,7 +238,7 @@
                             $itemsToRender = $order->items;
                             $totalSalesAmount = (float) $order->total_amount;
                             $itemsSubtotal = $itemsToRender->sum(function($item) {
-                                return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
+                                return $item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($item->quantity * $item->price));
                             });
                             $discountAmount = (float) ($order->discount_amount ?? 0);
                             $discountPercentage = $order->discount_percentage ?? 0;

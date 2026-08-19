@@ -19,6 +19,7 @@ class SalesOrder extends Model
         'terms',
         'ref_number',
         'status', // draft, pending_mkt_approval, pending_acct_approval, picking, gathered, pending_si_prep, pending_si_approval, pending_dr_prep, pending_dr_approval, ready_for_delivery, completed, cancelled
+        'stock_deducted',
         'total_amount',
         'tax_amount',
         'withholding_tax_amount',

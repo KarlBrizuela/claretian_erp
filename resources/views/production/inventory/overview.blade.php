@@ -109,8 +109,8 @@
         </div>
         
         <!-- Inventory Management Tabs -->
-        <div class="row mb-4">
-            <div class="col-xl-12">
+        <div class="row mb-4 align-items-center">
+            <div class="col-md-8">
                 <ul class="nav nav-tabs" role="tablist" style="border-bottom: 2px solid #e3e6f0;">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="stocks-tab" data-bs-toggle="tab" data-bs-target="#stocks-content" type="button" role="tab" aria-controls="stocks-content" aria-selected="true">
@@ -128,6 +128,38 @@
                         </button>
                     </li>
                 </ul>
+            </div>
+            <div class="col-md-4 text-end">
+                <button type="button" id="reconcileStockBtn" class="btn btn-sm btn-outline-danger fw-bold px-3 shadow-sm" onclick="reconcileStockUI()">
+                    <i class="las la-sync me-1"></i>Recalculate & Sync Stock
+                </button>
+                <script>
+                window.reconcileStockUI = function() {
+                    if (!confirm('Recalculate and synchronize all Master Book Stock levels with Warehouse Inventory?')) {
+                        return;
+                    }
+                    const token = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+                    fetch('{{ route("production.inventory.reconcile-stock") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': token
+                        }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('✓ ' + data.message);
+                            window.location.reload();
+                        } else {
+                            alert('Error: ' + (data.message || 'Failed to reconcile stock'));
+                        }
+                    })
+                    .catch(err => {
+                        alert('Error: ' + err.message);
+                    });
+                };
+                </script>
             </div>
         </div>
 
@@ -345,8 +377,143 @@
                                                 {{ $books->appends(['search' => request('search')])->links() }}
                                             </nav>
                                         </div>
-                                    </div>                                     <!-- All Sites Breakdown Tab Pane -->
-                                     <div class="tab-pane fade" id="registry-allsites-content" role="tabpanel" aria-labelledby="registry-allsites-tab">
+                                    </div>
+
+                                    <!-- Consignment Inventory Tab Pane -->
+                                    <div class="tab-pane fade" id="registry-consignment-content" role="tabpanel" aria-labelledby="registry-consignment-tab">
+                                        <div class="mb-3 p-2 bg-light rounded d-flex gap-2">
+                                            <button class="btn btn-sm btn-danger active fw-bold c-sub-btn" onclick="switchConsignmentSubTab(this, 'area-consignment-pane')" type="button">
+                                                <i class="las la-users me-1"></i>Area Consignment
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger fw-bold c-sub-btn" onclick="switchConsignmentSubTab(this, 'direct-consignment-pane')" type="button">
+                                                <i class="las la-store me-1"></i>Direct Consignment (NBS / Direct Accounts)
+                                            </button>
+                                        </div>
+
+                                        <div class="tab-content" id="consignmentSubTabsContent">
+                                            <!-- 1. Area Consignment Sub-Pane -->
+                                            <div class="tab-pane fade show active c-sub-pane" id="area-consignment-pane" role="tabpanel" style="display: block;">
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered table-responsive-md text-black align-middle">
+                                                        <thead class="bg-light">
+                                                            <tr>
+                                                                <th style="width: 60px;" class="text-center"><strong>#</strong></th>
+                                                                <th style="width: 200px;"><strong>AREA SALES STAFF / TEAM</strong></th>
+                                                                <th style="width: 150px;"><strong>BOOK ID / SKU</strong></th>
+                                                                <th><strong>BOOK TITLE</strong></th>
+                                                                <th class="text-center" style="width: 130px;"><strong>QTY</strong></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @forelse($consignmentStaff as $staffId => $data)
+                                                                @php $bookCount = count($data->books); $rowIdx = 0; @endphp
+                                                                @foreach($data->books as $bookData)
+                                                                @php $rowIdx++; @endphp
+                                                                <tr>
+                                                                    @if($rowIdx === 1)
+                                                                    <td class="text-center text-muted align-middle" rowspan="{{ $bookCount + 1 }}">
+                                                                        <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #1a5276;">
+                                                                            <i class="las la-user fs-16"></i>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td class="fw-bold text-black align-middle" rowspan="{{ $bookCount + 1 }}">
+                                                                        {{ $data->staff->name ?? 'Area Sales Team' }}
+                                                                        <div class="mt-1">
+                                                                            <span class="badge bg-primary px-2 py-1 fs-11">{{ $data->orders_count }} {{ Str::plural('Order', $data->orders_count) }}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    @endif
+                                                                    <td><strong>#{{ $bookData['sku'] ?? 'N/A' }}</strong></td>
+                                                                    <td class="fw-bold text-black">{{ $bookData['name'] }}</td>
+                                                                    <td class="text-center">
+                                                                        <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
+                                                                            {{ number_format($bookData['total_qty']) }}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                                @endforeach
+                                                                {{-- Subtotal row --}}
+                                                                <tr class="bg-light">
+                                                                    <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
+                                                                    <td class="text-center">
+                                                                        <span class="badge bg-success fs-14 fw-bold px-3 py-2">
+                                                                            {{ number_format($data->total_items) }}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            @empty
+                                                            <tr>
+                                                                <td colspan="5" class="text-center py-4 text-muted">No Area Consignment inventory found.</td>
+                                                            </tr>
+                                                            @endforelse
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <!-- 2. Direct Consignment Sub-Pane -->
+                                            <div class="tab-pane fade c-sub-pane" id="direct-consignment-pane" role="tabpanel" style="display: none;">
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered table-responsive-md text-black align-middle">
+                                                        <thead class="bg-light">
+                                                            <tr>
+                                                                <th style="width: 60px;" class="text-center"><strong>#</strong></th>
+                                                                <th style="width: 220px;"><strong>CUSTOMER / ACCOUNT</strong></th>
+                                                                <th style="width: 150px;"><strong>BOOK ID / SKU</strong></th>
+                                                                <th><strong>BOOK TITLE</strong></th>
+                                                                <th class="text-center" style="width: 130px;"><strong>QTY</strong></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @forelse($directConsignmentCustomers as $custId => $cData)
+                                                                @php $bCount = count($cData->books); $rIdx = 0; @endphp
+                                                                @foreach($cData->books as $bData)
+                                                                @php $rIdx++; @endphp
+                                                                <tr>
+                                                                    @if($rIdx === 1)
+                                                                    <td class="text-center text-muted align-middle" rowspan="{{ $bCount + 1 }}">
+                                                                        <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #c0392b;">
+                                                                            <i class="las la-store fs-16"></i>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td class="fw-bold text-black align-middle" rowspan="{{ $bCount + 1 }}">
+                                                                        {{ $cData->customer_name }}
+                                                                        <div class="mt-1">
+                                                                            <span class="badge bg-danger px-2 py-1 fs-11">{{ $cData->orders_count }} {{ Str::plural('Order', $cData->orders_count) }}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    @endif
+                                                                    <td><strong>#{{ $bData['sku'] ?? 'N/A' }}</strong></td>
+                                                                    <td class="fw-bold text-black">{{ $bData['name'] }}</td>
+                                                                    <td class="text-center">
+                                                                        <span class="badge bg-light text-danger border border-danger fw-bold px-2 py-1 fs-13">
+                                                                            {{ number_format($bData['total_qty']) }}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                                @endforeach
+                                                                {{-- Subtotal row --}}
+                                                                <tr class="bg-light">
+                                                                    <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
+                                                                    <td class="text-center">
+                                                                        <span class="badge bg-danger fs-14 fw-bold px-3 py-2">
+                                                                            {{ number_format($cData->total_items) }}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            @empty
+                                                            <tr>
+                                                                <td colspan="5" class="text-center py-4 text-muted">No Direct Consignment inventory found.</td>
+                                                            </tr>
+                                                            @endforelse
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="tab-pane fade" id="registry-allsites-content" role="tabpanel" aria-labelledby="registry-allsites-tab">
                                          <div class="table-responsive">
                                              <table class="table table-bordered table-responsive-md text-black align-middle">
                                                  <thead class="bg-light">
@@ -409,65 +576,7 @@
                                          </div>
                                      </div>
 
-                                    <!-- Consignment Inventory Tab Pane -->
-                                    <div class="tab-pane fade" id="registry-consignment-content" role="tabpanel" aria-labelledby="registry-consignment-tab">
-                                        <div class="table-responsive">
-                                            <table class="table table-bordered table-responsive-md text-black align-middle">
-                                                <thead class="bg-light">
-                                                    <tr>
-                                                        <th style="width: 60px;" class="text-center"><strong>#</strong></th>
-                                                        <th style="width: 200px;"><strong>AREA SALES STAFF</strong></th>
-                                                        <th style="width: 150px;"><strong>BOOK ID / SKU</strong></th>
-                                                        <th><strong>BOOK TITLE</strong></th>
-                                                        <th class="text-center" style="width: 130px;"><strong>QTY</strong></th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @forelse($consignmentStaff as $staffId => $data)
-                                                        @php $bookCount = $data->books->count(); $rowIdx = 0; @endphp
-                                                        @foreach($data->books as $bookData)
-                                                        @php $rowIdx++; @endphp
-                                                        <tr>
-                                                            @if($rowIdx === 1)
-                                                            <td class="text-center text-muted align-middle" rowspan="{{ $bookCount + 1 }}">
-                                                                <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #1a5276;">
-                                                                    <i class="las la-user fs-16"></i>
-                                                                </div>
-                                                            </td>
-                                                            <td class="fw-bold text-black align-middle" rowspan="{{ $bookCount + 1 }}">
-                                                                {{ $data->staff->name ?? 'Unknown Staff' }}
-                                                                <div class="mt-1">
-                                                                    <span class="badge bg-primary px-2 py-1 fs-11">{{ $data->orders_count }} {{ Str::plural('Order', $data->orders_count) }}</span>
-                                                                </div>
-                                                            </td>
-                                                            @endif
-                                                            <td><strong>#{{ $bookData['book']->sku ?? $bookData['book']->id }}</strong></td>
-                                                            <td class="fw-bold text-black">{{ $bookData['book']->name }}</td>
-                                                            <td class="text-center">
-                                                                <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
-                                                                    {{ number_format($bookData['total_qty']) }}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                        @endforeach
-                                                        {{-- Subtotal row --}}
-                                                        <tr class="bg-light">
-                                                            <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
-                                                            <td class="text-center">
-                                                                <span class="badge bg-success fs-14 fw-bold px-3 py-2">
-                                                                    {{ number_format($data->total_items) }}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    @empty
-                                                    <tr>
-                                                        <td colspan="5" class="text-center py-4 text-muted">No consignment orders found.</td>
-                                                    </tr>
-                                                    @endforelse
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                    
 
                                     <!-- Non-Books Registry Tab Pane -->
                                     <div class="tab-pane fade" id="registry-nonbooks-content" role="tabpanel" aria-labelledby="registry-nonbooks-tab">
@@ -890,7 +999,13 @@
                 document.addEventListener('DOMContentLoaded', function() {
                     updateMovementPagination();
                 });
-                </script>
+                        function switchConsignmentSubTab(btn, targetPaneId) {
+            $('.c-sub-btn').removeClass('active btn-danger').addClass('btn-outline-danger');
+            $(btn).addClass('active btn-danger').removeClass('btn-outline-danger');
+            $('#area-consignment-pane, #direct-consignment-pane').removeClass('show active').css('display', 'none');
+            $('#' + targetPaneId).addClass('show active').css('display', 'block');
+        }
+    </script>
             </div>
 
             <!-- Sites Tab Content -->
@@ -1868,8 +1983,20 @@
     <!-- Toast Notification Container -->
     <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px;"></div>
 @push('scripts')
-    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
-    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
+    <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}">        function switchConsignmentSubTab(btn, targetPaneId) {
+            $('.c-sub-btn').removeClass('active btn-danger').addClass('btn-outline-danger');
+            $(btn).addClass('active btn-danger').removeClass('btn-outline-danger');
+            $('#area-consignment-pane, #direct-consignment-pane').removeClass('show active').css('display', 'none');
+            $('#' + targetPaneId).addClass('show active').css('display', 'block');
+        }
+    </script>
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}">        function switchConsignmentSubTab(btn, targetPaneId) {
+            $('.c-sub-btn').removeClass('active btn-danger').addClass('btn-outline-danger');
+            $(btn).addClass('active btn-danger').removeClass('btn-outline-danger');
+            $('#area-consignment-pane, #direct-consignment-pane').removeClass('show active').css('display', 'none');
+            $('#' + targetPaneId).addClass('show active').css('display', 'block');
+        }
+    </script>
     <script>
         var workflowBatchData = @json($batchData ?? []);
 
@@ -3558,6 +3685,201 @@
 
                     document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
                         tab.addEventListener('shown.bs.tab', function(e) {
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred while saving bundle stock', 'error');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+            });
+        };
+
+        // --- TAB STATE PERSISTENCE ---
+        document.addEventListener('DOMContentLoaded', function() {
+            // Page-level tabs configuration
+            const pageTabs = ['stocks-tab', 'sites-tab', 'transfer-workflow-tab'];
+            pageTabs.forEach(tabId => {
+                const button = document.getElementById(tabId);
+                button?.addEventListener('shown.bs.tab', function(event) {
+                    localStorage.setItem('active_inventory_overview_tab', event.target.id);
+                });
+            });
+
+            // Restore page-level tab
+            const savedPageTabId = localStorage.getItem('active_inventory_overview_tab');
+            if (savedPageTabId && pageTabs.includes(savedPageTabId)) {
+                const tabButton = document.getElementById(savedPageTabId);
+                if (tabButton) {
+                    const tab = new bootstrap.Tab(tabButton);
+                    tab.show();
+                }
+            }
+
+            // Card-level nested registry tabs configuration
+            const registryTabs = ['registry-books-tab', 'registry-nonbooks-tab', 'registry-indices-tab', 'registry-bundles-tab'];
+            registryTabs.forEach(tabId => {
+                const button = document.getElementById(tabId);
+                button?.addEventListener('shown.bs.tab', function(event) {
+                    localStorage.setItem('active_inventory_registry_tab', event.target.id);
+                });
+            });
+
+            // Restore card-level nested registry tab
+            const savedRegistryTabId = localStorage.getItem('active_inventory_registry_tab');
+            if (savedRegistryTabId && registryTabs.includes(savedRegistryTabId)) {
+                const tabButton = document.getElementById(savedRegistryTabId);
+                if (tabButton) {
+                    const tab = new bootstrap.Tab(tabButton);
+                    tab.show();
+                }
+            }
+
+            // Site Inventory Modal Client-side Pagination (Sliding Window)
+            function initSiteTablePagination(tableId, pageSize = 10) {
+                const table = document.getElementById(tableId);
+                if (!table) return;
+                const tbody = table.querySelector('tbody');
+                if (!tbody) return;
+                const rows = Array.from(tbody.querySelectorAll('tr.paginate-row'));
+                if (rows.length === 0) return;
+
+                let currentPage = 1;
+                const totalPages = Math.ceil(rows.length / pageSize);
+
+                let container = document.getElementById(tableId + '_pagination');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = tableId + '_pagination';
+                    container.className = 'd-flex flex-wrap justify-content-between align-items-center mt-3 pt-2 border-top gap-2';
+                    table.parentNode.appendChild(container);
+                }
+
+                function render() {
+                    const start = (currentPage - 1) * pageSize;
+                    const end = start + pageSize;
+
+                    rows.forEach((row, idx) => {
+                        row.style.display = (idx >= start && idx < end) ? '' : 'none';
+                    });
+
+                    const showingStart = Math.min(start + 1, rows.length);
+                    const showingEnd = Math.min(end, rows.length);
+
+                    let html = `<small class="text-muted fw-bold">Showing ${showingStart} to ${showingEnd} of ${rows.length} entries</small>`;
+                    
+                    if (totalPages > 1) {
+                        html += `<ul class="pagination pagination-sm m-0 flex-wrap">`;
+                        
+                        // Previous button
+                        html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                            <button class="page-link py-1 px-2" type="button" data-page="${currentPage - 1}">Prev</button>
+                        </li>`;
+
+                        // Smart sliding window for page numbers
+                        let pages = [];
+                        if (totalPages <= 7) {
+                            for (let i = 1; i <= totalPages; i++) pages.push(i);
+                        } else {
+                            pages.push(1);
+                            if (currentPage > 3) {
+                                pages.push('...');
+                            }
+                            
+                            let startPage = Math.max(2, currentPage - 1);
+                            let endPage = Math.min(totalPages - 1, currentPage + 1);
+
+                            if (currentPage <= 3) {
+                                endPage = 4;
+                            }
+                            if (currentPage >= totalPages - 2) {
+                                startPage = totalPages - 3;
+                            }
+
+                            for (let i = startPage; i <= endPage; i++) {
+                                pages.push(i);
+                            }
+
+                            if (currentPage < totalPages - 2) {
+                                pages.push('...');
+                            }
+                            pages.push(totalPages);
+                        }
+
+                        pages.forEach(p => {
+                            if (p === '...') {
+                                html += `<li class="page-item disabled"><span class="page-link py-1 px-2">...</span></li>`;
+                            } else {
+                                html += `<li class="page-item ${currentPage === p ? 'active' : ''}">
+                                    <button class="page-link py-1 px-2" type="button" data-page="${p}">${p}</button>
+                                </li>`;
+                            }
+                        });
+
+                        // Next button
+                        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                            <button class="page-link py-1 px-2" type="button" data-page="${currentPage + 1}">Next</button>
+                        </li>`;
+                        
+                        html += `</ul>`;
+                    }
+
+                    container.innerHTML = html;
+
+                    container.querySelectorAll('button.page-link').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const p = parseInt(this.getAttribute('data-page'));
+                            if (p >= 1 && p <= totalPages) {
+                                currentPage = p;
+                                render();
+                            }
+                        });
+                    });
+                }
+
+                render();
+            }
+
+            document.querySelectorAll('[id^="viewSiteInventory"]').forEach(modalEl => {
+                const siteId = modalEl.id.replace('viewSiteInventory', '');
+                
+                function initAllTabs() {
+                    initSiteTablePagination(`site-books-table-${siteId}`, 6);
+                    initSiteTablePagination(`site-indices-table-${siteId}`, 6);
+                    initSiteTablePagination(`site-bundles-table-${siteId}`, 6);
+                }
+
+                modalEl.addEventListener('shown.bs.modal', initAllTabs);
+
+                modalEl.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tabBtn => {
+                    tabBtn.addEventListener('shown.bs.tab', initAllTabs);
+                });
+            });
+
+            document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function(e) {
+                    const titleEl = document.getElementById('registryHeaderTitle');
+                    if (titleEl) {
+                        const titleMap = {
+                            'registry-allsites-tab': 'All Sites Breakdown',
+                            'registry-consignment-tab': 'Consignment Inventory',
+                        };
+                        titleEl.textContent = titleMap[e.target.id] || 'Master Registry';
+                    }
+                });
+            });
+
+            // Initialize Stock Transfer Workflow DataTable (with search and pagination)
+            if ($('#stockTransferWorkflowTable').length > 0 && typeof $.fn.DataTable !== 'undefined') {
+                if (!$.fn.DataTable.isDataTable('#stockTransferWorkflowTable')) {
+                    const stwTable = $('#stockTransferWorkflowTable').DataTable({
+                        order: [[0, 'desc']],
+                        pageLength: 10,
+                        columnDefs: [{ orderable: false, targets: -1 }]
+                    });
+
+                    document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+                        tab.addEventListener('shown.bs.tab', function(e) {
                             if (e.target.id === 'transfer-workflow-tab' || e.target.getAttribute('href') === '#transfer-workflow-content') {
                                 stwTable.columns.adjust().draw();
                             }
@@ -3566,6 +3888,37 @@
                 }
             }
         });
+        window.switchConsignmentSubTab = function(btn, targetPaneId) {
+            $('.c-sub-btn').removeClass('active btn-danger').addClass('btn-outline-danger');
+            $(btn).addClass('active btn-danger').removeClass('btn-outline-danger');
+            $('#area-consignment-pane, #direct-consignment-pane').removeClass('show active').css('display', 'none');
+            $('#' + targetPaneId).addClass('show active').css('display', 'block');
+        };
+
+        window.reconcileStockUI = function() {
+            if (!confirm('Recalculate and synchronize all Master Book Stock levels with Warehouse Inventory?')) {
+                return;
+            }
+            fetch('{{ route("production.inventory.reconcile-stock") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✓ ' + data.message);
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to reconcile stock'));
+                }
+            })
+            .catch(err => {
+                alert('Error: ' + err.message);
+            });
+        };
     </script>
 @endpush
 </x-app-layout>

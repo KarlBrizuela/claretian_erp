@@ -1305,6 +1305,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4" style="max-height: 80vh; overflow-y: auto;">
+                    <form id="ts_pack_form_{{ $tt->id }}" action="{{ route('production.logistic.team-stock-transfer.save-pack-items', $tt->id) }}" method="POST">
+                        @csrf
                     
                     <!-- Top Information Grid (2 Columns) -->
                     <div class="row g-4 mb-4">
@@ -1329,12 +1331,12 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                 </div>
                                 <div class="mb-2">
                                     <label class="fw-semibold small text-muted d-block mb-1">Remarks / Special Instructions:</label>
-                                    <textarea id="ts_remarks_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-semibold mb-1" rows="2" placeholder="Enter remarks or special instructions...">{{ $tt->notes }}</textarea>
-                                    <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="alert('Remarks saved!')"><i class="fas fa-save me-1"></i>Save Remarks</button>
+                                    <textarea name="notes" id="ts_remarks_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-semibold mb-1" rows="2" placeholder="Enter remarks or special instructions...">{{ $tt->notes }}</textarea>
+                                    <button type="submit" class="btn btn-sm btn-primary fw-bold"><i class="fas fa-save me-1"></i>Save Remarks</button>
                                 </div>
                                 <div class="mb-2">
                                     <label class="fw-semibold small text-muted d-block mb-1">Packing Status:</label>
-                                    <select id="ts_packingStatus_{{ $tt->id }}" class="form-select form-select-sm fw-bold">
+                                    <select name="status" id="ts_packingStatus_{{ $tt->id }}" class="form-select form-select-sm fw-bold">
                                         <option value="not_started" {{ $tt->status !== 'completed' ? 'selected' : '' }}>Not Started</option>
                                         <option value="in_progress">In Progress</option>
                                         <option value="completed" {{ $tt->status === 'completed' ? 'selected' : '' }}>Completed</option>
@@ -1433,12 +1435,14 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     $itemSubtotal = $unitPrice * $tItem->quantity;
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = json_encode($uniqueBarcodes);
-                                    $isItemPacked = $tt->status === 'completed';
+                                    $isItemPacked = ($tItem->status === 'Packed' || $tt->status === 'completed' || $tItem->packed_qty >= $tItem->quantity);
+                                    $itemPackedQty = isset($tItem->packed_qty) && $tItem->packed_qty > 0 ? $tItem->packed_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
                                     $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                 @endphp
-                                <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPacked ? '#d4edda' : '#f8d7da' }};">
+                                <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPacked ? '#d4edda' : ($tItem->status === 'In Progress' ? '#fff3cd' : '#f8d7da') }};">
                                     <td>{{ $idx + 1 }}</td>
                                     <td class="fw-bold text-dark">
+                                        <input type="hidden" name="items[{{ $idx }}][id]" value="{{ $tItem->id }}">
                                         <div>
                                             {{ $itemName }}
                                             @if($tItemType === 'Bundle')
@@ -1457,21 +1461,21 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
                                     <td class="text-end fw-bold">₱{{ number_format($itemSubtotal, 2) }}</td>
                                     <td class="text-center">
-                                        <input type="number" id="ts_packed_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $tItem->quantity }}" value="{{ $isItemPacked ? $tItem->quantity : 0 }}" onchange="updateTeamStockPackingProgress({{ $tt->id }})" style="width: 60px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                        <input type="number" name="items[{{ $idx }}][packed_qty]" id="ts_packed_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $tItem->quantity }}" value="{{ $itemPackedQty }}" onchange="updateTeamStockPackingProgress({{ $tt->id }})" style="width: 60px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
                                     </td>
                                     <td class="text-center">
-                                        <select id="ts_packed_status_{{ $tt->id }}_{{ $idx }}" class="ts-status-select" onchange="onTSStatusSelectChange({{ $tt->id }}, {{ $idx }})" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
-                                            <option value="Not Packed" {{ !$isItemPacked ? 'selected' : '' }}>Not Packed</option>
-                                            <option value="In Progress">In Progress</option>
-                                            <option value="Packed" {{ $isItemPacked ? 'selected' : '' }}>Packed</option>
+                                        <select name="items[{{ $idx }}][status]" id="ts_packed_status_{{ $tt->id }}_{{ $idx }}" class="ts-status-select" onchange="onTSStatusSelectChange({{ $tt->id }}, {{ $idx }})" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                            <option value="Not Packed" {{ ($tItem->status ?? 'Not Packed') === 'Not Packed' ? 'selected' : '' }}>Not Packed</option>
+                                            <option value="In Progress" {{ ($tItem->status ?? '') === 'In Progress' ? 'selected' : '' }}>In Progress</option>
+                                            <option value="Packed" {{ ($tItem->status ?? '') === 'Packed' ? 'selected' : '' }}>Packed</option>
                                         </select>
                                         <span id="ts_status_badge_{{ $tt->id }}_{{ $idx }}" class="d-none {{ $isItemPacked ? 'bg-success' : 'bg-warning' }}"></span>
                                     </td>
                                     <td>
-                                        <input type="text" id="ts_notes_{{ $tt->id }}_{{ $idx }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                        <input type="text" name="items[{{ $idx }}][notes]" id="ts_notes_{{ $tt->id }}_{{ $idx }}" value="{{ $tItem->notes ?? '' }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
                                     </td>
                                     <td class="text-center">
-                                        <input type="date" id="ts_date_{{ $tt->id }}_{{ $idx }}" value="{{ date('Y-m-d') }}" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                        <input type="date" name="items[{{ $idx }}][packed_date]" id="ts_date_{{ $tt->id }}_{{ $idx }}" value="{{ $tItem->packed_date ? \Carbon\Carbon::parse($tItem->packed_date)->format('Y-m-d') : date('Y-m-d') }}" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
                                     </td>
                                 </tr>
                                 @endforeach
@@ -1490,13 +1494,18 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                 </div>
                                 <div class="mb-2">
                                     <label class="fw-semibold small text-muted d-block mb-1">Items Packed:</label>
-                                    <input type="text" id="ts_items_packed_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-bold text-success" value="{{ $tt->status === 'completed' ? $tt->items->count() : 0 }}" readonly>
+                                    <input type="text" id="ts_items_packed_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-bold text-success" value="{{ $tt->items->filter(fn($i) => $i->status === 'Packed' || $i->packed_qty >= $i->quantity)->count() }}" readonly>
                                 </div>
                                 <div class="mb-0">
                                     <label class="fw-semibold small text-muted d-block mb-1">Packing Progress:</label>
+                                    @php
+                                        $packedCount = $tt->items->filter(fn($i) => $i->status === 'Packed' || $i->packed_qty >= $i->quantity)->count();
+                                        $totalCount = $tt->items->count();
+                                        $pct = $totalCount > 0 ? round(($packedCount / $totalCount) * 100) : 0;
+                                    @endphp
                                     <div class="progress" style="height: 18px; border-radius: 9px; background: #e9ecef;">
-                                        <div id="ts_progress_bar_{{ $tt->id }}" class="progress-bar bg-success" style="width: {{ $tt->status === 'completed' ? '100%' : '0%' }}; font-size: 11px; font-weight: bold;">
-                                            {{ $tt->status === 'completed' ? '100%' : '0%' }}
+                                        <div id="ts_progress_bar_{{ $tt->id }}" class="progress-bar {{ $pct == 100 ? 'bg-success' : 'bg-warning text-dark' }}" style="width: {{ $pct }}%; font-size: 11px; font-weight: bold;">
+                                            {{ $pct }}%
                                         </div>
                                     </div>
                                 </div>
@@ -1507,9 +1516,10 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                             <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
                                 <h6 class="fw-bold text-dark mb-3">Actions</h6>
                                 <div class="d-flex flex-column gap-2">
-                                    <button type="button" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;" onclick="alert('Packing details saved!')">
+                                    <button type="submit" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;">
                                         <i class="fas fa-save me-1"></i>Save Packing
                                     </button>
+                    </form>
 
                                     @if($tt->status !== 'completed')
                                     <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="w-100 m-0">
@@ -1590,6 +1600,10 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                         <div style="margin-bottom: 0.75rem;">
                             <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Contact:</label>
                             <input type="text" id="detailContact" readonly style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Address:</label>
+                            <textarea id="detailAddress" readonly rows="2" style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-weight: 600;"></textarea>
                         </div>
                         <div style="margin-bottom: 0.75rem;">
                             <label style="font-weight: 600; font-size: 0.85rem; color: #666; display: block; margin-bottom: 0.25rem;">Remarks / Special Instructions:</label>
@@ -2592,6 +2606,7 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                     setInputValue('detailRepresentative', order.customer_representative || order.customer?.customer_name || 'N/A');
                     setInputValue('detailAccountNumber', order.display_account_number || order.customer?.account_number || 'N/A');
                     setInputValue('detailContact', order.customer_contact || order.customer?.mobile || order.customer?.main_phone || 'N/A');
+                    setInputValue('detailAddress', order.display_address || order.shipping_address || order.customer?.address || order.customer?.business_address || 'N/A');
                     const packingData = order.packing_data ? (typeof order.packing_data === 'string' ? JSON.parse(order.packing_data) : order.packing_data) : {};
                     setInputValue('detailRemarks', order.remarks || (packingData.remarks || ''));
                     const signedDate = order.signed_at ? new Date(order.signed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : (order.acct_approved_at ? new Date(order.acct_approved_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Not Signed Yet');

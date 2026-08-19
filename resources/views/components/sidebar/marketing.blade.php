@@ -100,6 +100,7 @@
 			<a href="{{ route('marketing.proof-of-payment') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.proof-of-payment') ? 'active' : '' }}">Proof of Payment</a>
 			@endif
 			<a href="{{ route('marketing.area-sales.team-stocks.index') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.area-sales.team-stocks.*') ? 'active' : '' }}">Team Stocks</a>
+			<a href="{{ route('marketing.consignment-inventory') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.consignment-inventory') ? 'active' : '' }}">Consignment Inventory</a>
 			<!-- Sales Reports and Territory Management removed -->
 		</div>
 	</div>

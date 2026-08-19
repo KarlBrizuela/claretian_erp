@@ -316,7 +316,7 @@
                         @php
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
                             $itemsSubtotal = $itemsToRender->sum(function($item) {
-                                return $item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($item->quantity * $item->price));
+                                return $item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($item->quantity * $item->price));
                             });
                             $discountAmount = (float) ($order->discount_amount ?? 0);
                             $freightCharges = $order->freight_charges ?? 0;

@@ -71,6 +71,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/update-stock/{bookId}', [InventoryController::class, 'updateStockDirectly'])->name('update-stock');
       Route::post('/update-index-stock/{indexId}', [InventoryController::class, 'updateIndexStockDirectly'])->name('update-index-stock');
       Route::post('/update-bundle-stock/{bundleId}', [InventoryController::class, 'updateBundleStockDirectly'])->name('update-bundle-stock');
+      Route::post('/reconcile-stock', [InventoryController::class, 'reconcileStock'])->name('reconcile-stock');
     });
 
     // Production Costing
@@ -194,6 +195,8 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/delivery-form/{id}', [App\Http\Controllers\Production\LogisticController::class, 'viewDeliveryForm'])->name('view-delivery-form');
 
       // Team Stock Transfer Fulfillment Routes
+      Route::post('/team-stock-transfer/{id}/save-pick-items', [App\Http\Controllers\Production\LogisticController::class, 'saveTeamStockPickItems'])->name('team-stock-transfer.save-pick-items');
+      Route::post('/team-stock-transfer/{id}/save-pack-items', [App\Http\Controllers\Production\LogisticController::class, 'saveTeamStockPackItems'])->name('team-stock-transfer.save-pack-items');
       Route::match(['get', 'post'], '/team-stock-transfer/{id}/complete-pick', [App\Http\Controllers\Production\LogisticController::class, 'completeTeamStockPickList'])->name('team-stock-transfer.complete-pick');
       Route::match(['get', 'post'], '/team-stock-transfer/{id}/complete-pack', [App\Http\Controllers\Production\LogisticController::class, 'completeTeamStockPacking'])->name('team-stock-transfer.complete-pack');
       Route::match(['get', 'post', 'delete'], '/team-stock-transfer/{id}/delete', [App\Http\Controllers\Production\LogisticController::class, 'deleteTeamStockTransfer'])->name('team-stock-transfer.delete');
@@ -414,6 +417,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/acknowledgement-receipt', [MarketingController::class, 'acknowledgementReceipt'])->name('marketing.acknowledgement-receipt');
     Route::get('/marketing/credit-memo', [MarketingController::class, 'creditMemo'])->name('marketing.credit-memo');
     Route::get('/marketing/proof-of-payment', [MarketingController::class, 'proofOfPayment'])->name('marketing.proof-of-payment');
+    Route::get('/marketing/consignment-inventory', [MarketingController::class, 'consignmentInventoryIndex'])->name('marketing.consignment-inventory');
 
     // Area Sales Team Stocks Routes
     Route::get('/marketing/area-sales/team-stocks', [MarketingController::class, 'teamStocksIndex'])->name('marketing.area-sales.team-stocks.index');

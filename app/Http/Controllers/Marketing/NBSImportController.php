@@ -543,6 +543,7 @@ class NBSImportController extends Controller
                 }
                 
                 $so->update(['total_amount' => $totalAmount]);
+                \App\Services\StockDeductionService::deductForSalesOrder($so);
                 $createdCount++;
             }
 
@@ -752,6 +753,7 @@ class NBSImportController extends Controller
                 }
                 
                 $so->update(['total_amount' => $totalAmount]);
+                \App\Services\StockDeductionService::deductForSalesOrder($so);
                 $createdCount++;
             }
 

@@ -647,6 +647,8 @@ $isAdmin = auth()->check() && (
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4" style="max-height: 80vh; overflow-y: auto;">
+                    <form id="tsp_form_{{ $tt->id }}" action="{{ route('production.logistic.team-stock-transfer.save-pick-items', $tt->id) }}" method="POST">
+                        @csrf
                     
                     <!-- Top Information Grid (2 Columns) -->
                     <div class="row g-4 mb-4">
@@ -671,12 +673,12 @@ $isAdmin = auth()->check() && (
                                 </div>
                                 <div class="mb-2">
                                     <label class="fw-semibold small text-muted d-block mb-1">Remarks / Special Instructions:</label>
-                                    <textarea id="tsp_remarks_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-semibold mb-1" rows="2" placeholder="Enter remarks or special instructions...">{{ $tt->notes }}</textarea>
-                                    <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="alert('Remarks saved!')"><i class="las la-save me-1"></i>Save Remarks</button>
+                                    <textarea name="notes" id="tsp_remarks_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-semibold mb-1" rows="2" placeholder="Enter remarks or special instructions...">{{ $tt->notes }}</textarea>
+                                    <button type="submit" class="btn btn-sm btn-primary fw-bold"><i class="las la-save me-1"></i>Save Remarks</button>
                                 </div>
                                 <div class="mb-0">
                                     <label class="fw-semibold small text-muted d-block mb-1">Picking Status:</label>
-                                    <select id="tsp_status_{{ $tt->id }}" class="form-select form-select-sm fw-bold">
+                                    <select name="status" id="tsp_status_{{ $tt->id }}" class="form-select form-select-sm fw-bold">
                                         <option value="pending" {{ $tt->status !== 'completed' ? 'selected' : '' }}>Pending Picklist</option>
                                         <option value="in_progress">Picking</option>
                                         <option value="completed" {{ $tt->status === 'completed' ? 'selected' : '' }}>Completed</option>
@@ -772,11 +774,13 @@ $isAdmin = auth()->check() && (
                                     $itemSubtotal = $unitPrice * $tItem->quantity;
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = json_encode($uniqueBarcodes);
-                                    $isItemPicked = $tt->status === 'completed';
+                                    $isItemPicked = ($tItem->status === 'Picked' || $tt->status === 'completed' || $tItem->picked_qty >= $tItem->quantity);
+                                    $itemPickedQty = isset($tItem->picked_qty) && $tItem->picked_qty > 0 ? $tItem->picked_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
                                 @endphp
-                                <tr id="tsp_row_{{ $tt->id }}_{{ $idx }}" class="tsp-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPicked ? '#d4edda' : '#f8d7da' }};">
+                                <tr id="tsp_row_{{ $tt->id }}_{{ $idx }}" class="tsp-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPicked ? '#d4edda' : ($tItem->status === 'Picking' ? '#fff3cd' : '#f8d7da') }};">
                                     <td>{{ $idx + 1 }}</td>
                                     <td class="fw-bold text-dark">
+                                        <input type="hidden" name="items[{{ $idx }}][id]" value="{{ $tItem->id }}">
                                         <div>
                                             {{ $itemName }}
                                             @if($tItemType === 'Bundle')
@@ -795,20 +799,20 @@ $isAdmin = auth()->check() && (
                                     <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
                                     <td class="text-end fw-bold">₱{{ number_format($itemSubtotal, 2) }}</td>
                                     <td class="text-center">
-                                        <input type="number" id="tsp_picked_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $tItem->quantity }}" value="{{ $isItemPicked ? $tItem->quantity : 0 }}" onchange="updateTSPProgress({{ $tt->id }})" style="width: 60px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                        <input type="number" name="items[{{ $idx }}][picked_qty]" id="tsp_picked_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $tItem->quantity }}" value="{{ $itemPickedQty }}" onchange="updateTSPProgress({{ $tt->id }})" style="width: 60px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
                                     </td>
                                     <td class="text-center">
-                                        <select id="tsp_item_status_{{ $tt->id }}_{{ $idx }}" class="tsp-status-select" onchange="onTSPStatusSelectChange({{ $tt->id }}, {{ $idx }})" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
-                                            <option value="Pending" {{ !$isItemPicked ? 'selected' : '' }}>Pending</option>
-                                            <option value="Picking">Picking</option>
-                                            <option value="Picked" {{ $isItemPicked ? 'selected' : '' }}>Picked</option>
+                                        <select name="items[{{ $idx }}][status]" id="tsp_item_status_{{ $tt->id }}_{{ $idx }}" class="tsp-status-select" onchange="onTSPStatusSelectChange({{ $tt->id }}, {{ $idx }})" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                            <option value="Pending" {{ ($tItem->status ?? 'Pending') === 'Pending' ? 'selected' : '' }}>Pending</option>
+                                            <option value="Picking" {{ ($tItem->status ?? '') === 'Picking' ? 'selected' : '' }}>Picking</option>
+                                            <option value="Picked" {{ ($tItem->status ?? '') === 'Picked' ? 'selected' : '' }}>Picked</option>
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="text" id="tsp_notes_{{ $tt->id }}_{{ $idx }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                        <input type="text" name="items[{{ $idx }}][notes]" id="tsp_notes_{{ $tt->id }}_{{ $idx }}" value="{{ $tItem->notes ?? '' }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
                                     </td>
                                     <td class="text-center">
-                                        <input type="date" id="tsp_date_{{ $tt->id }}_{{ $idx }}" value="{{ date('Y-m-d') }}" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                        <input type="date" name="items[{{ $idx }}][picked_date]" id="tsp_date_{{ $tt->id }}_{{ $idx }}" value="{{ $tItem->picked_date ? \Carbon\Carbon::parse($tItem->picked_date)->format('Y-m-d') : date('Y-m-d') }}" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
                                     </td>
                                 </tr>
                                 @endforeach
@@ -827,13 +831,18 @@ $isAdmin = auth()->check() && (
                                 </div>
                                 <div class="mb-2">
                                     <label class="fw-semibold small text-muted d-block mb-1">Items Picked:</label>
-                                    <input type="text" id="tsp_items_picked_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-bold text-success" value="{{ $tt->status === 'completed' ? $tt->items->count() : 0 }}" readonly>
+                                    <input type="text" id="tsp_items_picked_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-bold text-success" value="{{ $tt->items->filter(fn($i) => $i->status === 'Picked' || $i->picked_qty >= $i->quantity)->count() }}" readonly>
                                 </div>
                                 <div class="mb-0">
                                     <label class="fw-semibold small text-muted d-block mb-1">Picking Progress:</label>
+                                    @php
+                                        $pickedCount = $tt->items->filter(fn($i) => $i->status === 'Picked' || $i->picked_qty >= $i->quantity)->count();
+                                        $totalCount = $tt->items->count();
+                                        $pct = $totalCount > 0 ? round(($pickedCount / $totalCount) * 100) : 0;
+                                    @endphp
                                     <div class="progress" style="height: 18px; border-radius: 9px; background: #e9ecef;">
-                                        <div id="tsp_progress_bar_{{ $tt->id }}" class="progress-bar bg-success" style="width: {{ $tt->status === 'completed' ? '100%' : '0%' }}; font-size: 11px; font-weight: bold;">
-                                            {{ $tt->status === 'completed' ? '100%' : '0%' }}
+                                        <div id="tsp_progress_bar_{{ $tt->id }}" class="progress-bar {{ $pct == 100 ? 'bg-success' : 'bg-warning text-dark' }}" style="width: {{ $pct }}%; font-size: 11px; font-weight: bold;">
+                                            {{ $pct }}%
                                         </div>
                                     </div>
                                 </div>
@@ -844,9 +853,10 @@ $isAdmin = auth()->check() && (
                             <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
                                 <h6 class="fw-bold text-dark mb-3">Actions</h6>
                                 <div class="d-flex flex-column gap-2">
-                                    <button type="button" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;" onclick="alert('Pick list details saved!')">
+                                    <button type="submit" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;">
                                         <i class="las la-save me-1"></i>Save Picked Items
                                     </button>
+                    </form>
 
                                     @if($tt->status !== 'completed')
                                     <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" method="POST" class="w-100 m-0">

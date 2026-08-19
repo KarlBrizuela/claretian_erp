@@ -551,7 +551,9 @@ class FORDController extends Controller
             'remarks' => $newRemarks
         ]);
 
-        return redirect()->route('production.ford.sales-order')->with('warning', 'Sales Order #' . $order->so_number . ' has been rejected.');
+        \App\Services\StockDeductionService::restoreForSalesOrder($order, 'Foreign Production Rejection');
+
+        return redirect()->route('production.approval-queue')->with('warning', 'Foreign Sales Order #' . $order->so_number . ' has been rejected.');
     }
 
     public function transmittal()

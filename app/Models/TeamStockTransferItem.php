@@ -15,6 +15,12 @@ class TeamStockTransferItem extends Model
         'book_index_id',
         'book_bundle_id',
         'quantity',
+        'picked_qty',
+        'packed_qty',
+        'status',
+        'notes',
+        'picked_date',
+        'packed_date',
     ];
 
     public function transfer()

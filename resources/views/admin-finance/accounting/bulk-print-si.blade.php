@@ -349,7 +349,7 @@
                 foreach ($itemsToPrint as $item) {
                     $qty = (float) $item->quantity;
                     $price = (float) ($item->unit_price ?? $item->price);
-                    $itemsSubtotal += (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
+                    $itemsSubtotal += (float) ($item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($qty * $price)));
                 }
 
                 $discount = (float) ($order->discount_amount ?? 0);
@@ -407,7 +407,7 @@
                             $desc = $item->book?->name ?? ($item->product_name ?? 'Product Item');
                             $qty = (float) $item->quantity;
                             $price = (float) ($item->unit_price ?? $item->price);
-                            $subtotal = (float) ($item->amount ?? ($item->subtotal > 0 ? $item->subtotal : ($qty * $price)));
+                            $subtotal = (float) ($item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($qty * $price)));
                         @endphp
                         <tr>
                             <td style="text-align: center; font-weight: bold;">{{ $qty }}</td>
