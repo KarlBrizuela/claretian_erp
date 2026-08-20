@@ -2182,13 +2182,10 @@ class MarketingController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         
-        // NBS PO import / Consignments go to pending_prod_approval (Logistics Approval Queue)
-        // E-com direct orders go directly to pending_si_prep (Sales Invoice Prep)
+        // NBS PO import / Consignments / E-Com direct route to picking (Logistics Pick Lists) upon Marketing Approval
         // All other SO types proceed to Accounting approval after Marketing Manager approval
-        if (str_starts_with($order->so_number, 'SO-NBS-') || in_array($order->type, ['area_consignment', 'direct_consignment'])) {
-            $nextStatus = 'pending_prod_approval';
-        } elseif ($order->type === 'ecom_direct') {
-            $nextStatus = 'pending_si_prep';
+        if (str_starts_with($order->so_number, 'SO-NBS-') || in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment', 'ecom_direct'])) {
+            $nextStatus = 'picking';
         } else {
             $nextStatus = 'pending_acct_approval';
         }
@@ -2236,9 +2233,7 @@ class MarketingController extends Controller
         if ($nextStatus === 'pending_prod_approval') {
             $successMsg .= ' It has been routed to Logistics / Production Approval Queue.';
         } elseif ($nextStatus === 'picking') {
-            $successMsg .= ' It has been routed to Logistics Pick Lists.';
-        } elseif ($order->type === 'ecom_direct') {
-            $successMsg .= ' It now appears in the Sales Invoice list for preparation.';
+            $successMsg .= ' It has been routed to E-Commerce / Logistics Pick Lists.';
         } else {
             $successMsg .= ' Awaiting Accounting approval.';
         }
@@ -2897,8 +2892,8 @@ class MarketingController extends Controller
         $proofOfPaymentPath = $request->hasFile('proof_of_payment') ? $request->file('proof_of_payment')->store('direct_invoices/proof_of_payments', 'public') : null;
         // $shippingLabelPath = $request->file('shipping_label')->store('direct_invoices/shipping_labels', 'public');
 
-        // Direct E-Com Invoices go straight to Sales Invoice (no marketing approval required)
-        $initialStatus = 'pending_si_prep';
+        // Direct E-Com Invoices appear on Sales Invoice and Pick List at the same time
+        $initialStatus = 'picking';
 
         // Resolve platform merchant customer
         $platformName = ucfirst(strtolower($request->ecom_platform));
@@ -2931,6 +2926,10 @@ class MarketingController extends Controller
             'platform_order_id' => $request->platform_order_id,
             'status' => $initialStatus,
             'prepared_by' => auth()->id(),
+            'si_prepared_by' => auth()->id(),
+            'si_prepared_at' => now(),
+            'approved_by_mkt' => auth()->id(),
+            'mkt_approved_at' => now(),
             'billing_address' => $request->billing_address,
             'shipping_address' => $request->billing_address,
             'terms' => $request->terms,
@@ -3057,9 +3056,40 @@ class MarketingController extends Controller
             ]);
         }
 
-        $so->update(['total_amount' => $totalAmount]);
+        $so->update([
+            'total_amount' => $totalAmount,
+            'status' => 'picking'
+        ]);
 
-        return redirect()->route('marketing.direct-invoice.ecom')->with('success', 'Direct Invoice #' . $invoiceNumber . ' created successfully and routed directly to Sales Invoice.');
+        // Automatically create a pick list for Direct E-Com Invoice so it appears in E-Commerce Pick Lists
+        try {
+            $so->load('items');
+            if ($so->items && $so->items->count() > 0) {
+                $existingPickList = \App\Models\PickList::where('sales_order_id', $so->id)->first();
+                if (!$existingPickList) {
+                    $pickList = \App\Models\PickList::create([
+                        'sales_order_id'   => $so->id,
+                        'pick_list_number' => 'PL-' . $so->so_number . '-' . date('YmdHis'),
+                        'status'           => 'in_progress',
+                        'prepared_by'      => auth()->id(),
+                    ]);
+
+                    foreach ($so->items as $item) {
+                        \App\Models\PickListItem::create([
+                            'pick_list_id'        => $item->sales_order_id ? $pickList->id : $pickList->id,
+                            'sales_order_item_id' => $item->id,
+                            'requested_qty'       => $item->quantity,
+                            'picked_qty'          => 0,
+                            'status'              => 'pending'
+                        ]);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to automatically create pick list for Direct E-Com Invoice: ' . $e->getMessage());
+        }
+
+        return redirect()->route('marketing.direct-invoice.ecom')->with('success', 'Direct Invoice #' . $invoiceNumber . ' created successfully and routed to Sales Invoice & Pick List.');
     }
 
     public function approveDirectInvoiceEcom(Request $request, $id)

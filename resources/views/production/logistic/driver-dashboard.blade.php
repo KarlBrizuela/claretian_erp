@@ -143,14 +143,16 @@
                                             <div class="text-muted small">{{ $req->created_at ? $req->created_at->format('M d, Y') : '' }}</div>
                                         </td>
                                         <td class="align-middle">
-                                            @if($req->type === 'pickup')
-                                                <span class="badge bg-warning text-dark"><i class="las la-truck me-1"></i>Pickup</span>
-                                            @elseif($req->type === 'pull_out')
-                                                <span class="badge bg-danger"><i class="las la-undo me-1"></i>Pull Out</span>
-                                            @else
-                                                <span class="badge bg-primary"><i class="las la-shipping-fast me-1"></i>Delivery</span>
-                                            @endif
-                                        </td>
+                                             @if($req->type === 'pickup')
+                                                 <span class="badge bg-warning text-dark"><i class="las la-truck me-1"></i>Pickup</span>
+                                             @elseif($req->type === 'pull_out')
+                                                 <span class="badge bg-danger"><i class="las la-undo me-1"></i>Pull Out</span>
+                                             @elseif($req->type === 'driver_vehicle')
+                                                 <span class="badge bg-success text-white"><i class="las la-id-card me-1"></i>Driver/Vehicle</span>
+                                             @else
+                                                 <span class="badge bg-primary"><i class="las la-shipping-fast me-1"></i>Delivery</span>
+                                             @endif
+                                         </td>
                                         <td class="align-middle">
                                             <div class="d-flex align-items-center">
                                                 <div class="me-2 p-2 bg-light rounded-circle">
@@ -193,6 +195,9 @@
                                         </td>
                                         <td class="align-middle text-end">
                                             <div class="d-flex justify-content-end gap-2">
+                                                <button type="button" class="btn btn-info text-white shadow btn-xs sharp" data-bs-toggle="modal" data-bs-target="#viewDriverRequestModal{{ $req->id }}" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
                                                 @if($req->status !== 'completed')
                                                 <form action="{{ route('production.logistic.pickup-requests.complete', $req->id) }}" method="POST" onsubmit="return confirm('Mark this logistics service order as completed?');">
                                                     @csrf
@@ -201,6 +206,66 @@
                                                     </button>
                                                 </form>
                                                 @endif
+                                            </div>
+
+                                            <!-- View Details Modal (Driver View-Only) -->
+                                            <div class="modal fade text-start" id="viewDriverRequestModal{{ $req->id }}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog modal-dialog-centered">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header bg-light">
+                                                            <h5 class="modal-title font-w600">Details for REQ-{{ str_pad($req->id, 5, '0', STR_PAD_LEFT) }}</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body p-4">
+                                                            <div class="mb-3">
+                                                                <label class="fw-bold text-muted small d-block mb-1">Request Type:</label>
+                                                                @if($req->type === 'pickup')
+                                                                    <span class="badge bg-warning text-dark"><i class="las la-truck me-1"></i>Pickup Request</span>
+                                                                @elseif($req->type === 'pull_out')
+                                                                    <span class="badge bg-danger"><i class="las la-undo me-1"></i>Pull Out Request</span>
+                                                                @elseif($req->type === 'driver_vehicle')
+                                                                    <span class="badge bg-success text-white"><i class="las la-id-card me-1"></i>Driver/Vehicle Request</span>
+                                                                @else
+                                                                    <span class="badge bg-primary"><i class="las la-shipping-fast me-1"></i>Delivery Request</span>
+                                                                @endif
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="fw-bold text-muted small d-block mb-1">Client / Receiver Name:</label>
+                                                                <span class="fw-bold text-dark fs-15">{{ $req->client_name }}</span>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="fw-bold text-muted small d-block mb-1">Address / Location:</label>
+                                                                <div class="p-2 bg-light rounded text-dark border">{{ $req->address }}</div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="fw-bold text-muted small d-block mb-1">Requested Date:</label>
+                                                                <span class="fw-bold text-dark">{{ $req->requested_date ? \Carbon\Carbon::parse($req->requested_date)->format('M d, Y') : 'N/A' }}</span>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="fw-bold text-muted small d-block mb-1">Assigned Driver & Vehicle:</label>
+                                                                @php
+                                                                    $reqDriverName = $req->driver_name ?: ($req->driver ? trim(($req->driver->first_name ?? '') . ' ' . ($req->driver->last_name ?? '')) : '');
+                                                                @endphp
+                                                                <span class="fw-bold text-dark">{{ $reqDriverName ?: 'Unassigned' }} {{ $req->vehicle ? '('.$req->vehicle.')' : '' }}</span>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="fw-bold text-muted small d-block mb-1">Items Description & Quantity:</label>
+                                                                <div class="p-2 bg-light rounded text-dark border" style="white-space: pre-wrap;">{{ $req->items_details }}</div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="fw-bold text-muted small d-block mb-1">Remarks / Special Instructions:</label>
+                                                                <div class="p-2 bg-light rounded text-dark border" style="white-space: pre-wrap;">{{ $req->remarks ?: 'No remarks provided.' }}</div>
+                                                            </div>
+                                                            <div class="mb-0">
+                                                                <label class="fw-bold text-muted small d-block mb-1">Created By:</label>
+                                                                <span class="text-dark">{{ $req->createdByUser->name ?? 'N/A' }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer bg-light">
+                                                            <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>

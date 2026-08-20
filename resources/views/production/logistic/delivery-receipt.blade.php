@@ -166,8 +166,22 @@
                                                     <span class="d-none print-pick-qty fw-bold text-center">{{ $pickQty }}</span>
                                                 </td>
                                             @endif
-                                            <td>{{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}</td>
-                                            <td style="text-align: right;">₱{{ number_format($unitPrice, 2) }}</td>
+                                            <td>
+                                                @php
+                                                    $dItemName = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bundle ? $item->bundle->name : ($item->product ? $item->product->name : ($item->item_name ?? ($item->product_name ?? 'Unknown Item')))));
+                                                    $dType = $item->item_type ?? ($item->bookIndex || !empty($item->book_index_id) ? 'Index' : (!empty($item->bundle_id) || !empty($item->bundle) ? 'Bundle' : 'Book'));
+                                                @endphp
+                                                <div class="d-flex align-items-center flex-wrap gap-1">
+                                                    <span class="fw-semibold text-dark">{{ $dItemName }}</span>
+                                                    @if($dType === 'Bundle')
+                                                        <span class="badge ms-1" style="background:#6f42c1; color:#fff; font-size: 11px; padding: 3px 7px;">Bundle</span>
+                                                    @elseif($dType === 'Index')
+                                                        <span class="badge bg-info text-dark ms-1" style="font-size: 11px; padding: 3px 7px;">Index</span>
+                                                    @else
+                                                        <span class="badge bg-primary ms-1" style="font-size: 11px; padding: 3px 7px;">Book</span>
+                                                    @endif
+                                                </div>
+                                            </td>
                                             <td style="text-align: center;">
                                                 @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
                                                     @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)

@@ -330,6 +330,9 @@
                                                         if ($order->status === 'pending_si_prep') {
                                                             $statusClass = 'warning';
                                                             $displayStatus = 'Gathered (Pending SI Prep)';
+                                                        } elseif ($order->status === 'picking') {
+                                                            $statusClass = 'primary';
+                                                            $displayStatus = 'In Pick List (Picking)';
                                                         } elseif ($order->status === 'si_created') {
                                                             $statusClass = 'info';
                                                             $displayStatus = 'SI Created (Pending Signature)';
@@ -344,35 +347,11 @@
                                                         {{ ucwords($displayStatus) }}
                                                     </span>
                                                 </td>
-                                                <td>{{ $order->siPreparedBy->name ?? 'N/A' }}</td>
+                                                <td>{{ $order->siPreparedBy->name ?? ($order->preparedBy->name ?? 'N/A') }}</td>
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
-                                                        <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
-                                                        
-                                                        @if($order->status === 'pending_si_prep')
-                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
-                                                                <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
-                                                            @else
-                                                                <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
-                                                            @endif
-                                                        @endif
-
-                                                        @if($order->status === 'pending_si_approval')
-                                                            @if($order->type === 'ecom_direct' || $order->proof_of_payment)
-                                                                <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
-                                                                    @csrf
-                                                                    <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
-                                                                </form>
-                                                            @else
-                                                                <button class="btn btn-success btn-sm" disabled title="Proof of Payment is required to sign SI"><i class="fas fa-exclamation-triangle me-1"></i> Sign & Approve</button>
-                                                            @endif
-                                                        @endif
-                                                        
-                                                        @if($order->status === 'ready_for_delivery')
-                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-info btn-sm" target="_blank"><i class="fas fa-print me-1"></i>Print SI</a>
-                                                        @else
-                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Print SI (Draft)"><i class="fas fa-print me-1"></i>Print SI</a>
-                                                        @endif
+                                                        <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-danger shadow btn-sm" title="View SO Detail"><i class="fas fa-eye me-1"></i> View</a>
+                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-outline-primary btn-sm" target="_blank" title="Print SI"><i class="fas fa-print me-1"></i> Print SI</a>
                                                     </div>
                                                 </td>
                                             </tr>

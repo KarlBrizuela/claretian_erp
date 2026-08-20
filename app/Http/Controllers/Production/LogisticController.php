@@ -590,7 +590,7 @@ class LogisticController extends Controller
         }
 
         $validated = $request->validate([
-            'type' => 'required|in:delivery,pickup,pull_out',
+            'type' => 'required|in:delivery,pickup,pull_out,driver_vehicle',
             'client_name' => 'required|string|max:255',
             'address' => 'required|string',
             'requested_date' => 'required|date',
@@ -641,7 +641,7 @@ class LogisticController extends Controller
         $requestItem = \App\Models\PickupRequest::findOrFail($id);
 
         $validated = $request->validate([
-            'type' => 'required|in:delivery,pickup,pull_out',
+            'type' => 'required|in:delivery,pickup,pull_out,driver_vehicle',
             'client_name' => 'required|string|max:255',
             'address' => 'required|string',
             'requested_date' => 'required|date',
@@ -1312,10 +1312,10 @@ class LogisticController extends Controller
             if ($deliveryReceipt) {
                 $order = $deliveryReceipt->salesOrder;
                 if ($order) {
-                    $order->load(['customer', 'items.book', 'items.product', 'preparedBy', 'drPreparedBy']);
+                    $order->load(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'preparedBy', 'drPreparedBy']);
                 }
             } else {
-                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.product', 'preparedBy', 'drPreparedBy'])->findOrFail($id);
+                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'preparedBy', 'drPreparedBy'])->findOrFail($id);
             }
         }
 
@@ -1500,7 +1500,7 @@ class LogisticController extends Controller
 
     public function viewDeliveryForm($id)
     {
-        $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'preparedBy', 'siPreparedBy', 'drPreparedBy'])->findOrFail($id);
+        $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'preparedBy', 'siPreparedBy', 'drPreparedBy'])->findOrFail($id);
         
         $requestedType = request('type');
         if ($requestedType === 'AR') {

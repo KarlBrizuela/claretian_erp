@@ -1325,7 +1325,7 @@ public function checkVoucher()
     // 1. Get SalesOrders pending SI prep/approval (NOT YET signed and approved) ordered newest first
     $pendingOrders = \App\Models\SalesOrder::with('customer', 'preparedBy', 'siPreparedBy')
       ->whereNull('signed_by_af_manager')
-      ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created', 'ar_created'])
+      ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created', 'ar_created', 'picking'])
       ->orderBy('id', 'desc')
       ->get();
 

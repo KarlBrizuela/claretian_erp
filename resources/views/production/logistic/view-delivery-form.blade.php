@@ -184,8 +184,21 @@
                             <td class="text-center text-black fw-bold">{{ $qty }}</td>
                             <td class="text-center text-uppercase text-muted">{{ $item->book->unit ?? 'pcs' }}</td>
                             <td>
-                                <div class="text-black fw-bold">{{ $item->item_name ?? ($item->book->name ?? ($item->description ?? 'Unknown Item')) }}</div>
-                                <small class="text-muted">{{ $item->book->sku ?? ($item->bundle->sku ?? 'N/A') }}</small>
+                                @php
+                                    $vItemName = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bundle ? $item->bundle->name : ($item->product ? $item->product->name : ($item->item_name ?? ($item->description ?? 'Unknown Item')))));
+                                    $vType = $item->item_type ?? ($item->bookIndex || !empty($item->book_index_id) ? 'Index' : (!empty($item->bundle_id) || !empty($item->bundle) ? 'Bundle' : 'Book'));
+                                @endphp
+                                <div class="d-flex align-items-center flex-wrap gap-1">
+                                    <span class="text-black fw-bold">{{ $vItemName }}</span>
+                                    @if($vType === 'Bundle')
+                                        <span class="badge ms-1" style="background:#6f42c1; color:#fff; font-size: 10px; padding: 2px 6px;">Bundle</span>
+                                    @elseif($vType === 'Index')
+                                        <span class="badge bg-info text-dark ms-1" style="font-size: 10px; padding: 2px 6px;">Index</span>
+                                    @else
+                                        <span class="badge bg-primary ms-1" style="font-size: 10px; padding: 2px 6px;">Book</span>
+                                    @endif
+                                </div>
+                                <small class="text-muted d-block">{{ $item->bookIndex->barcode ?? ($item->book->sku ?? ($item->bundle->sku ?? 'N/A')) }}</small>
                             </td>
                             <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
                             <td class="text-center">

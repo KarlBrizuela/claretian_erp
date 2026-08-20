@@ -46,6 +46,7 @@
         .badge-delivery { background-color: #e3f2fd; color: #0d6efd; }
         .badge-pickup { background-color: #f3e5f5; color: #8e24aa; }
         .badge-pullout { background-color: #ffe0b2; color: #e65100; }
+        .badge-driver-vehicle { background-color: #d1e7dd; color: #0f5132; }
     </style>
     @endpush
 
@@ -137,6 +138,8 @@
                                         <span class="badge badge-type badge-delivery"><i class="las la-truck me-1"></i>Delivery</span>
                                     @elseif($req->type === 'pickup')
                                         <span class="badge badge-type badge-pickup"><i class="las la-store-alt me-1"></i>Pickup</span>
+                                    @elseif($req->type === 'driver_vehicle')
+                                        <span class="badge badge-type badge-driver-vehicle"><i class="las la-id-card me-1"></i>Driver/Vehicle</span>
                                     @else
                                         <span class="badge badge-type badge-pullout"><i class="las la-arrow-circle-down me-1"></i>Pull Out</span>
                                     @endif
@@ -218,7 +221,7 @@
                                                 <div class="modal-body p-4">
                                                     <div class="mb-3">
                                                         <label class="fw-bold text-muted small d-block mb-1">Request Type:</label>
-                                                        <span class="badge badge-type badge-{{ $req->type === 'delivery' ? 'delivery' : ($req->type === 'pickup' ? 'pickup' : 'pullout') }}">
+                                                        <span class="badge badge-type badge-{{ $req->type === 'delivery' ? 'delivery' : ($req->type === 'pickup' ? 'pickup' : ($req->type === 'driver_vehicle' ? 'driver-vehicle' : 'pullout')) }}">
                                                             {{ str_replace('_', ' ', strtoupper($req->type)) }}
                                                         </span>
                                                     </div>
@@ -288,6 +291,12 @@
                                                                     <input class="form-check-input" type="radio" name="type" id="typePulloutEdit{{ $req->id }}" value="pull_out" {{ $req->type === 'pull_out' ? 'checked' : '' }} required>
                                                                     <label class="form-check-label fw-600 text-dark" for="typePulloutEdit{{ $req->id }}" style="cursor: pointer;">
                                                                         <i class="las la-arrow-circle-down me-1 text-warning" style="color: #e65100 !important;"></i> Pull Out Request
+                                                                    </label>
+                                                                </div>
+                                                                <div class="form-check form-check-inline">
+                                                                    <input class="form-check-input" type="radio" name="type" id="typeDriverVehicleEdit{{ $req->id }}" value="driver_vehicle" {{ $req->type === 'driver_vehicle' ? 'checked' : '' }} required>
+                                                                    <label class="form-check-label fw-600 text-dark" for="typeDriverVehicleEdit{{ $req->id }}" style="cursor: pointer;">
+                                                                        <i class="las la-id-card me-1 text-success"></i> Driver/Vehicle
                                                                     </label>
                                                                 </div>
                                                             </div>
@@ -400,6 +409,12 @@
                                     <input class="form-check-input" type="radio" name="type" id="typePulloutCreate" value="pull_out" required>
                                     <label class="form-check-label fw-600 text-dark" for="typePulloutCreate" style="cursor: pointer;">
                                         <i class="las la-arrow-circle-down me-1 text-warning" style="color: #e65100 !important;"></i> Pull Out Request
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="type" id="typeDriverVehicleCreate" value="driver_vehicle" required>
+                                    <label class="form-check-label fw-600 text-dark" for="typeDriverVehicleCreate" style="cursor: pointer;">
+                                        <i class="las la-id-card me-1 text-success"></i> Driver/Vehicle
                                     </label>
                                 </div>
                             </div>

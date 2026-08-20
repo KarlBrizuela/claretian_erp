@@ -287,7 +287,7 @@
                             <i class="las la-print me-1"></i> Print
                         </button>
                         <button type="submit" class="btn btn-success px-4" id="submitBtn">
-                            <i class="las la-paper-plane me-1"></i> Submit Invoice for Approval
+                            <i class="las la-paper-plane me-1"></i> Submit 
                         </button>
                     </div>
                 </form>
