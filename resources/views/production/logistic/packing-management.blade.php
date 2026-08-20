@@ -178,8 +178,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     <td>{{ $totalItems }}</td>
                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
                                      @php
-                                         $pkgCurr = $order->currency ?? 'USD';
-                                         $pkgSym = ($pkgCurr === 'USD' ? '$' : ($pkgCurr === 'EUR' ? '€' : '₱'));
+                                         $pkgCurr = $order->currency ?? 'PHP';
+                                         $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
                                      @endphp
                                      <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                      <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
@@ -301,7 +301,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -388,7 +392,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -477,7 +485,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -566,7 +578,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -685,7 +701,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -766,7 +786,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -847,7 +871,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}" style="background-color: #d4edda; color: #155724;">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -928,7 +956,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -1009,7 +1041,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td>{{ $order->signed_at ? \Carbon\Carbon::parse($order->signed_at)->format('M d, Y') : 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
                                                     <td><strong>{{ $packedCount }}/{{ $totalItems }}</strong></td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
                                                     <td>
                                                         <div class="d-flex gap-2">
@@ -1089,7 +1125,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><span class="platform-badge {{ $platformClass }}">{{ $platformLabel }}</span></td>
                                                     <td>{{ $order->customer->customer_name ?? 'N/A' }}</td>
                                                     <td>{{ $totalItems }}</td>
-                                                    <td class="fw-bold">₱{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                                    @php
+                                                        $pkgCurr = $order->currency ?? 'PHP';
+                                                        $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                                    @endphp
+                                                    <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
                                                     <td>{{ $gatheredBy }}</td>
                                                     <td>{{ $gatheredAt }}</td>
                                                     <td><span class="badge" style="background-color: #17a2b8; color: #fff;">Completed</span></td>
@@ -1438,6 +1478,7 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     $isItemPacked = ($tItem->status === 'Packed' || $tt->status === 'completed' || $tItem->packed_qty >= $tItem->quantity);
                                     $itemPackedQty = isset($tItem->packed_qty) && $tItem->packed_qty > 0 ? $tItem->packed_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
                                     $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
+                                    $tSym = (($tt->currency ?? ($order->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
                                 @endphp
                                 <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPacked ? '#d4edda' : ($tItem->status === 'In Progress' ? '#fff3cd' : '#f8d7da') }};">
                                     <td>{{ $idx + 1 }}</td>
@@ -1458,8 +1499,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                         @endif
                                     </td>
                                     <td class="text-center fw-bold text-primary">{{ number_format($tItem->quantity, 2) }}</td>
-                                    <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
-                                    <td class="text-end fw-bold">₱{{ number_format($itemSubtotal, 2) }}</td>
+                                    <td class="text-end">{{ $tSym }}{{ number_format($unitPrice, 2) }}</td>
+                                    <td class="text-end fw-bold">{{ $tSym }}{{ number_format($itemSubtotal, 2) }}</td>
                                     <td class="text-center">
                                         <input type="number" name="items[{{ $idx }}][packed_qty]" id="ts_packed_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $tItem->quantity }}" value="{{ $itemPackedQty }}" onchange="updateTeamStockPackingProgress({{ $tt->id }})" style="width: 60px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
                                     </td>
@@ -2701,6 +2742,7 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                             typeBadgeHtml = '<span class="badge bg-info text-dark ms-1">Index</span>';
                         }
 
+                        const currSym = (order && order.currency === 'USD') ? '$' : '₱';
                         const unitPrice = parseFloat(item.price || 0).toFixed(2);
                         const subtotalPrice = parseFloat(item.subtotal || (item.quantity * (item.price || 0)) || 0).toFixed(2);
 
@@ -2709,8 +2751,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                 <td>${index + 1}</td>
                                 <td class="fw-bold">${prodName} ${typeBadgeHtml}</td>
                                 <td><input type="number" value="${item.quantity}" readonly style="width: 100%; border: none; background: transparent; font-weight: 600;"></td>
-                                <td>₱${unitPrice}</td>
-                                <td>₱${subtotalPrice}</td>
+                                <td>${currSym}${unitPrice}</td>
+                                <td>${currSym}${subtotalPrice}</td>
                                 <td><input type="number" id="packed_qty_${index}" min="0" max="${item.quantity}" value="${itemData.packed_qty || 0}" onchange="updatePackingCount()"></td>
                                 <td>
                                     <select id="packed_status_${index}" onchange="handlePackingStatusChange()">

@@ -36,7 +36,7 @@
                 </div>
 
                 @php
-                    $sym = ($order->currency === 'USD' ? '$' : ($order->currency === 'EUR' ? '€' : '₱'));
+                    $sym = ($order->currency === 'USD' ? '$' : '₱');
                 @endphp
 
                 <!-- Customer and Order Details -->
@@ -192,7 +192,7 @@
                         </tr>
                     </thead>
                     @php
-                        $sym = ($order->currency === 'USD' ? '$' : ($order->currency === 'EUR' ? '€' : '₱'));
+                        $sym = ($order->currency === 'USD' ? '$' : '₱');
                     @endphp
                     <tbody>
                         @foreach($order->items as $item)

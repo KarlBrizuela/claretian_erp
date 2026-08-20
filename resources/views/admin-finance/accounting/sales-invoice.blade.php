@@ -104,10 +104,16 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="completed-ecom-tab" data-bs-toggle="tab" data-bs-target="#completed-ecom-pane" type="button" role="tab" aria-controls="completed-ecom-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
+                                    <i class="las la-shopping-cart me-1 text-info" style="font-size: 1.2rem;"></i> Completed E-com ({{ $completedEcomSIs->count() }})
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
                                 <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-pane" type="button" role="tab" aria-controls="completed-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-check-circle me-1 text-success" style="font-size: 1.2rem;"></i> Completed SI ({{ $completedSIs->count() }})
                                 </button>
                             </li>
+                            
                         </ul>
 
                         <div class="tab-content" id="siTabsContent">
@@ -496,6 +502,100 @@
                                     </nav>
                                 </div>
                             </div>
+
+                            <!-- Completed E-com Invoices Tab Pane -->
+                            <div class="tab-pane fade" id="completed-ecom-pane" role="tabpanel" aria-labelledby="completed-ecom-tab">
+                                <div class="table-responsive">
+                                    <table class="table table-responsive-md">
+                                        <thead>
+                                            <tr>
+                                                <th>SI Number</th>
+                                                <th>SO Number</th>
+                                                <th>Platform</th>
+                                                <th>Customer</th>
+                                                <th>Total Amount</th>
+                                                <th>Payment Status</th>
+                                                <th>Created Date</th>
+                                                <th class="text-end">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($completedEcomSIs as $si)
+                                            @php
+                                                $so = $si->salesOrder;
+                                                $totalAmt = (float)($si->total_amount ?? ($so->total_amount ?? 0));
+                                                $paidAmt = $so ? (float)$so->total_paid_amount : 0;
+                                                $remBal = $so ? (float)$so->remaining_balance : max(0, $totalAmt - $paidAmt);
+                                                $pmStatus = $so ? $so->computed_payment_status : ($remBal <= 0 ? 'paid' : 'unpaid');
+                                                $pmBadgeColor = $pmStatus === 'paid' ? 'success' : ($pmStatus === 'partially_paid' ? 'warning' : 'danger');
+                                                $pmLabel = $pmStatus === 'partially_paid' ? 'PARTIALLY PAID' : strtoupper($pmStatus);
+                                                $platform = $so->ecom_platform ?? 'ecom';
+                                                $siCurr = $so->currency ?? 'PHP';
+                                                $siSym = ($siCurr === 'USD' ? '$' : ($siCurr === 'EUR' ? '€' : '₱'));
+                                            @endphp
+                                            <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}" data-platform="{{ strtolower($platform) }}" data-amount="{{ $totalAmt }}" data-type="ecom_direct">
+                                                <td><strong>#{{ $si->si_number }}</strong></td>
+                                                <td>#{{ $si->so_number }}</td>
+                                                <td class="text-capitalize">
+                                                    @if(strtolower($platform) === 'lazada')
+                                                        <span class="badge bg-primary text-white"><i class="las la-shopping-bag me-1"></i> Lazada</span>
+                                                    @elseif(strtolower($platform) === 'shopee')
+                                                        <span class="badge bg-warning text-dark"><i class="las la-shopping-basket me-1"></i> Shopee</span>
+                                                    @elseif(strtolower($platform) === 'tiktok')
+                                                        <span class="badge bg-dark text-white"><i class="las la-music me-1"></i> TikTok</span>
+                                                    @else
+                                                        <span class="badge bg-secondary text-white">{{ $platform ?: 'E-commerce' }}</span>
+                                                    @endif
+                                                </td>
+                                                <td>{{ $si->customer_name ?? ($si->customer->customer_name ?? 'N/A') }}</td>
+                                                <td class="fw-bold">{{ $siSym }}{{ number_format($totalAmt, 2) }}</td>
+                                                <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</span></td>
+                                                <td>{{ $si->created_at->format('M d, Y') }}</td>
+                                                <td class="text-end">
+                                                    <div class="d-flex justify-content-end gap-2">
+                                                        @if($so)
+                                                            <a href="{{ route('admin-finance.sales-order.detail', $so->id) }}" class="btn btn-danger shadow btn-sm" title="View SO Detail"><i class="fas fa-eye me-1"></i> View</a>
+                                                            <a href="{{ route('admin-finance.accounting.sales-invoice.print', $so->id) }}" class="btn btn-outline-primary btn-sm" target="_blank" title="Print SI"><i class="fas fa-print me-1"></i> Print SI</a>
+                                                        @else
+                                                            <span class="text-muted small">N/A</span>
+                                                        @endif
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            @empty
+                                            <tr>
+                                                <td colspan="8" class="text-center py-4 text-muted">No completed E-commerce direct invoices at this time.</td>
+                                            </tr>
+                                            @endforelse
+                                        </tbody>
+                                        <tfoot>
+                                            <tr id="completedEcomTotalRow" style="background: #f8f9fa; border-top: 2px solid #dee2e6;">
+                                                <td colspan="4" class="text-end fw-bold" style="font-size: 14px;">TOTAL SUMMARY:</td>
+                                                <td class="fw-bold text-success" style="font-size: 14px;" id="completedEcomTotalAmount">₱0.00</td>
+                                                <td colspan="3"></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="completed-ecom-pagination">
+                                    <div class="d-flex align-items-center gap-2 text-muted small">
+                                        <span>Show</span>
+                                        <select class="form-select form-select-sm entries-per-page-select" style="width: auto; height: 30px; padding: 2px 24px 2px 8px; font-size: 12px;" data-pane="completed-ecom-pane">
+                                            <option value="5" selected>5</option>
+                                            <option value="10">10</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                            <option value="500">500</option>
+                                            <option value="all">All</option>
+                                        </select>
+                                        <span>entries | Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</span>
+                                    </div>
+                                    <nav>
+                                        <ul class="pagination pagination-sm mb-0"></ul>
+                                    </nav>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Tab Styling JS script -->
@@ -519,6 +619,8 @@
                                             event.target.style.borderBottom = '3px solid #0d6efd';
                                         } else if (event.target.id === 'completed-tab') {
                                             event.target.style.borderBottom = '3px solid #198754';
+                                        } else if (event.target.id === 'completed-ecom-tab') {
+                                            event.target.style.borderBottom = '3px solid #0dcaf0';
                                         }
                                     });
                                 });
@@ -544,7 +646,8 @@
         const pageState = {
             'normal-pane': 1,
             'ecom-pane': 1,
-            'completed-pane': 1
+            'completed-pane': 1,
+            'completed-ecom-pane': 1
         };
         let currentPageSize = 5;
 
@@ -560,6 +663,13 @@
             });
         }
 
+        function resetPageStates() {
+            pageState['normal-pane'] = 1;
+            pageState['ecom-pane'] = 1;
+            pageState['completed-pane'] = 1;
+            pageState['completed-ecom-pane'] = 1;
+        }
+
         function filterAndPaginate() {
             const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
             const selectedType = typeSelect ? typeSelect.value : '';
@@ -567,7 +677,7 @@
             const selectedPm = pmSelect ? pmSelect.value.toLowerCase() : '';
             const pageSize = getPageSize();
 
-            ['normal-pane', 'ecom-pane', 'completed-pane'].forEach(paneId => {
+            ['normal-pane', 'ecom-pane', 'completed-pane', 'completed-ecom-pane'].forEach(paneId => {
                 const pane = document.getElementById(paneId);
                 if (!pane) return;
                 const rows = Array.from(pane.querySelectorAll('.si-row'));
@@ -645,9 +755,10 @@
                 });
 
                 const prefix = paneId.replace('-pane', '');
-                const totEl = document.getElementById(prefix + 'TotalAmount');
-                const paidEl = document.getElementById(prefix + 'PaidAmount');
-                const remEl = document.getElementById(prefix + 'RemainingAmount');
+                const camelPrefix = paneId.replace(/-([a-z])/g, (g) => g[1].toUpperCase()).replace('Pane', '');
+                const totEl = document.getElementById(camelPrefix + 'TotalAmount') || document.getElementById(prefix + 'TotalAmount');
+                const paidEl = document.getElementById(camelPrefix + 'PaidAmount') || document.getElementById(prefix + 'PaidAmount');
+                const remEl = document.getElementById(camelPrefix + 'RemainingAmount') || document.getElementById(prefix + 'RemainingAmount');
 
                 if (totEl) totEl.textContent = '₱' + totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 if (paidEl) paidEl.textContent = '₱' + paidAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -735,20 +846,18 @@
         // Calculate on page load
         filterAndPaginate();
 
-        if (searchInput) searchInput.addEventListener('input', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
-        if (typeSelect) typeSelect.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
-        if (pmSelect) pmSelect.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
-        if (platformSelect) platformSelect.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
-        if (startDateInput) startDateInput.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
-        if (endDateInput) endDateInput.addEventListener('change', () => { pageState['normal-pane'] = 1; pageState['ecom-pane'] = 1; pageState['completed-pane'] = 1; filterAndPaginate(); });
+        if (searchInput) searchInput.addEventListener('input', () => { resetPageStates(); filterAndPaginate(); });
+        if (typeSelect) typeSelect.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
+        if (pmSelect) pmSelect.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
+        if (platformSelect) platformSelect.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
+        if (startDateInput) startDateInput.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
+        if (endDateInput) endDateInput.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
 
         if (entriesSelect) {
             entriesSelect.addEventListener('change', function() {
                 currentPageSize = this.value;
                 syncEntriesDropdowns(this.value);
-                pageState['normal-pane'] = 1;
-                pageState['ecom-pane'] = 1;
-                pageState['completed-pane'] = 1;
+                resetPageStates();
                 filterAndPaginate();
             });
         }
@@ -757,9 +866,7 @@
             sel.addEventListener('change', function() {
                 currentPageSize = this.value;
                 syncEntriesDropdowns(this.value);
-                pageState['normal-pane'] = 1;
-                pageState['ecom-pane'] = 1;
-                pageState['completed-pane'] = 1;
+                resetPageStates();
                 filterAndPaginate();
             });
         });
@@ -775,9 +882,7 @@
                 if (entriesSelect) entriesSelect.value = '5';
                 currentPageSize = 5;
                 syncEntriesDropdowns('5');
-                pageState['normal-pane'] = 1;
-                pageState['ecom-pane'] = 1;
-                pageState['completed-pane'] = 1;
+                resetPageStates();
                 filterAndPaginate();
             });
         }

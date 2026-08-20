@@ -2298,7 +2298,13 @@ class MarketingController extends Controller
             ]);
         }
 
-        $message = 'Sales Order #' . $so->so_number . ' has been finalized with freight charges (₱' . number_format($so->freight_charges ?? 0, 2) . ') and routed for approval.';
+        $message = 'Sales Order #' . $so->so_number . ' has been finalized with freight charges and routed for approval.';
+
+        $isFord = $request->input('source') === 'ford' || $so->type === 'foreign' || str_contains($so->so_number, 'FORD') || $so->source === 'ford' || ($so->freightQuotation && $so->freightQuotation->source === 'ford');
+        if ($isFord) {
+            return redirect()->route('sales-order')->with('success', $message);
+        }
+
         return redirect()->route('marketing.sales-orders.list')->with('success', $message);
     }
 
@@ -2770,7 +2776,7 @@ class MarketingController extends Controller
         return \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%main%'])->first();
     }
 
-    public function directInvoiceEcom()
+    public function directInvoiceEcom(\Illuminate\Http\Request $request)
     {
         $customers = \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get();
         $products = $this->getUnifiedProducts();
@@ -2806,10 +2812,34 @@ class MarketingController extends Controller
             $product->main_stock   = \DB::table('site_inventory')->where($colName, $realId)->where('site_id', $mainSiteId)->value('quantity') ?? 0;
         }
 
-        $invoices = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->where('type', 'ecom_direct')
-            ->latest()
-            ->get();
+        $query = \App\Models\SalesOrder::with('customer', 'preparedBy')
+            ->where('type', 'ecom_direct');
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function($q) use ($search) {
+                $q->where('so_number', 'LIKE', "%{$search}%")
+                  ->orWhere('platform_order_id', 'LIKE', "%{$search}%")
+                  ->orWhere('remarks', 'LIKE', "%{$search}%")
+                  ->orWhereHas('customer', function($cq) use ($search) {
+                      $cq->where('customer_name', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->input('start_date'));
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->input('end_date'));
+        }
+
+        if ($request->filled('platform')) {
+            $query->where('ecom_platform', $request->input('platform'));
+        }
+
+        $invoices = $query->latest()->paginate(10)->withQueryString();
 
         return view('marketing.direct-invoice-ecom', [
             'title' => 'Direct Invoice (E-com)',

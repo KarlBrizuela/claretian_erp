@@ -182,20 +182,24 @@
                                                     @endif
                                                 </div>
                                             </td>
+                                            @php
+                                                $drSym = (($order->currency ?? ($dr->salesOrder->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
+                                            @endphp
+                                            <td style="text-align: right;">{{ $drSym }}{{ number_format($unitPrice, 2) }}</td>
                                             <td style="text-align: center;">
                                                 @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
                                                     @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
                                                         {{ (float)$item->discount_value }}%
                                                     @elseif(($item->discount_value ?? 0) > 0)
-                                                        ₱{{ number_format($item->discount_value, 2) }}
+                                                        {{ $drSym }}{{ number_format($item->discount_value, 2) }}
                                                     @else
-                                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                                        {{ $drSym }}{{ number_format($item->discount_amount, 2) }}
                                                     @endif
                                                 @else
                                                     -
                                                 @endif
                                             </td>
-                                            <td style="text-align: right; font-weight: 600;" class="row-amount-td">₱{{ number_format($rowAmount, 2) }}</td>
+                                            <td style="text-align: right; font-weight: 600;" class="row-amount-td">{{ $drSym }}{{ number_format($rowAmount, 2) }}</td>
                                         </tr>
                                     @empty
                                         <tr>
@@ -204,66 +208,67 @@
                                     @endforelse
                                 </tbody>
                                 @php
-                                    $orderDiscountAmt = (float)($order->discount_amount ?? 0);
-                                    if ($orderDiscountAmt == 0 && ($order->discount_percentage ?? 0) > 0) {
-                                        $orderDiscountAmt = max(0, $grossSubtotal - $totalItemDiscounts) * ((float)$order->discount_percentage / 100);
-                                    }
-                                    $allDiscountsCombined = $totalItemDiscounts + $orderDiscountAmt;
-                                    $freightChargesAmt = (float)($order->freight_charges ?? 0);
-                                    $finalTotalAmt = max(0, $grossSubtotal - $allDiscountsCombined + $freightChargesAmt);
-                                @endphp
-                                <tfoot>
-                                    <tr>
-                                        <td colspan="4" class="text-end text-uppercase"><strong>Gross Subtotal:</strong></td>
-                                        @if($isConsignment)
-                                            <td class="pick-qty-col d-print-none"></td>
-                                        @endif
-                                        <td class="text-end fw-bold">₱{{ number_format($grossSubtotal, 2) }}</td>
-                                    </tr>
-                                    @if($totalItemDiscounts > 0)
-                                    <tr>
-                                        <td colspan="4" class="text-end text-uppercase"><strong>Items Discount Subtotal:</strong></td>
-                                        @if($isConsignment)
-                                            <td class="pick-qty-col d-print-none"></td>
-                                        @endif
-                                        <td class="text-end fw-bold text-danger">- ₱{{ number_format($totalItemDiscounts, 2) }}</td>
-                                    </tr>
-                                    @endif
-                                    @if($orderDiscountAmt > 0)
-                                    <tr>
-                                        <td colspan="4" class="text-end text-uppercase"><strong>Order Discount @if(($order->discount_percentage ?? 0) > 0)({{ (float)$order->discount_percentage }}%)@endif:</strong></td>
-                                        @if($isConsignment)
-                                            <td class="pick-qty-col d-print-none"></td>
-                                        @endif
-                                        <td class="text-end fw-bold text-danger">- ₱{{ number_format($orderDiscountAmt, 2) }}</td>
-                                    </tr>
-                                    @endif
-                                    @if($allDiscountsCombined > 0)
-                                    <tr style="background-color: #fff3cd;">
-                                        <td colspan="4" class="text-end text-uppercase fw-bold text-dark">Total Discount:</td>
-                                        @if($isConsignment)
-                                            <td class="pick-qty-col d-print-none"></td>
-                                        @endif
-                                        <td class="text-end fw-bold text-danger" style="font-size: 15px;">- ₱{{ number_format($allDiscountsCombined, 2) }}</td>
-                                    </tr>
-                                    @endif
-                                    @if($freightChargesAmt > 0)
-                                    <tr>
-                                        <td colspan="4" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
-                                        @if($isConsignment)
-                                            <td class="pick-qty-col d-print-none"></td>
-                                        @endif
-                                        <td class="text-end fw-bold">₱{{ number_format($freightChargesAmt, 2) }}</td>
-                                    </tr>
-                                    @endif
-                                    <tr style="background-color: #f8f9fa;">
-                                        <td colspan="4" class="text-end text-uppercase fw-bold text-dark" style="font-size: 1rem;">Total Amount:</td>
-                                        @if($isConsignment)
-                                            <td class="pick-qty-col d-print-none"></td>
-                                        @endif
-                                        <td class="text-end fw-bold text-primary" style="font-size: 1.1rem;"><span id="drTotalAmountDisplayTable">₱{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</span></td>
-                                    </tr>
-                                </tfoot>
+                                     $drSym = (($order->currency ?? ($dr->salesOrder->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
+                                     $orderDiscountAmt = (float)($order->discount_amount ?? 0);
+                                     if ($orderDiscountAmt == 0 && ($order->discount_percentage ?? 0) > 0) {
+                                         $orderDiscountAmt = max(0, $grossSubtotal - $totalItemDiscounts) * ((float)$order->discount_percentage / 100);
+                                     }
+                                     $allDiscountsCombined = $totalItemDiscounts + $orderDiscountAmt;
+                                     $freightChargesAmt = (float)($order->freight_charges ?? 0);
+                                     $finalTotalAmt = max(0, $grossSubtotal - $allDiscountsCombined + $freightChargesAmt);
+                                 @endphp
+                                 <tfoot>
+                                     <tr>
+                                         <td colspan="4" class="text-end text-uppercase"><strong>Gross Subtotal:</strong></td>
+                                         @if($isConsignment)
+                                             <td class="pick-qty-col d-print-none"></td>
+                                         @endif
+                                         <td class="text-end fw-bold">{{ $drSym }}{{ number_format($grossSubtotal, 2) }}</td>
+                                     </tr>
+                                     @if($totalItemDiscounts > 0)
+                                     <tr>
+                                         <td colspan="4" class="text-end text-uppercase"><strong>Items Discount Subtotal:</strong></td>
+                                         @if($isConsignment)
+                                             <td class="pick-qty-col d-print-none"></td>
+                                         @endif
+                                         <td class="text-end fw-bold text-danger">- {{ $drSym }}{{ number_format($totalItemDiscounts, 2) }}</td>
+                                     </tr>
+                                     @endif
+                                     @if($orderDiscountAmt > 0)
+                                     <tr>
+                                         <td colspan="4" class="text-end text-uppercase"><strong>Order Discount @if(($order->discount_percentage ?? 0) > 0)({{ (float)$order->discount_percentage }}%)@endif:</strong></td>
+                                         @if($isConsignment)
+                                             <td class="pick-qty-col d-print-none"></td>
+                                         @endif
+                                         <td class="text-end fw-bold text-danger">- {{ $drSym }}{{ number_format($orderDiscountAmt, 2) }}</td>
+                                     </tr>
+                                     @endif
+                                     @if($allDiscountsCombined > 0)
+                                     <tr style="background-color: #fff3cd;">
+                                         <td colspan="4" class="text-end text-uppercase fw-bold text-dark">Total Discount:</td>
+                                         @if($isConsignment)
+                                             <td class="pick-qty-col d-print-none"></td>
+                                         @endif
+                                         <td class="text-end fw-bold text-danger" style="font-size: 15px;">- {{ $drSym }}{{ number_format($allDiscountsCombined, 2) }}</td>
+                                     </tr>
+                                     @endif
+                                     @if($freightChargesAmt > 0)
+                                     <tr>
+                                         <td colspan="4" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
+                                         @if($isConsignment)
+                                             <td class="pick-qty-col d-print-none"></td>
+                                         @endif
+                                         <td class="text-end fw-bold">{{ $drSym }}{{ number_format($freightChargesAmt, 2) }}</td>
+                                     </tr>
+                                     @endif
+                                     <tr style="background-color: #f8f9fa;">
+                                         <td colspan="4" class="text-end text-uppercase fw-bold text-dark" style="font-size: 1rem;">Total Amount:</td>
+                                         @if($isConsignment)
+                                             <td class="pick-qty-col d-print-none"></td>
+                                         @endif
+                                         <td class="text-end fw-bold text-primary" style="font-size: 1.1rem;"><span id="drTotalAmountDisplayTable">{{ $drSym }}{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</span></td>
+                                     </tr>
+                                 </tfoot>
                             </table>
                         </div>
 
@@ -279,14 +284,14 @@
 
                     <!-- Total Amount (Screen Only) -->
                     <div class="d-print-none" style="text-align: right; margin-bottom: 1.5rem; font-size: 1.1rem; font-weight: 600;">
-                        <div class="small text-muted mb-1">Gross Subtotal: ₱{{ number_format($grossSubtotal, 2) }}</div>
+                        <div class="small text-muted mb-1">Gross Subtotal: {{ $drSym }}{{ number_format($grossSubtotal, 2) }}</div>
                         @if($allDiscountsCombined > 0)
-                            <div class="small text-danger mb-1">Total Discount (Books + Order): - ₱{{ number_format($allDiscountsCombined, 2) }}</div>
+                            <div class="small text-danger mb-1">Total Discount (Books + Order): - {{ $drSym }}{{ number_format($allDiscountsCombined, 2) }}</div>
                         @endif
                         @if($freightChargesAmt > 0)
-                            <div class="small text-secondary mb-1">Freight Charges: + ₱{{ number_format($freightChargesAmt, 2) }}</div>
+                            <div class="small text-secondary mb-1">Freight Charges: + {{ $drSym }}{{ number_format($freightChargesAmt, 2) }}</div>
                         @endif
-                        <strong>Total Amount: <span id="drTotalAmountDisplay">₱{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</span></strong>
+                        <strong>Total Amount: <span id="drTotalAmountDisplay">{{ $drSym }}{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</span></strong>
                     </div>
                 @else
                     <!-- Empty Form for Creating New Receipt -->

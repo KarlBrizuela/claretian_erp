@@ -572,8 +572,8 @@
                                                                         $barcode = $item->bookIndex?->barcode ?? ($item->book?->barcode ?? ($item->bundle?->barcode ?? '—'));
                                                                         $unitPrice = $item->unit_price ?? ($item->price ?? 0);
                                                                         $subtotal = $unitPrice * $item->quantity;
-                                                                        $ordCurr = $order->currency ?? 'USD';
-                                                                        $ordSym = ($ordCurr === 'USD' ? '$' : ($ordCurr === 'EUR' ? '€' : '₱'));
+                                                                        $ordCurr = $order->currency ?? 'PHP';
+                                                                        $ordSym = ($ordCurr === 'USD' ? '$' : '₱');
                                                                     @endphp
                                                                     <tr>
                                                                         <td>{{ $index + 1 }}</td>

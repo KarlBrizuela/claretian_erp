@@ -88,7 +88,7 @@
                                 <tbody>
                                     @forelse($orders as $order)
                                     @php
-                                        $sym = ($order->currency === 'USD' ? '$' : ($order->currency === 'EUR' ? '€' : '₱'));
+                                        $sym = ($order->currency === 'USD' ? '$' : '₱');
                                     @endphp
                                     <tr>
                                         <td><strong>{{ $order->so_number }}</strong></td>

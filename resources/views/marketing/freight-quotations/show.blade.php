@@ -102,7 +102,7 @@
                                 <div class="col-md-3">
                                     <div class="mb-2">
                                         <small class="text-muted d-block mb-1"><strong>Currency</strong></small>
-                                        <p class="mb-0 fw-bold text-danger">{{ $quotation->currency ?? 'PHP' }} ({{ ($quotation->currency ?? 'PHP') === 'USD' ? '$' : (($quotation->currency ?? 'PHP') === 'EUR' ? '€' : '₱') }})</p>
+                                        <p class="mb-0 fw-bold text-danger">{{ $quotation->currency ?? 'PHP' }} ({{ ($quotation->currency ?? 'PHP') === 'USD' ? '$' : '₱' }})</p>
                                     </div>
                                 </div>
                             </div>
@@ -173,7 +173,7 @@
                         <!-- All Available Books List -->
                         <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-book me-2"></i><strong>All Available Books</strong></h6>
 
-                        @if($allBooks && $allBooks->count() > 0)
+                        @if(isset($allBooks) && $allBooks && $allBooks->count() > 0)
                             <div class="table-responsive mb-4">
                                 <table class="table table-hover table-bordered display" id="allBooksTable" style="width: 100%;">
                                     <thead class="table-success">
@@ -226,6 +226,8 @@
                         <!-- Logistics Response (if approved or linked) -->
                         @if(in_array($quotation->workflow_status, ['approved', 'linked_to_so']) || $quotation->status === 'approved')
                             @php
+                                $fqCurr = $quotation->currency ?? ($quotation->salesOrder->currency ?? 'PHP');
+                                $fqSym = ($fqCurr === 'USD' ? '$' : '₱');
                                 $displayTotal = $quotation->total_amount ?? ($quotation->estimated_freight + ($quotation->handling_fee ?? 0));
                             @endphp
                             <div style="background: #f0fdf4; padding: 1rem; border-radius: 6px; border: 2px solid #10b981; margin-bottom: 1.5rem;">
@@ -241,13 +243,13 @@
                                     <div class="col-md-4">
                                         <div class="mb-2">
                                             <small class="text-muted d-block mb-1"><strong>Estimated Freight</strong></small>
-                                            <p class="mb-0 fs-5"><strong class="text-danger">₱ {{ number_format($quotation->estimated_freight, 2) }}</strong></p>
+                                            <p class="mb-0 fs-5"><strong class="text-danger">{{ $fqSym }} {{ number_format($quotation->estimated_freight, 2) }}</strong></p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-2">
                                             <small class="text-muted d-block mb-1"><strong>Handling Fee</strong></small>
-                                            <p class="mb-0 fs-5"><strong class="text-danger">₱ {{ number_format($quotation->handling_fee ?? 0, 2) }}</strong></p>
+                                            <p class="mb-0 fs-5"><strong class="text-danger">{{ $fqSym }} {{ number_format($quotation->handling_fee ?? 0, 2) }}</strong></p>
                                         </div>
                                     </div>
                                 </div>
@@ -255,7 +257,7 @@
                                 <div class="row">
                                     <div class="col-12">
                                         <small class="text-muted d-block mb-1"><strong>Total Amount</strong></small>
-                                        <p class="mb-0 fs-4"><strong class="text-danger">₱ {{ number_format($displayTotal, 2) }}</strong></p>
+                                        <p class="mb-0 fs-4"><strong class="text-danger">{{ $fqSym }} {{ number_format($displayTotal, 2) }}</strong></p>
                                     </div>
                                 </div>
 
@@ -364,15 +366,15 @@
                                                             <span class="text-muted">-</span>
                                                         @endif
                                                     </td>
-                                                    <td class="text-end">₱ {{ number_format($price, 2) }}</td>
+                                                    <td class="text-end">{{ $fqSym }} {{ number_format($price, 2) }}</td>
                                                     <td class="text-end text-danger">
                                                         @if($discVal > 0)
-                                                            {{ $discType === 'percentage' ? $discVal . '%' : '₱' . number_format($discVal, 2) }}
+                                                            {{ $discType === 'percentage' ? $discVal . '%' : $fqSym . number_format($discVal, 2) }}
                                                         @else
                                                             —
                                                         @endif
                                                     </td>
-                                                    <td class="text-end fw-bold">₱ {{ number_format($itemSubtotal, 2) }}</td>
+                                                    <td class="text-end fw-bold">{{ $fqSym }} {{ number_format($itemSubtotal, 2) }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -387,11 +389,11 @@
                                             @if($totalItemDiscount > 0)
                                             <tr>
                                                 <td colspan="6" class="text-end"><strong>Gross Subtotal:</strong></td>
-                                                <td class="text-end fw-bold">₱ {{ number_format($grossSubtotal, 2) }}</td>
+                                                <td class="text-end fw-bold">{{ $fqSym }} {{ number_format($grossSubtotal, 2) }}</td>
                                             </tr>
                                             <tr>
                                                 <td colspan="6" class="text-end text-danger"><strong>Item Discounts:</strong></td>
-                                                <td class="text-end fw-bold text-danger">- ₱ {{ number_format($totalItemDiscount, 2) }}</td>
+                                                <td class="text-end fw-bold text-danger">- {{ $fqSym }} {{ number_format($totalItemDiscount, 2) }}</td>
                                             </tr>
                                             @endif
                                             <tr>
@@ -404,23 +406,23 @@
                                                     @endif
                                                 </td>
                                                 <td colspan="2"></td>
-                                                <td class="text-end fw-bold">₱ {{ number_format($soSubtotal, 2) }}</td>
+                                                <td class="text-end fw-bold">{{ $fqSym }} {{ number_format($soSubtotal, 2) }}</td>
                                             </tr>
                                             @if($orderDiscAmount > 0)
                                             <tr>
-                                                <td colspan="6" class="text-end text-danger"><strong>Order Discount{{ $orderDiscVal > 0 ? ' (' . $orderDiscVal . '%)' : ' (₱' . number_format($orderDiscAmount, 2) . ')' }}:</strong></td>
-                                                <td class="text-end fw-bold text-danger">- ₱ {{ number_format($orderDiscAmount, 2) }}</td>
+                                                <td colspan="6" class="text-end text-danger"><strong>Order Discount{{ $orderDiscVal > 0 ? ' (' . $orderDiscVal . '%)' : ' (' . $fqSym . number_format($orderDiscAmount, 2) . ')' }}:</strong></td>
+                                                <td class="text-end fw-bold text-danger">- {{ $fqSym }} {{ number_format($orderDiscAmount, 2) }}</td>
                                             </tr>
                                             @endif
                                             @if($serviceFee > 0)
                                             <tr style="background-color: #fff3cd;">
                                                 <td colspan="6" class="text-end text-success"><strong>Service Fee (Freight Collect):</strong></td>
-                                                <td class="text-end fw-bold text-success">₱ {{ number_format($serviceFee, 2) }}</td>
+                                                <td class="text-end fw-bold text-success">{{ $fqSym }} {{ number_format($serviceFee, 2) }}</td>
                                             </tr>
                                             @endif
                                             <tr style="background-color: #e8f5e9;">
                                                 <td colspan="6" class="text-end"><strong>Grand Total:</strong></td>
-                                                <td class="text-end fw-bold fs-6" style="color: #2e7d32;">₱ {{ number_format($grandTotal, 2) }}</td>
+                                                <td class="text-end fw-bold fs-6" style="color: #2e7d32;">{{ $fqSym }} {{ number_format($grandTotal, 2) }}</td>
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -431,8 +433,12 @@
                         @endif
 
                         <!-- Action Buttons -->
+                        @php
+                            $isFordSource = !empty($isFord) || $quotation->source === 'ford' || (isset($quotation->salesOrder) && ($quotation->salesOrder->type === 'foreign' || str_contains($quotation->salesOrder->so_number ?? '', 'FORD')));
+                            $backRoute = $isFordSource ? route('freight-quotation.index') : route('marketing.freight-quotations.list');
+                        @endphp
                         <div class="d-flex gap-2 justify-content-between flex-wrap" style="padding-top: 1.5rem;">
-                            <a href="{{ route('marketing.freight-quotations.list') }}" class="btn btn-light border">
+                            <a href="{{ $backRoute }}" class="btn btn-light border">
                                 <i class="bi bi-arrow-left me-1"></i>Back
                             </a>
 
@@ -441,6 +447,9 @@
                                     @if(!$quotation->sales_order_id)
                                         <form method="POST" action="{{ route('marketing.freight-quotations.create-so-directly', $quotation->id) }}" style="display: inline;">
                                             @csrf
+                                            @if($isFordSource)
+                                                <input type="hidden" name="source" value="ford">
+                                            @endif
                                             <button type="submit" class="btn btn-success btn-lg">
                                                 <i class="bi bi-plus-circle me-1"></i>Create Sales Order
                                             </button>
@@ -449,12 +458,20 @@
                                         @if($quotation->salesOrder && $quotation->salesOrder->status === 'draft')
                                             <form method="POST" action="{{ route('marketing.sales-orders.proceed-to-final', $quotation->sales_order_id) }}" style="display: inline;">
                                                 @csrf
+                                                @if($isFordSource)
+                                                    <input type="hidden" name="source" value="ford">
+                                                @endif
                                                 <button type="submit" class="btn btn-success btn-lg">
                                                     <i class="bi bi-arrow-right-circle me-1"></i>Proceed Sales Order (SO #{{ $quotation->salesOrder->so_number }})
                                                 </button>
                                             </form>
                                         @else
-                                            <a href="{{ route('marketing.sales-orders.detail', $quotation->sales_order_id) }}" class="btn btn-info btn-lg">
+                                            @php
+                                                $targetSoRoute = $isFordSource
+                                                    ? route('sales-order') 
+                                                    : route('marketing.sales-orders.detail', $quotation->sales_order_id);
+                                            @endphp
+                                            <a href="{{ $targetSoRoute }}" class="btn btn-info btn-lg">
                                                 <i class="bi bi-box-arrow-up-right me-1"></i>View Sales Order (SO #{{ $quotation->salesOrder->so_number ?? '' }})
                                             </a>
                                         @endif

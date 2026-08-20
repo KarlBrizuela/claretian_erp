@@ -56,7 +56,7 @@
                         @if($quotation->sales_order_id && $quotation->salesOrder && $quotation->salesOrder->id)
                             @php
                                 $ordCurr = $quotation->currency ?? ($quotation->salesOrder->currency ?? 'PHP');
-                                $ordSym = ($ordCurr === 'USD' ? '$' : ($ordCurr === 'EUR' ? '€' : '₱'));
+                                $ordSym = ($ordCurr === 'USD' ? '$' : '₱');
                             @endphp
                             <div class="alert alert-info border-2 mb-4" style="background-color: #e3f2fd; border-color: #2196F3;">
                                 <div class="row align-items-center">
@@ -305,7 +305,7 @@
                                             <div class="col-md-6">
                                                 @php
                                                      $ordCurr = $quotation->currency ?? ($quotation->salesOrder->currency ?? 'PHP');
-                                                     $ordSym = ($ordCurr === 'USD' ? '$' : ($ordCurr === 'EUR' ? '€' : '₱'));
+                                                     $ordSym = ($ordCurr === 'USD' ? '$' : '₱');
                                                  @endphp
                                                  <label class="form-label fw-bold" style="font-size: 0.85rem;"> Estimated Freight Charge ({{ $ordSym }}):</label>
                                                 <input type="number" class="form-control form-control-sm @error('estimated_freight') is-invalid @enderror" 

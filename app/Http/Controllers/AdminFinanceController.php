@@ -1378,13 +1378,25 @@ public function checkVoucher()
           ->get();
     }
 
+    // Split completed SIs into Normal Completed SIs and Completed E-com SIs
+    $completedNormalSIs = $completedSIs->filter(function($si) {
+        $type = $si->salesOrder->type ?? '';
+        return $type !== 'ecom_direct' && !str_contains($si->transaction_type ?? '', 'ecom');
+    })->sortByDesc('id')->values();
+
+    $completedEcomSIs = $completedSIs->filter(function($si) {
+        $type = $si->salesOrder->type ?? '';
+        return $type === 'ecom_direct' || str_contains($si->transaction_type ?? '', 'ecom');
+    })->sortByDesc('id')->values();
+
     return view('admin-finance.accounting.sales-invoice', [
       'title' => 'Sales Invoice Management',
       'role' => 'Finance Manager',
       'sidebar' => 'admin-finance',
       'normalOrders' => $normalOrders,
       'ecomOrders' => $ecomOrders,
-      'completedSIs' => $completedSIs
+      'completedSIs' => $completedNormalSIs,
+      'completedEcomSIs' => $completedEcomSIs
     ]);
   }
 

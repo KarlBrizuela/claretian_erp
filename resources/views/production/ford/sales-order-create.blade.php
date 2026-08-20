@@ -139,7 +139,6 @@
                                     <select class="form-select" name="currency" id="formCurrency" onchange="onCurrencyChanged()">
                                         <option value="USD" selected>Dollar ($)</option>
                                         <option value="PHP">Peso (₱)</option>
-                                        <option value="EUR">Euro (€)</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -262,7 +261,6 @@
         function getCurrencySymbol() {
             const currency = document.getElementById('formCurrency').value;
             if (currency === 'USD') return '$';
-            if (currency === 'EUR') return '€';
             return '₱';
         }
 
@@ -428,23 +426,27 @@
             }
         }
 
+        function convertPesoToDollar(pesoPrice) {
+            const p = parseFloat(pesoPrice) || 0;
+            if (p <= 0) return 0;
+            const dollarBase = p / 40;
+            const dollarSRP = dollarBase * 1.10;
+            const roundedDollar = Math.ceil(dollarSRP * 4) / 4;
+            return roundedDollar;
+        }
+
         function onProductSelect(idx, selectEl) {
             const row = document.getElementById(`row-${idx}`);
             const selected = selectEl.options[selectEl.selectedIndex];
             if (selected) {
                 let basePrice = parseFloat(selected.getAttribute('data-price')) || 0;
                 const isbn = selected.getAttribute('data-isbn') || '';
-                
-                const curr = document.getElementById('formCurrency').value;
-                if (curr === 'USD') {
-                    const dollarBase = basePrice / 40;
-                    basePrice = Math.ceil(dollarBase * 1.10 * 4) / 4;
-                } else if (curr === 'EUR') {
-                    const eurBase = basePrice / 45;
-                    basePrice = Math.ceil(eurBase * 1.10 * 4) / 4;
-                }
 
-                row.querySelector('.item-price').value = basePrice.toFixed(2);
+                row.dataset.basePrice = basePrice;
+                const curr = document.getElementById('formCurrency').value;
+                const finalPrice = (curr === 'USD') ? convertPesoToDollar(basePrice) : basePrice;
+
+                row.querySelector('.item-price').value = finalPrice.toFixed(2);
                 row.querySelector('.item-isbn').value = isbn;
                 calculateRow(idx);
             }
@@ -452,6 +454,7 @@
 
         function onCurrencyChanged() {
             const sym = getCurrencySymbol();
+            const curr = document.getElementById('formCurrency').value;
             
             document.querySelectorAll('.currency-symbol').forEach(el => {
                 el.textContent = sym;
@@ -463,10 +466,12 @@
                     const idx = idAttr.replace('row-', '');
                     const selectEl = row.querySelector('.item-product-select');
                     if (selectEl && selectEl.selectedIndex > 0) {
-                        onProductSelect(idx, selectEl);
-                    } else {
-                        calculateRow(idx);
+                        const selected = selectEl.options[selectEl.selectedIndex];
+                        const basePrice = parseFloat(row.dataset.basePrice || selected.getAttribute('data-price')) || 0;
+                        const finalPrice = (curr === 'USD') ? convertPesoToDollar(basePrice) : basePrice;
+                        row.querySelector('.item-price').value = finalPrice.toFixed(2);
                     }
+                    calculateRow(idx);
                 }
             });
             calculateTotals();

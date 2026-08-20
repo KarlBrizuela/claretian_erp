@@ -122,7 +122,7 @@
                                                 <td>
                                                     @php
                                                         $fqCurr = $quotation->currency ?? 'PHP';
-                                                        $fqSym = ($fqCurr === 'USD' ? '$' : ($fqCurr === 'EUR' ? '€' : '₱'));
+                                                        $fqSym = ($fqCurr === 'USD' ? '$' : '₱');
                                                     @endphp
                                                     @if(in_array($quotation->workflow_status, ['approved', 'linked_to_so']))
                                                         <strong class="text-success">{{ $fqSym }}{{ number_format($quotation->total_amount, 2) }}</strong>

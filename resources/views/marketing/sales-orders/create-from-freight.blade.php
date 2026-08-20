@@ -63,7 +63,7 @@
                                         <option value="cod" {{ old('type') === 'cod' ? 'selected' : '' }}>Due on Receipt (COD)</option>
                                 <div class="col-md-4 text-end">
                                     <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545;">
-                                        {{ ($quotation->currency ?? 'PHP') === 'USD' ? '$' : (($quotation->currency ?? 'PHP') === 'EUR' ? '€' : '₱') }} {{ number_format($quotation->total_amount, 2) }}
+                                        {{ ($quotation->currency ?? 'PHP') === 'USD' ? '$' : '₱' }} {{ number_format($quotation->total_amount, 2) }}
                                     </div>
                                     <small class="text-muted">Freight charges included in SO</small>
                                 </div>

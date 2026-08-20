@@ -296,16 +296,52 @@
     </div>
 
     <!-- Existing E-com Invoices List -->
-    @if($invoices->count() > 0)
-    <div class="row invoices-list-section">
+    <div class="row invoices-list-section mt-4">
         <div class="col-12">
             <div class="card p-4" style="border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.06);">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h4 class="mb-0"><i class="las la-shopping-cart me-2"></i>E-Com Invoices</h4>
-                    <span class="badge bg-primary rounded-pill">{{ $invoices->count() }} invoices</span>
+                    <span class="badge bg-primary rounded-pill px-3 py-2" style="font-size: 12px;">{{ method_exists($invoices, 'total') ? $invoices->total() : $invoices->count() }} invoices</span>
                 </div>
+
+                <!-- Filter & Search Form -->
+                <form action="{{ route('marketing.direct-invoice.ecom') }}" method="GET" class="row g-2 mb-4 align-items-end p-3 rounded" style="background: #f8f9fa; border: 1px solid #e9ecef;">
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small fw-bold mb-1"><i class="las la-search me-1"></i>Search</label>
+                        <input type="text" name="search" class="form-control form-control-sm" placeholder="Search SO#, Customer, Order ID..." value="{{ request('search') }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-muted small fw-bold mb-1"><i class="las la-store me-1"></i>Platform</label>
+                        <select name="platform" class="form-select form-select-sm">
+                            <option value="">All Platforms</option>
+                            <option value="lazada" {{ request('platform') === 'lazada' ? 'selected' : '' }}>Lazada</option>
+                            <option value="shopee" {{ request('platform') === 'shopee' ? 'selected' : '' }}>Shopee</option>
+                            <option value="tiktok" {{ request('platform') === 'tiktok' ? 'selected' : '' }}>TikTok</option>
+                            <option value="cob" {{ request('platform') === 'cob' ? 'selected' : '' }}>COB</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-muted small fw-bold mb-1"><i class="las la-calendar me-1"></i>Date From</label>
+                        <input type="date" name="start_date" class="form-control form-control-sm" value="{{ request('start_date') }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-muted small fw-bold mb-1"><i class="las la-calendar me-1"></i>Date To</label>
+                        <input type="date" name="end_date" class="form-control form-control-sm" value="{{ request('end_date') }}">
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3">
+                            <i class="las la-filter me-1"></i> Filter
+                        </button>
+                        @if(request('search') || request('start_date') || request('end_date') || request('platform'))
+                            <a href="{{ route('marketing.direct-invoice.ecom') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                <i class="las la-undo me-1"></i> Reset
+                            </a>
+                        @endif
+                    </div>
+                </form>
+
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle mb-0">
                         <thead style="background: #f8f9fa;">
                             <tr>
                                 <th>Invoice #</th>
@@ -318,11 +354,11 @@
                                 <th>Date</th>
                                 <th>Remarks</th>
                                 <th>Attachments</th>
-                                <th>Action</th>
+                                <th class="text-end">Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($invoices as $inv)
+                            @forelse($invoices as $inv)
                             <tr>
                                 <td class="fw-bold">{{ $inv->so_number }}</td>
                                 <td>{{ $inv->customer->customer_name ?? 'N/A' }}</td>
@@ -358,35 +394,47 @@
                                         </a>
                                     @endif
                                 </td>
-                                <td>
-                                    @php
-                                        $canApprove = false;
-                                        $userPos = auth()->user()->position ?? '';
-                                        $isManager = str_contains($userPos, 'Manager') || str_contains($userPos, 'Supervisor') || $userPos === 'Super Admin';
-                                        if ($isManager && $inv->status === 'pending_mkt_approval') {
-                                            $canApprove = true;
-                                        }
-                                    @endphp
-                                    @if($canApprove)
-                                        <form action="{{ route('marketing.direct-invoice.ecom.approve', $inv->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Approve this invoice? It will be routed to Sales Invoice (Accounting) for preparation.')">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-success">
-                                                <i class="las la-check me-1"></i>Approve
-                                            </button>
-                                        </form>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
+                                <td class="text-end">
+                                    <div class="d-flex justify-content-end gap-1 flex-wrap">
+                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $inv->id) }}" target="_blank" class="btn btn-sm btn-outline-primary shadow-sm" title="Print Sales Invoice with data">
+                                            <i class="las la-print me-1"></i> Print SI
+                                        </a>
+                                        @php
+                                            $canApprove = false;
+                                            $userPos = auth()->user()->position ?? '';
+                                            $isManager = str_contains($userPos, 'Manager') || str_contains($userPos, 'Supervisor') || $userPos === 'Super Admin';
+                                            if ($isManager && $inv->status === 'pending_mkt_approval') {
+                                                $canApprove = true;
+                                            }
+                                        @endphp
+                                        @if($canApprove)
+                                            <form action="{{ route('marketing.direct-invoice.ecom.approve', $inv->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Approve this invoice? It will be routed to Sales Invoice (Accounting) for preparation.')">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="las la-check me-1"></i>Approve
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
-                            @endforeach
+                            @empty
+                            <tr>
+                                <td colspan="11" class="text-center py-4 text-muted">No E-com invoices found.</td>
+                            </tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
+
+                @if(method_exists($invoices, 'links'))
+                    <div class="d-flex justify-content-end mt-3">
+                        {{ $invoices->links() }}
+                    </div>
+                @endif
             </div>
         </div>
     </div>
-    @endif
 
     <!-- Hidden Product Options for JS -->
     <select id="productSource" class="d-none">

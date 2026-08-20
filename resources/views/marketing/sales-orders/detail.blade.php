@@ -312,6 +312,9 @@
                         @endif
                         @endforeach
                     </tbody>
+                    @php
+                        $soSym = ($order->currency === 'USD' ? '$' : '₱');
+                    @endphp
                     <tfoot>
                         @php
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
@@ -324,7 +327,7 @@
                         @endphp
                         <tr>
                             <td colspan="7" class="text-end text-uppercase"><strong>Items Subtotal:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($itemsSubtotal, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $soSym }}{{ number_format($itemsSubtotal, 2) }}</td>
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
@@ -336,24 +339,24 @@
                                     @endif:
                                 </strong>
                             </td>
-                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
+                            <td class="text-end fw-bold text-danger">- {{ $soSym }}{{ number_format($discountAmount, 2) }}</td>
                         </tr>
                         @endif
                         @if($order->freight_charges && $order->freight_charges > 0)
                         <tr>
                             <td colspan="7" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($order->freight_charges, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $soSym }}{{ number_format($order->freight_charges, 2) }}</td>
                         </tr>
                         @endif
                         @if($serviceFee > 0)
                         <tr>
                             <td colspan="7" class="text-end text-uppercase"><strong>Service Fee:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($serviceFee, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $soSym }}{{ number_format($serviceFee, 2) }}</td>
                         </tr>
                         @endif
                         <tr style="background: #f8f9fa;">
                             <td colspan="7" class="text-end text-uppercase"><strong>Grand Total:</strong></td>
-                            <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($grandTotal, 2) }}</td>
+                            <td class="text-end fw-bold fs-5 text-primary">{{ $soSym }}{{ number_format($grandTotal, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -363,32 +366,20 @@
                 <div class="alert alert-info mt-3">
                     <h6 class="mb-2"><i class="fas fa-truck me-2"></i>Freight Quotation Status</h6>
                     @if($order->freight_charges && $order->freight_charges > 0)
-                        <p class="mb-0"><strong>✓ Freight Charges Approved:</strong> ₱{{ number_format($order->freight_charges, 2) }}</p>
-                        <p class="mt-2 mb-0 text-muted small">{{ $order->freight_notes ?? 'No additional notes.' }}</p>
-                    @else
-                        <p class="mb-0"><i class="fas fa-hourglass-half me-2 text-warning"></i><strong>Awaiting Freight Quotation</strong></p>
-                        <p class="mt-2 mb-0 text-muted small">Logistics team is processing your freight request. You'll be able to proceed once freight charges are approved.</p>
+                        <p class="mb-1"><strong>✓ Freight Charges Approved:</strong> {{ $soSym }}{{ number_format($order->freight_charges, 2) }}</p>
                     @endif
                 </div>
-                @endif
 
-                <!-- Freight Charges Breakdown -->
-                @if($order->freight_charges && $order->freight_charges > 0)
-                @php
-                    $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
-                    $itemsSubtotal = $order->items->sum('subtotal');
-                    $discountAmount = $order->discount_amount ?? 0;
-                @endphp
-                <table class="order-table mt-3">
+                <table class="table table-bordered mt-3">
                     <thead>
-                        <tr>
+                        <tr style="background: #e9ecef;">
                             <th colspan="2">Cost Breakdown</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td class="text-end" style="width: 50%;"><strong>Items Subtotal:</strong></td>
-                            <td class="text-end">₱{{ number_format($itemsSubtotal, 2) }}</td>
+                            <td class="text-end">{{ $soSym }}{{ number_format($itemsSubtotal, 2) }}</td>
                         </tr>
                         @if($discountAmount > 0)
                         <tr>
@@ -400,22 +391,22 @@
                                     @endif:
                                 </strong>
                             </td>
-                            <td class="text-end text-danger">- ₱{{ number_format($discountAmount, 2) }}</td>
+                            <td class="text-end text-danger">- {{ $soSym }}{{ number_format($discountAmount, 2) }}</td>
                         </tr>
                         @endif
                         <tr>
                             <td class="text-end"><strong>Freight Charges:</strong></td>
-                            <td class="text-end text-success"><strong>₱{{ number_format($order->freight_charges, 2) }}</strong></td>
+                            <td class="text-end text-success"><strong>{{ $soSym }}{{ number_format($order->freight_charges, 2) }}</strong></td>
                         </tr>
                         @if($serviceFee > 0)
                         <tr>
                             <td class="text-end"><strong>Service Fee:</strong></td>
-                            <td class="text-end text-success"><strong>₱{{ number_format($serviceFee, 2) }}</strong></td>
+                            <td class="text-end text-success"><strong>{{ $soSym }}{{ number_format($serviceFee, 2) }}</strong></td>
                         </tr>
                         @endif
                         <tr style="background: #f0f0f0;">
                             <td class="text-end"><strong>Grand Total:</strong></td>
-                            <td class="text-end"><strong>₱{{ number_format($grandTotal, 2) }}</strong></td>
+                            <td class="text-end"><strong>{{ $soSym }}{{ number_format($grandTotal, 2) }}</strong></td>
                         </tr>
                     </tbody>
                 </table>

@@ -57,10 +57,9 @@
                                 <div class="col-md-3">
                                     <label class="form-label">Currency:</label>
                                     <select class="form-control @error('currency') is-invalid @enderror" name="currency" id="fqCurrencySelect" required>
-                                        <option value="PHP" {{ old('currency', 'PHP') === 'PHP' ? 'selected' : '' }}>PHP (₱)</option>
-                                        <option value="USD" {{ old('currency') === 'USD' ? 'selected' : '' }}>USD ($)</option>
-                                        <option value="EUR" {{ old('currency') === 'EUR' ? 'selected' : '' }}>EUR (€)</option>
-                                    </select>
+                                         <option value="PHP" {{ old('currency', 'PHP') === 'PHP' ? 'selected' : '' }}>PHP (₱)</option>
+                                         <option value="USD" {{ old('currency') === 'USD' ? 'selected' : '' }}>USD ($)</option>
+                                     </select>
                                     @error('currency')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                             </div>
@@ -329,11 +328,29 @@
                 freightOption.dispatchEvent(event);
             }
 
+            function convertPesoToDollar(pesoPrice) {
+                const p = parseFloat(pesoPrice) || 0;
+                if (p <= 0) return 0;
+                const dollarBase = p / 40;
+                const dollarSRP = dollarBase * 1.10;
+                const roundedDollar = Math.ceil(dollarSRP * 4) / 4;
+                return roundedDollar;
+            }
+
+            function getProductPriceForSelectedCurrency(basePrice) {
+                const fqCurrencySelect = document.getElementById('fqCurrencySelect');
+                const curr = fqCurrencySelect ? fqCurrencySelect.value : 'PHP';
+                const p = parseFloat(basePrice) || 0;
+                if (curr === 'USD') {
+                    return convertPesoToDollar(p);
+                }
+                return p;
+            }
+
             function getFQCurrencySymbol() {
                 const fqCurrencySelect = document.getElementById('fqCurrencySelect');
                 const curr = fqCurrencySelect ? fqCurrencySelect.value : 'PHP';
                 if (curr === 'USD') return '$';
-                if (curr === 'EUR') return '€';
                 return '₱';
             }
 
@@ -347,8 +364,6 @@
                 });
 
                 let feeVal = 50.00;
-                if (curr === 'USD') feeVal = 50.00 / 56.0;
-                else if (curr === 'EUR') feeVal = 50.00 / 62.0;
 
                 const serviceFeeEl = document.getElementById('soServiceFee');
                 if (serviceFeeEl) serviceFeeEl.textContent = sym + ' ' + feeVal.toFixed(2);
@@ -356,7 +371,16 @@
                 const serviceFeeNoticeText = document.getElementById('serviceFeeNoticeText');
                 if (serviceFeeNoticeText) serviceFeeNoticeText.textContent = sym + ' ' + feeVal.toFixed(2);
 
-                document.querySelectorAll('#soItemsBody tr').forEach(row => calculateRow(row));
+                document.querySelectorAll('#soItemsBody tr').forEach(row => {
+                    const productSelect = row.querySelector('.so-product');
+                    const priceInput = row.querySelector('.so-price');
+                    if (productSelect && productSelect.selectedIndex > 0) {
+                        const option = productSelect.options[productSelect.selectedIndex];
+                        const basePrice = parseFloat(row.dataset.basePrice || option.dataset.price) || 0;
+                        priceInput.value = getProductPriceForSelectedCurrency(basePrice).toFixed(2);
+                    }
+                    calculateRow(row);
+                });
                 calculateSOSubtotal();
             }
 
@@ -408,13 +432,7 @@
 
                 let serviceFeeAmount = 0;
                 if (isFreightCollect) {
-                    if (curr === 'USD') {
-                        serviceFeeAmount = 50.00 / 56.0;
-                    } else if (curr === 'EUR') {
-                        serviceFeeAmount = 50.00 / 62.0;
-                    } else {
-                        serviceFeeAmount = 50.00;
-                    }
+                    serviceFeeAmount = 50.00;
                 }
 
                 const finalTotal = netAfterOverallDiscount + serviceFeeAmount;
@@ -426,8 +444,6 @@
                 const sym = getFQCurrencySymbol();
 
                 let currentFeeVal = 50.00;
-                if (curr === 'USD') currentFeeVal = 50.00 / 56.0;
-                else if (curr === 'EUR') currentFeeVal = 50.00 / 62.0;
 
                 if (serviceFeeEl) serviceFeeEl.textContent = sym + ' ' + currentFeeVal.toFixed(2);
                 if (subtotalEl) subtotalEl.textContent = sym + ' ' + itemsNetTotal.toFixed(2);
@@ -497,7 +513,9 @@
                     
                     productSelect.addEventListener('change', function() {
                         const option = this.options[this.selectedIndex];
-                        priceInput.value = option.dataset.price || 0;
+                        const basePrice = parseFloat(option.dataset.price) || 0;
+                        row.dataset.basePrice = basePrice;
+                        priceInput.value = getProductPriceForSelectedCurrency(basePrice).toFixed(2);
                         calculateRow(row);
                     });
 

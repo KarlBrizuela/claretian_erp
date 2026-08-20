@@ -467,6 +467,9 @@ class FORDController extends Controller
             'total_amount' => max(0, $finalTotal),
         ]);
 
+        // Deduct stock immediately upon Sales Order creation
+        \App\Services\StockDeductionService::deductForSalesOrder($so);
+
         \App\Models\ActivityLog::create([
             'user_id' => auth()->id(),
             'action' => 'FORD Sales Order Created',
@@ -954,13 +957,15 @@ class FORDController extends Controller
 
     public function freightQuotationShow($id)
     {
-        $quotation = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy', 'salesOrder', 'items'])->findOrFail($id);
+        $quotation = \App\Models\FreightQuotation::with(['createdBy', 'respondedBy', 'salesOrder.items'])->findOrFail($id);
+        $allBooks = \App\Models\Book::where('is_active', true)->orderBy('name')->get();
         
         return view('marketing.freight-quotations.show', [
             'title' => 'Freight Quotation: ' . $quotation->quote_number,
             'role' => auth()->user()->position,
             'sidebar' => 'production',
             'quotation' => $quotation,
+            'allBooks' => $allBooks,
             'isFord' => true,
             'indexRoute' => 'production.ford.freight-quotation.index',
             'createSoRoute' => 'production.ford.freight-quotation.create-so-directly',

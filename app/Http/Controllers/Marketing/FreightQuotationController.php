@@ -261,6 +261,9 @@ class FreightQuotationController extends Controller
                         ]);
                     }
 
+                    // Deduct stock immediately upon Sales Order creation
+                    \App\Services\StockDeductionService::deductForSalesOrder($salesOrder);
+
                     // Link freight quotation to SO
                     $quotation->update([
                         'sales_order_id' => $salesOrder->id,
@@ -392,6 +395,9 @@ class FreightQuotationController extends Controller
                 'sales_order_id' => $salesOrder->id,
                 'workflow_status' => 'linked_to_so',
             ]);
+
+            // Deduct stock immediately upon Sales Order creation
+            \App\Services\StockDeductionService::deductForSalesOrder($salesOrder);
 
             if ($isFordQuotation) {
                 return redirect()->route('production.ford.sales-order')

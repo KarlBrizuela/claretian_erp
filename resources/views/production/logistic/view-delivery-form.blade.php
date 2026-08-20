@@ -197,24 +197,27 @@
                                     @else
                                         <span class="badge bg-primary ms-1" style="font-size: 10px; padding: 2px 6px;">Book</span>
                                     @endif
-                                </div>
+                                 </div>
                                 <small class="text-muted d-block">{{ $item->bookIndex->barcode ?? ($item->book->sku ?? ($item->bundle->sku ?? 'N/A')) }}</small>
                             </td>
-                            <td class="text-end">₱{{ number_format($unitPrice, 2) }}</td>
+                            @php
+                                $drSym = ($order->currency === 'USD' ? '$' : '₱');
+                            @endphp
+                            <td class="text-end">{{ $drSym }}{{ number_format($unitPrice, 2) }}</td>
                             <td class="text-center">
                                 @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
                                     @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
                                         {{ (float)$item->discount_value }}%
                                     @elseif(($item->discount_value ?? 0) > 0)
-                                        ₱{{ number_format($item->discount_value, 2) }}
+                                        {{ $drSym }}{{ number_format($item->discount_value, 2) }}
                                     @else
-                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                        {{ $drSym }}{{ number_format($item->discount_amount, 2) }}
                                     @endif
                                 @else
                                     -
                                 @endif
                             </td>
-                            <td class="text-end fw-bold">₱{{ number_format($rowAmount, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $drSym }}{{ number_format($rowAmount, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -230,35 +233,35 @@
                     <tfoot>
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Gross Subtotal:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($grossSubtotal, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $drSym }}{{ number_format($grossSubtotal, 2) }}</td>
                         </tr>
                         @if($totalItemDiscounts > 0)
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Items Discount Subtotal:</strong></td>
-                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($totalItemDiscounts, 2) }}</td>
+                            <td class="text-end fw-bold text-danger">- {{ $drSym }}{{ number_format($totalItemDiscounts, 2) }}</td>
                         </tr>
                         @endif
                         @if($orderDiscountAmt > 0)
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Order Discount @if(($order->discount_percentage ?? 0) > 0)({{ (float)$order->discount_percentage }}%)@endif:</strong></td>
-                            <td class="text-end fw-bold text-danger">- ₱{{ number_format($orderDiscountAmt, 2) }}</td>
+                            <td class="text-end fw-bold text-danger">- {{ $drSym }}{{ number_format($orderDiscountAmt, 2) }}</td>
                         </tr>
                         @endif
                         @if($allDiscountsCombined > 0)
                         <tr style="background-color: #fff3cd;">
                             <td colspan="5" class="text-end text-uppercase fw-bold text-dark">TOTAL DISCOUNT:</td>
-                            <td class="text-end fw-bold text-danger" style="font-size: 15px;">- ₱{{ number_format($allDiscountsCombined, 2) }}</td>
+                            <td class="text-end fw-bold text-danger" style="font-size: 15px;">- {{ $drSym }}{{ number_format($allDiscountsCombined, 2) }}</td>
                         </tr>
                         @endif
                         @if($freightChargesAmt > 0)
                         <tr>
                             <td colspan="5" class="text-end text-uppercase"><strong>Freight Charges:</strong></td>
-                            <td class="text-end fw-bold">₱{{ number_format($freightChargesAmt, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $drSym }}{{ number_format($freightChargesAmt, 2) }}</td>
                         </tr>
                         @endif
                         <tr class="table-light">
                             <td colspan="5" class="text-end text-uppercase fs-6"><strong>GRAND TOTAL:</strong></td>
-                            <td class="text-end fw-bold fs-5 text-primary">₱{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</td>
+                            <td class="text-end fw-bold fs-5 text-primary">{{ $drSym }}{{ number_format($finalTotalAmt > 0 ? $finalTotalAmt : ($order->total_amount ?? 0), 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>

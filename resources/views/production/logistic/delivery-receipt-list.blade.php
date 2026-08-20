@@ -229,7 +229,10 @@
                                             @endif
                                         </td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
-                                        <td>₱{{ number_format($order->total_amount, 2) }}</td>
+                                        @php
+                                            $drListSym = (($order->currency ?? 'PHP') === 'USD' ? '$' : '₱');
+                                        @endphp
+                                        <td>{{ $drListSym }}{{ number_format($order->total_amount, 2) }}</td>
                                         <td>
                                             <span class="badge bg-info">{{ $termsDisplay }}</span>
                                         </td>
@@ -488,7 +491,10 @@
                                         </td>
                                         <td data-order="{{ $drDateObj ? $drDateObj->timestamp : ($order->id ?? 0) }}"><span class="badge bg-light text-dark border text-nowrap"><i class="las la-calendar me-1"></i>{{ $drDateFormatted }}</span></td>
                                         <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
-                                        <td>₱{{ number_format($order->total_amount, 2) }}</td>
+                                        @php
+                                            $drListSym = (($order->currency ?? 'PHP') === 'USD' ? '$' : '₱');
+                                        @endphp
+                                        <td>{{ $drListSym }}{{ number_format($order->total_amount, 2) }}</td>
                                         <td><span class="badge bg-info">{{ $termsDisplay }}</span></td>
                                         <td>
                                             @if($daysRemaining !== null)
