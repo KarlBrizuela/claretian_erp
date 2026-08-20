@@ -105,7 +105,7 @@
 
                     <!-- Delivery Receipt Items Table -->
                     @php
-                        $isConsignment = $order && in_array($order->type, ['area_consignment', 'area_sales_consignment']);
+                        $isConsignment = $order && in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
                         $displayItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
                         
                         $grossSubtotal = 0;
@@ -377,7 +377,7 @@
                     </div>
                 </div>
 
-                @if($order && in_array($order->type, ['area_consignment', 'area_sales_consignment']))
+                @if($order && in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']))
                 <div class="card p-3 my-3 border bg-light">
                     <h6 class="fw-bold text-dark mb-2"><i class="las la-exchange-alt me-1 text-primary"></i> Move Order & Proof of Payment Options</h6>
                     <p class="small text-muted mb-3">Uploading Proof of Payment or moving the order will make it visible on the Acknowledgement Receipt or Consignment Receipt page.</p>
@@ -460,7 +460,7 @@
                                 </button>
                             </form>
                         @endif
-                        @if(in_array($order->type, ['area_consignment', 'area_sales_consignment']))
+                        @if(in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']))
                             <form action="{{ route('production.logistic.request-reconsignment', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
                                 @csrf
                                 <button type="submit" class="btn btn-warning" {{ !in_array($order->status, ['pending_dr_prep', 'ready_for_packing', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep', 'completed']) ? 'disabled' : '' }}>

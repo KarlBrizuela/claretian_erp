@@ -63,11 +63,13 @@
                     </div>
                 </div>
             </div>
+            @if(auth()->check() && auth()->user()->position !== 'Driver')
             <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
                 <button type="button" class="btn btn-danger shadow-sm rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#createRequestModal" style="background-color: #ff0000; border-color: #ff0000;">
                     <i class="las la-plus me-1 fs-16"></i> Create Request
                 </button>
             </div>
+            @endif
         </div>
 
         @if (session('success'))
@@ -179,16 +181,79 @@
                                 </td>
                                 <td class="align-middle text-end">
                                     <div class="d-flex justify-content-end gap-2">
-                                        <button type="button" class="btn btn-primary shadow btn-xs sharp" data-bs-toggle="modal" data-bs-target="#editRequestModal{{ $req->id }}" title="Edit Request">
-                                            <i class="fas fa-pencil-alt"></i>
-                                        </button>
-                                        <form action="{{ route('production.logistic.pickup-requests.destroy', $req->id) }}" method="POST" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this order?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-danger shadow btn-xs sharp" title="Delete Request">
-                                                <i class="fa fa-trash"></i>
+                                        @if(auth()->check() && auth()->user()->position === 'Driver')
+                                            <button type="button" class="btn btn-info text-white shadow btn-xs sharp" data-bs-toggle="modal" data-bs-target="#viewRequestModal{{ $req->id }}" title="View Details">
+                                                <i class="fas fa-eye"></i>
                                             </button>
-                                        </form>
+                                            @if($req->status !== 'completed')
+                                            <form action="{{ route('production.logistic.pickup-requests.complete', $req->id) }}" method="POST" class="d-inline-block" onsubmit="return confirm('Mark this logistics service order as completed?');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Mark Complete">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </form>
+                                            @endif
+                                        @else
+                                            <button type="button" class="btn btn-primary shadow btn-xs sharp" data-bs-toggle="modal" data-bs-target="#editRequestModal{{ $req->id }}" title="Edit Request">
+                                                <i class="fas fa-pencil-alt"></i>
+                                            </button>
+                                            <form action="{{ route('production.logistic.pickup-requests.destroy', $req->id) }}" method="POST" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this order?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger shadow btn-xs sharp" title="Delete Request">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+
+                                    <!-- View Details Modal (Driver) -->
+                                    <div class="modal fade" id="viewRequestModal{{ $req->id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content text-start">
+                                                <div class="modal-header bg-light">
+                                                    <h5 class="modal-title font-w600">Details for REQ-{{ str_pad($req->id, 5, '0', STR_PAD_LEFT) }}</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body p-4">
+                                                    <div class="mb-3">
+                                                        <label class="fw-bold text-muted small d-block mb-1">Request Type:</label>
+                                                        <span class="badge badge-type badge-{{ $req->type === 'delivery' ? 'delivery' : ($req->type === 'pickup' ? 'pickup' : 'pullout') }}">
+                                                            {{ str_replace('_', ' ', strtoupper($req->type)) }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="fw-bold text-muted small d-block mb-1">Client / Receiver:</label>
+                                                        <span class="fw-bold text-dark fs-15">{{ $req->client_name }}</span>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="fw-bold text-muted small d-block mb-1">Address / Location:</label>
+                                                        <div class="p-2 bg-light rounded text-dark border">{{ $req->address }}</div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="fw-bold text-muted small d-block mb-1">Requested Date:</label>
+                                                        <span class="fw-bold text-dark">{{ $req->requested_date ? $req->requested_date->format('M d, Y') : 'N/A' }}</span>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="fw-bold text-muted small d-block mb-1">Driver & Vehicle:</label>
+                                                        <span class="fw-bold text-dark">{{ $dName ?: 'Unassigned' }} {{ $req->vehicle ? '('.$req->vehicle.')' : '' }}</span>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="fw-bold text-muted small d-block mb-1">Items Description & Quantity:</label>
+                                                        <div class="p-2 bg-light rounded text-dark border" style="white-space: pre-wrap;">{{ $req->items_details }}</div>
+                                                    </div>
+                                                    @if($req->remarks)
+                                                    <div class="mb-3">
+                                                        <label class="fw-bold text-muted small d-block mb-1">Remarks / Special Instructions:</label>
+                                                        <div class="p-2 bg-light rounded text-dark border">{{ $req->remarks }}</div>
+                                                    </div>
+                                                    @endif
+                                                </div>
+                                                <div class="modal-footer bg-light">
+                                                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- Edit Modal -->

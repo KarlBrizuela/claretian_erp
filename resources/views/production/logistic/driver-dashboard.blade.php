@@ -81,12 +81,14 @@
             } elseif (request('end_date')) {
                 $dateLabel = 'Until ' . \Carbon\Carbon::parse(request('end_date'))->format('M d, Y');
             }
+            $totalAssignedCount = ($assignedDeliveries->count() ?? 0) + (isset($allPickupRequests) ? $allPickupRequests->where('status', '!=', 'completed')->count() : 0);
+            $activePickupsCount = isset($allPickupRequests) ? $allPickupRequests->where('status', '!=', 'completed')->count() : 0;
         @endphp
         <!-- Stats Overview -->
         <div class="row mb-4">
             <div class="col-md-4 mb-3">
                 <div class="stat-card total">
-                    <h3>{{ $assignedDeliveries->count() }}</h3>
+                    <h3>{{ $totalAssignedCount }}</h3>
                     <p>Total Assigned {{ $dateLabel }}</p>
                 </div>
             </div>
@@ -98,11 +100,119 @@
             </div>
             <div class="col-md-4 mb-3">
                 <div class="stat-card ready">
-                    <h3>{{ $assignedDeliveries->where('status', 'ready_for_delivery')->count() }}</h3>
-                    <p>Ready for Pickup</p>
+                    <h3>{{ $activePickupsCount }}</h3>
+                    <p>Logistics Service Orders</p>
                 </div>
             </div>
         </div>
+
+        <!-- Assigned Logistics Service Orders (Pickup / Pull Out / Special Delivery Requests) -->
+        @if(isset($allPickupRequests) && $allPickupRequests->count() > 0)
+        <div class="row mb-4">
+            <div class="col-xl-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <div>
+                                <h4 class="fs-18 mb-0 font-w600 text-black"><i class="las la-clipboard-list me-2 text-danger"></i>Logistics Service Orders (Pickup / Pull Out / Delivery)</h4>
+                                <p class="text-muted small mb-0">Assigned pickup, pull out, and special delivery requests</p>
+                            </div>
+                            <span class="badge bg-danger fs-12 px-3 py-2">{{ $allPickupRequests->where('status', '!=', 'completed')->count() }} Pending/Active</span>
+                        </div>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <div class="table-responsive">
+                            <table class="table order-table display mb-0" style="width: 100%">
+                                <thead>
+                                    <tr>
+                                        <th>REQ #</th>
+                                        <th>TYPE</th>
+                                        <th>CLIENT / CONTACT</th>
+                                        <th>ADDRESS</th>
+                                        <th>REQUESTED DATE</th>
+                                        <th>ITEMS / DETAILS</th>
+                                        <th>STATUS</th>
+                                        <th class="text-end">ACTIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($allPickupRequests as $req)
+                                    <tr>
+                                        <td class="align-middle">
+                                            <span class="text-black font-w600">REQ-{{ str_pad($req->id, 5, '0', STR_PAD_LEFT) }}</span>
+                                            <div class="text-muted small">{{ $req->created_at ? $req->created_at->format('M d, Y') : '' }}</div>
+                                        </td>
+                                        <td class="align-middle">
+                                            @if($req->type === 'pickup')
+                                                <span class="badge bg-warning text-dark"><i class="las la-truck me-1"></i>Pickup</span>
+                                            @elseif($req->type === 'pull_out')
+                                                <span class="badge bg-danger"><i class="las la-undo me-1"></i>Pull Out</span>
+                                            @else
+                                                <span class="badge bg-primary"><i class="las la-shipping-fast me-1"></i>Delivery</span>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-2 p-2 bg-light rounded-circle">
+                                                    <i class="las la-building text-danger"></i>
+                                                </div>
+                                                <span class="text-black font-w600">{{ $req->client_name }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="align-middle" style="max-width: 250px;">
+                                            <div class="text-truncate" title="{{ $req->address }}">
+                                                <i class="las la-map-marker me-1 text-muted"></i>
+                                                {{ $req->address }}
+                                            </div>
+                                        </td>
+                                        <td class="align-middle">
+                                            @if($req->requested_date)
+                                                <span class="badge bg-info">{{ \Carbon\Carbon::parse($req->requested_date)->format('M d, Y') }}</span>
+                                            @else
+                                                <span class="text-muted small">Not set</span>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle" style="max-width: 200px;">
+                                            <div class="text-truncate small text-dark fw-semibold" title="{{ $req->items_details }}">
+                                                {{ $req->items_details }}
+                                            </div>
+                                            @if($req->remarks)
+                                                <div class="text-muted small text-truncate" title="{{ $req->remarks }}"><i class="las la-comment me-1"></i>{{ $req->remarks }}</div>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle">
+                                            @if($req->status === 'completed')
+                                                <span class="badge bg-success">Completed</span>
+                                            @elseif($req->status === 'approved')
+                                                <span class="badge bg-primary">Approved / Assigned</span>
+                                            @elseif($req->status === 'rejected')
+                                                <span class="badge bg-danger">Rejected</span>
+                                            @else
+                                                <span class="badge bg-warning text-dark">{{ ucwords(str_replace('_', ' ', $req->status)) }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle text-end">
+                                            <div class="d-flex justify-content-end gap-2">
+                                                @if($req->status !== 'completed')
+                                                <form action="{{ route('production.logistic.pickup-requests.complete', $req->id) }}" method="POST" onsubmit="return confirm('Mark this logistics service order as completed?');">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Mark Complete">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
 
         <!-- Today's Deliveries -->
         <div class="row mb-4">

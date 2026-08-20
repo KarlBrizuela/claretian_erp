@@ -236,7 +236,7 @@ class LogisticController extends Controller
             $order = \App\Models\SalesOrder::findOrFail($orderId);
             
             // Pick list gathered: move order to appropriate next queue
-            $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
+            $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
             if ($order->type === 'ecom_direct') {
                 $newStatus = 'ready_for_delivery';
                 $targetQueue = 'Packing Management';
@@ -544,7 +544,21 @@ class LogisticController extends Controller
 
     public function pickupRequestsIndex()
     {
-        $requests = \App\Models\PickupRequest::with(['createdByUser', 'driver'])->orderBy('id', 'desc')->get();
+        $user = auth()->user();
+        $query = \App\Models\PickupRequest::with(['createdByUser', 'driver'])->orderBy('id', 'desc');
+
+        if ($user && $user->position === 'Driver') {
+            $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+            $query->where(function($q) use ($user, $fullName) {
+                $q->where('driver_id', $user->id);
+                if ($fullName) {
+                    $q->orWhere('driver_name', $fullName)
+                      ->orWhere('driver_name', 'like', '%' . ($user->first_name ?: $fullName) . '%');
+                }
+            });
+        }
+
+        $requests = $query->get();
         $drivers = \App\Models\User::where('position', 'Driver')->where('status', true)->get();
 
         return view('production.logistic.pickup-requests.index', [
@@ -557,6 +571,11 @@ class LogisticController extends Controller
 
     public function pickupRequestsCreate()
     {
+        if (auth()->user()?->position === 'Driver') {
+            return redirect()->route('production.logistic.pickup-requests.index')
+                ->with('error', 'Unauthorized. Drivers cannot create logistics service orders.');
+        }
+
         return view('production.logistic.pickup-requests.create', [
             'title' => 'Create Request',
             'sidebar' => 'production'
@@ -565,6 +584,11 @@ class LogisticController extends Controller
 
     public function pickupRequestsStore(Request $request)
     {
+        if (auth()->user()?->position === 'Driver') {
+            return redirect()->route('production.logistic.pickup-requests.index')
+                ->with('error', 'Unauthorized. Drivers cannot create logistics service orders.');
+        }
+
         $validated = $request->validate([
             'type' => 'required|in:delivery,pickup,pull_out',
             'client_name' => 'required|string|max:255',
@@ -594,6 +618,11 @@ class LogisticController extends Controller
 
     public function pickupRequestsEdit($id)
     {
+        if (auth()->user()?->position === 'Driver') {
+            return redirect()->route('production.logistic.pickup-requests.index')
+                ->with('error', 'Unauthorized. Drivers cannot edit logistics service orders.');
+        }
+
         $requestItem = \App\Models\PickupRequest::findOrFail($id);
         return view('production.logistic.pickup-requests.edit', [
             'requestItem' => $requestItem,
@@ -604,6 +633,11 @@ class LogisticController extends Controller
 
     public function pickupRequestsUpdate(Request $request, $id)
     {
+        if (auth()->user()?->position === 'Driver') {
+            return redirect()->route('production.logistic.pickup-requests.index')
+                ->with('error', 'Unauthorized. Drivers cannot edit logistics service orders.');
+        }
+
         $requestItem = \App\Models\PickupRequest::findOrFail($id);
 
         $validated = $request->validate([
@@ -632,6 +666,11 @@ class LogisticController extends Controller
 
     public function pickupRequestsDestroy($id)
     {
+        if (auth()->user()?->position === 'Driver') {
+            return redirect()->route('production.logistic.pickup-requests.index')
+                ->with('error', 'Unauthorized. Drivers cannot delete logistics service orders.');
+        }
+
         $requestItem = \App\Models\PickupRequest::findOrFail($id);
         $requestItem->delete();
         return redirect()->route('production.logistic.pickup-requests.index')->with('success', 'Request deleted successfully.');
@@ -671,6 +710,11 @@ class LogisticController extends Controller
 
     public function pickupRequestsAssignDriver(Request $request, $id)
     {
+        if (auth()->user()?->position === 'Driver') {
+            return redirect()->route('production.logistic.pickup-requests.index')
+                ->with('error', 'Unauthorized. Drivers cannot assign drivers to logistics service orders.');
+        }
+
         $requestItem = \App\Models\PickupRequest::findOrFail($id);
 
         $validated = $request->validate([
@@ -1025,10 +1069,19 @@ class LogisticController extends Controller
 
     public function driverDashboard(Request $request)
     {
+        $user = auth()->user();
+        $driverId = $user->id;
+        $driverName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+
         // 1. Fetch Today's Deliveries (Always active for today's date)
         $todayDate = date('Y-m-d');
         $todayDeliveries = \App\Models\SalesOrder::with(['customer', 'items.book', 'riderCollection'])
-            ->where('driver_id', auth()->id())
+            ->where(function($q) use ($driverId, $driverName) {
+                $q->where('driver_id', $driverId);
+                if ($driverName) {
+                    $q->orWhere('driver', $driverName);
+                }
+            })
             ->whereIn('status', ['ready_for_delivery', 'in_transit'])
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
             ->whereDate('delivery_date', $todayDate)
@@ -1041,7 +1094,12 @@ class LogisticController extends Controller
 
         // 2. Fetch All Assigned Deliveries (With date range filter)
         $query = \App\Models\SalesOrder::with(['customer', 'items.book', 'riderCollection'])
-            ->where('driver_id', auth()->id())
+            ->where(function($q) use ($driverId, $driverName) {
+                $q->where('driver_id', $driverId);
+                if ($driverName) {
+                    $q->orWhere('driver', $driverName);
+                }
+            })
             ->whereIn('status', ['ready_for_delivery', 'in_transit'])
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct']);
 
@@ -1058,10 +1116,35 @@ class LogisticController extends Controller
             })
             ->values();
 
+        // 3. Fetch Assigned Logistics Service Orders (PickupRequests)
+        $pickupQuery = \App\Models\PickupRequest::with('createdByUser')
+            ->where(function($q) use ($driverId, $driverName, $user) {
+                $q->where('driver_id', $driverId);
+                if ($driverName) {
+                    $q->orWhere('driver_name', $driverName)
+                      ->orWhere('driver_name', 'like', '%' . ($user->first_name ?: $driverName) . '%');
+                }
+            });
+
+        if ($request->filled('start_date')) {
+            $pickupQuery->whereDate('requested_date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $pickupQuery->whereDate('requested_date', '<=', $request->end_date);
+        }
+
+        $allPickupRequests = $pickupQuery->orderBy('requested_date', 'desc')->get();
+
+        $todayPickupRequests = $allPickupRequests->filter(function($pr) use ($todayDate) {
+            return $pr->requested_date && \Carbon\Carbon::parse($pr->requested_date)->format('Y-m-d') === $todayDate && $pr->status !== 'completed';
+        })->values();
+
         return view('production.logistic.driver-dashboard', [
             'todayDeliveries' => $todayDeliveries,
             'allDeliveries' => $allDeliveries,
             'assignedDeliveries' => $allDeliveries, // Keep as alias for stats or fallback
+            'todayPickupRequests' => $todayPickupRequests,
+            'allPickupRequests' => $allPickupRequests,
             'title' => 'Driver Dashboard',
             'role' => 'Driver',
             'sidebar' => 'production'
@@ -1155,7 +1238,7 @@ class LogisticController extends Controller
         $order = \App\Models\SalesOrder::with('items')->findOrFail($id);
         
         // Ensure order is area_consignment or area_sales_consignment and status is in valid statuses
-        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_packing', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep', 'completed'])) {
+        if (!in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) || !in_array($order->status, ['pending_dr_prep', 'ready_for_packing', 'ready_for_delivery', 'ar_created', 'cr_created', 'si_created', 'pending_si_approval', 'pending_si_prep', 'completed'])) {
             return redirect()->back()->with('error', 'Invalid order status for reconsignment.');
         }
 
@@ -3060,7 +3143,7 @@ class LogisticController extends Controller
             $order = \App\Models\SalesOrder::with(['items.book', 'customer'])
                 ->findOrFail($orderId);
 
-            if (!in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+            if (!in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment'])) {
                 return redirect()->back()
                     ->with('error', 'This order is not an Area Consignment type.');
             }
@@ -3161,7 +3244,7 @@ class LogisticController extends Controller
 
             // Build SI items using picked qty (customer_selected_qty).
             // Skip items with zero pick qty.
-            $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
+            $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
             $siItems = [];
             $totalAmount = 0;
 

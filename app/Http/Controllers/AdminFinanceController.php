@@ -1459,7 +1459,7 @@ public function checkVoucher()
     }
 
     $isEcomDirect = $order->type === 'ecom_direct';
-    $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
+    $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
 
     if ($isEcomDirect) {
       $order->update([
@@ -1506,8 +1506,9 @@ public function checkVoucher()
     // Consignment / Area Sales Consignment flow (Requires prep -> approval flow)
     $isAR = $order->type === 'area_sales_consignment';
     $isCR = $order->type === 'area_consignment';
+    $isDC = $order->type === 'direct_consignment';
 
-    if ($isAR || $isCR) {
+    if ($isAR || $isCR || $isDC) {
       // 1. Update Sales Order
       $order->update([
         'status' => 'pending_si_approval',
@@ -1637,7 +1638,7 @@ public function checkVoucher()
               'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared in bulk by ' . auth()->user()->name
             ]);
 
-            if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+            if (in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment'])) {
               \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', 'draft')->update(['status' => 'pending_approval']);
             }
 
@@ -1651,7 +1652,7 @@ public function checkVoucher()
                 }
             }
           } elseif ($order->status === 'pending_si_approval' || $actionType === 'sign') {
-            $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment']) ? 'completed' : 'ready_for_delivery';
+            $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) ? 'completed' : 'ready_for_delivery';
             $order->update([
               'status' => $newStatus,
               'signed_by_af_manager' => auth()->id(),
@@ -1659,7 +1660,7 @@ public function checkVoucher()
               'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Signed & Approved in bulk by ' . auth()->user()->name
             ]);
 
-            if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+            if (in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment'])) {
               \App\Models\SalesInvoice::where('so_id', $order->id)->whereIn('status', ['draft', 'pending_approval'])->update(['status' => 'approved']);
             }
 
@@ -1708,8 +1709,9 @@ public function checkVoucher()
     $isEcomDirect = $order->type === 'ecom_direct';
     $isAreaSalesConsignment = $order->type === 'area_sales_consignment';
     $isConsignment = $order->type === 'area_consignment';
+    $isDirectConsignment = $order->type === 'direct_consignment';
 
-    $newStatus = $isEcomDirect ? 'picking' : (($isAreaSalesConsignment || $isConsignment) ? 'completed' : 'ready_for_delivery');
+    $newStatus = $isEcomDirect ? 'picking' : (($isAreaSalesConsignment || $isConsignment || $isDirectConsignment) ? 'completed' : 'ready_for_delivery');
 
     $order->update([
       'status' => $newStatus,
