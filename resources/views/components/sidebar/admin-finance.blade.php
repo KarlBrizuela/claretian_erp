@@ -17,6 +17,31 @@
     $hasChartOfAccounts = $user->hasPermission('admin_finance.accounting.chart_of_accounts') || $user->hasPermission('admin_finance.accounting');
 @endphp
 
+@push('styles')
+<style>
+    .submenu-divider {
+        height: 1px !important;
+        background: rgba(0, 0, 0, 0.08) !important;
+        margin: 10px 20px 10px 45px !important;
+        display: block !important;
+    }
+    
+    .deznav-scroll::-webkit-scrollbar {
+        width: 6px !important;
+    }
+    .deznav-scroll::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.02) !important;
+    }
+    .deznav-scroll::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.15) !important;
+        border-radius: 4px !important;
+    }
+    .deznav-scroll::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.3) !important;
+    }
+</style>
+@endpush
+
 <nav class="modern-nav-menu">
 	@if($hasDashboard)
 	<a href="{{ route('admin-finance.dashboard') }}" class="modern-nav-item {{ request()->routeIs('admin-finance.dashboard') ? 'active' : '' }}" data-page="dashboard">
@@ -45,142 +70,158 @@
 	</a>
     @endif
 
-	<!-- Accounting Reports Dropdown -->
-	<div class="modern-nav-group {{ request()->is('admin-finance/accounting*', 'admin-finance/cashier*', 'admin-finance/chart-of-accounts*', 'admin-finance/sales-management*', 'admin-finance/accounts-receivable*', 'admin-finance/accounts-payable*', 'admin-finance/investments*', 'admin-finance/donations*', 'admin-finance/budgeting*', 'admin-finance/cash-management*', 'admin-finance/financial-reports*', 'admin-finance/check-voucher*', 'admin-finance/petty-cash*', 'admin-finance/freight-voucher*', 'admin-finance/gsd/asset-management*') ? 'active' : '' }}">
-		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="accounting-reports">
+	<!-- Accounting Dropdown -->
+	@if($hasAccounting)
+	<div class="modern-nav-group {{ request()->is('admin-finance/accounting*', 'admin-finance/cashier*', 'accounting/journal*') ? 'active' : '' }}">
+		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="accounting">
 			<div class="modern-nav-icon">
 				<i class="las la-calculator"></i>
 			</div>
-			<span class="modern-nav-label">Accounting Reports</span>
+			<span class="modern-nav-label">Accounting</span>
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
-		<div class="modern-nav-submenu" data-submenu="accounting-reports">
-			<!-- 1. Financial Reports -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.financial-reports.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.financial-reports.*') ? 'active' : '' }}">Financial Reports</a>
-			@endif
-
-			<!-- 2. General Journal -->
+		<div class="modern-nav-submenu" data-submenu="accounting" style="padding-top: 5px; padding-bottom: 5px;">
 			@if($user->hasPermission('admin_finance.accounting.general_journal'))
 			<a href="{{ route('accounting.journal.index') }}" class="modern-nav-subitem {{ request()->routeIs('accounting.journal.*') ? 'active' : '' }}">General Journal</a>
 			@endif
-
-			<!-- 3. Chart of Accounts -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'assets']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.chart-of-accounts') ? 'active' : '' }}">Chart of Accounts</a>
-			@endif
-
-			<!-- 4. Accounts Receivable -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.accounting.accounts-receivable') }}" class="modern-nav-subitem {{ request()->is('admin-finance/accounts-receivable*') ? 'active' : '' }}">Accounts Receivable</a>
-			@endif
-
-			<!-- 5. Accounts Payable -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-subitem {{ request()->is('admin-finance/accounts-payable*') ? 'active' : '' }}">Accounts Payable</a>
-			@endif
-
-			<!-- 6. Cash Management -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.cash-management.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/cash-management*') ? 'active' : '' }}">Cash Management</a>
-			@endif
-
-			<!-- 7. Budgeting -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.budgeting.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/budgeting*') ? 'active' : '' }}">Budgeting</a>
-			@endif
-
-			<!-- 8. Investments -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.investments.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/investments*') ? 'active' : '' }}">Investments</a>
-			@endif
-
-			<!-- 9. Donations -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.donations.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/donations*') ? 'active' : '' }}">Donations</a>
-			@endif
-
-			<!-- 10. Expenses & Expense Management -->
-			@if($user->hasPermission('admin_finance.accounting.expenses') || $user->hasPermission('admin_finance.accounting'))
-			<a href="{{ route('admin-finance.accounting.expenses.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expenses.*') ? 'active' : '' }}">Expenses</a>
-			@endif
-
-			<!-- 11. Office Supplies -->
-			@if($user->hasPermission('admin_finance.accounting.office_supplies') || $user->hasPermission('admin_finance.accounting'))
-			<a href="{{ route('admin-finance.accounting.office-supplies.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.office-supplies.*') ? 'active' : '' }}">Office Supplies</a>
-			@endif
-
-			<!-- 12. Sales Accounting / Sales Invoice -->
 			@if($user->hasPermission('admin_finance.accounting.sales_invoice'))
 			<a href="{{ route('admin-finance.accounting.sales-invoice') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.sales-invoice') ? 'active' : '' }}">Sales Invoice</a>
 			<a href="{{ route('admin-finance.accounting.complimentary-receipt') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.complimentary-receipt*') ? 'active' : '' }}">Complimentary Receipt</a>
 			@endif
-
-			<!-- 13. Purchasing / Procurement -->
+			@if($user->hasPermission('admin_finance.accounting.check_voucher'))
+			<a href="{{ route('admin-finance.check-voucher') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.check-voucher') ? 'active' : '' }}">Check Voucher</a>
+			@endif
 			@if($user->hasPermission('admin_finance.accounting.materials_requisition'))
 			<a href="{{ route('admin-finance.accounting.materials-requisition') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.materials-requisition') ? 'active' : '' }}">Materials Requisition</a>
 			@endif
 			@if($user->hasPermission('admin_finance.accounting.material_requests'))
 			<a href="{{ route('admin-finance.accounting.material-requests.incoming') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.material-requests.incoming') ? 'active' : '' }}">Material Requests</a>
 			@endif
-
-			<!-- 14. Fixed Assets -->
-			@if($user->hasPermission('admin_finance.gsd') || $isSuperAdmin)
-			<a href="{{ route('admin-finance.gsd.asset-management') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.gsd.asset-management') ? 'active' : '' }}">Fixed Assets</a>
+			@if($user->hasPermission('admin_finance.accounting.cash_advance_liquidation'))
+			<a href="{{ route('admin-finance.accounting.expense-management') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expense-management') ? 'active' : '' }}">Cash Advance Liquidation</a>
 			@endif
-
-			<!-- 15. Sales Channel Accounting -->
-			@if($hasChartOfAccounts)
-			<a href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'bookstore']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.sales-management') ? 'active' : '' }}">Sales Channel Management</a>
-			@endif
-
-			<!-- 16. Cost of Goods Sold / Inventory Overview -->
-			@if($user->hasPermission('admin_finance.accounting') || $isSuperAdmin)
-			<a href="{{ route('production.inventory.overview') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.overview') ? 'active' : '' }}">Inventory Overview</a>
-			@endif
-
-			<!-- 17. Petty Cash Voucher & Cashier -->
-			@if($hasPettyCashVoucher)
-			<a href="{{ route('admin-finance.petty-cash.index', ['sidebar' => 'admin-finance']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
+			@if($user->hasPermission('admin_finance.accounting.cod_collections'))
+			<a href="{{ route('cashier.collections.index') }}" class="modern-nav-subitem {{ request()->routeIs('cashier.collections.*') ? 'active' : '' }}">COD Collections Verification</a>
 			@endif
 			@if($user->hasPermission('admin_finance.accounting.cashier') || $user->hasPermission('admin_finance.accounting'))
 			<a href="{{ route('admin-finance.accounting.cashier.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.cashier.*') ? 'active' : '' }}">Cashier Approvals</a>
 			@endif
-			@if($user->hasPermission('admin_finance.accounting.cash_advance_liquidation'))
-			<a href="{{ route('admin-finance.accounting.expense-management') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expense-management') ? 'active' : '' }}">Cash Advance Liquidation</a>
-			@endif
-
-			<!-- 18. Freight Voucher -->
-			@if($hasFreightVoucher)
-			<a href="{{ route('admin-finance.freight-voucher.index', ['sidebar' => 'admin-finance']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
-			@endif
-
-			<!-- 19. Check Voucher -->
-			@if($user->hasPermission('admin_finance.accounting.check_voucher'))
-			<a href="{{ route('admin-finance.check-voucher') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.check-voucher') ? 'active' : '' }}">Check Voucher</a>
-			@endif
-
-			<!-- 20. COD Collections Verification -->
-			@if($user->hasPermission('admin_finance.accounting.cod_collections'))
-			<a href="{{ route('cashier.collections.index') }}" class="modern-nav-subitem {{ request()->routeIs('cashier.collections.*') ? 'active' : '' }}">COD Collections Verification</a>
-			@endif
-
-			<!-- 21. Payment Posting & Auto Debits -->
 			@if($user->hasPermission('admin_finance.accounting.payment_posting') || $user->hasPermission('admin_finance.accounting'))
 			<a href="{{ route('admin-finance.accounting.payment-posting.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.payment-posting.*') ? 'active' : '' }}">Payment Posting</a>
 			@endif
 			@if($user->hasPermission('admin_finance.accounting.auto_debit') || $user->hasPermission('admin_finance.accounting'))
 			<a href="{{ route('admin-finance.accounting.auto-debits.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.auto-debits.*') ? 'active' : '' }}">Auto Debits</a>
 			@endif
-
-			<!-- 22. Payment & Payout Requests -->
 			@if($user->hasPermission('admin_finance.accounting'))
 			<a href="{{ route('admin-finance.accounting.payment-requests') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.payment-requests') ? 'active' : '' }}">Payment Requests</a>
 			<a href="{{ route('admin-finance.accounting.eford-payouts') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.eford-payouts*') ? 'active' : '' }}">E-FORD Payouts</a>
 			<a href="{{ route('admin-finance.accounting.ecom-payouts.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.ecom-payouts*') ? 'active' : '' }}">E-com Payouts</a>
 			@endif
+			@if($user->hasPermission('admin_finance.accounting.office_supplies') || $user->hasPermission('admin_finance.accounting'))
+			<a href="{{ route('admin-finance.accounting.office-supplies.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.office-supplies.*') ? 'active' : '' }}">Office Supplies</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting.expenses') || $user->hasPermission('admin_finance.accounting'))
+			<a href="{{ route('admin-finance.accounting.expenses.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expenses.*') ? 'active' : '' }}">Expenses</a>
+			@endif
 		</div>
 	</div>
+	@endif
+
+	<!-- Finance Dropdown -->
+	@if($hasPettyCashVoucher || $hasFreightVoucher)
+	<div class="modern-nav-group {{ request()->is('admin-finance/petty-cash*', 'admin-finance/freight-voucher*') ? 'active' : '' }}">
+		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="finance">
+			<div class="modern-nav-icon">
+				<i class="las la-wallet"></i>
+			</div>
+			<span class="modern-nav-label">Finance</span>
+			<i class="modern-nav-arrow las la-chevron-right"></i>
+		</a>
+		<div class="modern-nav-submenu" data-submenu="finance" style="padding-top: 5px; padding-bottom: 5px;">
+			@if($hasPettyCashVoucher)
+			<a href="{{ route('admin-finance.petty-cash.index', ['sidebar' => 'admin-finance']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.petty-cash.*') ? 'active' : '' }}">Petty Cash Voucher</a>
+			@endif
+			@if($hasFreightVoucher)
+			<a href="{{ route('admin-finance.freight-voucher.index', ['sidebar' => 'admin-finance']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.freight-voucher.*') ? 'active' : '' }}">Freight Voucher</a>
+			@endif
+		</div>
+	</div>
+	@endif
+
+	<!-- Accounting Reports Dropdown -->
+	@if($hasChartOfAccounts)
+	<div class="modern-nav-group {{ request()->is('admin-finance/financial-reports*', 'admin-finance/chart-of-accounts*', 'admin-finance/sales-management*', 'admin-finance/accounts-receivable*', 'admin-finance/accounts-payable*', 'admin-finance/investments*', 'admin-finance/donations*', 'admin-finance/budgeting*', 'admin-finance/cash-management*', 'production/inventory/overview*') ? 'active' : '' }}">
+		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="accounting-reports">
+			<div class="modern-nav-icon">
+				<i class="las la-chart-bar"></i>
+			</div>
+			<span class="modern-nav-label">Accounting Reports</span>
+			<i class="modern-nav-arrow las la-chevron-right"></i>
+		</a>
+		<div class="modern-nav-submenu" data-submenu="accounting-reports" style="padding-top: 5px; padding-bottom: 5px;">
+			@if($user->hasPermission('admin_finance.accounting.general_journal'))
+			<a href="{{ route('accounting.journal.index') }}" class="modern-nav-subitem {{ request()->routeIs('accounting.journal.*') ? 'active' : '' }}">General Journal</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.accounting.accounts-receivable') }}" class="modern-nav-subitem {{ request()->is('admin-finance/accounts-receivable*') ? 'active' : '' }}">Accounts Receivable</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-subitem {{ request()->is('admin-finance/accounts-payable*') ? 'active' : '' }}">Accounts Payable</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-subitem">Supplier Management</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting.cash_advance_liquidation'))
+			<a href="{{ route('admin-finance.accounting.expense-management') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expense-management') ? 'active' : '' }}">Expense Management</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting') || $isSuperAdmin)
+			<a href="{{ route('production.inventory.overview') }}" class="modern-nav-subitem {{ request()->routeIs('production.inventory.overview') ? 'active' : '' }}">Cost of Goods Sold / Inventory Accounting</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting.general_journal'))
+			<a href="{{ route('accounting.journal.index') }}" class="modern-nav-subitem">General Ledger</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.accounting.chart-of-accounts', ['tab' => 'assets']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.chart-of-accounts') ? 'active' : '' }}">Chart of Accounts</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting.materials_requisition'))
+			<a href="{{ route('admin-finance.accounting.materials-requisition') }}" class="modern-nav-subitem">Purchasing / Procurement</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting.sales_invoice'))
+			<a href="{{ route('admin-finance.accounting.sales-invoice') }}" class="modern-nav-subitem">Sales Accounting</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'bookstore']) }}" class="modern-nav-subitem">Sales Return (Coming Soon)</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-subitem">Purchase Return (Coming Soon)</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.cash-management.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/cash-management*') ? 'active' : '' }}">Cash Management</a>
+			@endif
+			@if($user->hasPermission('admin_finance.gsd') || $isSuperAdmin)
+			<a href="{{ route('admin-finance.gsd.asset-management') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.gsd.asset-management') ? 'active' : '' }}">Fixed Assets</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.financial-reports.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.financial-reports.*') ? 'active' : '' }}">Financial Reports</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'bookstore']) }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.sales-management') ? 'active' : '' }}">Sales Channel Accounting</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.budgeting.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/budgeting*') ? 'active' : '' }}">Budgeting</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.donations.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/donations*') ? 'active' : '' }}">Donations</a>
+			@endif
+			@if($hasChartOfAccounts)
+			<a href="{{ route('admin-finance.investments.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/investments*') ? 'active' : '' }}">Investments</a>
+			@endif
+			@if($user->hasPermission('admin_finance.accounting.office_supplies') || $user->hasPermission('admin_finance.accounting'))
+			<a href="{{ route('admin-finance.accounting.office-supplies.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.office-supplies.*') ? 'active' : '' }}">Office Supplies</a>
+			@endif
+		</div>
+	</div>
+	@endif
 
 	<!-- Credit and Collection -->
     @if($hasCreditCollection)

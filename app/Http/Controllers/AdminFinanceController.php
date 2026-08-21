@@ -3811,7 +3811,33 @@ public function checkVoucher()
     {
         $user = auth()->user();
         
-        $dbCustomers = \App\Models\Customer::orderBy('customer_name')->paginate(10);
+        $query = \App\Models\Customer::query();
+
+        // Search text filter (client name search)
+        if ($search = $request->input('search')) {
+            $query->where(function($q) use ($search) {
+                $q->where('customer_name', 'like', '%' . $search . '%')
+                  ->orWhere('company_name', 'like', '%' . $search . '%');
+            });
+        }
+
+        // Credit rating filter
+        if ($rating = $request->input('credit_rating')) {
+            if ($rating === 'AAA') {
+                $query->where('credit_limit', '>=', 200000);
+            } elseif ($rating === 'AA') {
+                $query->where('credit_limit', '>=', 100000)->where('credit_limit', '<', 200000);
+            } elseif ($rating === 'A') {
+                $query->where('credit_limit', '<', 100000);
+            }
+        }
+
+        // Payment terms filter
+        if ($terms = $request->input('payment_terms')) {
+            $query->where('payment_terms', $terms);
+        }
+
+        $dbCustomers = $query->orderBy('customer_name')->paginate(10);
         $customersList = collect();
 
         foreach ($dbCustomers as $cust) {
@@ -3890,11 +3916,17 @@ public function checkVoucher()
 
         $dbCustomers->setCollection($customersList);
 
+        $paymentTermsList = \App\Models\Customer::whereNotNull('payment_terms')
+            ->where('payment_terms', '!=', '')
+            ->distinct()
+            ->pluck('payment_terms');
+
         return view('admin-finance.accounting.accounts-receivable', [
             'title' => 'Accounts Receivable Ledger',
             'role' => $user ? $user->position : 'Staff',
             'sidebar' => 'admin-finance',
             'customers' => $dbCustomers,
+            'paymentTermsList' => $paymentTermsList,
         ]);
     }
 
@@ -3946,7 +3978,7 @@ public function checkVoucher()
             });
         }
 
-        $suppliers = $query->orderBy('company_name')->get();
+        $suppliers = $query->orderBy('company_name')->paginate(10);
 
         // Calculate summary metrics across all suppliers
         $allInvoices = \App\Models\SupplierInvoice::with('supplier')->get();
@@ -3977,7 +4009,8 @@ public function checkVoucher()
 
         // Generate 1099 / Expanded Withholding Tax (EWT) Report data per supplier
         $ewtReports = collect();
-        foreach ($suppliers as $supp) {
+        $allSuppliers = \App\Models\Supplier::all();
+        foreach ($allSuppliers as $supp) {
             $suppInvoices = $allInvoices->where('supplier_id', $supp->id);
             $suppPayments = $allPayments->where('supplier_id', $supp->id);
 

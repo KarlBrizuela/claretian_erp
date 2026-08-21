@@ -158,19 +158,124 @@
         .cat-services { background-color: #ecfeff; color: #0e7490; }
         .cat-default { background-color: #f1f5f9; color: #475569; }
 
-        .table-custom-header thead th {
+        /* Container Real Estate Extension */
+        .content-body .container-fluid {
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+            max-width: 100% !important;
+        }
+
+        /* Modern Table Designs */
+        #suppliersTable th, .tab-pane table.table-hover thead th, .tab-pane table.table-custom-header thead th {
             background-color: #f8fafc !important;
             color: #475569 !important;
-            font-size: 0.725rem !important;
             font-weight: 700 !important;
             text-transform: uppercase !important;
-            letter-spacing: 0.5px !important;
-            border-bottom: 1px solid #e2e8f0 !important;
+            font-size: 0.72rem !important;
+            letter-spacing: 0.8px !important;
+            padding: 12px 16px !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+            border-top: none !important;
+        }
+
+        #suppliersTable td, .tab-pane table.table-hover tbody td, .tab-pane table.table-custom-header tbody td {
+            padding: 12px 16px !important;
+            font-size: 0.84rem !important;
+            color: #475569 !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            vertical-align: middle !important;
+        }
+
+        #suppliersTable tbody tr, .tab-pane table.table-hover tbody tr {
+            transition: all 0.15s ease-in-out !important;
+        }
+
+        #suppliersTable tbody tr:hover, .tab-pane table.table-hover tbody tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        /* Custom pagination overrides */
+        .pagination .page-item.active .page-link {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15) !important;
+        }
+
+        .pagination .page-link {
+            color: #475569;
+            border-color: #cbd5e1;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            border-color: #cbd5e1;
+        }
+
+        /* Custom Segmented Pills above Card */
+        .custom-ap-pills {
+            gap: 8px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .custom-ap-pills .nav-item {
+            margin-bottom: 4px;
+        }
+
+        .custom-ap-pills .nav-link {
+            background-color: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #475569 !important;
+            font-weight: 600 !important;
+            font-size: 0.82rem !important;
+            border-radius: 6px !important;
+            padding: 8px 16px !important;
+            transition: all 0.15s ease-in-out !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            display: flex;
+            align-items: center;
+        }
+
+        .custom-ap-pills .nav-link:hover {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        .custom-ap-pills .nav-link.active {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15) !important;
+        }
+
+        .custom-ap-pills .nav-link .badge {
+            font-size: 0.72rem !important;
+            padding: 3px 6px !important;
+            background-color: #f1f5f9 !important;
+            color: #475569 !important;
+        }
+
+        .custom-ap-pills .nav-link.active .badge {
+            background-color: rgba(255, 255, 255, 0.2) !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+        }
+
+        /* Ensure table header Action is centered and matches content */
+        .table th.text-center, .table td.text-center {
+            text-align: center !important;
+            vertical-align: middle !important;
         }
     </style>
     @endpush
 
-    <div class="container-fluid">
+    <div class="container-fluid p-0">
         @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
             <i class="las la-check-circle me-2 fs-18"></i> {{ session('success') }}
@@ -178,20 +283,16 @@
         </div>
         @endif
 
-        <!-- Clean Compact Title Header -->
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-            <div>
-                <h4 class="fs-22 mb-1 fw-bold text-dark"><i class="las la-wallet me-2 text-danger"></i>Accounts Payable Ledger</h4>
-                <p class="text-muted small mb-0">Manage supplier directory, purchase orders, invoices, settlements, and EWT tax tracking.</p>
-            </div>
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <button class="btn btn-ap-outline d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+        <!-- Action Buttons Bar -->
+        <div class="row mb-4">
+            <div class="col-12 d-flex flex-wrap justify-content-end align-items-center gap-2">
+                <button class="btn btn-ap-outline d-flex align-items-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addSupplierModal" style="height: 38px;">
                     <i class="las la-plus-circle fs-16"></i> Add Supplier
                 </button>
-                <button class="btn btn-ap-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addInvoiceModal">
+                <button class="btn btn-ap-primary d-flex align-items-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addInvoiceModal" style="height: 38px;">
                     <i class="las la-file-invoice-dollar fs-16"></i> Record Invoice
                 </button>
-                <button class="btn btn-ap-success d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                <button class="btn btn-ap-success d-flex align-items-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal" style="height: 38px;">
                     <i class="las la-money-check-alt fs-16"></i> Record Payment
                 </button>
             </div>
@@ -248,54 +349,85 @@
         <!-- Master Tabs & Content -->
         <div class="row">
             <div class="col-12">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0 !important;">
-                    <div class="card-header bg-white border-0 pt-3 pb-0 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
-                        <ul class="nav nav-tabs ap-nav-tabs mb-0" id="apTab" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="suppliers-tab" data-bs-toggle="tab" data-bs-target="#suppliers-pane" type="button" role="tab">
-                                    <i class="las la-truck me-1 fs-18"></i> Suppliers Directory
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="invoices-tab" data-bs-toggle="tab" data-bs-target="#invoices-pane" type="button" role="tab">
-                                    <i class="las la-file-invoice-dollar me-1 fs-18"></i> Invoices & Due Dates <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $invoices->count() }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments-pane" type="button" role="tab">
-                                    <i class="las la-money-check-alt me-1 fs-18"></i> Payments <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $payments->count() }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="po-tab" data-bs-toggle="tab" data-bs-target="#po-pane" type="button" role="tab">
-                                    <i class="las la-shopping-cart me-1 fs-18"></i> Purchase Orders <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $purchaseOrders->count() }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="rr-tab" data-bs-toggle="tab" data-bs-target="#rr-pane" type="button" role="tab">
-                                    <i class="las la-boxes me-1 fs-18"></i> Receiving Reports <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $receivingReports->count() }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="ewt-tab" data-bs-toggle="tab" data-bs-target="#ewt-pane" type="button" role="tab">
-                                    <i class="las la-calculator me-1 fs-18"></i> Withholding Tax
-                                </button>
-                            </li>
-                        </ul>
+                <!-- Navigation Tabs outside Card (Pill Switcher) -->
+                <ul class="nav nav-pills custom-ap-pills mb-3" id="apTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="suppliers-tab" data-bs-toggle="tab" data-bs-target="#suppliers-pane" type="button" role="tab">
+                            <i class="las la-truck me-1 fs-18"></i> Suppliers Directory
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="invoices-tab" data-bs-toggle="tab" data-bs-target="#invoices-pane" type="button" role="tab">
+                            <i class="las la-file-invoice-dollar me-1 fs-18"></i> Invoices & Due Dates <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $invoices->count() }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments-pane" type="button" role="tab">
+                            <i class="las la-money-check-alt me-1 fs-18"></i> Payments <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $payments->count() }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="po-tab" data-bs-toggle="tab" data-bs-target="#po-pane" type="button" role="tab">
+                            <i class="las la-shopping-cart me-1 fs-18"></i> Purchase Orders <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $purchaseOrders->count() }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="rr-tab" data-bs-toggle="tab" data-bs-target="#rr-pane" type="button" role="tab">
+                            <i class="las la-boxes me-1 fs-18"></i> Receiving Reports <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $receivingReports->count() }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="ewt-tab" data-bs-toggle="tab" data-bs-target="#ewt-pane" type="button" role="tab">
+                            <i class="las la-calculator me-1 fs-18"></i> Withholding Tax
+                        </button>
+                    </li>
+                </ul>
 
-                        <!-- Compact Category Dropdown Filter -->
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <span class="text-muted small fw-bold text-nowrap"><i class="las la-filter me-1"></i>Category:</span>
-                            <select class="form-select form-select-sm shadow-none" style="width: 180px; font-size: 0.8125rem; border-radius: 6px;" onchange="location = this.value;">
-                                <option value="{{ route('admin-finance.accounting.accounts-payable', ['category' => 'All']) }}" {{ $selectedCategory == 'All' ? 'selected' : '' }}>All Categories</option>
-                                @foreach($categories as $cat)
-                                <option value="{{ route('admin-finance.accounting.accounts-payable', ['category' => $cat]) }}" {{ $selectedCategory == $cat ? 'selected' : '' }}>{{ $cat }}</option>
-                                @endforeach
-                            </select>
+                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0 !important; height: auto !important; overflow: hidden; max-width: 100%;">
+                    <div class="card-header bg-white border-0 pt-3 pb-2 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 border-bottom" style="border-bottom: 1px solid #f1f5f9 !important;">
+                        <h5 class="mb-0 fw-bold text-dark fs-16" id="ap-active-tab-title"><i class="las la-truck me-2 text-danger"></i>Suppliers Directory</h5>
+
+                        <!-- Left & Right filters wrapper -->
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <!-- Category Filter Form -->
+                            <form method="GET" action="{{ route('admin-finance.accounting.accounts-payable') }}" class="d-flex align-items-center gap-2">
+                                @if(request('search'))
+                                    <input type="hidden" name="search" value="{{ request('search') }}">
+                                @endif
+                                <span class="text-muted small fw-bold text-nowrap"><i class="las la-filter me-1"></i>Category:</span>
+                                <select name="category" class="form-select form-select-sm shadow-none" style="width: 160px; font-size: 0.8125rem; border-radius: 6px; height: 38px; border-color: #cbd5e1;" onchange="this.form.submit();">
+                                    <option value="All" {{ $selectedCategory == 'All' ? 'selected' : '' }}>All Categories</option>
+                                    @foreach($categories as $cat)
+                                    <option value="{{ $cat }}" {{ $selectedCategory == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                    @endforeach
+                                </select>
+                            </form>
+
+                            <!-- Search Form -->
+                            <form method="GET" action="{{ route('admin-finance.accounting.accounts-payable') }}" class="d-flex align-items-center gap-2">
+                                @if(request('category'))
+                                    <input type="hidden" name="category" value="{{ request('category') }}">
+                                @endif
+                                <div class="input-group input-group-sm" style="width: 240px;">
+                                    <span class="input-group-text bg-white border-end-0" style="border-color: #cbd5e1; height: 38px; display: flex; align-items: center; justify-content: center; padding: 0 10px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
+                                        <i class="las la-search text-muted fs-16"></i>
+                                    </span>
+                                    <input type="text" name="search" class="form-control border-start-0" placeholder="Search supplier..." value="{{ request('search') }}" style="height: 38px; border-color: #cbd5e1; border-top-right-radius: 4px; border-bottom-right-radius: 4px; font-size: 0.82rem; padding-left: 0; outline: none; box-shadow: none;">
+                                </div>
+                                @if(request('search'))
+                                    <a href="{{ route('admin-finance.accounting.accounts-payable', request()->only('category')) }}" class="btn btn-light d-flex align-items-center justify-content-center border fw-bold" style="height: 38px; padding: 0 16px; font-size: 0.82rem; border-color: #cbd5e1; color: #475569; border-radius: 4px;">
+                                        Clear
+                                    </a>
+                                @else
+                                    <button type="submit" class="btn text-white fw-bold px-3 d-flex align-items-center justify-content-center" style="background: #D9251C; border-color: #D9251C; height: 38px; border-radius: 4px; font-size: 0.82rem;">
+                                        Search
+                                    </button>
+                                @endif
+                            </form>
                         </div>
                     </div>
 
-                    <div class="card-body pt-3">
+                    <div class="card-body pt-3 pb-4">
                         <div class="tab-content" id="apTabContent">
 
                             <!-- 1. SUPPLIERS DIRECTORY -->
@@ -354,14 +486,16 @@
                                                     <span class="badge bg-success-subtle text-success text-capitalize px-3 py-1">{{ $supp->status }}</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <div class="d-flex justify-content-center gap-1">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary shadow-sm px-2 py-0" data-bs-toggle="modal" data-bs-target="#editSupplierModal-{{ $supp->id }}" title="Edit Supplier"><i class="las la-edit"></i></button>
-                                                        <form action="{{ route('admin-finance.accounting.accounts-payable.supplier.destroy', $supp->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete supplier {{ $supp->company_name }}?');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Supplier"><i class="las la-trash"></i></button>
-                                                        </form>
-                                                    </div>
+                                                    <button type="button" class="btn btn-info shadow btn-xs sharp text-white" data-bs-toggle="modal" data-bs-target="#editSupplierModal-{{ $supp->id }}" style="margin: 2px;" title="Edit Supplier">
+                                                        <i class="las la-edit"></i>
+                                                    </button>
+                                                    <form action="{{ route('admin-finance.accounting.accounts-payable.supplier.destroy', $supp->id) }}" method="POST" class="d-inline m-0 p-0" onsubmit="return confirm('Delete supplier {{ $supp->company_name }}?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-danger shadow btn-xs sharp text-white" style="margin: 2px;" title="Delete Supplier">
+                                                            <i class="las la-trash"></i>
+                                                        </button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                             @empty
@@ -371,6 +505,10 @@
                                             @endforelse
                                         </tbody>
                                     </table>
+                                </div>
+                                <!-- Pagination links -->
+                                <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                                    {{ $suppliers->onEachSide(0)->appends(request()->query())->links('pagination::bootstrap-4') }}
                                 </div>
                             </div>
 
@@ -524,14 +662,16 @@
                                                     </span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <div class="d-flex justify-content-center gap-1">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary shadow-sm px-2 py-0" data-bs-toggle="modal" data-bs-target="#editInvoiceModal-{{ $inv->id }}" title="Edit Invoice"><i class="las la-edit"></i></button>
-                                                        <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.destroy', $inv->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete invoice {{ $inv->invoice_number }}?');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Invoice"><i class="las la-trash"></i></button>
-                                                        </form>
-                                                    </div>
+                                                    <button type="button" class="btn btn-info shadow btn-xs sharp text-white" data-bs-toggle="modal" data-bs-target="#editInvoiceModal-{{ $inv->id }}" style="margin: 2px;" title="Edit Invoice">
+                                                        <i class="las la-edit"></i>
+                                                    </button>
+                                                    <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.destroy', $inv->id) }}" method="POST" class="d-inline m-0 p-0" onsubmit="return confirm('Delete invoice {{ $inv->invoice_number }}?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-danger shadow btn-xs sharp text-white" style="margin: 2px;" title="Delete Invoice">
+                                                            <i class="las la-trash"></i>
+                                                        </button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                             @empty
@@ -577,10 +717,12 @@
                                                     <span class="badge bg-success-subtle text-success text-capitalize px-3 py-1">{{ $pay->status }}</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <form action="{{ route('admin-finance.accounting.accounts-payable.payment.destroy', $pay->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete payment {{ $pay->payment_number }}?');">
+                                                    <form action="{{ route('admin-finance.accounting.accounts-payable.payment.destroy', $pay->id) }}" method="POST" class="d-inline m-0 p-0" onsubmit="return confirm('Delete payment {{ $pay->payment_number }}?');">
                                                         @csrf
                                                         @method('DELETE')
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Payment"><i class="las la-trash"></i></button>
+                                                        <button type="submit" class="btn btn-danger shadow btn-xs sharp text-white" style="margin: 2px;" title="Delete Payment">
+                                                            <i class="las la-trash"></i>
+                                                        </button>
                                                     </form>
                                                 </td>
                                             </tr>
@@ -885,30 +1027,7 @@
         </div>
     </div>
 
-    <!-- MODAL 4: PURCHASE ORDER DETAILS -->
-    <div class="modal fade" id="poDetailsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title fw-bold text-white"><i class="las la-file-invoice me-2"></i>Purchase Order Details</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4" id="poModalBody">
-                    <div class="text-center p-5">
-                        <div class="spinner-border text-danger" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-danger px-4 fw-bold" onclick="printPoModalContent('poModalBody')">
-                        <i class="las la-print me-1"></i> Print PO
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- EDIT SUPPLIER MODALS -->
     @foreach($suppliers as $supp)
@@ -1063,7 +1182,6 @@
     <script>
         $(document).ready(function() {
             if ($.fn.DataTable) {
-                $('#suppliersTable').DataTable({ pageLength: 10, responsive: true });
                 $('#invoicesTable').DataTable({ pageLength: 10, responsive: true });
                 $('#paymentsTable').DataTable({ pageLength: 10, responsive: true });
                 $('#poTable').DataTable({ pageLength: 10, responsive: true });
@@ -1176,6 +1294,19 @@
                     });
                 });
             }
+
+            // Listen for Bootstrap tab change events to update the card-header title
+            const tabButtons = document.querySelectorAll('button[data-bs-toggle="tab"]');
+            tabButtons.forEach(btn => {
+                btn.addEventListener('shown.bs.tab', function (event) {
+                    const activeTabTitle = document.getElementById('ap-active-tab-title');
+                    if (activeTabTitle) {
+                        const icon = event.target.querySelector('i').outerHTML;
+                        const text = event.target.textContent.replace(event.target.querySelector('span') ? event.target.querySelector('span').textContent : '', '').trim();
+                        activeTabTitle.innerHTML = `${icon} ${text}`;
+                    }
+                });
+            });
         });
     </script>
     @endpush

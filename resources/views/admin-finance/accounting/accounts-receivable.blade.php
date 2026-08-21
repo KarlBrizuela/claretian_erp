@@ -53,7 +53,7 @@
         }
 
         /* Accounts Receivable Table Styles (Reference: General Journal) */
-        #arAccountsTable th, .modal-body table thead th {
+        #arAccountsTable th, .modal-body table.table-hover thead th {
             background-color: #f8fafc !important;
             color: #475569 !important;
             font-weight: 700 !important;
@@ -65,7 +65,7 @@
             border-top: none !important;
         }
 
-        #arAccountsTable td, .modal-body table tbody td {
+        #arAccountsTable td, .modal-body table.table-hover tbody td {
             padding: 12px 16px !important;
             font-size: 0.84rem !important;
             color: #475569 !important;
@@ -73,12 +73,19 @@
             vertical-align: middle !important;
         }
 
-        #arAccountsTable tbody tr, .modal-body table tbody tr {
+        #arAccountsTable tbody tr, .modal-body table.table-hover tbody tr {
             transition: all 0.15s ease-in-out !important;
         }
 
-        #arAccountsTable tbody tr:hover, .modal-body table tbody tr:hover {
+        #arAccountsTable tbody tr:hover, .modal-body table.table-hover tbody tr:hover {
             background-color: #f8fafc !important;
+        }
+
+        /* Modal Profile table-borderless details styling */
+        .modal-body table.table-borderless td {
+            padding: 8px 0 !important;
+            border: none !important;
+            background: transparent !important;
         }
 
         /* Modal Dialog & Layout */
@@ -200,9 +207,72 @@
         <div class="row">
             <div class="col-12">
                 <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff;">
-                    <div class="card-header bg-white border-0 pt-3 pb-2">
-                        <h5 class="mb-0 fw-bold text-dark fs-16">Credit Customers Ledger</h5>
-                        <p class="text-muted small mb-0">Overview of outstanding customer account balances and active payment terms</p>
+                    <div class="card-header bg-white border-0 pt-3 pb-2 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                        <!-- Left: Dropdown Filters -->
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <form method="GET" action="{{ route('admin-finance.accounting.accounts-receivable') }}" class="d-flex flex-wrap align-items-center gap-2">
+                                @if(request('search'))
+                                    <input type="hidden" name="search" value="{{ request('search') }}">
+                                @endif
+
+                                <!-- Credit Rating Filter -->
+                                <select name="credit_rating" class="form-select form-select-sm" style="height: 38px; border-color: #cbd5e1; font-size: 0.82rem; width: 130px; box-shadow: none; outline: none; border-radius: 4px;">
+                                    <option value="">All Ratings</option>
+                                    <option value="AAA" {{ request('credit_rating') === 'AAA' ? 'selected' : '' }}>Rating AAA</option>
+                                    <option value="AA" {{ request('credit_rating') === 'AA' ? 'selected' : '' }}>Rating AA</option>
+                                    <option value="A" {{ request('credit_rating') === 'A' ? 'selected' : '' }}>Rating A</option>
+                                </select>
+
+                                <!-- Payment Terms Filter -->
+                                <select name="payment_terms" class="form-select form-select-sm" style="height: 38px; border-color: #cbd5e1; font-size: 0.82rem; width: 150px; box-shadow: none; outline: none; border-radius: 4px;">
+                                    <option value="">All Terms</option>
+                                    @foreach($paymentTermsList as $term)
+                                        <option value="{{ $term }}" {{ request('payment_terms') === $term ? 'selected' : '' }}>{{ $term }}</option>
+                                    @endforeach
+                                </select>
+
+                                <button type="submit" class="btn text-white fw-bold px-3 d-flex align-items-center justify-content-center btn-sm" style="background: #D9251C; border-color: #D9251C; height: 38px; border-radius: 4px; font-size: 0.82rem;">
+                                    Filter
+                                </button>
+
+                                @if(request('credit_rating') || request('payment_terms'))
+                                    <a href="{{ route('admin-finance.accounting.accounts-receivable', request()->only('search')) }}" class="btn btn-light btn-sm d-flex align-items-center justify-content-center border" style="height: 38px; padding: 0 12px; font-size: 0.82rem; border-color: #cbd5e1; color: #475569; border-radius: 4px;">
+                                        Clear Filter
+                                    </a>
+                                @endif
+                            </form>
+                        </div>
+
+                        <!-- Right: Search Form -->
+                        <div class="d-flex align-items-center">
+                            <form method="GET" action="{{ route('admin-finance.accounting.accounts-receivable') }}" class="d-flex align-items-center gap-2">
+                                @if(request('credit_rating'))
+                                    <input type="hidden" name="credit_rating" value="{{ request('credit_rating') }}">
+                                @endif
+                                @if(request('payment_terms'))
+                                    <input type="hidden" name="payment_terms" value="{{ request('payment_terms') }}">
+                                @endif
+
+                                <!-- Search Input Box with Magnifying Glass on Left -->
+                                <div class="input-group input-group-sm" style="width: 250px;">
+                                    <span class="input-group-text bg-white border-end-0" style="border-color: #cbd5e1; height: 38px; display: flex; align-items: center; justify-content: center; padding: 0 10px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
+                                        <i class="las la-search text-muted fs-16"></i>
+                                    </span>
+                                    <input type="text" name="search" class="form-control border-start-0" placeholder="Search client name..." value="{{ request('search') }}" style="height: 38px; border-color: #cbd5e1; border-top-right-radius: 4px; border-bottom-right-radius: 4px; font-size: 0.82rem; padding-left: 0; outline: none; box-shadow: none;">
+                                </div>
+
+                                <!-- Separate Search/Clear Button -->
+                                @if(request('search'))
+                                    <a href="{{ route('admin-finance.accounting.accounts-receivable', request()->except('search')) }}" class="btn btn-light d-flex align-items-center justify-content-center border fw-bold" style="height: 38px; padding: 0 16px; font-size: 0.82rem; border-color: #cbd5e1; color: #475569; border-radius: 4px;">
+                                        Clear
+                                    </a>
+                                @else
+                                    <button type="submit" class="btn text-white fw-bold px-3 d-flex align-items-center justify-content-center" style="background: #D9251C; border-color: #D9251C; height: 38px; border-radius: 4px; font-size: 0.82rem;">
+                                        Search
+                                    </button>
+                                @endif
+                            </form>
+                        </div>
                     </div>
                     <div class="card-body pt-1">
                         <div class="table-responsive">
@@ -280,14 +350,19 @@
     @foreach($customers as $cust)
     <div id="template-cust-{{ $cust->customer_id }}" style="display: none;">
         <!-- Ledger Header details -->
-        <div class="row mb-3 pb-3 border-bottom align-items-center g-2">
-            <div class="col-md-6">
-                <span class="text-muted small d-block">Account Name</span>
-                <strong class="text-dark">{{ $cust->company_name }}</strong>
+        <div class="row mb-4 pb-3 border-bottom align-items-center g-3">
+            <div class="col-md-7">
+                <span class="text-muted small d-block mb-1 text-uppercase fw-bold" style="letter-spacing: 0.5px; font-size: 0.7rem;">Account Profile</span>
+                <h4 class="text-dark fw-bold mb-1" style="letter-spacing: -0.5px;">{{ $cust->customer_name }}</h4>
+                @if($cust->company_name && $cust->company_name !== $cust->customer_name)
+                    <span class="badge bg-light text-muted border px-2 py-1 fs-12">{{ $cust->company_name }}</span>
+                @endif
             </div>
-            <div class="col-md-6 text-md-end">
-                <span class="text-muted small d-block">Remaining Balance</span>
-                <strong class="text-danger fs-16">₱{{ number_format($cust->outstanding_balance, 2) }}</strong>
+            <div class="col-md-5 text-md-end">
+                <span class="text-muted small d-block mb-2 text-uppercase fw-bold" style="letter-spacing: 0.5px; font-size: 0.7rem;">Outstanding Balance</span>
+                <span class="px-3 py-2 rounded fw-bold text-danger d-inline-block" style="font-size: 1.15rem; background-color: rgba(217, 37, 28, 0.08); border: 1px solid rgba(217, 37, 28, 0.15);">
+                    ₱{{ number_format($cust->outstanding_balance, 2) }}
+                </span>
             </div>
         </div>
 
@@ -314,70 +389,155 @@
             
             <!-- PROFILE & CREDIT TAB -->
             <div class="tab-pane fade show active" id="cust-profile-{{ $cust->customer_id }}" role="tabpanel">
-                <div class="row g-3">
+                <div class="row g-4">
+                    <!-- Left: Customer Profile -->
                     <div class="col-md-6">
-                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-2"><i class="las la-user me-2"></i>Customer Profile</h6>
-                        <table class="table table-sm table-borderless small mb-0">
-                            <tr>
-                                <td class="text-muted" style="width: 120px;">Contact Person:</td>
-                                <td class="fw-semibold text-dark">{{ $cust->customer_name }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Account Code:</td>
-                                <td class="fw-semibold text-dark">{{ $cust->account_number }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Phone Number:</td>
-                                <td class="fw-semibold text-dark">{{ $cust->main_phone }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Main Email:</td>
-                                <td class="fw-semibold text-dark">{{ $cust->main_email }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Billing Address:</td>
-                                <td class="small text-dark">{{ $cust->billing_address }}</td>
-                            </tr>
-                        </table>
+                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-3"><i class="las la-user me-2 text-primary"></i>Customer Profile</h6>
+                        <div class="d-flex flex-column">
+                            <!-- Contact Person -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-id-badge fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Contact Person</span>
+                                </div>
+                                <span class="fw-bold text-dark small text-end">{{ $cust->customer_name }}</span>
+                            </div>
+
+                            <!-- Account Code -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-barcode fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Account Code</span>
+                                </div>
+                                <span class="fw-bold text-dark small text-end">{{ $cust->account_number }}</span>
+                            </div>
+
+                            <!-- Phone Number -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-phone fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Phone Number</span>
+                                </div>
+                                <span class="fw-semibold text-dark small text-end">{{ $cust->main_phone }}</span>
+                            </div>
+
+                            <!-- Email Address -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-envelope fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Email Address</span>
+                                </div>
+                                <span class="fw-semibold text-dark small text-end">{{ $cust->main_email }}</span>
+                            </div>
+
+                            <!-- Billing Address -->
+                            <div class="d-flex align-items-start justify-content-between py-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-map-marker fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Billing Address</span>
+                                </div>
+                                <span class="text-dark small text-end fw-semibold" style="max-width: 280px; display: inline-block; line-height: 1.3;">{{ $cust->billing_address }}</span>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Right: Credit Profile -->
                     <div class="col-md-6">
-                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-2"><i class="las la-shield-alt me-2"></i>Credit Profile</h6>
-                        <table class="table table-sm table-borderless small mb-0">
-                            <tr>
-                                <td class="text-muted" style="width: 130px;">Credit Limit:</td>
-                                <td class="fw-bold text-dark">₱{{ number_format($cust->credit_limit, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Credit Rating:</td>
-                                <td class="fw-bold text-success">{{ $cust->credit_rating }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Payment Terms:</td>
-                                <td class="fw-semibold text-dark">{{ $cust->payment_terms }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Interest rate on Overdue:</td>
-                                <td class="fw-semibold text-dark">{{ $cust->interest_rate }}% monthly</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Sales Representative:</td>
-                                <td class="fw-semibold text-dark">
-                                    <select class="form-select form-select-sm d-inline-block w-auto py-0 px-2" style="font-size: 0.85rem;" onchange="updateSalesRepresentative({{ $cust->customer_id }}, this.value)">
-                                        <option value="" {{ is_null($cust->rep) ? 'selected' : '' }}>N/A</option>
-                                        <option value="CLE" {{ $cust->rep === 'CLE' ? 'selected' : '' }}>Xavier Almocera</option>
-                                        <option value="MKT" {{ $cust->rep === 'MKT' ? 'selected' : '' }}>Kerwin Morfe</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Bad Debts:</td>
-                                <td class="fw-bold text-danger">₱{{ number_format($cust->bad_debts, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Accrued Interest:</td>
-                                <td class="fw-semibold text-dark">₱{{ number_format($cust->accrued_interest, 2) }}</td>
-                            </tr>
-                        </table>
+                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-3"><i class="las la-shield-alt me-2 text-primary"></i>Credit Profile</h6>
+                        <div class="d-flex flex-column">
+                            <!-- Credit Limit -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-wallet fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Credit Limit</span>
+                                </div>
+                                <span class="fw-bold text-dark small">₱{{ number_format($cust->credit_limit, 2) }}</span>
+                            </div>
+
+                            <!-- Credit Rating -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-star fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Credit Rating</span>
+                                </div>
+                                <span class="badge {{ $cust->credit_rating === 'AAA' ? 'rating-aaa' : ($cust->credit_rating === 'AA' ? 'rating-aa' : 'rating-a') }} badge-rating">
+                                    {{ $cust->credit_rating }}
+                                </span>
+                            </div>
+
+                            <!-- Payment Terms -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-calendar-check fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Payment Terms</span>
+                                </div>
+                                <span class="badge bg-light text-dark border font-weight-600" style="font-size: 0.72rem; padding: 4px 8px;">{{ $cust->payment_terms }}</span>
+                            </div>
+
+                            <!-- Overdue Interest -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-percent fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Overdue Interest</span>
+                                </div>
+                                <span class="fw-semibold text-dark small">{{ $cust->interest_rate }}% monthly</span>
+                            </div>
+
+                            <!-- Sales Representative -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-user-tie fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Sales Representative</span>
+                                </div>
+                                <select class="form-select form-select-sm py-0 px-2" style="font-size: 0.8rem; height: 28px; width: 160px; border-color: #cbd5e1; border-radius: 4px; box-shadow: none;" onchange="updateSalesRepresentative({{ $cust->customer_id }}, this.value)">
+                                    <option value="" {{ is_null($cust->rep) ? 'selected' : '' }}>N/A</option>
+                                    <option value="CLE" {{ $cust->rep === 'CLE' ? 'selected' : '' }}>Xavier Almocera</option>
+                                    <option value="MKT" {{ $cust->rep === 'MKT' ? 'selected' : '' }}>Kerwin Morfe</option>
+                                </select>
+                            </div>
+
+                            <!-- Bad Debts -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-exclamation-triangle fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Bad Debts</span>
+                                </div>
+                                <span class="fw-bold text-danger small">₱{{ number_format($cust->bad_debts, 2) }}</span>
+                            </div>
+
+                            <!-- Accrued Interest -->
+                            <div class="d-flex align-items-center justify-content-between py-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-muted d-flex align-items-center justify-content-center" style="width: 24px;">
+                                        <i class="las la-coins fs-18"></i>
+                                    </div>
+                                    <span class="text-muted small">Accrued Interest</span>
+                                </div>
+                                <span class="fw-bold text-dark small">₱{{ number_format($cust->accrued_interest, 2) }}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -652,7 +812,7 @@
             body.innerHTML = contentHtml;
 
             // Re-instantiate pagination on any tables inside loaded tab panes
-            const tables = body.querySelectorAll('table');
+            const tables = body.querySelectorAll('table.table-hover');
             tables.forEach(table => {
                 initTablePagination(table, 5);
             });
