@@ -4,7 +4,7 @@
             <div class="card">
                 <div class="card-header border-0 d-block d-sm-flex align-items-center justify-content-between">
                     <div>
-                        <h4 class="card-title mb-0">Recent Journal</h4>
+                        <h4 class="card-title mb-0">Recent Journal Entries</h4>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
                         <form method="GET" action="{{ route('accounting.journal.index') }}" class="d-flex align-items-center">
