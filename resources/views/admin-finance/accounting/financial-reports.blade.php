@@ -3,48 +3,40 @@
     <style>
         .rpt-header-card {
             background: #fff;
-            border-radius: 12px;
-            padding: 1.75rem;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-            border: 0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
             margin-bottom: 1.5rem;
         }
 
         .hover-row {
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.15s ease-in-out;
         }
 
         .hover-row:hover {
-            background-color: #ffffff !important;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+            background-color: #f8fafc !important;
         }
 
-        .category-pill {
-            font-size: 0.82rem;
+        .rpt-sidebar-item {
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: #475569 !important;
+            border-left: 3px solid transparent !important;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .rpt-sidebar-item:hover {
+            background-color: #f1f5f9;
+            color: #0f172a !important;
+            border-left-color: #cbd5e1 !important;
+        }
+
+        .rpt-sidebar-item.active {
+            background-color: #fef2f2 !important;
+            color: #D9251C !important;
             font-weight: 600;
-            padding: 7px 15px;
-            border-radius: 20px;
-            text-decoration: none;
-            transition: all 0.2s ease-in-out;
-            display: inline-block;
-        }
-
-        .category-pill.active {
-            background-color: #D9251C;
-            color: #fff !important;
-            box-shadow: 0 4px 12px rgba(217, 37, 28, 0.25);
-        }
-
-        .category-pill:not(.active) {
-            background-color: #f8f9fa;
-            color: #495057;
-            border: 1px solid #e9ecef;
-        }
-
-        .category-pill:not(.active):hover {
-            background-color: #e9ecef;
-            color: #212529;
+            border-left-color: #D9251C !important;
         }
 
         .statement-table th {
@@ -52,7 +44,24 @@
             color: #fff;
             font-weight: 700;
             text-transform: uppercase;
-            font-size: 0.78rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            padding: 10px 12px;
+        }
+
+        .statement-table td {
+            padding: 10px 12px;
+            font-size: 0.88rem;
+        }
+
+        .table-responsive {
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .table-responsive .table {
+            margin-bottom: 0;
         }
     </style>
     @endpush
@@ -63,19 +72,9 @@
             <div class="col-12">
                 <div class="rpt-header-card d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                     <div>
-                        <h4 class="fs-24 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Financial & Profitability Reports</h4>
-                        <p class="text-muted small mb-0">Automated financial statements & profitability analysis: Balance Sheet, P&L, Cash Flow, Trial Balance, General/Subsidiary Ledgers, and Profitability by Product, Customer, Branch, & Salesperson.</p>
+                        <h4 class="fs-22 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Financial & Profitability Reports</h4>
+                        <p class="text-muted small mb-0">Automated financial statements & profitability analysis compiled from live ledger and sales transactions.</p>
                     </div>
-                    {{-- 
-                    <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-outline-danger btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="color: #D9251C; border-color: #D9251C; height: 40px;" onclick="window.print()">
-                            <i class="las la-print fs-18"></i> Print Statement
-                        </button>
-                        <button class="btn btn-danger btn-sm px-3 text-white rounded shadow-sm d-flex align-items-center gap-2" style="background-color: #D9251C; border-color: #D9251C; height: 40px;" onclick="alert('Exporting statement to Excel / PDF...')">
-                            <i class="las la-file-download fs-18"></i> Export Report
-                        </button>
-                    </div>
-                    --}}
                 </div>
             </div>
         </div>
@@ -83,85 +82,120 @@
         <!-- Financial Overview Metric Cards -->
         <div class="row mb-4">
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary" style="width: 50px; height: 50px;">
-                            <i class="las la-wallet fs-28"></i>
-                        </div>
+                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 8px; border-left: 4px solid #3b82f6; background-color: #ffffff;">
+                    <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <span class="text-muted small d-block">Total Corporate Assets</span>
-                            <h4 class="fw-bold text-primary mb-0">₱{{ number_format($metrics['total_assets'], 2) }}</h4>
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem;">Total Corporate Assets</span>
+                            <h3 class="fw-bold text-dark mt-1 mb-0 font-monospace" style="letter-spacing: -0.5px;">₱{{ number_format($metrics['total_assets'], 2) }}</h3>
+                        </div>
+                        <div class="text-primary opacity-75">
+                            <i class="las la-wallet fs-32"></i>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-success" style="width: 50px; height: 50px;">
-                            <i class="las la-hand-holding-usd fs-28"></i>
-                        </div>
+                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 8px; border-left: 4px solid #10b981; background-color: #ffffff;">
+                    <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <span class="text-muted small d-block">Total Revenue & Inflows</span>
-                            <h4 class="fw-bold text-success mb-0">₱{{ number_format($metrics['total_revenue'], 2) }}</h4>
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem;">Total Revenue & Inflows</span>
+                            <h3 class="fw-bold text-dark mt-1 mb-0 font-monospace" style="letter-spacing: -0.5px;">₱{{ number_format($metrics['total_revenue'], 2) }}</h3>
+                        </div>
+                        <div class="text-success opacity-75">
+                            <i class="las la-hand-holding-usd fs-32"></i>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light" style="width: 50px; height: 50px; color: #D9251C;">
-                            <i class="las la-file-invoice-dollar fs-28"></i>
-                        </div>
+                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 8px; border-left: 4px solid #f59e0b; background-color: #ffffff;">
+                    <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <span class="text-muted small d-block">Total Expenses & Outflows</span>
-                            <h4 class="fw-bold text-dark mb-0">₱{{ number_format($metrics['total_expenses'], 2) }}</h4>
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem;">Total Expenses & Outflows</span>
+                            <h3 class="fw-bold text-dark mt-1 mb-0 font-monospace" style="letter-spacing: -0.5px;">₱{{ number_format($metrics['total_expenses'], 2) }}</h3>
+                        </div>
+                        <div class="text-warning opacity-75">
+                            <i class="las la-file-invoice-dollar fs-32"></i>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light" style="width: 50px; height: 50px; color: #D9251C;">
-                            <i class="las la-chart-pie fs-28"></i>
-                        </div>
+                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 8px; border-left: 4px solid #D9251C; background-color: #ffffff;">
+                    <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <span class="text-muted small d-block">Net Operating Profit</span>
-                            <h4 class="fw-bold mb-0" style="color: #D9251C;">₱{{ number_format($metrics['net_profit'], 2) }}</h4>
+                            <span class="text-muted small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem;">Net Operating Profit</span>
+                            <h3 class="fw-bold mt-1 mb-0 font-monospace" style="color: #D9251C; letter-spacing: -0.5px;">₱{{ number_format($metrics['net_profit'], 2) }}</h3>
+                        </div>
+                        <div style="color: #D9251C;" class="opacity-75">
+                            <i class="las la-chart-pie fs-32"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 13 Report Categories Filter Pills -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm p-3" style="border-radius: 12px; background: #fff;">
-                    <span class="text-muted small fw-bold mb-2 d-block text-uppercase">13 Automated Financial & Profitability Reports:</span>
-                    <div class="d-flex flex-wrap gap-2">
-                        @foreach($reportsList as $rpt)
-                        <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="category-pill {{ $selectedReport == $rpt ? 'active' : '' }}">
-                            {{ $rpt }}
-                        </a>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Statement & Report View Render Container -->
         <div class="row">
-            <div class="col-12">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
-                    <div class="card-header bg-white border-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
+            <!-- Left Navigation Sidebar (col-md-3) -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item bg-light border-0 py-2">
+                                <span class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Financial Statements</span>
+                            </div>
+                            @php
+                                $finStatements = ['Balance Sheet', 'Income Statement', 'Cash Flow', 'General Ledger'];
+                            @endphp
+                            @foreach($finStatements as $rpt)
+                                @if(in_array($rpt, $reportsList))
+                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="list-group-item list-group-item-action rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }} border-0 py-2.5 ps-4">
+                                    <i class="las @if($rpt === 'Balance Sheet') la-balance-scale @elseif($rpt === 'Income Statement') la-file-invoice-dollar @elseif($rpt === 'Cash Flow') la-exchange-alt @else la-book @endif me-2"></i> {{ $rpt }}
+                                </a>
+                                @endif
+                            @endforeach
+
+                            <div class="list-group-item bg-light border-0 py-2">
+                                <span class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Profitability Analysis</span>
+                            </div>
+                            @php
+                                $profitability = ['Profit by Product', 'Profit by Customer', 'Profit by Sales Channel', 'Profit by Salesperson'];
+                            @endphp
+                            @foreach($profitability as $rpt)
+                                @if(in_array($rpt, $reportsList))
+                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="list-group-item list-group-item-action rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }} border-0 py-2.5 ps-4">
+                                    <i class="las @if($rpt === 'Profit by Product') la-box @elseif($rpt === 'Profit by Customer') la-user-tie @elseif($rpt === 'Profit by Sales Channel') la-network-wired @else la-user-tag @endif me-2"></i> {{ $rpt }}
+                                </a>
+                                @endif
+                            @endforeach
+
+                            <div class="list-group-item bg-light border-0 py-2">
+                                <span class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Transaction Logs</span>
+                            </div>
+                            @php
+                                $transactions = ['Sales Reports', 'Expense Reports'];
+                            @endphp
+                            @foreach($transactions as $rpt)
+                                @if(in_array($rpt, $reportsList))
+                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="list-group-item list-group-item-action rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }} border-0 py-2.5 ps-4">
+                                    <i class="las @if($rpt === 'Sales Reports') la-chart-line @else la-receipt @endif me-2"></i> {{ $rpt }}
+                                </a>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Content Area (col-md-9) -->
+            <div class="col-md-9">
+                <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <div class="card-header bg-white border-0 pt-4 pb-2 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                         <div>
                             <h5 class="mb-0 fw-bold text-dark fs-18">
                                 <i class="las la-file-alt me-2" style="color: #D9251C;"></i>{{ $selectedReport }} Statement
                             </h5>
-                            <p class="text-muted small mb-0">Automatically generated from General Ledger & Sales module transactions</p>
+                            <p class="text-muted small mb-0">Compiled from General Ledger & modules for the selected period.</p>
                         </div>
                         <form action="{{ route('admin-finance.financial-reports.index') }}" method="GET" class="d-flex gap-2 align-items-center">
                             <input type="hidden" name="report" value="{{ $selectedReport }}">

@@ -1,17 +1,15 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
     <style>
-        .coa-header-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 1.75rem;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-            border: 0;
-            margin-bottom: 1.5rem;
+        /* Maximize page width by overriding layout container padding */
+        .content-body .container-fluid {
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+            max-width: 100% !important;
         }
 
         .hover-row {
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .hover-row:hover {
@@ -21,24 +19,31 @@
         }
 
         .badge-rating {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             font-weight: 700;
-            padding: 5px 10px;
+            padding: 4px 8px;
             border-radius: 4px;
+            text-transform: uppercase;
         }
 
-        .rating-aaa { background-color: rgba(40, 167, 69, 0.1); color: #28a745; }
-        .rating-aa { background-color: rgba(23, 162, 184, 0.1); color: #17a2b8; }
-        .rating-a { background-color: rgba(255, 193, 7, 0.15); color: #ffc107; }
+        .rating-aaa { background-color: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .rating-aa { background-color: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .rating-a { background-color: rgba(245, 158, 11, 0.1); color: #f59e0b; }
 
         .modal-tabs .nav-link {
             border: none;
-            color: #666;
-            font-weight: 500;
-            padding: 10px 15px;
-            font-size: 0.85rem;
+            color: #475569;
+            font-weight: 600;
+            padding: 10px 16px;
+            font-size: 0.8rem;
             border-bottom: 2px solid transparent;
             border-radius: 0;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .modal-tabs .nav-link:hover {
+            color: #0f172a;
+            background-color: #f8fafc;
         }
 
         .modal-tabs .nav-link.active {
@@ -46,22 +51,103 @@
             border-bottom: 2px solid #D9251C;
             background: transparent;
         }
+
+        /* Accounts Receivable Table Styles (Reference: General Journal) */
+        #arAccountsTable th, .modal-body table thead th {
+            background-color: #f8fafc !important;
+            color: #475569 !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            font-size: 0.72rem !important;
+            letter-spacing: 0.8px !important;
+            padding: 12px 16px !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+            border-top: none !important;
+        }
+
+        #arAccountsTable td, .modal-body table tbody td {
+            padding: 12px 16px !important;
+            font-size: 0.84rem !important;
+            color: #475569 !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            vertical-align: middle !important;
+        }
+
+        #arAccountsTable tbody tr, .modal-body table tbody tr {
+            transition: all 0.15s ease-in-out !important;
+        }
+
+        #arAccountsTable tbody tr:hover, .modal-body table tbody tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        /* Modal Dialog & Layout */
+        .modal-content {
+            border-radius: 12px !important;
+            border: none !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .modal-header {
+            background-color: #ffffff !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            padding: 16px 24px !important;
+        }
+
+        .modal-header .modal-title {
+            font-size: 0.95rem !important;
+            font-weight: 700 !important;
+            color: #000000 !important;
+        }
+
+        /* Modal Pagination Style Matching */
+        .modal nav {
+            padding: 12px 16px 0 16px !important;
+            border-top: 1px solid #f1f5f9 !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+        }
+
+        /* Custom pagination overrides */
+        .pagination .page-item.active .page-link {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15) !important;
+        }
+
+        .pagination .page-link {
+            color: #475569;
+            border-color: #cbd5e1;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            border-color: #cbd5e1;
+        }
     </style>
     @endpush
 
-    <div class="container-fluid">
+    <div class="container-fluid p-0">
         <!-- Master Title Header -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="coa-header-card d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                    <div>
-                        <h4 class="fs-24 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Accounts Receivable Ledger</h4>
-                        <p class="text-muted small mb-0">Manage customer credit limits, payment terms, aging accounts, collections, and disputes.</p>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-secondary btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" onclick="window.print()">
-                            <i class="las la-print fs-18"></i> Print Overview
-                        </button>
+                <div class="card border-0 shadow-sm p-3" style="border-radius: 8px; background-color: #ffffff; border: 1px solid #e2e8f0;">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                        <div>
+                            <h4 class="fs-20 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px; color: #000000;">Accounts Receivable Ledger</h4>
+                            <p class="text-muted small mb-0">Manage customer credit limits, payment terms, aging accounts, collections, and disputes.</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2 fw-bold" style="background-color: #ffffff; border: 1px solid #cbd5e1; color: #475569; height: 38px;" onclick="window.print()">
+                                <i class="las la-print fs-18"></i> Print Overview
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -70,40 +156,40 @@
         <!-- Metric summary cards -->
         <div class="row mb-4">
             <div class="col-md-4">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-primary" style="width: 50px; height: 50px;">
-                            <i class="las la-file-invoice-dollar fs-28"></i>
-                        </div>
+                <div class="card border-0 shadow-sm p-3 mb-3 mb-md-0" style="border-radius: 8px; border-left: 4px solid #3b82f6; background-color: #ffffff; border: 1px solid #e2e8f0;">
+                    <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <span class="text-muted small d-block">Total A/R Balance</span>
-                            <h4 class="fw-bold text-dark mb-0">₱{{ number_format($customers->sum('outstanding_balance'), 2) }}</h4>
+                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem; color: #000000;">Total A/R Balance</span>
+                            <h3 class="fw-bold text-dark mt-1 mb-0" style="letter-spacing: -0.5px;">₱{{ number_format($customers->sum('outstanding_balance'), 2) }}</h3>
+                        </div>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(59, 130, 246, 0.08); color: #3b82f6;">
+                            <i class="las la-file-invoice-dollar fs-24"></i>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-danger" style="width: 50px; height: 50px;">
-                            <i class="las la-exclamation-circle fs-28"></i>
-                        </div>
+                <div class="card border-0 shadow-sm p-3 mb-3 mb-md-0" style="border-radius: 8px; border-left: 4px solid #ef4444; background-color: #ffffff; border: 1px solid #e2e8f0;">
+                    <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <span class="text-muted small d-block">Total Overdue A/R</span>
-                            <h4 class="fw-bold text-danger mb-0">₱{{ number_format($customers->sum('overdue_amount'), 2) }}</h4>
+                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem; color: #ef4444;">Total Overdue A/R</span>
+                            <h3 class="fw-bold text-danger mt-1 mb-0" style="letter-spacing: -0.5px;">₱{{ number_format($customers->sum('overdue_amount'), 2) }}</h3>
+                        </div>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(239, 68, 68, 0.08); color: #ef4444;">
+                            <i class="las la-exclamation-circle fs-24"></i>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px; background-color: #ffffff;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-success" style="width: 50px; height: 50px;">
-                            <i class="las la-users fs-28"></i>
-                        </div>
+                <div class="card border-0 shadow-sm p-3" style="border-radius: 8px; border-left: 4px solid #10b981; background-color: #ffffff; border: 1px solid #e2e8f0;">
+                    <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <span class="text-muted small d-block">Active Credit Clients</span>
-                            <h4 class="fw-bold text-success mb-0">{{ $customers->count() }} Accounts</h4>
+                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem; color: #000000;">Active Credit Clients</span>
+                            <h3 class="fw-bold text-success mt-1 mb-0" style="letter-spacing: -0.5px;">{{ $customers->count() }} Accounts</h3>
+                        </div>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(16, 185, 129, 0.08); color: #10b981;">
+                            <i class="las la-users fs-24"></i>
                         </div>
                     </div>
                 </div>
@@ -113,14 +199,14 @@
         <!-- Master Accounts Receivable Table -->
         <div class="row">
             <div class="col-12">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
-                    <div class="card-header bg-white border-0 pt-4 pb-2">
-                        <h5 class="mb-0 fw-bold text-dark fs-18">Credit Customers Ledger</h5>
+                <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff;">
+                    <div class="card-header bg-white border-0 pt-3 pb-2">
+                        <h5 class="mb-0 fw-bold text-dark fs-16">Credit Customers Ledger</h5>
                         <p class="text-muted small mb-0">Overview of outstanding customer account balances and active payment terms</p>
                     </div>
-                    <div class="card-body pt-2">
+                    <div class="card-body pt-1">
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle" id="arAccountsTable">
+                            <table class="table table-hover align-middle" id="arAccountsTable" style="margin-bottom: 0;">
                                 <thead class="table-light text-muted small text-uppercase">
                                     <tr>
                                         <th>Account No</th>
@@ -130,7 +216,7 @@
                                         <th>Terms</th>
                                         <th class="text-end">Outstanding Balance</th>
                                         <th class="text-end">Overdue Amount</th>
-                                        <th class="text-center">Action</th>
+                                        <th class="text-center" style="width: 130px;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -153,8 +239,8 @@
                                             ₱{{ number_format($cust->overdue_amount, 2) }}
                                         </td>
                                         <td class="text-center">
-                                            <button type="button" class="btn btn-outline-danger btn-sm rounded shadow-sm px-3" onclick="showSalesLedgerModal('Key Account AR Ledger: {{ $cust->customer_name }}', document.getElementById('template-cust-{{ $cust->customer_id }}').innerHTML)">
-                                                <i class="las la-folder-open me-1"></i> View Ledger
+                                            <button type="button" class="btn btn-info shadow btn-xs sharp mx-auto text-white d-flex align-items-center justify-content-center" title="View Ledger" onclick="showSalesLedgerModal('Key Account AR Ledger: {{ $cust->customer_name }}', document.getElementById('template-cust-{{ $cust->customer_id }}').innerHTML)">
+                                                <i class="las la-eye"></i>
                                             </button>
                                         </td>
                                     </tr>
@@ -166,6 +252,9 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $customers->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -174,7 +263,7 @@
 
     <!-- Generic Ledger Detail Modal (Loaded Master View) -->
     <div class="modal fade" id="salesLedgerModal" tabindex="-1" aria-labelledby="salesLedgerModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="salesLedgerModalLabel">Account Ledger</h5>
@@ -485,7 +574,7 @@
             info.className = 'small text-muted';
             
             const ul = document.createElement('ul');
-            ul.className = 'pagination pagination-xs mb-0';
+            ul.className = 'pagination mb-0';
             
             nav.appendChild(info);
             nav.appendChild(ul);
@@ -512,7 +601,7 @@
                 // Prev
                 const prevLi = document.createElement('li');
                 prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-                prevLi.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; margin-right: 4px; padding: 4px 8px; font-size: 0.75rem;">&laquo;</a>`;
+                prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
                 prevLi.querySelector('a').onclick = (e) => {
                     e.preventDefault();
                     if (currentPage > 1) showPage(currentPage - 1);
@@ -526,7 +615,7 @@
                             if (i === 2 || i === totalPages - 1) {
                                 const dotsLi = document.createElement('li');
                                 dotsLi.className = 'page-item disabled';
-                                dotsLi.innerHTML = '<span class="page-link" style="border: none; padding: 4px 8px; font-size: 0.75rem;">...</span>';
+                                dotsLi.innerHTML = '<span class="page-link">...</span>';
                                 ul.appendChild(dotsLi);
                             }
                             continue;
@@ -535,8 +624,7 @@
                     
                     const li = document.createElement('li');
                     li.className = `page-item ${currentPage === i ? 'active' : ''}`;
-                    let activeStyles = currentPage === i ? 'background-color: #D9251C; border-color: #D9251C; color: #fff;' : '';
-                    li.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; margin-right: 4px; padding: 4px 8px; font-size: 0.75rem; ${activeStyles}">${i}</a>`;
+                    li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
                     li.querySelector('a').onclick = (e) => {
                         e.preventDefault();
                         showPage(i);
@@ -547,7 +635,7 @@
                 // Next
                 const nextLi = document.createElement('li');
                 nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-                nextLi.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; padding: 4px 8px; font-size: 0.75rem;">&raquo;</a>`;
+                nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
                 nextLi.querySelector('a').onclick = (e) => {
                     e.preventDefault();
                     if (currentPage < totalPages) showPage(currentPage + 1);
@@ -617,13 +705,6 @@
             });
         }
 
-        // Paginate master AR overview table on load
-        document.addEventListener('DOMContentLoaded', function() {
-            const arTable = document.getElementById('arAccountsTable');
-            if (arTable) {
-                initTablePagination(arTable, 10);
-            }
-        });
     </script>
     @endpush
 </x-app-layout>

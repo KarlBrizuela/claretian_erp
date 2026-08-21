@@ -1,15 +1,6 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
     <style>
-        .coa-header-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 1.75rem;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-            border: 0;
-            margin-bottom: 1.5rem;
-        }
-
         .hover-row {
             transition: background-color 0.2s ease;
         }
@@ -33,22 +24,193 @@
         .text-success {
             color: #28a745 !important;
         }
+
+        /* Premium Dashboard KPI Cards Styling */
+        .hover-card {
+            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        .hover-card:hover {
+            transform: translateY(-4px);
+            background-color: #ffffff !important;
+        }
+        
+        .assets-card:hover {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 12px 24px -5px rgba(59, 130, 246, 0.12), 0 4px 12px -2px rgba(59, 130, 246, 0.08) !important;
+        }
+        .liabilities-card:hover {
+            border-color: #f59e0b !important;
+            box-shadow: 0 12px 24px -5px rgba(245, 158, 11, 0.12), 0 4px 12px -2px rgba(245, 158, 11, 0.08) !important;
+        }
+        .equity-card:hover {
+            border-color: #8b5cf6 !important;
+            box-shadow: 0 12px 24px -5px rgba(139, 92, 246, 0.12), 0 4px 12px -2px rgba(139, 92, 246, 0.08) !important;
+        }
+        .income-card:hover {
+            border-color: #10b981 !important;
+            box-shadow: 0 12px 24px -5px rgba(16, 185, 129, 0.12), 0 4px 12px -2px rgba(16, 185, 129, 0.08) !important;
+        }
+        .expenses-card:hover {
+            border-color: #ef4444 !important;
+            box-shadow: 0 12px 24px -5px rgba(239, 68, 68, 0.12), 0 4px 12px -2px rgba(239, 68, 68, 0.08) !important;
+        }
+
+        /* Maximize page width by overriding layout container padding */
+        .content-body .container-fluid {
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+            max-width: 100% !important;
+        }
+
+        /* Modal Table Styling (using General Journal as reference) */
+        .modal-content {
+            border-radius: 12px !important;
+            border: none !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .modal-header {
+            background-color: #ffffff !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            padding: 16px 24px !important;
+        }
+
+        .modal-header .modal-title {
+            font-size: 0.95rem !important;
+            font-weight: 700 !important;
+            color: #000000 !important;
+        }
+
+        .modal-body {
+            padding: 20px 24px !important;
+        }
+
+        .modal-body table {
+            margin-bottom: 0 !important;
+            border: none !important;
+        }
+
+        .modal-body table thead th {
+            background-color: #f8fafc !important;
+            color: #475569 !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            font-size: 0.72rem !important;
+            letter-spacing: 0.8px !important;
+            padding: 12px 16px !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+            border-top: none !important;
+        }
+
+        .modal-body table tbody td {
+            padding: 12px 16px !important;
+            font-size: 0.82rem !important;
+            color: #475569 !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            vertical-align: middle !important;
+        }
+
+        .modal-body table tbody tr {
+            transition: all 0.15s ease-in-out !important;
+        }
+
+        .modal-body table tbody tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        /* Modal Pagination Style Matching */
+        .modal nav {
+            padding: 12px 16px 0 16px !important;
+            border-top: 1px solid #f1f5f9 !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+        }
+
+        .modal .pagination {
+            display: flex !important;
+            gap: 5px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            list-style: none !important;
+            align-items: center !important;
+        }
+
+        .modal .pagination .page-item {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .modal .pagination .page-link {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-width: 28px !important;
+            height: 28px !important;
+            padding: 0 8px !important;
+            border-radius: 6px !important;
+            font-size: 0.76rem !important;
+            font-weight: 600 !important;
+            color: #475569 !important;
+            border: 1px solid #cbd5e1 !important;
+            background-color: #ffffff !important;
+            transition: all 0.15s ease-in-out !important;
+            text-decoration: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+
+        .modal .pagination .page-link:hover {
+            background-color: #f8fafc !important;
+            border-color: #94a3b8 !important;
+            color: #0f172a !important;
+        }
+
+        .modal .pagination .page-item.active .page-link {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: none !important;
+        }
+
+        .modal .pagination .page-item.disabled .page-link {
+            color: #94a3b8 !important;
+            border-color: #e2e8f0 !important;
+            background-color: #f8fafc !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+        }
     </style>
     @endpush
 
-    <div class="container-fluid">
-        <!-- Top Title & Overview Header -->
-        <div class="row mb-4">
+    <div class="container-fluid p-0">
+        <!-- Top Title & Sleek Segmented Tab Switcher -->
+        <div class="row mb-3">
             <div class="col-12">
-                <div class="coa-header-card d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                    <div>
-                        <h4 class="fs-24 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Chart of Accounts - {{ ucfirst($tab) }}</h4>
-                        <p class="text-muted small mb-0">CCFI Chart of Accounts containing {{ ucfirst($tab) }} accounts and their categories.</p>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-secondary btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="height: 40px;" onclick="window.print()">
-                            <i class="las la-print fs-18"></i> Print Chart
-                        </button>
+                <div class="card border-0 shadow-sm p-2" style="border-radius: 8px; background-color: #ffffff; border: 1px solid #e2e8f0;">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <div class="d-flex flex-wrap gap-1">
+                            <a href="?tab=assets" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'assets' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
+                                <i class="las la-wallet fs-16"></i> Assets
+                            </a>
+                            <a href="?tab=liabilities" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'liabilities' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
+                                <i class="las la-credit-card fs-16"></i> Liabilities
+                            </a>
+                            <a href="?tab=equity" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'equity' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
+                                <i class="las la-coins fs-16"></i> Equity
+                            </a>
+                            <a href="?tab=income" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'income' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
+                                <i class="las la-chart-line fs-16"></i> Income
+                            </a>
+                            <a href="?tab=expenses" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'expenses' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
+                                <i class="las la-file-invoice-dollar fs-16"></i> Expenses
+                            </a>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm px-3 d-flex align-items-center gap-2 fw-bold" style="background-color: #ffffff; border: 1px solid #cbd5e1; color: #475569; height: 36px; border-radius: 6px;" onclick="window.print()">
+                                <i class="las la-print fs-16"></i> Print Chart
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -59,10 +221,10 @@
             <div class="col-12">
                 @if($tab === 'assets')
                     @include('admin-finance.accounting.chart-of-accounts.assets')
-                {{-- @elseif($tab === 'liabilities')
+                @elseif($tab === 'liabilities')
                     @include('admin-finance.accounting.chart-of-accounts.liabilities')
                 @elseif($tab === 'equity')
-                    @include('admin-finance.accounting.chart-of-accounts.equity') --}}
+                    @include('admin-finance.accounting.chart-of-accounts.equity')
                 @elseif($tab === 'income')
                     @include('admin-finance.accounting.chart-of-accounts.income')
                 @elseif($tab === 'expenses')
@@ -72,30 +234,54 @@
         </div>
 
         @if(isset($uncategorizedAccounts) && count($uncategorizedAccounts) > 0)
+        @php
+            $themeColor = '#3b82f6';
+            $bgSoft = 'rgba(59, 130, 246, 0.08)';
+            if ($tab === 'liabilities') {
+                $themeColor = '#f59e0b';
+                $bgSoft = 'rgba(245, 158, 11, 0.08)';
+            } elseif ($tab === 'equity') {
+                $themeColor = '#8b5cf6';
+                $bgSoft = 'rgba(139, 92, 246, 0.08)';
+            } elseif ($tab === 'income') {
+                $themeColor = '#10b981';
+                $bgSoft = 'rgba(16, 185, 129, 0.08)';
+            } elseif ($tab === 'expenses') {
+                $themeColor = '#ef4444';
+                $bgSoft = 'rgba(239, 68, 68, 0.08)';
+            }
+        @endphp
         <!-- Uncategorized Database Accounts -->
-        <div class="row mt-4">
+        <div class="row mt-3">
             <div class="col-12">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
-                    <div class="card-header bg-white border-0 pt-4 pb-2">
-                        <h5 class="mb-0 fw-bold text-dark fs-18">Additional {{ ucfirst($tab) }} Accounts</h5>
-                        <p class="text-muted small mb-0">Other accounts registered in the database system</p>
+                <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff;">
+                    <div class="card-header bg-white border-0 pt-3 pb-2 px-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 fw-bold fs-16" style="color: #000000;">Additional {{ ucfirst($tab) }} Accounts</h5>
+                            <p class="text-muted small mb-0">Other accounts registered in the database system.</p>
+                        </div>
                     </div>
-                    <div class="card-body pt-2">
-                        <div class="row g-3">
+                    <div class="card-body p-3 pt-1">
+                        <div class="row g-2">
                             @foreach($uncategorizedAccounts as $acc)
-                            <div class="col-md-6 col-xl-4">
-                                <div class="card h-100 border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #ff0000 !important;">
+                            <div class="col-xl-3 col-md-4 col-sm-6">
+                                <div class="card h-100 shadow-sm hover-card {{ $tab }}-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; transition: all 0.2s ease;">
                                     <div class="card-body p-3 d-flex flex-column justify-content-between">
-                                        <div class="d-flex align-items-center gap-3 mb-2">
-                                            <span class="text-primary"><i class="las la-file-invoice-dollar fs-24"></i></span>
-                                            <h6 class="mb-0 fw-bold text-dark fs-15">{{ $acc->name }}</h6>
+                                        <div>
+                                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: {{ $bgSoft }}; color: {{ $themeColor }};">
+                                                    <i class="las la-file-invoice-dollar fs-20"></i>
+                                                </div>
+                                                <span class="badge {{ $acc->is_active ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; {{ $acc->is_active ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}">
+                                                    {{ $acc->is_active ? 'Active' : 'Inactive' }}
+                                                </span>
+                                            </div>
+                                            <h6 class="mb-1 fw-bold fs-14" style="color: #000000; letter-spacing: -0.2px;">{{ $acc->name }}</h6>
+                                            <p class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4; min-height: 38px;">Code: {{ $acc->code }}</p>
                                         </div>
-                                        <p class="text-muted small mb-3">Code: {{ $acc->code }}</p>
-                                        <div class="d-flex justify-content-between align-items-center mt-auto pt-2 border-top border-light">
-                                            <h5 class="mb-0 fw-bold text-dark fs-16">₱{{ number_format($acc->balance, 2) }}</h5>
-                                            <span class="badge {{ $acc->is_active ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold">
-                                                {{ $acc->is_active ? 'Active' : 'Inactive' }}
-                                            </span>
+                                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                                            <span class="text-muted small" style="font-size: 0.72rem;">Balance</span>
+                                            <span class="fw-bold fs-14" style="color: #0f172a;">₱{{ number_format($acc->balance, 2) }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -113,7 +299,7 @@
     
     <!-- Cash on Hand Modal -->
     <div class="modal fade" id="cashOnHandModal" tabindex="-1" aria-labelledby="cashOnHandModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="cashOnHandModalLabel"><i class="las la-coins text-primary me-2 fs-20"></i>Cash on Hand - Sales Invoices Ledger</h5>
@@ -155,7 +341,7 @@
 
     <!-- Petty Cash Modal -->
     <div class="modal fade" id="pettyCashModal" tabindex="-1" aria-labelledby="pettyCashModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="pettyCashModalLabel"><i class="las la-cash-register text-primary me-2 fs-20"></i>Petty Cash Vouchers Ledger</h5>
@@ -201,7 +387,7 @@
 
     <!-- Supplies Expense Modal -->
     <div class="modal fade" id="suppliesExpenseModal" tabindex="-1" aria-labelledby="suppliesExpenseModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="suppliesExpenseModalLabel"><i class="las la-archive text-danger me-2 fs-20"></i>Office Supplies Expenses Breakdown</h5>
@@ -241,7 +427,7 @@
 
     <!-- Fixed Assets Expense Modal -->
     <div class="modal fade" id="fixedAssetsExpenseModal" tabindex="-1" aria-labelledby="fixedAssetsExpenseModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="fixedAssetsExpenseModalLabel"><i class="las la-tools text-danger me-2 fs-20"></i>Fixed Assets Expense Breakdown</h5>
@@ -288,7 +474,7 @@
 
     <!-- Operational Expenses Modal -->
     <div class="modal fade" id="operationalExpensesModal" tabindex="-1" aria-labelledby="operationalExpensesModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="operationalExpensesModalLabel"><i class="las la-file-invoice-dollar text-danger me-2 fs-20"></i>Operational Expenses Breakdown</h5>
@@ -328,7 +514,7 @@
 
     <!-- Bank Accounts Modal -->
     <div class="modal fade" id="bankAccountsModal" tabindex="-1" aria-labelledby="bankAccountsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="bankAccountsModalLabel"><i class="las la-university text-primary me-2 fs-20"></i>Bank Accounts Ledger</h5>
@@ -375,7 +561,7 @@
 
     <!-- Receivables Modal -->
     <div class="modal fade" id="receivablesModal" tabindex="-1" aria-labelledby="receivablesModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="receivablesModalLabel"><i class="las la-file-invoice-dollar text-primary me-2 fs-20"></i>Accounts Receivable - Statements of Account</h5>
@@ -427,7 +613,7 @@
 
     <!-- Inventory Modal -->
     <div class="modal fade" id="inventoryModal" tabindex="-1" aria-labelledby="inventoryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="inventoryModalLabel"><i class="las la-boxes text-primary me-2 fs-20"></i>Inventory Valuation (Finished Goods)</h5>
@@ -467,7 +653,7 @@
 
     <!-- Suppliers Modal -->
     <div class="modal fade" id="suppliersModal" tabindex="-1" aria-labelledby="suppliersModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-light border-0 py-3">
                     <h5 class="modal-title fw-bold text-dark" id="suppliersModalLabel"><i class="las la-truck text-primary me-2 fs-20"></i>Suppliers Payable - Purchase Orders</h5>
@@ -598,7 +784,7 @@
                 // Prev
                 const prevLi = document.createElement('li');
                 prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-                prevLi.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; margin-right: 4px; padding: 4px 8px; font-size: 0.75rem;">&laquo;</a>`;
+                prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
                 prevLi.querySelector('a').onclick = (e) => {
                     e.preventDefault();
                     if (currentPage > 1) showPage(currentPage - 1);
@@ -612,7 +798,7 @@
                             if (i === 2 || i === totalPages - 1) {
                                 const dotsLi = document.createElement('li');
                                 dotsLi.className = 'page-item disabled';
-                                dotsLi.innerHTML = '<span class="page-link" style="border: none; padding: 4px 8px; font-size: 0.75rem;">...</span>';
+                                dotsLi.innerHTML = '<span class="page-link">...</span>';
                                 ul.appendChild(dotsLi);
                             }
                             continue;
@@ -621,13 +807,7 @@
                     
                     const li = document.createElement('li');
                     li.className = `page-item ${currentPage === i ? 'active' : ''}`;
-                    
-                    let activeStyles = '';
-                    if (currentPage === i) {
-                        activeStyles = 'background-color: #D9251C; border-color: #D9251C; color: #fff;';
-                    }
-                    
-                    li.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; margin-right: 4px; padding: 4px 8px; font-size: 0.75rem; ${activeStyles}">${i}</a>`;
+                    li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
                     li.querySelector('a').onclick = (e) => {
                         e.preventDefault();
                         showPage(i);
@@ -638,7 +818,7 @@
                 // Next
                 const nextLi = document.createElement('li');
                 nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-                nextLi.innerHTML = `<a class="page-link" href="#" style="border-radius: 4px; padding: 4px 8px; font-size: 0.75rem;">&raquo;</a>`;
+                nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
                 nextLi.querySelector('a').onclick = (e) => {
                     e.preventDefault();
                     if (currentPage < totalPages) showPage(currentPage + 1);

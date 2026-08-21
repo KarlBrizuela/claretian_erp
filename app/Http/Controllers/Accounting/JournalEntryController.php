@@ -14,6 +14,8 @@ class JournalEntryController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
 
         $query = JournalEntry::with('creator');
 
@@ -24,6 +26,14 @@ class JournalEntryController extends Controller
                   ->orWhere('memo', 'like', "%{$search}%")
                   ->orWhere('entry_type', 'like', "%{$search}%");
             });
+        }
+
+        if ($dateFrom) {
+            $query->where('date', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->where('date', '<=', $dateTo);
         }
 
         $entries = $query->latest()->paginate(10)->withQueryString();

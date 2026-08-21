@@ -3811,8 +3811,8 @@ public function checkVoucher()
     {
         $user = auth()->user();
         
-        $dbCustomers = \App\Models\Customer::orderBy('customer_name')->get();
-        $customers = collect();
+        $dbCustomers = \App\Models\Customer::orderBy('customer_name')->paginate(10);
+        $customersList = collect();
 
         foreach ($dbCustomers as $cust) {
             $allOrders = \App\Models\SalesOrder::where('customer_id', $cust->customer_id)
@@ -3866,7 +3866,7 @@ public function checkVoucher()
             });
             $outstanding = $unpaidOrders->sum('total_amount') ?: 0.00;
 
-            $customers->push((object)[
+            $customersList->push((object)[
                 'customer_id' => $cust->customer_id,
                 'customer_name' => $cust->customer_name,
                 'company_name' => $cust->company_name ?: $cust->customer_name,
@@ -3888,11 +3888,13 @@ public function checkVoucher()
             ]);
         }
 
+        $dbCustomers->setCollection($customersList);
+
         return view('admin-finance.accounting.accounts-receivable', [
             'title' => 'Accounts Receivable Ledger',
             'role' => $user ? $user->position : 'Staff',
             'sidebar' => 'admin-finance',
-            'customers' => $customers,
+            'customers' => $dbCustomers,
         ]);
     }
 
