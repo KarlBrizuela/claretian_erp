@@ -268,9 +268,9 @@
                                      </button>
                                  </div>
                                  <div class="col-md-auto">
-                                      <a href="{{ route('marketing.sales-orders.create', ['source' => 'si']) }}" class="btn text-white fw-bold btn-sm shadow-sm" style="height: 38px; border-color: #28a745; background-color: #28a745; border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 14px; text-decoration: none;">
+                                      <button type="button" class="btn text-white fw-bold btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#createSalesOrderModal" style="height: 38px; border-color: #28a745; background-color: #28a745; border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 14px;">
                                           <i class="las la-plus-circle me-1" style="font-size: 1.1rem;"></i> Create
-                                      </a>
+                                      </button>
                                  </div>
                                 <div class="col-md-auto ms-auto d-flex align-items-center gap-3">
                                     <div class="d-flex align-items-center gap-2">
@@ -1764,6 +1764,426 @@
                 submitBtn.innerHTML = '<i class="las la-check-circle me-1"></i> Submit Payment';
             }
         });
+    });
+    </script>
+
+    <!-- Create Sales Order Modal (Matches official Sales Order UI) -->
+    <div class="modal fade" id="createSalesOrderModal" tabindex="-1" aria-labelledby="createSalesOrderModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header border-0 bg-white pb-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 pt-1" style="max-height: 82vh; overflow-y: auto;">
+                    <div class="card order-form border-0 p-0 shadow-none">
+                        <!-- Form Header -->
+                        <div class="form-header text-center mb-4 pb-3" style="border-bottom: 2px solid #e0e0e0;">
+                            <div class="company-info d-flex align-items-center justify-content-center gap-3 mb-2">
+                                <div class="company-logo" style="width: 55px; height: 55px; background: #ff0000; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.8rem; font-weight: bold;">C</div>
+                                <div class="company-details text-start">
+                                    <div class="company-name" style="font-size: 1.15rem; font-weight: 700; color: #333; text-transform: uppercase;">CLARETIAN COMMUNICATIONS FOUNDATION INC.</div>
+                                    <div class="company-address" style="font-size: 0.85rem; color: #666;">8 Mayumi St., UP Village, Diliman, Quezon City</div>
+                                    <div class="company-contact" style="font-size: 0.85rem; color: #666;">Tel. No.: 921-3984</div>
+                                </div>
+                            </div>
+                            <div class="document-title" style="font-size: 1.5rem; font-weight: 700; color: #333; letter-spacing: 1px; margin-top: 0.5rem;">SALES ORDER</div>
+                        </div>
+
+                        <form id="modalSoForm" action="{{ route('marketing.sales-orders.store') }}" method="POST" enctype="multipart/form-data">
+                            @csrf
+                            <input type="hidden" name="source" value="si">
+
+                            <!-- Customer and Order Details Grid -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="p-3 border rounded bg-light">
+                                        <h5 class="fw-bold text-dark mb-3" style="font-size: 0.95rem;">Customer Information</h5>
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Company: <span class="text-danger">*</span></label>
+                                            <select class="form-select form-select-sm" name="customer_id" id="modalCustomerSelect" required>
+                                                <option value="" selected disabled>Select Company...</option>
+                                                @foreach($customers as $customer)
+                                                    <option value="{{ $customer->customer_id }}"
+                                                        data-address="{{ $customer->shipping_address ?? $customer->billing_address ?? 'No address found' }}"
+                                                        data-customer-name="{{ $customer->customer_name ?? '' }}"
+                                                        data-phone="{{ $customer->mobile ?: ($customer->main_phone ?: ($customer->work_phone ?: '')) }}"
+                                                        data-representatives='@json($customer->representatives ?? [])'>
+                                                        {{ $customer->customer_name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Customer Name:</label>
+                                            <select class="form-select form-select-sm" name="customer_representative" id="modalCustomerRepSelect">
+                                                <option value="">Select Representative...</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Contact:</label>
+                                            <input type="text" class="form-control form-control-sm" name="customer_contact" id="modalCustomerContactInput" placeholder="Contact number...">
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Address:</label>
+                                            <textarea class="form-control form-control-sm" name="billing_address" id="modalBillingAddress" rows="2" placeholder="Customer address..."></textarea>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Transaction Type: <span class="text-danger">*</span></label>
+                                            <select class="form-select form-select-sm" name="type" id="modalTransactionType" required>
+                                                <option value="paid" selected>Paid Transaction</option>
+                                                <option value="charge">Charge Transaction</option>
+                                                <option value="area_consignment">Area Consignment</option>
+                                                <option value="area_sales_consignment">Area Sales Consignment</option>
+                                                <option value="direct_consignment">Direct Consignment</option>
+                                                <option value="foreign">Foreign Order</option>
+                                                <option value="complimentary">Complimentary</option>
+                                                <option value="cod">Due on Receipt (COD)</option>
+                                                <option value="evaluation">Evaluation</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2" id="modalAreaSalesStaffGroup" style="display: none;">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Area Sales Staff:</label>
+                                            <select class="form-select form-select-sm" name="area_sales_staff_id" id="modalAreaSalesStaffSelect">
+                                                <option value="" selected disabled>Select Area Sales Staff...</option>
+                                                @foreach($areaSalesStaff ?? [] as $staff)
+                                                    <option value="{{ $staff->id }}">{{ $staff->name }}{{ $staff->position ? ' - '.$staff->position : '' }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-0">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Remarks:</label>
+                                            <textarea class="form-control form-control-sm" name="remarks" rows="2" placeholder="Additional notes..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="p-3 border rounded bg-light">
+                                        <h5 class="fw-bold text-dark mb-3" style="font-size: 0.95rem;">Order Information</h5>
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Date:</label>
+                                            <input type="date" class="form-control form-control-sm bg-white" value="{{ date('Y-m-d') }}" readonly>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">S.O. #:</label>
+                                            <input type="text" class="form-control form-control-sm bg-white" name="so_number" value="SO-{{ date('Y') }}-{{ rand(1000,9999) }}" readonly>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Terms:</label>
+                                            <input type="text" class="form-control form-control-sm" name="terms" placeholder="e.g. 30 Days">
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">REF #:</label>
+                                            <input type="text" class="form-control form-control-sm" name="ref_number" placeholder="PO Reference...">
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Freight Option:</label>
+                                            <select class="form-select form-select-sm" name="freight_option" id="modalFreightOptionSelect">
+                                                <option value="">Select Freight Option</option>
+                                                <option value="freight_collect">Freight Collect</option>
+                                                <option value="freight_billing">Freight Billing</option>
+                                                <option value="bill_client">Bill Client</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2" id="modalForwarderGroup" style="display: none;">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Forwarder / Carrier:</label>
+                                            <input type="text" class="form-control form-control-sm" name="forwarder" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO)">
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">PO Attachment:</label>
+                                            <input type="file" class="form-control form-control-sm" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+                                        </div>
+
+                                        <div class="mb-0">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Proof of Payment Attachment:</label>
+                                            <input type="file" class="form-control form-control-sm" name="proof_of_payment" accept=".pdf,.jpg,.jpeg,.png">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Items Section -->
+                            <div class="mb-3">
+                                <button type="button" class="btn text-white fw-bold btn-sm mb-3 px-3 shadow-sm" id="modalAddItemBtn" style="background: #ff0000; border-color: #ff0000;">
+                                    <i class="las la-plus me-1"></i> Add Item
+                                </button>
+
+                                <div class="table-responsive">
+                                    <table class="table table-bordered align-middle mb-0" id="modalItemsTable" style="font-size: 12px; table-layout: fixed;">
+                                        <thead style="background: #ff0000; color: #ffffff;">
+                                            <tr>
+                                                <th style="width: 70px; color: #fff;">QTY</th>
+                                                <th style="width: 70px; color: #fff;">UNIT</th>
+                                                <th style="color: #fff;">DESCRIPTION / PRODUCT</th>
+                                                <th style="width: 110px; color: #fff;">ISBN</th>
+                                                <th style="width: 90px; color: #fff;">AREA</th>
+                                                <th style="width: 110px; color: #fff;">UNIT PRICE</th>
+                                                <th style="width: 120px; color: #fff;">DISCOUNT</th>
+                                                <th style="width: 110px; color: #fff;">AMOUNT</th>
+                                                <th style="width: 70px; color: #fff;" class="text-center">ACTION</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="modalItemsBody">
+                                            <!-- Dynamic Rows -->
+                                        </tbody>
+                                        <tfoot class="bg-light">
+                                            <tr>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase">Items Subtotal:</td>
+                                                <td class="text-end fw-bold fs-6 text-dark" id="modalSubtotalAmount">₱ 0.00</td>
+                                                <td></td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase">
+                                                    <div class="d-inline-flex align-items-center justify-content-end gap-2">
+                                                        <span>Discount:</span>
+                                                        <input type="number" step="any" min="0" name="discount_value" id="modalDiscountValue" class="form-control form-control-sm text-end" style="width: 90px;" value="0">
+                                                        <select name="discount_type" id="modalDiscountType" class="form-select form-select-sm" style="width: 80px;">
+                                                            <option value="amount">₱ (Amt)</option>
+                                                            <option value="percentage">% (Pct)</option>
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                                <td class="text-end fw-bold fs-6 text-danger" id="modalDiscountAmountDisplay">- ₱ 0.00</td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="modalServiceFeeTotalRow" style="display: none;">
+                                                <td colspan="7" class="text-end fw-bold text-uppercase">Service Fee:</td>
+                                                <td class="text-end fw-bold fs-6 text-dark">₱ 50.00</td>
+                                                <td></td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase">Total Amount:</td>
+                                                <td class="text-end fw-bold fs-5 text-success" id="modalGrandTotal">₱ 0.00</td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                                <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn text-white fw-bold px-4" style="background: #ff0000; border-color: #ff0000;">
+                                    <i class="las la-check me-1"></i> Create Sales Order
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const productsData = @json($products ?? []);
+        const itemsBody = document.getElementById('modalItemsBody');
+        const addItemBtn = document.getElementById('modalAddItemBtn');
+        const grandTotalEl = document.getElementById('modalGrandTotal');
+        const subtotalEl = document.getElementById('modalSubtotalAmount');
+        const discountValueInput = document.getElementById('modalDiscountValue');
+        const discountTypeSelect = document.getElementById('modalDiscountType');
+        const discountAmountDisplay = document.getElementById('modalDiscountAmountDisplay');
+        const freightOptionSelect = document.getElementById('modalFreightOptionSelect');
+        const forwarderGroup = document.getElementById('modalForwarderGroup');
+        const serviceFeeRow = document.getElementById('modalServiceFeeTotalRow');
+        const customerSelect = document.getElementById('modalCustomerSelect');
+        const repSelect = document.getElementById('modalCustomerRepSelect');
+        const contactInput = document.getElementById('modalCustomerContactInput');
+        const addressTextarea = document.getElementById('modalBillingAddress');
+        const transactionTypeSelect = document.getElementById('modalTransactionType');
+        const areaStaffGroup = document.getElementById('modalAreaSalesStaffGroup');
+
+        // Customer change auto-fill
+        if (customerSelect) {
+            customerSelect.addEventListener('change', function() {
+                const opt = this.options[this.selectedIndex];
+                const addr = opt.getAttribute('data-address');
+                const phone = opt.getAttribute('data-phone');
+                const repsRaw = opt.getAttribute('data-representatives');
+
+                if (addressTextarea) addressTextarea.value = (addr && addr !== 'No address found') ? addr : '';
+                if (contactInput) contactInput.value = phone || '';
+
+                if (repSelect) {
+                    repSelect.innerHTML = '<option value="">Select Representative...</option>';
+                    if (repsRaw) {
+                        try {
+                            const reps = JSON.parse(repsRaw);
+                            if (Array.isArray(reps)) {
+                                reps.forEach(r => {
+                                    const rName = r.name || r.rep_name;
+                                    if (rName) {
+                                        const o = document.createElement('option');
+                                        o.value = rName;
+                                        o.textContent = rName;
+                                        repSelect.appendChild(o);
+                                    }
+                                });
+                            }
+                        } catch(e) {}
+                    }
+                }
+            });
+        }
+
+        // Transaction Type change
+        if (transactionTypeSelect) {
+            transactionTypeSelect.addEventListener('change', function() {
+                const isAreaStaff = this.value === 'area_sales_consignment';
+                if (areaStaffGroup) areaStaffGroup.style.display = isAreaStaff ? '' : 'none';
+            });
+        }
+
+        // Freight Option change
+        if (freightOptionSelect) {
+            freightOptionSelect.addEventListener('change', function() {
+                const isCollect = this.value === 'freight_collect';
+                const hasFreight = !!this.value;
+                if (forwarderGroup) forwarderGroup.style.display = hasFreight ? '' : 'none';
+                if (serviceFeeRow) serviceFeeRow.style.display = isCollect ? '' : 'none';
+                calculateModalTotals();
+            });
+        }
+
+        function calculateModalTotals() {
+            let itemsSubtotal = 0;
+            if (itemsBody) {
+                itemsBody.querySelectorAll('tr').forEach(row => {
+                    const qty = parseFloat(row.querySelector('.item-qty')?.value || 0);
+                    const price = parseFloat(row.querySelector('.item-price')?.value || 0);
+                    const discVal = parseFloat(row.querySelector('.item-disc-val')?.value || 0);
+                    const discType = row.querySelector('.item-disc-type')?.value || 'percentage';
+
+                    const gross = qty * price;
+                    let discAmt = 0;
+                    if (discType === 'percentage') {
+                        discAmt = gross * (discVal / 100);
+                    } else {
+                        discAmt = discVal;
+                    }
+                    const rowSubtotal = Math.max(0, gross - discAmt);
+                    const amtCell = row.querySelector('.item-amount');
+                    if (amtCell) amtCell.textContent = '₱ ' + rowSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    itemsSubtotal += rowSubtotal;
+                });
+            }
+
+            if (subtotalEl) subtotalEl.textContent = '₱ ' + itemsSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const overallDiscVal = parseFloat(discountValueInput?.value || 0);
+            const overallDiscType = discountTypeSelect?.value || 'amount';
+            let overallDiscAmt = 0;
+            if (overallDiscType === 'percentage') {
+                overallDiscAmt = itemsSubtotal * (overallDiscVal / 100);
+            } else {
+                overallDiscAmt = overallDiscVal;
+            }
+
+            if (discountAmountDisplay) discountAmountDisplay.textContent = '- ₱ ' + overallDiscAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            let serviceFee = 0;
+            if (freightOptionSelect?.value === 'freight_collect') {
+                serviceFee = 50.00;
+            }
+
+            const grandTotal = Math.max(0, itemsSubtotal - overallDiscAmt + serviceFee);
+            if (grandTotalEl) grandTotalEl.textContent = '₱ ' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function addModalRow() {
+            if (!itemsBody) return;
+            const rowIndex = itemsBody.children.length;
+            const tr = document.createElement('tr');
+
+            let productOptions = '<option value="" selected disabled>Select Product...</option>';
+            productsData.forEach(p => {
+                productOptions += `<option value="${p.id}" data-price="${p.price}" data-isbn="${p.isbn || ''}" data-stock="${p.stock || 0}">${p.display_name} (Stock: ${p.stock || 0})</option>`;
+            });
+
+            tr.innerHTML = `
+                <td><input type="number" min="1" class="form-control form-control-sm item-qty text-center" name="items[${rowIndex}][quantity]" value="1" required style="border: 1px solid #ced4da;"></td>
+                <td><input type="text" class="form-control form-control-sm text-center" name="items[${rowIndex}][unit]" value="pcs" style="border: 1px solid #ced4da;"></td>
+                <td>
+                    <select class="form-select form-select-sm item-product" name="items[${rowIndex}][product_id]" required style="border: 1px solid #ced4da;">
+                        ${productOptions}
+                    </select>
+                </td>
+                <td><input type="text" class="form-control form-control-sm item-isbn bg-light text-center" readonly style="border: 1px solid #ced4da;"></td>
+                <td><input type="text" class="form-control form-control-sm text-center" name="items[${rowIndex}][area]" placeholder="Area" style="border: 1px solid #ced4da;"></td>
+                <td><input type="number" step="0.01" min="0" class="form-control form-control-sm item-price text-end" name="items[${rowIndex}][price]" value="0.00" required style="border: 1px solid #ced4da;"></td>
+                <td>
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="number" step="any" min="0" class="form-control form-control-sm item-disc-val text-end" name="items[${rowIndex}][discount_value]" value="0" style="border: 1px solid #ced4da; width: 55px;">
+                        <select class="form-select form-select-sm item-disc-type p-1" name="items[${rowIndex}][discount_type]" style="border: 1px solid #ced4da; width: 45px; font-size: 10px;">
+                            <option value="percentage">%</option>
+                            <option value="amount">₱</option>
+                        </select>
+                    </div>
+                </td>
+                <td class="text-end fw-bold item-amount">₱ 0.00</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm text-white remove-row-btn p-1" style="background: #ff0000; border-radius: 4px;"><i class="las la-trash"></i></button>
+                </td>
+            `;
+
+            itemsBody.appendChild(tr);
+
+            const prodSelect = tr.querySelector('.item-product');
+            const priceInput = tr.querySelector('.item-price');
+            const qtyInput = tr.querySelector('.item-qty');
+            const isbnInput = tr.querySelector('.item-isbn');
+            const discValInput = tr.querySelector('.item-disc-val');
+            const discTypeSelect = tr.querySelector('.item-disc-type');
+            const removeBtn = tr.querySelector('.remove-row-btn');
+
+            if (prodSelect) {
+                prodSelect.addEventListener('change', function() {
+                    const selectedOpt = prodSelect.options[prodSelect.selectedIndex];
+                    const defaultPrice = selectedOpt.getAttribute('data-price') || 0;
+                    const isbn = selectedOpt.getAttribute('data-isbn') || '';
+                    if (priceInput) priceInput.value = parseFloat(defaultPrice).toFixed(2);
+                    if (isbnInput) isbnInput.value = isbn;
+                    calculateModalTotals();
+                });
+            }
+
+            if (qtyInput) qtyInput.addEventListener('input', calculateModalTotals);
+            if (priceInput) priceInput.addEventListener('input', calculateModalTotals);
+            if (discValInput) discValInput.addEventListener('input', calculateModalTotals);
+            if (discTypeSelect) discTypeSelect.addEventListener('change', calculateModalTotals);
+
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    tr.remove();
+                    calculateModalTotals();
+                });
+            }
+
+            calculateModalTotals();
+        }
+
+        if (discountValueInput) discountValueInput.addEventListener('input', calculateModalTotals);
+        if (discountTypeSelect) discountTypeSelect.addEventListener('change', calculateModalTotals);
+
+        if (addItemBtn) {
+            addItemBtn.addEventListener('click', addModalRow);
+            if (itemsBody && itemsBody.children.length === 0) {
+                addModalRow();
+            }
+        }
     });
     </script>
 </x-app-layout>

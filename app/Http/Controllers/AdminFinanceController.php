@@ -1389,6 +1389,12 @@ public function checkVoucher()
         return $type === 'ecom_direct' || str_contains($si->transaction_type ?? '', 'ecom');
     })->sortByDesc('id')->values();
 
+    $customers = \App\Models\Customer::orderBy('customer_name')->get();
+    $userTeam = auth()->user()->sales_team ?? null;
+    $mktController = app(\App\Http\Controllers\MarketingController::class);
+    $products = $mktController->getUnifiedProducts($userTeam);
+    $areaSalesStaff = \App\Models\User::where('department', 'Area Sales')->get();
+
     return view('admin-finance.accounting.sales-invoice', [
       'title' => 'Sales Invoice Management',
       'role' => 'Finance Manager',
@@ -1396,7 +1402,11 @@ public function checkVoucher()
       'normalOrders' => $normalOrders,
       'ecomOrders' => $ecomOrders,
       'completedSIs' => $completedNormalSIs,
-      'completedEcomSIs' => $completedEcomSIs
+      'completedEcomSIs' => $completedEcomSIs,
+      'customers' => $customers,
+      'products' => $products,
+      'areaSalesStaff' => $areaSalesStaff,
+      'userTeam' => $userTeam
     ]);
   }
 
