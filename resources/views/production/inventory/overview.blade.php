@@ -1,4 +1,4 @@
-<x-app-layout :title="'Inventory Overview'" :sidebar="'production'">
+<x-app-layout :title="'Inventory Overview'" :sidebar="$sidebar ?? 'production'" :role="$role ?? 'User Role'">
 @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">

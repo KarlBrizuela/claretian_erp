@@ -1,66 +1,66 @@
 <x-app-layout :title="'Make General Journal Entries'" :sidebar="'admin-finance'">
     <div class="row">
         <div class="col-xl-12 col-lg-12">
-            <div class="card journal-form-card">
-                <div class="card-header border-0 pb-0">
-                    <h4 class="fs-20 mb-0 text-black">Make General Journal Entries</h4>
+            <div class="card shadow-sm border-0" style="border-radius: 6px; border: 1px solid #e2e8f0; background: #ffffff;">
+                <div class="card-header border-0 bg-white pt-3 pb-1 px-3">
+                    <h4 class="card-title mb-0 fw-bold fs-18" style="color: #000000;">Make General Journal Entries</h4>
+                    <p class="text-muted small mb-0 mt-1">Record manual debit and credit transactions to the general ledger.</p>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-3">
                     <form action="{{ route('accounting.journal.store') }}" method="POST" id="journalEntryForm">
                         @csrf
                         
-                        <div class="journal-header mb-4">
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <div class="form-group mb-3">
+                        <div class="journal-header mb-3">
+                            <div class="row g-2">
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="form-group mb-2">
                                         <label class="form-label">CURRENCY</label>
-                                        <select class="form-control default-select" name="currency" id="journalCurrency">
+                                        <select class="form-control form-select-sm" name="currency" id="journalCurrency" style="height: 36px; border-color: #cbd5e1; font-size: 0.85rem; border-radius: 4px;">
                                             <option value="PHP" {{ old('currency', 'PHP') == 'PHP' ? 'selected' : '' }}>Philippine peso</option>
                                             <option value="USD" {{ old('currency') == 'USD' ? 'selected' : '' }}>US Dollar</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <div class="form-group mb-3">
+                                <div class="col-md-2 col-sm-6">
+                                    <div class="form-group mb-2">
                                         <label class="form-label">DATE</label>
-                                        <input type="date" name="date" class="form-control" value="{{ old('date', date('Y-m-d')) }}" required>
+                                        <input type="date" name="date" class="form-control" value="{{ old('date', date('Y-m-d')) }}" required style="height: 36px; border-color: #cbd5e1; font-size: 0.85rem; border-radius: 4px;">
                                     </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <div class="form-group mb-3">
+                                <div class="col-md-2 col-sm-6">
+                                    <div class="form-group mb-2">
                                         <label class="form-label">ENTRY NO.</label>
-                                        <input type="text" name="entry_no" class="form-control" value="{{ $entryNo }}" required>
+                                        <input type="text" name="entry_no" class="form-control" value="{{ $entryNo }}" required style="height: 36px; border-color: #cbd5e1; font-size: 0.85rem; border-radius: 4px;">
                                     </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <div class="form-group mb-3">
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="form-group mb-2">
                                         <label class="form-label">REFERENCE NO.</label>
-                                        <input type="text" name="reference" class="form-control" value="{{ old('reference') }}" placeholder="Ref / Cheque / Doc No.">
+                                        <input type="text" name="reference" class="form-control" value="{{ old('reference') }}" placeholder="Ref / Cheque / Doc No." style="height: 36px; border-color: #cbd5e1; font-size: 0.85rem; border-radius: 4px;">
                                     </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <div class="form-group mb-3">
+                                <div class="col-md-2 col-sm-12">
+                                    <div class="form-group mb-2">
                                         <label class="form-label">EXCHANGE RATE</label>
-                                        <input type="number" step="0.0001" name="exchange_rate" id="journalExchangeRate" class="form-control" value="{{ old('exchange_rate', '1.0000') }}" readonly>
+                                        <input type="number" step="0.0001" name="exchange_rate" id="journalExchangeRate" class="form-control" value="{{ old('exchange_rate', '1.0000') }}" readonly style="height: 36px; border-color: #cbd5e1; font-size: 0.85rem; background-color: #f1f5f9; border-radius: 4px;">
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="table-responsive journal-table-wrapper">
-                            <table class="table journal-table" id="journalItemsTable">
+                        <div class="table-responsive journal-table-wrapper" style="border: none;">
+                            <table class="table journal-table table-align-middle" id="journalItemsTable" style="margin-bottom: 0;">
                                 <thead>
                                     <tr>
-                                        <th style="width: 250px;">ACCOUNT</th>
-                                        <th style="width: 150px;">DEBIT</th>
-                                        <th style="width: 150px;">CREDIT</th>
+                                        <th style="width: 320px;">ACCOUNT</th>
+                                        <th style="width: 150px; text-align: right;">DEBIT</th>
+                                        <th style="width: 150px; text-align: right;">CREDIT</th>
                                         <th>MEMO</th>
-                                        <!-- <th style="width: 200px;">NAME</th> -->
                                         <th style="width: 50px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="journalItemsBody">
-                                    @for($i = 0; $i < 1; $i++)
+                                    @for($i = 0; $i < 2; $i++)
                                     <tr class="journal-row">
                                         <td>
                                             <select name="items[{{ $i }}][account_id]" class="form-control select2-account">
@@ -79,55 +79,53 @@
                                         <td>
                                             <input type="text" name="items[{{ $i }}][memo]" class="form-control" placeholder="Memo">
                                         </td>
-                                        <!--
-                                        <td>
-                                            <select name="items[{{ $i }}][name]" class="form-control select2-name">
-                                                <option value="">Customer/Vendor</option>
-                                                @foreach($names as $name)
-                                                <option value="{{ $name }}">{{ $name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        -->
                                         <td class="text-center">
-                                            <a href="javascript:void(0)" class="text-danger remove-row"><i class="las la-times-circle fs-20"></i></a>
+                                            <button type="button" class="remove-row d-inline-flex align-items-center justify-content-center" style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.15); color: #ef4444; width: 28px; height: 28px; border-radius: 4px; transition: all 0.15s ease-in-out; padding: 0;" title="Remove row">
+                                                <i class="las la-trash fs-14"></i>
+                                            </button>
                                         </td>
                                     </tr>
                                     @endfor
                                 </tbody>
                                 <tfoot>
                                     <tr class="total-row">
-                                        <td class="text-end font-w600">Totals</td>
-                                        <td class="text-end font-w600" id="totalDebit">0.00</td>
-                                        <td class="text-end font-w600" id="totalCredit">0.00</td>
+                                        <td class="text-end fw-bold" style="color: #475569;">Totals</td>
+                                        <td class="text-end fw-bold" id="totalDebit" style="color: #ef4444; padding-right: 12px;">0.00</td>
+                                        <td class="text-end fw-bold" id="totalCredit" style="color: #ef4444; padding-right: 12px;">0.00</td>
                                         <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
 
-                        <div class="mt-3">
-                            <button type="button" id="addRowBtn" class="btn btn-primary rounded shadow-sm p-0 px-5 d-flex align-items-center justify-content-center" style="background: #ff0000; color: #ffffff; border: none; height: 35px;">
-                                <i class="las la-plus"></i>Add Line
+                        <div class="mt-2">
+                            <button type="button" id="addRowBtn" class="btn btn-sm text-white fw-bold px-3 d-flex align-items-center justify-content-center" style="background-color: #D9251C; border-color: #D9251C; height: 32px; border-radius: 4px; font-size: 0.82rem;">
+                                <i class="las la-plus me-1"></i>Add Line
                             </button>
                         </div>
 
-                        <div class="row mt-4">
-                            <div class="col-md-6">
+                        <div class="row mt-3">
+                            <div class="col-md-6 col-sm-12">
                                 <div class="form-group">
                                     <label class="form-label">GENERAL MEMO</label>
-                                    <textarea name="memo" class="form-control" rows="3" placeholder="Enter transaction memo..."></textarea>
+                                    <textarea name="memo" class="form-control" rows="2" placeholder="Enter transaction memo..." style="border-color: #cbd5e1; font-size: 0.85rem; border-radius: 4px;"></textarea>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-actions mt-4 d-flex justify-content-between">
+                        <div class="form-actions mt-3 d-flex justify-content-between align-items-center border-top pt-3">
                             <div>
-                                <a href="{{ route('accounting.journal.index') }}" class="btn btn-light rounded shadow-sm px-4 d-flex align-items-center justify-content-center" style="height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important;">Back to List</a>
+                                <a href="{{ route('accounting.journal.index') }}" class="btn d-inline-flex align-items-center justify-content-center fw-bold" style="background-color: #ffffff; border: 1px solid #cbd5e1; color: #475569; height: 36px; padding: 0 1.25rem; border-radius: 4px; font-size: 0.85rem; text-decoration: none;">
+                                    Back to List
+                                </a>
                             </div>
                             <div class="d-flex gap-2">
-                                <button type="reset" class="btn btn-warning rounded text-white shadow-sm px-4 d-flex align-items-center justify-content-center" style="height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important; border: none;">Clear</button>
-                                <button type="submit" class="btn btn-primary rounded shadow-sm px-5 d-flex align-items-center justify-content-center" style="background: #ff0000; color: #ffffff; border: none; height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important;">Save & Close</button>
+                                <button type="reset" class="btn d-inline-flex align-items-center justify-content-center fw-bold" style="background-color: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; height: 36px; padding: 0 1.25rem; border-radius: 4px; font-size: 0.85rem;">
+                                    Clear Form
+                                </button>
+                                <button type="submit" class="btn text-white fw-bold px-4 d-inline-flex align-items-center justify-content-center" style="background-color: #D9251C; border-color: #D9251C; height: 36px; padding: 0 1.5rem; border-radius: 4px; font-size: 0.85rem;">
+                                    Save & Close
+                                </button>
                             </div>
                         </div>
                     </form>
@@ -139,73 +137,102 @@
     @push('styles')
     <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
-        .journal-form-card {
-            background: #f8faff;
-            border: 1px solid #d4e3ff;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        .form-label {
+            font-weight: 700;
+            color: #475569;
+            font-size: 0.68rem;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
         }
 
-        .journal-table thead th {
-            background: #e9efff;
-            color: #2c3e50;
+        .journal-table th {
+            background-color: #f8fafc;
+            color: #475569;
             font-weight: 700;
             text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 0.5px;
-            border: 1px solid #d0d9e8;
-            padding: 10px;
+            font-size: 0.72rem;
+            letter-spacing: 0.8px;
+            padding: 10px 8px;
+            border-bottom: 2px solid #e2e8f0;
         }
 
         .journal-table td {
-            padding: 5px;
-            border: 1px solid #e1e8f0;
+            padding: 4px 6px;
+            border-bottom: 1px solid #f1f5f9;
             vertical-align: middle;
         }
 
         .journal-table .form-control {
-            border: none;
-            background: transparent;
-            padding: 8px;
-            font-size: 13px;
+            border: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+            padding: 4px 8px;
+            font-size: 0.82rem;
+            border-radius: 4px;
+            height: 32px;
+            transition: all 0.15s ease-in-out;
         }
 
         .journal-table .form-control:focus {
-            background: #fff;
-            box-shadow: inset 0 0 0 1px #3a7afe;
-        }
-
-        .journal-row:nth-child(even) {
-            background-color: #fcfdff;
-        }
-
-        .journal-row:hover {
-            background-color: #f2f7ff;
+            background-color: #ffffff;
+            border-color: #D9251C;
+            box-shadow: 0 0 0 2px rgba(217, 37, 28, 0.1);
         }
 
         .total-row td {
-            background: #f1f4f9;
-            color: #2c3e50;
-            padding: 12px;
-            font-size: 14px;
+            background-color: #f8fafc;
+            padding: 10px 8px;
+            border-bottom: 2px solid #e2e8f0;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.85rem;
         }
 
-        .form-label {
-            font-weight: 700;
-            color: #555;
-            font-size: 11px;
-            margin-bottom: 5px;
-        }
-
-        .btn-save {
-            background: #3a7afe;
-            border-color: #3a7afe;
-            font-weight: 600;
-        }
-
-        /* Select2 Accounting Style */
+        /* Select2 Theme Customizations */
         .select2-container--default .select2-selection--single {
-            border: none;
-            background: transparent;
+            border: 1px solid #e2e8f0 !important;
+            background-color: #f8fafc !important;
+            height: 32px !important;
+            border-radius: 4px !important;
+            display: flex;
+            align-items: center;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default .select2-selection--single:focus {
+            background-color: #ffffff !important;
+            border-color: #D9251C !important;
+            box-shadow: 0 0 0 2px rgba(217, 37, 28, 0.1) !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 32px !important;
+            padding-left: 8px !important;
+            font-size: 0.82rem !important;
+            color: #0f172a !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 30px !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__placeholder {
+            color: #94a3b8 !important;
+            opacity: 0.7 !important;
+        }
+
+        /* Subtler placeholders for all input fields */
+        ::placeholder {
+            color: #94a3b8 !important;
+            opacity: 0.7 !important;
+        }
+        :-ms-input-placeholder {
+            color: #94a3b8 !important;
+            opacity: 0.7 !important;
+        }
+        ::-ms-input-placeholder {
+            color: #94a3b8 !important;
+            opacity: 0.7 !important;
         }
     </style>
     @endpush
@@ -240,19 +267,6 @@
                             }
                         });
                     }
-
-                    const targetName = element ? $(element).find('.select2-name') : $('.select2-name');
-                    if (targetName.length && typeof targetName.select2 === 'function') {
-                        targetName.each(function() {
-                            if (!$(this).hasClass("select2-hidden-accessible")) {
-                                $(this).select2({
-                                    placeholder: "Customer/Vendor",
-                                    allowClear: true,
-                                    width: '100%'
-                                });
-                            }
-                        });
-                    }
                 } catch (e) {
                     console.warn('Select2 initialization failed:', e);
                 }
@@ -274,20 +288,23 @@
                 $('#totalCredit').text(totalCredit.toLocaleString(undefined, {minimumFractionDigits: 2}));
 
                 if (Math.abs(totalDebit - totalCredit) < 0.01 && totalDebit > 0) {
-                    $('#totalDebit, #totalCredit').removeClass('text-danger').addClass('text-success');
+                    $('#totalDebit, #totalCredit').css('color', '#16803d');
                 } else {
-                    $('#totalDebit, #totalCredit').addClass('text-danger').removeClass('text-success');
+                    $('#totalDebit, #totalCredit').css('color', '#D9251C');
                 }
             }
 
-            // Attach listeners early to avoid being blocked by crashes
+            // Remove Row Listener
             $(document).on('click', '.remove-row', function() {
                 if ($('.journal-row').length > 1) {
                     $(this).closest('tr').remove();
                     calculateTotals();
+                } else {
+                    showNotification('A journal entry must contain at least 1 transaction line.', 'error');
                 }
             });
 
+            // Add Row Listener
             $('#addRowBtn').on('click', function() {
                 const newRow = `
                     <tr class="journal-row">
@@ -308,18 +325,10 @@
                         <td>
                             <input type="text" name="items[${rowIdx}][memo]" class="form-control" placeholder="Memo">
                         </td>
-                        <!--
-                        <td>
-                            <select name="items[${rowIdx}][name]" class="form-control select2-name">
-                                <option value="">Customer/Vendor</option>
-                                @foreach($names as $name)
-                                <option value="{{ $name }}">{{ $name }}</option>
-                                @endforeach
-                            </select>
-                        </td>
-                        -->
                         <td class="text-center">
-                            <a href="javascript:void(0)" class="text-danger remove-row"><i class="las la-times-circle fs-20"></i></a>
+                            <button type="button" class="remove-row d-inline-flex align-items-center justify-content-center" style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.15); color: #ef4444; width: 28px; height: 28px; border-radius: 4px; transition: all 0.15s ease-in-out; padding: 0;" title="Remove row">
+                                <i class="las la-trash fs-14"></i>
+                            </button>
                         </td>
                     </tr>
                 `;
@@ -329,10 +338,12 @@
                 rowIdx++;
             });
 
+            // Calculate totals dynamically on inputs
             $(document).on('input', '.debit-input, .credit-input', function() {
                 calculateTotals();
             });
 
+            // Form Submit validation
             $('#journalEntryForm').on('submit', function(e) {
                 const totalDebit = parseFloat($('#totalDebit').text().replace(/,/g, '')) || 0;
                 const totalCredit = parseFloat($('#totalCredit').text().replace(/,/g, '')) || 0;
@@ -346,16 +357,18 @@
                 }
             });
 
+            // Currency exchange rate toggler
             $('#journalCurrency').on('change', function() {
                 if ($(this).val() === 'USD') {
-                    $('#journalExchangeRate').prop('readonly', false);
+                    $('#journalExchangeRate').prop('readonly', false).css('background-color', '#ffffff');
                 } else {
-                    $('#journalExchangeRate').val('1.0000').prop('readonly', true);
+                    $('#journalExchangeRate').val('1.0000').prop('readonly', true).css('background-color', '#f1f5f9');
                 }
             });
 
-            // Final initialization
+            // Initial Calculations and Select2 calls
             initSelect2();
+            calculateTotals();
         });
     </script>
     @endpush

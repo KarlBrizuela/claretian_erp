@@ -163,7 +163,7 @@
 		</a>
 		<div class="modern-nav-submenu">
 			@if($user->hasPermission('marketing.ecom.pos'))
-			<a href="{{ route('marketing.ecom.pos') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.ecom.pos') ? 'active' : '' }}">E-Commerce POS</a>
+			<a href="{{ route('marketing.ecom.pos') }}" class="modern-nav-subitem {{ request()->routeIs('marketing.ecom.pos') ? 'active' : '' }}">MIBF POS</a>
 			@endif
 		</div>
 	</div>

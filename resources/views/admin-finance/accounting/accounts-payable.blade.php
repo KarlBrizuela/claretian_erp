@@ -158,19 +158,205 @@
         .cat-services { background-color: #ecfeff; color: #0e7490; }
         .cat-default { background-color: #f1f5f9; color: #475569; }
 
-        .table-custom-header thead th {
+        /* Container Real Estate Extension */
+        .content-body .container-fluid {
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+            max-width: 100% !important;
+        }
+
+        /* Modern Table Designs */
+        #suppliersTable th, .tab-pane table.table-hover thead th, .tab-pane table.table-custom-header thead th {
             background-color: #f8fafc !important;
             color: #475569 !important;
-            font-size: 0.725rem !important;
             font-weight: 700 !important;
             text-transform: uppercase !important;
+            font-size: 0.72rem !important;
+            letter-spacing: 0.8px !important;
+            padding: 12px 16px !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+            border-top: none !important;
+        }
+
+        #suppliersTable td, .tab-pane table.table-hover tbody td, .tab-pane table.table-custom-header tbody td {
+            padding: 12px 16px !important;
+            font-size: 0.84rem !important;
+            color: #475569 !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            vertical-align: middle !important;
+        }
+
+        #suppliersTable tbody tr, .tab-pane table.table-hover tbody tr {
+            transition: all 0.15s ease-in-out !important;
+        }
+
+        #suppliersTable tbody tr:hover, .tab-pane table.table-hover tbody tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        /* Custom pagination overrides */
+        .pagination .page-item.active .page-link {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15) !important;
+        }
+
+        .pagination .page-link {
+            color: #475569;
+            border-color: #cbd5e1;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            border-color: #cbd5e1;
+        }
+
+        /* Custom Segmented Pills above Card */
+        .custom-ap-pills {
+            gap: 8px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .custom-ap-pills .nav-item {
+            margin-bottom: 4px;
+        }
+
+        .custom-ap-pills .nav-link {
+            background-color: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #475569 !important;
+            font-weight: 600 !important;
+            font-size: 0.82rem !important;
+            border-radius: 6px !important;
+            padding: 8px 16px !important;
+            transition: all 0.15s ease-in-out !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            display: flex;
+            align-items: center;
+        }
+
+        .custom-ap-pills .nav-link:hover {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        .custom-ap-pills .nav-link.active {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15) !important;
+        }
+
+        .custom-ap-pills .nav-link .badge {
+            font-size: 0.72rem !important;
+            padding: 3px 6px !important;
+            background-color: #f1f5f9 !important;
+            color: #475569 !important;
+        }
+
+        .custom-ap-pills .nav-link.active .badge {
+            background-color: rgba(255, 255, 255, 0.2) !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+        }
+
+        /* Ensure table header Action is centered and matches content */
+        .table th.text-center, .table td.text-center {
+            text-align: center !important;
+            vertical-align: middle !important;
+        }
+
+        /* Modal Tabs & Details overrides */
+        .modal-tabs .nav-link {
+            border: none;
+            color: #475569;
+            font-weight: 600;
+            padding: 10px 16px;
+            font-size: 0.8rem;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .modal-tabs .nav-link:hover {
+            color: #0f172a;
+            background-color: #f8fafc;
+        }
+
+        .modal-tabs .nav-link.active {
+            color: #D9251C;
+            border-bottom: 2px solid #D9251C;
+            background: transparent;
+        }
+
+        .modal-body table.table-borderless td {
+            padding: 8px 0 !important;
+            border: none !important;
+            background: transparent !important;
+        }
+
+        .modal-content {
+            border-radius: 12px !important;
+            border: none !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .modal-header {
+            background-color: #ffffff !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            padding: 16px 24px !important;
+        }
+
+        .modal-header .modal-title {
+            font-size: 0.95rem !important;
+            font-weight: 700 !important;
+            color: #000000 !important;
+        }
+
+        /* Modal Form styling overrides */
+        .modal-body label.form-label {
+            color: #475569 !important;
+            font-weight: 600 !important;
+            font-size: 0.72rem !important;
+            text-transform: uppercase !important;
             letter-spacing: 0.5px !important;
-            border-bottom: 1px solid #e2e8f0 !important;
+            margin-bottom: 6px !important;
+        }
+
+        .modal-body .form-control,
+        .modal-body .form-select {
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 6px !important;
+            font-size: 13px !important;
+            padding: 8px 12px !important;
+            color: #000000 !important;
+            background-color: #ffffff !important;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+        }
+
+        .modal-body .form-control:focus,
+        .modal-body .form-select:focus {
+            border-color: #D9251C !important;
+            box-shadow: 0 0 0 0.2rem rgba(217, 37, 28, 0.15) !important;
+            outline: 0 !important;
+        }
+
+        .modal-footer {
+            border-top: 1px solid #f1f5f9 !important;
+            background-color: #f8fafc !important;
+            padding: 14px 24px !important;
         }
     </style>
     @endpush
 
-    <div class="container-fluid">
+    <div class="container-fluid p-0">
         @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
             <i class="las la-check-circle me-2 fs-18"></i> {{ session('success') }}
@@ -178,20 +364,16 @@
         </div>
         @endif
 
-        <!-- Clean Compact Title Header -->
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-            <div>
-                <h4 class="fs-22 mb-1 fw-bold text-dark"><i class="las la-wallet me-2 text-danger"></i>Accounts Payable Ledger</h4>
-                <p class="text-muted small mb-0">Manage supplier directory, purchase orders, invoices, settlements, and EWT tax tracking.</p>
-            </div>
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <button class="btn btn-ap-outline d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+        <!-- Action Buttons Bar -->
+        <div class="row mb-4">
+            <div class="col-12 d-flex flex-wrap justify-content-end align-items-center gap-2">
+                <button class="btn btn-ap-outline d-flex align-items-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addSupplierModal" style="height: 38px;">
                     <i class="las la-plus-circle fs-16"></i> Add Supplier
                 </button>
-                <button class="btn btn-ap-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addInvoiceModal">
+                <button class="btn btn-ap-primary d-flex align-items-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addInvoiceModal" style="height: 38px;">
                     <i class="las la-file-invoice-dollar fs-16"></i> Record Invoice
                 </button>
-                <button class="btn btn-ap-success d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                <button class="btn btn-ap-success d-flex align-items-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal" style="height: 38px;">
                     <i class="las la-money-check-alt fs-16"></i> Record Payment
                 </button>
             </div>
@@ -248,54 +430,85 @@
         <!-- Master Tabs & Content -->
         <div class="row">
             <div class="col-12">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0 !important;">
-                    <div class="card-header bg-white border-0 pt-3 pb-0 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
-                        <ul class="nav nav-tabs ap-nav-tabs mb-0" id="apTab" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="suppliers-tab" data-bs-toggle="tab" data-bs-target="#suppliers-pane" type="button" role="tab">
-                                    <i class="las la-truck me-1 fs-18"></i> Suppliers Directory
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="invoices-tab" data-bs-toggle="tab" data-bs-target="#invoices-pane" type="button" role="tab">
-                                    <i class="las la-file-invoice-dollar me-1 fs-18"></i> Invoices & Due Dates <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $invoices->count() }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments-pane" type="button" role="tab">
-                                    <i class="las la-money-check-alt me-1 fs-18"></i> Payments <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $payments->count() }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="po-tab" data-bs-toggle="tab" data-bs-target="#po-pane" type="button" role="tab">
-                                    <i class="las la-shopping-cart me-1 fs-18"></i> Purchase Orders <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $purchaseOrders->count() }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="rr-tab" data-bs-toggle="tab" data-bs-target="#rr-pane" type="button" role="tab">
-                                    <i class="las la-boxes me-1 fs-18"></i> Receiving Reports <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $receivingReports->count() }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="ewt-tab" data-bs-toggle="tab" data-bs-target="#ewt-pane" type="button" role="tab">
-                                    <i class="las la-calculator me-1 fs-18"></i> Withholding Tax
-                                </button>
-                            </li>
-                        </ul>
+                <!-- Navigation Tabs outside Card (Pill Switcher) -->
+                <ul class="nav nav-pills custom-ap-pills mb-3" id="apTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="suppliers-tab" data-bs-toggle="tab" data-bs-target="#suppliers-pane" type="button" role="tab">
+                            <i class="las la-truck me-1 fs-18"></i> Suppliers Directory
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="invoices-tab" data-bs-toggle="tab" data-bs-target="#invoices-pane" type="button" role="tab">
+                            <i class="las la-file-invoice-dollar me-1 fs-18"></i> Invoices & Due Dates <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $invoices->count() }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments-pane" type="button" role="tab">
+                            <i class="las la-money-check-alt me-1 fs-18"></i> Payments <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $payments->count() }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="po-tab" data-bs-toggle="tab" data-bs-target="#po-pane" type="button" role="tab">
+                            <i class="las la-shopping-cart me-1 fs-18"></i> Purchase Orders <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $purchaseOrders->count() }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="rr-tab" data-bs-toggle="tab" data-bs-target="#rr-pane" type="button" role="tab">
+                            <i class="las la-boxes me-1 fs-18"></i> Receiving Reports <span class="badge bg-light text-muted border rounded-pill ms-1">{{ $receivingReports->count() }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="ewt-tab" data-bs-toggle="tab" data-bs-target="#ewt-pane" type="button" role="tab">
+                            <i class="las la-calculator me-1 fs-18"></i> Withholding Tax
+                        </button>
+                    </li>
+                </ul>
 
-                        <!-- Compact Category Dropdown Filter -->
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <span class="text-muted small fw-bold text-nowrap"><i class="las la-filter me-1"></i>Category:</span>
-                            <select class="form-select form-select-sm shadow-none" style="width: 180px; font-size: 0.8125rem; border-radius: 6px;" onchange="location = this.value;">
-                                <option value="{{ route('admin-finance.accounting.accounts-payable', ['category' => 'All']) }}" {{ $selectedCategory == 'All' ? 'selected' : '' }}>All Categories</option>
-                                @foreach($categories as $cat)
-                                <option value="{{ route('admin-finance.accounting.accounts-payable', ['category' => $cat]) }}" {{ $selectedCategory == $cat ? 'selected' : '' }}>{{ $cat }}</option>
-                                @endforeach
-                            </select>
+                <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0 !important; height: auto !important; overflow: hidden; max-width: 100%;">
+                    <div class="card-header bg-white border-0 pt-3 pb-2 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 border-bottom" style="border-bottom: 1px solid #f1f5f9 !important;">
+                        <h5 class="mb-0 fw-bold text-dark fs-16" id="ap-active-tab-title"><i class="las la-truck me-2 text-danger"></i>Suppliers Directory</h5>
+
+                        <!-- Left & Right filters wrapper -->
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <!-- Category Filter Form -->
+                            <form method="GET" action="{{ route('admin-finance.accounting.accounts-payable') }}" class="d-flex align-items-center gap-2">
+                                @if(request('search'))
+                                    <input type="hidden" name="search" value="{{ request('search') }}">
+                                @endif
+                                <span class="text-muted small fw-bold text-nowrap"><i class="las la-filter me-1"></i>Category:</span>
+                                <select name="category" class="form-select form-select-sm shadow-none" style="width: 160px; font-size: 0.8125rem; border-radius: 6px; height: 38px; border-color: #cbd5e1;" onchange="this.form.submit();">
+                                    <option value="All" {{ $selectedCategory == 'All' ? 'selected' : '' }}>All Categories</option>
+                                    @foreach($categories as $cat)
+                                    <option value="{{ $cat }}" {{ $selectedCategory == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                                    @endforeach
+                                </select>
+                            </form>
+
+                            <!-- Search Form -->
+                            <form method="GET" action="{{ route('admin-finance.accounting.accounts-payable') }}" class="d-flex align-items-center gap-2">
+                                @if(request('category'))
+                                    <input type="hidden" name="category" value="{{ request('category') }}">
+                                @endif
+                                <div class="input-group input-group-sm" style="width: 240px;">
+                                    <span class="input-group-text bg-white border-end-0" style="border-color: #cbd5e1; height: 38px; display: flex; align-items: center; justify-content: center; padding: 0 10px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
+                                        <i class="las la-search text-muted fs-16"></i>
+                                    </span>
+                                    <input type="text" name="search" class="form-control border-start-0" placeholder="Search supplier..." value="{{ request('search') }}" style="height: 38px; border-color: #cbd5e1; border-top-right-radius: 4px; border-bottom-right-radius: 4px; font-size: 0.82rem; padding-left: 0; outline: none; box-shadow: none;">
+                                </div>
+                                @if(request('search'))
+                                    <a href="{{ route('admin-finance.accounting.accounts-payable', request()->only('category')) }}" class="btn btn-light d-flex align-items-center justify-content-center border fw-bold" style="height: 38px; padding: 0 16px; font-size: 0.82rem; border-color: #cbd5e1; color: #475569; border-radius: 4px;">
+                                        Clear
+                                    </a>
+                                @else
+                                    <button type="submit" class="btn text-white fw-bold px-3 d-flex align-items-center justify-content-center" style="background: #D9251C; border-color: #D9251C; height: 38px; border-radius: 4px; font-size: 0.82rem;">
+                                        Search
+                                    </button>
+                                @endif
+                            </form>
                         </div>
                     </div>
 
-                    <div class="card-body pt-3">
+                    <div class="card-body pt-3 pb-4">
                         <div class="tab-content" id="apTabContent">
 
                             <!-- 1. SUPPLIERS DIRECTORY -->
@@ -307,9 +520,7 @@
                                                 <th>Supplier Code</th>
                                                 <th>Company Name</th>
                                                 <th>Category</th>
-                                                <th>TIN</th>
                                                 <th>Contact & Phone</th>
-                                                <th>Terms</th>
                                                 <th class="text-end">EWT %</th>
                                                 <th class="text-end">Total Unpaid Invoices</th>
                                                 <th class="text-center">Status</th>
@@ -342,35 +553,44 @@
                                                 <td>
                                                     <span class="badge-category {{ $catClass }}">{{ $supp->category }}</span>
                                                 </td>
-                                                <td><span class="text-muted fs-13">{{ $supp->tin ?: 'N/A' }}</span></td>
                                                 <td>
                                                     <span class="d-block text-dark small fw-medium">{{ $supp->contact_person ?: 'N/A' }}</span>
                                                     <span class="text-muted small">{{ $supp->phone ?: ($supp->email ?: 'N/A') }}</span>
                                                 </td>
-                                                <td><span class="badge bg-light text-dark border">{{ $supp->terms ?: '30 Days' }}</span></td>
                                                 <td class="text-end fw-bold text-primary">{{ number_format($supp->tax_rate ?: 1.00, 2) }}%</td>
                                                 <td class="text-end fw-bold text-danger">₱{{ number_format($unpaidInvoicesSum, 2) }}</td>
                                                 <td class="text-center">
                                                     <span class="badge bg-success-subtle text-success text-capitalize px-3 py-1">{{ $supp->status }}</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <div class="d-flex justify-content-center gap-1">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary shadow-sm px-2 py-0" data-bs-toggle="modal" data-bs-target="#editSupplierModal-{{ $supp->id }}" title="Edit Supplier"><i class="las la-edit"></i></button>
-                                                        <form action="{{ route('admin-finance.accounting.accounts-payable.supplier.destroy', $supp->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete supplier {{ $supp->company_name }}?');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Supplier"><i class="las la-trash"></i></button>
-                                                        </form>
-                                                    </div>
+                                                     <div class="d-flex align-items-center justify-content-center gap-1">
+                                                         <button type="button" class="btn btn-info shadow btn-xs sharp text-white border-0" style="background-color: #0ea5e9;" title="View Details" onclick="showSupplierDetailsModal('Supplier Details: {{ $supp->company_name }}', document.getElementById('template-supp-{{ $supp->id }}').innerHTML)">
+                                                             <i class="las la-eye"></i>
+                                                         </button>
+                                                         <button type="button" class="btn btn-warning shadow btn-xs sharp text-white border-0" style="background-color: #ffb800;" data-bs-toggle="modal" data-bs-target="#editSupplierModal-{{ $supp->id }}" title="Edit Supplier">
+                                                             <i class="las la-edit"></i>
+                                                         </button>
+                                                         <form action="{{ route('admin-finance.accounting.accounts-payable.supplier.destroy', $supp->id) }}" method="POST" class="d-inline m-0 p-0" onsubmit="return confirm('Delete supplier {{ $supp->company_name }}?');">
+                                                             @csrf
+                                                             @method('DELETE')
+                                                             <button type="submit" class="btn btn-danger shadow btn-xs sharp text-white border-0" style="background-color: #ef4444;" title="Delete Supplier">
+                                                                 <i class="las la-trash"></i>
+                                                             </button>
+                                                         </form>
+                                                     </div>
                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="10" class="text-center py-4 text-muted">No suppliers found for the selected category.</td>
+                                                <td colspan="8" class="text-center py-4 text-muted">No suppliers found for the selected category.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
                                     </table>
+                                </div>
+                                <!-- Pagination links -->
+                                <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                                    {{ $suppliers->onEachSide(0)->appends(request()->query())->links('pagination::bootstrap-4') }}
                                 </div>
                             </div>
 
@@ -524,14 +744,16 @@
                                                     </span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <div class="d-flex justify-content-center gap-1">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary shadow-sm px-2 py-0" data-bs-toggle="modal" data-bs-target="#editInvoiceModal-{{ $inv->id }}" title="Edit Invoice"><i class="las la-edit"></i></button>
-                                                        <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.destroy', $inv->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete invoice {{ $inv->invoice_number }}?');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Invoice"><i class="las la-trash"></i></button>
-                                                        </form>
-                                                    </div>
+                                                    <button type="button" class="btn btn-info shadow btn-xs sharp text-white" data-bs-toggle="modal" data-bs-target="#editInvoiceModal-{{ $inv->id }}" style="margin: 2px;" title="Edit Invoice">
+                                                        <i class="las la-edit"></i>
+                                                    </button>
+                                                    <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.destroy', $inv->id) }}" method="POST" class="d-inline m-0 p-0" onsubmit="return confirm('Delete invoice {{ $inv->invoice_number }}?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-danger shadow btn-xs sharp text-white" style="margin: 2px;" title="Delete Invoice">
+                                                            <i class="las la-trash"></i>
+                                                        </button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                             @empty
@@ -577,10 +799,12 @@
                                                     <span class="badge bg-success-subtle text-success text-capitalize px-3 py-1">{{ $pay->status }}</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <form action="{{ route('admin-finance.accounting.accounts-payable.payment.destroy', $pay->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete payment {{ $pay->payment_number }}?');">
+                                                    <form action="{{ route('admin-finance.accounting.accounts-payable.payment.destroy', $pay->id) }}" method="POST" class="d-inline m-0 p-0" onsubmit="return confirm('Delete payment {{ $pay->payment_number }}?');">
                                                         @csrf
                                                         @method('DELETE')
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm px-2 py-0" title="Delete Payment"><i class="las la-trash"></i></button>
+                                                        <button type="submit" class="btn btn-danger shadow btn-xs sharp text-white" style="margin: 2px;" title="Delete Payment">
+                                                            <i class="las la-trash"></i>
+                                                        </button>
                                                     </form>
                                                 </td>
                                             </tr>
@@ -669,9 +893,9 @@
             <div class="modal-content border-0 shadow">
                 <form action="{{ route('admin-finance.accounting.accounts-payable.supplier.store') }}" method="POST">
                     @csrf
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title fw-bold"><i class="las la-truck me-2"></i>Add New Supplier</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="las la-truck me-2 text-danger"></i>Add New Supplier</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-4">
                         <div class="row g-3">
@@ -717,9 +941,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger px-4 fw-bold">Save Supplier</button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4" style="background-color: #D9251C !important; border-color: #D9251C !important; color: #ffffff !important; font-weight: 600;">Save Supplier</button>
                     </div>
                 </form>
             </div>
@@ -732,9 +956,9 @@
             <div class="modal-content border-0 shadow" style="border-radius: 12px; overflow: hidden;">
                 <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.store') }}" method="POST">
                     @csrf
-                    <div class="modal-header bg-dark text-white py-3">
-                        <h5 class="modal-title fw-bold text-white"><i class="las la-file-invoice-dollar me-2 text-danger"></i>Record Supplier Invoice</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="las la-file-invoice-dollar me-2 text-danger"></i>Record Supplier Invoice</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-4">
                         <div class="row g-3">
@@ -810,9 +1034,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light border-0">
-                        <button type="button" class="btn btn-secondary px-4 shadow-sm" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger px-4 fw-bold shadow-sm"><i class="las la-save me-1"></i> Save Invoice</button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4" style="background-color: #D9251C !important; border-color: #D9251C !important; color: #ffffff !important; font-weight: 600;"><i class="las la-save me-1"></i> Save Invoice</button>
                     </div>
                 </form>
             </div>
@@ -825,9 +1049,9 @@
             <div class="modal-content border-0 shadow">
                 <form action="{{ route('admin-finance.accounting.accounts-payable.payment.store') }}" method="POST">
                     @csrf
-                    <div class="modal-header bg-success text-white">
-                        <h5 class="modal-title fw-bold"><i class="las la-money-check-alt me-2"></i>Record Supplier Payment</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="las la-money-check-alt me-2 text-danger"></i>Record Supplier Payment</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-4">
                         <div class="row g-3">
@@ -876,39 +1100,16 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success px-4 fw-bold">Post Payment</button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4" style="background-color: #D9251C !important; border-color: #D9251C !important; color: #ffffff !important; font-weight: 600;">Post Payment</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 4: PURCHASE ORDER DETAILS -->
-    <div class="modal fade" id="poDetailsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title fw-bold text-white"><i class="las la-file-invoice me-2"></i>Purchase Order Details</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4" id="poModalBody">
-                    <div class="text-center p-5">
-                        <div class="spinner-border text-danger" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-danger px-4 fw-bold" onclick="printPoModalContent('poModalBody')">
-                        <i class="las la-print me-1"></i> Print PO
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- EDIT SUPPLIER MODALS -->
     @foreach($suppliers as $supp)
@@ -917,9 +1118,9 @@
             <div class="modal-content border-0 shadow">
                 <form action="{{ route('admin-finance.accounting.accounts-payable.supplier.update', $supp->id) }}" method="POST">
                     @csrf
-                    <div class="modal-header bg-dark text-white">
-                        <h5 class="modal-title fw-bold text-white"><i class="las la-edit me-2 text-danger"></i>Edit Supplier: {{ $supp->company_name }}</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="las la-edit me-2 text-danger"></i>Edit Supplier: {{ $supp->company_name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-4">
                         <div class="row g-3">
@@ -972,9 +1173,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger px-4 fw-bold">Update Supplier</button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4" style="background-color: #D9251C !important; border-color: #D9251C !important; color: #ffffff !important; font-weight: 600;">Update Supplier</button>
                     </div>
                 </form>
             </div>
@@ -989,9 +1190,9 @@
             <div class="modal-content border-0 shadow">
                 <form action="{{ route('admin-finance.accounting.accounts-payable.invoice.update', $inv->id) }}" method="POST">
                     @csrf
-                    <div class="modal-header bg-dark text-white py-3">
-                        <h5 class="modal-title fw-bold text-white"><i class="las la-edit me-2 text-danger"></i>Edit Invoice: {{ $inv->invoice_number }}</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="las la-edit me-2 text-danger"></i>Edit Invoice: {{ $inv->invoice_number }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-4">
                         <div class="row g-3">
@@ -1021,9 +1222,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger px-4 fw-bold">Save Changes</button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4" style="background-color: #D9251C !important; border-color: #D9251C !important; color: #ffffff !important; font-weight: 600;">Save Changes</button>
                     </div>
                 </form>
             </div>
@@ -1035,11 +1236,9 @@
     <div class="modal fade" id="poDetailsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
-                <div class="modal-header bg-danger text-white py-3">
-                    <h5 class="modal-title fw-bold text-white fs-16 mb-0 d-flex align-items-center">
-                        <i class="las la-file-invoice me-2 fs-20"></i>Purchase Order Details
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="las la-file-invoice me-2 text-danger"></i>Purchase Order Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4" id="poModalBody" style="max-height: 80vh; overflow-y: auto;">
                     <div class="text-center p-5">
@@ -1048,22 +1247,344 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light py-2 px-4 justify-content-between">
-                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-danger px-4 fw-bold shadow-sm d-flex align-items-center gap-1" onclick="printPoModalContent('poModalBody')">
-                        <i class="las la-print fs-18 me-1"></i> Print PO
+                <div class="modal-footer d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger px-4" style="background-color: #D9251C !important; border-color: #D9251C !important; color: #ffffff !important; font-weight: 600;" onclick="printPoModalContent('poModalBody')">
+                        <i class="las la-print me-1"></i> Print PO
                     </button>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- MODAL: VIEW SUPPLIER DETAILS -->
+    <div class="modal fade" id="supplierDetailsModal" tabindex="-1" aria-labelledby="supplierDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="supplierDetailsModalLabel">Supplier Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" id="supplierDetailsModalBody" style="max-height: 80vh; overflow-y: auto;">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HIDDEN TEMPLATES FOR SUPPLIER DETAILS -->
+    @foreach($suppliers as $supp)
+    @php
+        $suppInvoices = $invoices->where('supplier_id', $supp->id);
+        $suppPayments = $payments->where('supplier_id', $supp->id);
+        $suppPurchaseOrders = $purchaseOrders->where('supplier_id', $supp->id);
+        $suppReceivingReports = $receivingReports->where('supplier_id', $supp->id);
+        
+        $unpaidInvoicesSum = $suppInvoices->where('status', '!=', 'paid')->sum(function($inv) {
+            return max(0, $inv->total_amount - $inv->amount_paid);
+        });
+    @endphp
+    <div id="template-supp-{{ $supp->id }}" style="display: none;">
+        <!-- Supplier Profile Header -->
+        <div class="row mb-4 pb-3 border-bottom align-items-center g-3">
+            <div class="col-md-7">
+                <span class="d-block mb-1 text-uppercase fw-bold" style="letter-spacing: 0.5px; font-size: 0.7rem; color: #475569 !important;">Supplier Profile</span>
+                <h4 class="fw-bold mb-1" style="letter-spacing: -0.5px; color: #000000 !important;">{{ $supp->company_name }}</h4>
+                <span class="badge bg-light border px-2 py-1 fs-12" style="color: #475569 !important;">Code: <strong style="color: #000000 !important;">{{ $supp->supplier_code }}</strong> | Category: <strong style="color: #000000 !important;">{{ $supp->category }}</strong></span>
+            </div>
+            <div class="col-md-5 text-md-end">
+                <span class="d-block mb-2 text-uppercase fw-bold" style="letter-spacing: 0.5px; font-size: 0.7rem; color: #475569 !important;">Total Outstanding Balance</span>
+                <span class="px-3 py-2 rounded fw-bold text-danger d-inline-block" style="font-size: 1.15rem; background-color: rgba(217, 37, 28, 0.08); border: 1px solid rgba(217, 37, 28, 0.15);">
+                    ₱{{ number_format($unpaidInvoicesSum, 2) }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Sub Tabs inside modal -->
+        <ul class="nav nav-tabs modal-tabs mb-3" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#supp-profile-{{ $supp->id }}" type="button" role="tab">Profile & Credit</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#supp-invoices-{{ $supp->id }}" type="button" role="tab">Invoices ({{ $suppInvoices->count() }})</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#supp-payments-{{ $supp->id }}" type="button" role="tab">Payments ({{ $suppPayments->count() }})</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#supp-pos-{{ $supp->id }}" type="button" role="tab">Purchase Orders ({{ $suppPurchaseOrders->count() }})</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#supp-rrs-{{ $supp->id }}" type="button" role="tab">Receiving Reports ({{ $suppReceivingReports->count() }})</button>
+            </li>
+        </ul>
+
+        <div class="tab-content pt-2">
+            <!-- PROFILE & CREDIT TAB -->
+            <div class="tab-pane fade show active" id="supp-profile-{{ $supp->id }}" role="tabpanel">
+                <div class="row g-4">
+                    <!-- Left Column: Company Details -->
+                    <div class="col-md-6">
+                        <h6 class="fw-bold border-bottom pb-2 mb-3" style="color: #000000 !important;"><i class="las la-truck me-2 text-danger"></i>Company Details</h6>
+                        <div class="d-flex flex-column">
+                            <!-- Supplier Code -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-id-badge fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Supplier Code</span>
+                                </div>
+                                <span class="fw-bold small" style="color: #000000 !important;">{{ $supp->supplier_code }}</span>
+                            </div>
+                            <!-- TIN -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-file-invoice fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">TIN</span>
+                                </div>
+                                <span class="fw-bold small" style="color: #000000 !important;">{{ $supp->tin ?: 'N/A' }}</span>
+                            </div>
+                            <!-- Category -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-tags fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Category</span>
+                                </div>
+                                <span class="fw-bold small" style="color: #000000 !important;">{{ $supp->category }}</span>
+                            </div>
+                            <!-- Tax Rate / EWT -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-percent fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Tax Rate / EWT</span>
+                                </div>
+                                <span class="fw-bold text-danger small" style="color: #D9251C !important;">{{ number_format($supp->tax_rate ?: 1.00, 2) }}%</span>
+                            </div>
+                            <!-- Payment Terms -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-calendar fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Payment Terms</span>
+                                </div>
+                                <span class="badge bg-light border fw-bold" style="color: #000000 !important;">{{ $supp->terms ?: '30 Days' }}</span>
+                            </div>
+                            <!-- Status -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-info-circle fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Status</span>
+                                </div>
+                                <span class="badge bg-success-subtle text-success text-capitalize px-3 py-1 fs-11 fw-bold">{{ $supp->status }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Contact Information -->
+                    <div class="col-md-6">
+                        <h6 class="fw-bold border-bottom pb-2 mb-3" style="color: #000000 !important;"><i class="las la-address-card me-2 text-danger"></i>Contact Information</h6>
+                        <div class="d-flex flex-column">
+                            <!-- Contact Person -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-user fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Contact Person</span>
+                                </div>
+                                <span class="fw-bold small" style="color: #000000 !important;">{{ $supp->contact_person ?: 'N/A' }}</span>
+                            </div>
+                            <!-- Phone Number -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-phone fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Phone Number</span>
+                                </div>
+                                <span class="fw-bold small" style="color: #000000 !important;">{{ $supp->phone ?: 'N/A' }}</span>
+                            </div>
+                            <!-- Email Address -->
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-envelope fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Email Address</span>
+                                </div>
+                                <span class="fw-bold small" style="color: #000000 !important;">{{ $supp->email ?: 'N/A' }}</span>
+                            </div>
+                            <!-- Billing Address -->
+                            <div class="d-flex align-items-start justify-content-between py-2 border-bottom" style="border-bottom: 1px dashed #e2e8f0 !important;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center justify-content-center" style="width: 24px; color: #475569 !important;"><i class="las la-map-marked-alt fs-18"></i></div>
+                                    <span class="small" style="color: #475569 !important; font-weight: 500;">Billing Address</span>
+                                </div>
+                                <span class="small text-end text-wrap fw-bold" style="max-width: 60%; word-break: break-word; color: #000000 !important;">{{ $supp->address ?: 'No address specified' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INVOICES TAB -->
+            <div class="tab-pane fade" id="supp-invoices-{{ $supp->id }}" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Invoice No</th>
+                                <th>Invoice Date</th>
+                                <th>Due Date</th>
+                                <th class="text-end">Subtotal</th>
+                                <th class="text-end">Withholding Tax</th>
+                                <th class="text-end">Total Amount</th>
+                                <th class="text-end">Amount Paid</th>
+                                <th class="text-end">Remaining Balance</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($suppInvoices as $inv)
+                            @php
+                                $bal = max(0, $inv->total_amount - $inv->amount_paid);
+                                $statusClass = match($inv->status) {
+                                    'paid' => 'bg-success-subtle text-success',
+                                    'partial' => 'bg-info-subtle text-info',
+                                    default => ($inv->is_overdue ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning')
+                                };
+                            @endphp
+                            <tr>
+                                <td><span class="fw-bold text-dark">{{ $inv->invoice_number }}</span></td>
+                                <td>{{ \Carbon\Carbon::parse($inv->invoice_date)->format('M d, Y') }}</td>
+                                <td>
+                                    <span class="fw-bold {{ $inv->is_overdue ? 'text-danger' : 'text-dark' }}">
+                                        {{ \Carbon\Carbon::parse($inv->due_date)->format('M d, Y') }}
+                                    </span>
+                                </td>
+                                <td class="text-end">₱{{ number_format($inv->subtotal, 2) }}</td>
+                                <td class="text-end">₱{{ number_format($inv->withholding_tax_amount, 2) }} ({{ $inv->withholding_tax_rate }}%)</td>
+                                <td class="text-end fw-bold text-dark">₱{{ number_format($inv->total_amount, 2) }}</td>
+                                <td class="text-end text-success">₱{{ number_format($inv->amount_paid, 2) }}</td>
+                                <td class="text-end fw-bold text-danger">₱{{ number_format($bal, 2) }}</td>
+                                <td class="text-center">
+                                    <span class="badge {{ $statusClass }} text-uppercase px-2 py-1 fs-10" style="font-size: 10px;">
+                                        {{ $inv->is_overdue && $inv->status === 'unpaid' ? 'overdue' : $inv->status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="9" class="text-center py-3 text-muted">No invoices found for this supplier.</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PAYMENTS TAB -->
+            <div class="tab-pane fade" id="supp-payments-{{ $supp->id }}" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Payment No</th>
+                                <th>Payment Date</th>
+                                <th>Invoice Reference</th>
+                                <th>Method</th>
+                                <th>Reference No</th>
+                                <th class="text-end">Tax Withheld</th>
+                                <th class="text-end">Amount Paid</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($suppPayments as $pay)
+                            <tr>
+                                <td><span class="fw-bold text-dark">{{ $pay->payment_number }}</span></td>
+                                <td>{{ \Carbon\Carbon::parse($pay->payment_date)->format('M d, Y') }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ $pay->invoice ? $pay->invoice->invoice_number : 'N/A' }}</span></td>
+                                <td><span class="badge bg-primary-subtle text-primary">{{ $pay->payment_method }}</span></td>
+                                <td><span class="text-muted small">{{ $pay->reference_number ?: 'N/A' }}</span></td>
+                                <td class="text-end text-info">₱{{ number_format($pay->withholding_tax_amount, 2) }}</td>
+                                <td class="text-end fw-bold text-success">₱{{ number_format($pay->amount_paid, 2) }}</td>
+                                <td class="text-center"><span class="badge bg-success-subtle text-success text-capitalize px-3 py-1">{{ $pay->status }}</span></td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="8" class="text-center py-3 text-muted">No payment transactions found for this supplier.</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PURCHASE ORDERS TAB -->
+            <div class="tab-pane fade" id="supp-pos-{{ $supp->id }}" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>PO Number</th>
+                                <th>Date</th>
+                                <th>Terms</th>
+                                <th class="text-end">Total Amount</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($suppPurchaseOrders as $po)
+                            <tr>
+                                <td><span class="fw-bold text-dark">{{ $po->po_number }}</span></td>
+                                <td>{{ \Carbon\Carbon::parse($po->date)->format('M d, Y') }}</td>
+                                <td>{{ $po->terms ?: 'Standard' }}</td>
+                                <td class="text-end fw-bold text-dark">{{ $po->currency_symbol }}{{ number_format($po->total_amount, 2) }}</td>
+                                <td class="text-center"><span class="badge bg-info-subtle text-info text-capitalize px-3 py-1">{{ $po->status }}</span></td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="5" class="text-center py-3 text-muted">No purchase orders found for this supplier.</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RECEIVING REPORTS TAB -->
+            <div class="tab-pane fade" id="supp-rrs-{{ $supp->id }}" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>RR Number</th>
+                                <th>PO Number</th>
+                                <th>Received Date</th>
+                                <th>Notes</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($suppReceivingReports as $rr)
+                            <tr>
+                                <td><span class="fw-bold text-dark">{{ $rr->rr_number }}</span></td>
+                                <td><span class="badge bg-light text-dark border">{{ $rr->purchaseOrder ? $rr->purchaseOrder->po_number : 'N/A' }}</span></td>
+                                <td>{{ \Carbon\Carbon::parse($rr->received_date)->format('M d, Y') }}</td>
+                                <td><span class="text-muted small">{{ $rr->notes ?: 'None' }}</span></td>
+                                <td class="text-center"><span class="badge bg-success-subtle text-success text-capitalize px-3 py-1">{{ $rr->status }}</span></td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="5" class="text-center py-3 text-muted">No receiving reports found for this supplier.</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endforeach
 
     @push('scripts')
     <script src="{{ asset('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
         $(document).ready(function() {
             if ($.fn.DataTable) {
-                $('#suppliersTable').DataTable({ pageLength: 10, responsive: true });
                 $('#invoicesTable').DataTable({ pageLength: 10, responsive: true });
                 $('#paymentsTable').DataTable({ pageLength: 10, responsive: true });
                 $('#poTable').DataTable({ pageLength: 10, responsive: true });
@@ -1143,6 +1664,104 @@
             }, 500);
         }
 
+        window.showSupplierDetailsModal = function(title, contentHtml) {
+            document.getElementById('supplierDetailsModalLabel').innerText = title;
+            const body = document.getElementById('supplierDetailsModalBody');
+            body.innerHTML = contentHtml;
+
+            // Re-instantiate pagination on any tables inside loaded tab panes
+            const tables = body.querySelectorAll('table.table-hover');
+            tables.forEach(table => {
+                initTablePagination(table, 5);
+            });
+
+            let modalElement = document.getElementById('supplierDetailsModal');
+            let modal = bootstrap.Modal.getInstance(modalElement);
+            if (!modal) {
+                modal = new bootstrap.Modal(modalElement);
+            }
+            modal.show();
+        };
+
+        function initTablePagination(tableElement, itemsPerPage = 5) {
+            const tbody = tableElement.querySelector('tbody');
+            if (!tbody) return;
+            
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            if (rows.length === 1 && rows[0].querySelector('td[colspan]')) return;
+            if (rows.length <= itemsPerPage) return;
+            
+            const totalItems = rows.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            let currentPage = 1;
+            
+            const nav = document.createElement('nav');
+            nav.className = 'd-flex justify-content-between align-items-center mt-3';
+            
+            const info = document.createElement('div');
+            info.className = 'small text-muted';
+            
+            const ul = document.createElement('ul');
+            ul.className = 'pagination mb-0';
+            
+            nav.appendChild(info);
+            nav.appendChild(ul);
+            
+            const wrapper = tableElement.closest('.table-responsive') || tableElement;
+            wrapper.parentNode.appendChild(nav);
+            
+            function showPage(page) {
+                currentPage = page;
+                const start = (page - 1) * itemsPerPage;
+                const end = start + itemsPerPage;
+                
+                rows.forEach((row, idx) => {
+                    if (idx >= start && idx < end) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                info.textContent = `Showing ${start + 1} to ${Math.min(end, totalItems)} of ${totalItems} entries`;
+                ul.innerHTML = '';
+                
+                // Prev
+                const prevLi = document.createElement('li');
+                prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+                prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
+                prevLi.querySelector('a').onclick = (e) => {
+                    e.preventDefault();
+                    if (currentPage > 1) showPage(currentPage - 1);
+                };
+                ul.appendChild(prevLi);
+                
+                // Numbers
+                for (let i = 1; i <= totalPages; i++) {
+                    const li = document.createElement('li');
+                    li.className = `page-item ${currentPage === i ? 'active' : ''}`;
+                    li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                    li.querySelector('a').onclick = (e) => {
+                        e.preventDefault();
+                        showPage(i);
+                    };
+                    ul.appendChild(li);
+                }
+                
+                // Next
+                const nextLi = document.createElement('li');
+                nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+                nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
+                nextLi.querySelector('a').onclick = (e) => {
+                    e.preventDefault();
+                    if (currentPage < totalPages) showPage(currentPage + 1);
+                };
+                ul.appendChild(nextLi);
+            }
+            
+            showPage(1);
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const suppSelect = document.getElementById('invoiceSupplierSelect');
             const catSelect = document.getElementById('invoiceCategorySelect');
@@ -1176,6 +1795,19 @@
                     });
                 });
             }
+
+            // Listen for Bootstrap tab change events to update the card-header title
+            const tabButtons = document.querySelectorAll('button[data-bs-toggle="tab"]');
+            tabButtons.forEach(btn => {
+                btn.addEventListener('shown.bs.tab', function (event) {
+                    const activeTabTitle = document.getElementById('ap-active-tab-title');
+                    if (activeTabTitle) {
+                        const icon = event.target.querySelector('i').outerHTML;
+                        const text = event.target.textContent.replace(event.target.querySelector('span') ? event.target.querySelector('span').textContent : '', '').trim();
+                        activeTabTitle.innerHTML = `${icon} ${text}`;
+                    }
+                });
+            });
         });
     </script>
     @endpush
