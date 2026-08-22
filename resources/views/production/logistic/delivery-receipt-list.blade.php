@@ -1,4 +1,4 @@
-<x-app-layout :title="'Delivery Receipts'" :sidebar="'production'">
+<x-app-layout :title="'Delivery Receipts'" :sidebar="$sidebar ?? 'production'">
     @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/bootstrap-daterangepicker/daterangepicker.css') }}" rel="stylesheet">
@@ -66,19 +66,28 @@
     @endpush
 
     @php
+        $sidebar = $sidebar ?? (request()->is('admin-finance*') ? 'admin-finance' : 'production');
+        $drCreateRoute = $sidebar === 'admin-finance' ? 'admin-finance.accounting.delivery-receipt' : 'production.logistic.delivery-receipt';
+
         $user = auth()->user();
         $canPrep = $user && ($user->isSuperAdmin() || 
             str_contains($user->position, 'Manager') || 
             str_contains($user->position, 'Supervisor') || 
             str_contains($user->position, 'Head') || 
             str_contains($user->position, 'Senior Logistics Staff') || 
-            str_contains($user->position, 'Logistics Staff'));
+            str_contains($user->position, 'Logistics Staff') ||
+            str_contains($user->position, 'Accounting') ||
+            str_contains($user->position, 'Finance') ||
+            $user->hasPermission('admin_finance.accounting'));
             
         $canApprove = $user && ($user->isSuperAdmin() || 
             str_contains($user->position, 'Manager') || 
             str_contains($user->position, 'Supervisor') || 
             str_contains($user->position, 'Head') || 
-            str_contains($user->position, 'Senior Logistics Staff'));
+            str_contains($user->position, 'Senior Logistics Staff') ||
+            str_contains($user->position, 'Accounting') ||
+            str_contains($user->position, 'Finance') ||
+            $user->hasPermission('admin_finance.accounting'));
     @endphp
 
     <div class="row">
@@ -102,7 +111,7 @@
                         <h4 class="fs-20 mb-0 text-black">Delivery Receipts Management</h4>
                     </div>
                     @if($canPrep)
-                    <a href="{{ route('production.logistic.delivery-receipt') }}" class="btn btn-primary rounded d-flex align-items-center ms-auto" style="gap: 0.5rem; background: #ff0000; border: none;">
+                    <a href="{{ route($drCreateRoute) }}" class="btn btn-primary rounded d-flex align-items-center ms-auto" style="gap: 0.5rem; background: #ff0000; border: none;">
                         <i class="las la-plus"></i>
                         <span>Create New Receipt</span>
                     </a>
@@ -273,7 +282,7 @@
                                         </td>
                                         <td>
                                             <div class="d-flex gap-1">
-                                                <a href="{{ route('production.logistic.delivery-receipt', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View/Create DR">
+                                                <a href="{{ route($drCreateRoute, $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View/Create DR">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 
@@ -324,6 +333,18 @@
                                                         @csrf
                                                         <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Approve & Sign DR">
                                                             <i class="fas fa-signature"></i>
+                                                        </button>
+                                                    </form>
+                                                @endif
+
+                                                @php
+                                                    $isTeamOrder = !empty($order->preparedBy->sales_team ?? $order->areaSalesStaff->sales_team ?? null);
+                                                @endphp
+                                                @if($isTeamOrder || ($sidebar ?? '') === 'admin-finance')
+                                                    <form action="{{ route('production.logistic.move-to-si', $order->id) }}" method="POST" style="display:inline;">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-danger shadow btn-xs sharp text-white" title="Move to Sales Invoice (SI)">
+                                                            <i class="las la-file-invoice"></i>
                                                         </button>
                                                     </form>
                                                 @endif
@@ -526,7 +547,7 @@
                                         <td>{{ $order->preparedBy->name ?? 'System' }}</td>
                                         <td>
                                             <div class="d-flex gap-1">
-                                                <a href="{{ route('production.logistic.delivery-receipt', $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View DR">
+                                                <a href="{{ route($drCreateRoute, $order->id) }}" class="btn btn-primary shadow btn-xs sharp" title="View DR">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
 

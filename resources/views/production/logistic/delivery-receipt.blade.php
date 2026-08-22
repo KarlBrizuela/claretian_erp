@@ -1,4 +1,4 @@
-<x-app-layout :title="'Delivery Receipt'" :sidebar="'production'">
+<x-app-layout :title="'Delivery Receipt'" :sidebar="$sidebar ?? 'production'">
     <div class="row">
         <div class="col-xl-12">
             <div class="card receipt-form">
@@ -458,7 +458,10 @@
                             <i class="las la-paper-plane"></i> Submit
                         </button>
                     @else
-                        <a href="{{ route('production.logistic.delivery-receipt-list') }}" class="btn btn-secondary">
+                        @php
+                            $drListRoute = ($sidebar ?? (request()->is('admin-finance*') ? 'admin-finance' : 'production')) === 'admin-finance' ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
+                        @endphp
+                        <a href="{{ route($drListRoute) }}" class="btn btn-secondary">
                             <i class="las la-arrow-left"></i> Back to List
                         </a>
                         @if($order->status === 'pending_dr_approval')

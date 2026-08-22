@@ -2007,10 +2007,14 @@ class MarketingController extends Controller
             return redirect()->back()->with('error', 'Cannot proceed with Sales Order:<br>• ' . implode('<br>• ', $itemErrors))->withInput();
         }
 
+        $isFromSI = $request->input('source') === 'si' || $request->query('source') === 'si' || $request->input('from_si') == 1 || str_contains(url()->previous(), 'sales-invoice') || str_contains(request()->header('referer', ''), 'sales-invoice');
+
         // 1. Determine Initial Status
         if ($action === 'draft') {
             // Draft mode: wait for freight quotation
             $initialStatus = 'draft';
+        } elseif ($isFromSI) {
+            $initialStatus = 'pending_si_prep';
         } else {
             // Submit mode: proceed with approval flow
             $initialStatus = 'pending_mkt_approval';
@@ -2166,6 +2170,18 @@ class MarketingController extends Controller
         // Deduct stock immediately upon Sales Order creation
         \App\Services\StockDeductionService::deductForSalesOrder($so);
 
+        $isFromSI = $request->input('source') === 'si' || $request->query('source') === 'si' || $request->input('from_si') == 1 || str_contains(url()->previous(), 'sales-invoice') || str_contains(request()->header('referer', ''), 'sales-invoice');
+
+        if ($isFromSI && $action !== 'draft') {
+            $so->update([
+                'status' => 'pending_si_prep',
+                'approved_by_mkt' => auth()->id(),
+            ]);
+
+            return redirect()->route('admin-finance.accounting.sales-invoice')
+                ->with('success', "Sales Order #{$so->so_number} created successfully and added to Normal Invoices!");
+        }
+
         $message = $action === 'draft' 
             ? 'Sales Order saved as draft. Please request freight quotation from Logistics.'
             : 'Sales Order created and routed successfully!';
@@ -2182,9 +2198,9 @@ class MarketingController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         
-        // NBS PO import / Consignments / E-Com direct route to picking (Logistics Pick Lists) upon Marketing Approval
-        // All other SO types proceed to Accounting approval after Marketing Manager approval
-        if (str_starts_with($order->so_number, 'SO-NBS-') || in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment', 'ecom_direct'])) {
+        // NBS PO import / E-Com direct route to picking upon Marketing Approval
+        // All other SO types (Paid, Charge, Consignments) proceed to Admin and Finance approval after Marketing approval
+        if (str_starts_with($order->so_number, 'SO-NBS-') || $order->type === 'ecom_direct') {
             $nextStatus = 'picking';
         } else {
             $nextStatus = 'pending_acct_approval';

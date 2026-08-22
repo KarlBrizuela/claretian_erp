@@ -82,8 +82,9 @@
 		</a>
 		<div class="modern-nav-submenu" data-submenu="accounting" style="padding-top: 5px; padding-bottom: 5px;">
 
-			@if($user->hasPermission('admin_finance.accounting.sales_invoice'))
+			@if($user->hasPermission('admin_finance.accounting.sales_invoice') || $user->hasPermission('admin_finance.accounting'))
 			<a href="{{ route('admin-finance.accounting.sales-invoice') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.sales-invoice') ? 'active' : '' }}">Sales Invoice</a>
+			<a href="{{ route('admin-finance.accounting.delivery-receipt-list') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.delivery-receipt*') ? 'active' : '' }}">Delivery Receipts</a>
 			<a href="{{ route('admin-finance.accounting.complimentary-receipt') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.complimentary-receipt*') ? 'active' : '' }}">Complimentary Receipt</a>
 			@endif
 			@if($user->hasPermission('admin_finance.accounting.check_voucher'))

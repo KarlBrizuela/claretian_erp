@@ -146,22 +146,6 @@
                 </select>
             </div>
 
-            <!-- Whole vs Half Item Quantity Option -->
-            <div class="pos-form-group mb-3">
-                <label class="d-flex justify-content-between align-items-center mb-1">
-                    <span>Quantity Option *</span>
-                    <span class="badge bg-danger" id="ecomQtyModeBadge">WHOLE (100% Qty)</span>
-                </label>
-                <div class="btn-group w-100" role="group">
-                    <button type="button" class="btn btn-danger btn-sm font-w700 active" id="ecomModeWholeBtn" onclick="setEcomQtyMode('whole')" style="background:#ff0000;">
-                        <i class="las la-boxes me-1"></i> WHOLE (e.g. 10)
-                    </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm font-w700" id="ecomModeHalfBtn" onclick="setEcomQtyMode('half')">
-                        <i class="las la-cut me-1"></i> HALF (e.g. 5)
-                    </button>
-                </div>
-            </div>
-
             <div class="pos-cart-items" id="cartItems">
                 <div class="text-center text-muted p-5">
                     <i class="las la-shopping-cart" style="font-size: 4rem; opacity: 0.2;"></i>
@@ -265,10 +249,22 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0" style="background: #f4f6f9;">
-                    <iframe id="ecomOrderInvoiceIframe" src="about:blank" style="width: 100%; height: 650px; border: none;"></iframe>
+                    <iframe id="ecomOrderInvoiceIframe" src="about:blank" style="width: 100%; height: 78vh; min-height: 680px; border: none;"></iframe>
                 </div>
                 <div class="modal-footer py-2">
                     <a id="ecomPrintInvoiceNewTabBtn" href="#" target="_blank" class="btn btn-sm btn-outline-danger me-auto"><i class="las la-external-link-alt me-1"></i> Open In New Tab</a>
+                    
+                    <div class="form-check form-switch mb-0 ms-2 me-3">
+                        <input class="form-check-input" type="checkbox" id="posPreprintedToggle" onchange="togglePosPreprintedMode(this)">
+                        <label class="form-check-label fw-bold small text-dark" for="posPreprintedToggle">Print Data Only (For Official BIR Paper)</label>
+                    </div>
+
+                    <div class="btn-group btn-group-sm me-2" role="group">
+                        <button type="button" class="btn btn-danger active" id="btnFormatWhole" onclick="switchPrintFormat('whole')">Whole Page</button>
+                        <button type="button" class="btn btn-outline-danger" id="btnFormatHalf1" onclick="switchPrintFormat('half', 1)">First Half</button>
+                        <button type="button" class="btn btn-outline-danger" id="btnFormatHalf2" onclick="switchPrintFormat('half', 2)">Second Half</button>
+                    </div>
+
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-danger btn-sm px-4 font-w700" onclick="document.getElementById('ecomOrderInvoiceIframe').contentWindow.print()" style="background:#ff0000;">
                         <i class="las la-print me-1"></i> PRINT INVOICE
@@ -478,9 +474,8 @@
                     bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
                     
                     if (data.order && data.order.print_url) {
-                        const targetUrl = data.order.print_url + (data.order.print_url.includes('?') ? '&' : '?') + 'hide_actions=1';
-                        document.getElementById('ecomOrderInvoiceIframe').src = targetUrl;
-                        document.getElementById('ecomPrintInvoiceNewTabBtn').href = data.order.print_url;
+                        currentOrderPrintUrl = data.order.print_url;
+                        switchPrintFormat('whole');
                     }
                     
                     new bootstrap.Modal(document.getElementById('successModal')).show();
@@ -496,64 +491,65 @@
             });
         }
 
-        let ecomQtyMode = 'whole';
+        let currentOrderPrintUrl = '';
 
-        function setEcomQtyMode(mode) {
-            ecomQtyMode = mode;
+        function switchPrintFormat(format, halfPart) {
+            if (!currentOrderPrintUrl) return;
             
-            const btnWhole = document.getElementById('ecomModeWholeBtn');
-            const btnHalf = document.getElementById('ecomModeHalfBtn');
-            const badge = document.getElementById('ecomQtyModeBadge');
+            const btnWhole = document.getElementById('btnFormatWhole');
+            const btnHalf1 = document.getElementById('btnFormatHalf1');
+            const btnHalf2 = document.getElementById('btnFormatHalf2');
             
-            if (mode === 'half') {
-                btnWhole?.classList.remove('btn-danger', 'active');
-                btnWhole?.classList.add('btn-outline-danger');
-                btnWhole?.style.removeProperty('background');
-                btnHalf?.classList.remove('btn-outline-danger');
-                btnHalf?.classList.add('btn-danger', 'active');
-                btnHalf?.style.setProperty('background', '#ff0000', 'important');
-                if (badge) {
-                    badge.textContent = 'HALF (50% Qty)';
-                    badge.className = 'badge bg-warning text-dark';
+            // Reset all buttons
+            [btnWhole, btnHalf1, btnHalf2].forEach(btn => {
+                if (btn) {
+                    btn.classList.remove('btn-danger', 'active');
+                    btn.classList.add('btn-outline-danger');
                 }
+            });
+            
+            // Highlight the active button
+            if (format === 'half' && halfPart == 1) {
+                btnHalf1?.classList.remove('btn-outline-danger');
+                btnHalf1?.classList.add('btn-danger', 'active');
+            } else if (format === 'half' && halfPart == 2) {
+                btnHalf2?.classList.remove('btn-outline-danger');
+                btnHalf2?.classList.add('btn-danger', 'active');
             } else {
-                btnHalf?.classList.remove('btn-danger', 'active');
-                btnHalf?.classList.add('btn-outline-danger');
-                btnHalf?.style.removeProperty('background');
                 btnWhole?.classList.remove('btn-outline-danger');
                 btnWhole?.classList.add('btn-danger', 'active');
-                btnWhole?.style.setProperty('background', '#ff0000', 'important');
-                if (badge) {
-                    badge.textContent = 'WHOLE (100% Qty)';
-                    badge.className = 'badge bg-danger';
+            }
+            
+            let targetUrl = currentOrderPrintUrl + (currentOrderPrintUrl.includes('?') ? '&' : '?') + 'format=' + format + '&hide_actions=1';
+            if (halfPart) {
+                targetUrl += '&half=' + halfPart;
+            }
+            document.getElementById('ecomOrderInvoiceIframe').src = targetUrl;
+            document.getElementById('ecomPrintInvoiceNewTabBtn').href = targetUrl;
+        }
+
+        function togglePosPreprintedMode(checkbox) {
+            const iframe = document.getElementById('ecomOrderInvoiceIframe');
+            if (iframe && iframe.contentWindow && iframe.contentWindow.document && iframe.contentWindow.document.body) {
+                if (checkbox.checked) {
+                    iframe.contentWindow.document.body.classList.add('preprinted-mode');
+                } else {
+                    iframe.contentWindow.document.body.classList.remove('preprinted-mode');
                 }
             }
-
-            if (cart.length > 0) {
-                cart.forEach(item => {
-                    item.portion = mode;
-                    if (item.baseQty === undefined) item.baseQty = item.qty;
-                    item.qty = (mode === 'half') ? item.baseQty / 2 : item.baseQty;
-                });
-                renderCart();
-            }
         }
 
-        function setEcomItemPortion(index, portion) {
-            const item = cart[index];
-            if (!item) return;
-
-            item.portion = portion;
-            if (item.baseQty === undefined) item.baseQty = item.qty;
-
-            if (portion === 'half') {
-                item.qty = item.baseQty / 2;
-            } else {
-                item.qty = item.baseQty;
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframe = document.getElementById('ecomOrderInvoiceIframe');
+            if (iframe) {
+                iframe.onload = function() {
+                    const toggle = document.getElementById('posPreprintedToggle');
+                    if (toggle && toggle.checked && this.contentWindow && this.contentWindow.document && this.contentWindow.document.body) {
+                        this.contentWindow.document.body.classList.add('preprinted-mode');
+                    }
+                };
             }
-
-            renderCart();
-        }
+        });
 
         function renderCart() {
             const container = document.getElementById('cartItems');
@@ -565,7 +561,6 @@
                     </div>`;
             } else {
                 container.innerHTML = cart.map((item, index) => {
-                    const isHalf = item.portion === 'half';
                     return `
                     <div class="cart-item-card mb-2">
                         <div class="d-flex justify-content-between align-items-start">
@@ -582,13 +577,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                            <span class="small text-muted font-w600">Item Portion:</span>
-                            <div class="btn-group btn-group-sm" role="group" style="width: 130px;">
-                                <button type="button" class="btn ${!isHalf ? 'btn-danger active' : 'btn-outline-danger'} btn-xs py-1" onclick="setEcomItemPortion(${index}, 'whole')" style="${!isHalf ? 'background:#ff0000;color:#fff;' : ''}">Whole</button>
-                                <button type="button" class="btn ${isHalf ? 'btn-danger active' : 'btn-outline-danger'} btn-xs py-1" onclick="setEcomItemPortion(${index}, 'half')" style="${isHalf ? 'background:#ff0000;color:#fff;' : ''}">Half</button>
-                            </div>
-                        </div>
                     </div>
                 `;
                 }).join('');
@@ -601,14 +589,12 @@
             const item = cart[index];
             if (!item) return;
 
-            if (item.baseQty === undefined) item.baseQty = item.qty;
-            const newBase = item.baseQty + change;
-            if (newBase > 0) {
-                if (newBase > item.stock) {
+            const newQty = item.qty + change;
+            if (newQty > 0) {
+                if (newQty > item.stock) {
                     return alert(`Cannot exceed available MIBF stock (${item.stock} pcs).`);
                 }
-                item.baseQty = newBase;
-                item.qty = item.portion === 'half' ? item.baseQty / 2 : item.baseQty;
+                item.qty = newQty;
             } else {
                 cart.splice(index, 1);
             }
@@ -625,11 +611,6 @@
                     return;
                 }
                 item.qty = qtyVal;
-                if (item.portion === 'half') {
-                    item.baseQty = qtyVal * 2;
-                } else {
-                    item.baseQty = qtyVal;
-                }
                 updateTotals();
             }
         }

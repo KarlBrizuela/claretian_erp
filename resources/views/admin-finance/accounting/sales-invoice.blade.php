@@ -262,11 +262,16 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div class="col-md-auto">
-                                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="false" aria-controls="advancedFilters" style="height: 38px; border-color: #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; padding: 0 12px; background-color: #ffffff; color: #475569;">
-                                        <i class="las la-filter me-1" style="font-size: 1.1rem; color: #64748b;"></i> Filter Options
-                                    </button>
-                                </div>
+                                 <div class="col-md-auto">
+                                     <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="false" aria-controls="advancedFilters" style="height: 38px; border-color: #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; padding: 0 12px; background-color: #ffffff; color: #475569;">
+                                         <i class="las la-filter me-1" style="font-size: 1.1rem; color: #64748b;"></i> Filter Options
+                                     </button>
+                                 </div>
+                                 <div class="col-md-auto">
+                                      <a href="{{ route('marketing.sales-orders.create', ['source' => 'si']) }}" class="btn text-white fw-bold btn-sm shadow-sm" style="height: 38px; border-color: #28a745; background-color: #28a745; border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 14px; text-decoration: none;">
+                                          <i class="las la-plus-circle me-1" style="font-size: 1.1rem;"></i> Create
+                                      </a>
+                                 </div>
                                 <div class="col-md-auto ms-auto d-flex align-items-center gap-3">
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="text-muted small fw-medium" style="font-size: 12px;">Show:</span>
@@ -358,25 +363,28 @@
                             </div>
                         </div>
 
+                        @php
+                            $activeTab = request('tab', 'normal');
+                        @endphp
                         <!-- Nav Tabs -->
                         <ul class="nav nav-tabs mb-4" id="siTabs" role="tablist" style="border-bottom: 2px solid #eee;">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active fw-bold text-uppercase border-0 bg-transparent text-dark" id="normal-tab" data-bs-toggle="tab" data-bs-target="#normal-pane" type="button" role="tab" aria-controls="normal-pane" aria-selected="true" style="padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link {{ $activeTab === 'normal' ? 'active text-dark' : 'text-muted' }} fw-bold text-uppercase border-0 bg-transparent" id="normal-tab" data-bs-toggle="tab" data-bs-target="#normal-pane" type="button" role="tab" aria-controls="normal-pane" aria-selected="{{ $activeTab === 'normal' ? 'true' : 'false' }}" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-file-invoice me-1 text-danger" style="font-size: 1.2rem;"></i> Normal Invoices ({{ $normalOrders->count() }})
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-pane" type="button" role="tab" aria-controls="ecom-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link {{ $activeTab === 'ecom' ? 'active text-dark' : 'text-muted' }} fw-bold text-uppercase border-0 bg-transparent" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-pane" type="button" role="tab" aria-controls="ecom-pane" aria-selected="{{ $activeTab === 'ecom' ? 'true' : 'false' }}" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-store me-1 text-primary" style="font-size: 1.2rem;"></i> Direct Invoice (E-com) ({{ $ecomOrders->count() }})
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="completed-ecom-tab" data-bs-toggle="tab" data-bs-target="#completed-ecom-pane" type="button" role="tab" aria-controls="completed-ecom-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link {{ $activeTab === 'completed-ecom' ? 'active text-dark' : 'text-muted' }} fw-bold text-uppercase border-0 bg-transparent" id="completed-ecom-tab" data-bs-toggle="tab" data-bs-target="#completed-ecom-pane" type="button" role="tab" aria-controls="completed-ecom-pane" aria-selected="{{ $activeTab === 'completed-ecom' ? 'true' : 'false' }}" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-shopping-cart me-1 text-info" style="font-size: 1.2rem;"></i> Completed E-com ({{ $completedEcomSIs->count() }})
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-pane" type="button" role="tab" aria-controls="completed-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link {{ $activeTab === 'completed' ? 'active text-dark' : 'text-muted' }} fw-bold text-uppercase border-0 bg-transparent" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-pane" type="button" role="tab" aria-controls="completed-pane" aria-selected="{{ $activeTab === 'completed' ? 'true' : 'false' }}" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-check-circle me-1 text-success" style="font-size: 1.2rem;"></i> Completed SI ({{ $completedSIs->count() }})
                                 </button>
                             </li>
@@ -384,7 +392,7 @@
 
                         <div class="tab-content" id="siTabsContent">
                             <!-- Normal Invoices Tab Pane -->
-                            <div class="tab-pane fade show active" id="normal-pane" role="tabpanel" aria-labelledby="normal-tab">
+                            <div class="tab-pane fade {{ $activeTab === 'normal' ? 'show active' : '' }}" id="normal-pane" role="tabpanel" aria-labelledby="normal-tab">
                                 <div class="table-responsive">
                                     <table class="table table-hover">
                                         <thead>
@@ -687,7 +695,7 @@
                             </div>
 
                             <!-- Completed SI Tab Pane -->
-                            <div class="tab-pane fade" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
+                            <div class="tab-pane fade {{ $activeTab === 'completed' ? 'show active' : '' }}" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
                                 <div class="table-responsive">
                                     <table class="table table-hover">
                                         <thead>

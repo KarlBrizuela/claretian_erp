@@ -218,22 +218,6 @@
                 </select>
             </div>
 
-            <!-- Whole vs Half Item Quantity Option -->
-            <div class="pos-form-group mb-3" style="display: none;">
-                <label class="d-flex justify-content-between align-items-center mb-1">
-                    <span>Quantity Option *</span>
-                    <span class="badge bg-danger" id="qtyModeBadge">WHOLE (100% Qty)</span>
-                </label>
-                <div class="btn-group w-100" role="group">
-                    <button type="button" class="btn btn-danger btn-sm font-w700 active" id="modeWholeBtn" onclick="setQtyMode('whole')" style="background:#ff0000;">
-                        <i class="las la-boxes me-1"></i> WHOLE (e.g. 10)
-                    </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm font-w700" id="modeHalfBtn" onclick="setQtyMode('half')">
-                        <i class="las la-cut me-1"></i> HALF (e.g. 5)
-                    </button>
-                </div>
-            </div>
-
             <div class="pos-cart-items" id="cartItems">
                 <div class="text-center text-muted p-5">
                     <i class="las la-shopping-cart" style="font-size: 4rem; opacity: 0.2;"></i>
@@ -486,49 +470,6 @@
             });
             
             renderProducts();
-        }
-
-        let qtyMode = 'whole'; // 'whole' or 'half'
-
-        function setQtyMode(mode) {
-            qtyMode = mode;
-            
-            const btnWhole = document.getElementById('modeWholeBtn');
-            const btnHalf = document.getElementById('modeHalfBtn');
-            const badge = document.getElementById('qtyModeBadge');
-            
-            if (mode === 'half') {
-                btnWhole?.classList.remove('btn-danger', 'active');
-                btnWhole?.classList.add('btn-outline-danger');
-                btnWhole?.style.removeProperty('background');
-                btnHalf?.classList.remove('btn-outline-danger');
-                btnHalf?.classList.add('btn-danger', 'active');
-                btnHalf?.style.setProperty('background', '#ff0000', 'important');
-                if (badge) {
-                    badge.textContent = 'HALF (50% Qty)';
-                    badge.className = 'badge bg-warning text-dark';
-                }
-            } else {
-                btnHalf?.classList.remove('btn-danger', 'active');
-                btnHalf?.classList.add('btn-outline-danger');
-                btnHalf?.style.removeProperty('background');
-                btnWhole?.classList.remove('btn-outline-danger');
-                btnWhole?.classList.add('btn-danger', 'active');
-                btnWhole?.style.setProperty('background', '#ff0000', 'important');
-                if (badge) {
-                    badge.textContent = 'WHOLE (100% Qty)';
-                    badge.className = 'badge bg-danger';
-                }
-            }
-
-            if (cart.length > 0) {
-                cart.forEach(item => {
-                    item.portion = mode;
-                    if (item.baseQty === undefined) item.baseQty = item.qty;
-                    item.qty = (mode === 'half') ? item.baseQty / 2 : item.baseQty;
-                });
-                renderCart();
-            }
         }
 
         function addToCart(cartKey) {

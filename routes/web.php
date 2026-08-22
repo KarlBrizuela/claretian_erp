@@ -576,6 +576,11 @@ Route::middleware(['auth'])->group(function () {
       // Auto Debits
       Route::get('/auto-debits', [App\Http\Controllers\Production\FORDController::class, 'accountingAutoDebitIndex'])->name('admin-finance.accounting.auto-debits.index');
       Route::get('/auto-debits/{id}', [App\Http\Controllers\Production\FORDController::class, 'accountingAutoDebitShow'])->name('admin-finance.accounting.auto-debits.show');
+
+      // Delivery Receipts in Accounting
+      Route::get('/delivery-receipt-list', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceiptList'])->name('admin-finance.accounting.delivery-receipt-list');
+      Route::get('/delivery-receipt/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('admin-finance.accounting.delivery-receipt');
+      Route::post('/move-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'fastMoveToSI'])->name('admin-finance.accounting.delivery-receipt.move-to-si');
     });
 
     // Chart of Accounts
