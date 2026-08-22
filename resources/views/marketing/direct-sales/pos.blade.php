@@ -189,6 +189,7 @@
         <div class="pos-products-panel">
             <div class="pos-category-tabs">
                 <button class="pos-category-tab active" onclick="switchCategory('books')">Books</button>
+                <button class="pos-category-tab" onclick="switchCategory('indices')">Book Indices</button>
                 <button class="pos-category-tab" onclick="switchCategory('non-books')">Non-Books</button>
                 <button class="pos-category-tab" onclick="switchCategory('bundle')">📦 Bundles</button>
             </div>
@@ -411,9 +412,10 @@
     <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
         const products = @json($products);
+        const indices  = @json($indices ?? []);
         const bundles  = @json($bundles);
-        // Merge all items into one list; bundles have type='bundle', books have type='book'
-        const allItems = [...products, ...bundles];
+        // Merge all items into one list; bundles have type='bundle', indices have type='index', books have type='book'
+        const allItems = [...products, ...indices, ...bundles];
 
         let cart = [];
         let currentCategory = 'books';
@@ -455,7 +457,9 @@
                     : '';
                 const bundleBadge = p.type === 'bundle'
                     ? `<span style="position:absolute;top:8px;right:8px;background:#6f42c1;color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:10px;">BUNDLE</span>`
-                    : '';
+                    : (p.type === 'index'
+                        ? `<span style="position:absolute;top:8px;right:8px;background:#17a2b8;color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:10px;">INDEX</span>`
+                        : '');
                 const cartKey = p.type + '_' + p.id;
                 return `
                     <div class="pos-product-card" onclick="addToCart('${cartKey}')">
@@ -580,7 +584,9 @@
                 container.innerHTML = cart.map((item, index) => {
                     const typeBadge = item.type === 'bundle'
                         ? `<span style="font-size:0.65rem;background:#6f42c1;color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">BUNDLE</span>`
-                        : '';
+                        : (item.type === 'index'
+                            ? `<span style="font-size:0.65rem;background:#17a2b8;color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">INDEX</span>`
+                            : '');
                     const discVal = item.discount_value !== undefined && item.discount_value !== '' ? item.discount_value : '';
                     const discType = item.discount_type || 'percentage';
 
@@ -839,6 +845,8 @@
 
                     if (item.type === 'bundle') {
                         itemPayload.bundle_id = item.id;
+                    } else if (item.type === 'index') {
+                        itemPayload.book_index_id = item.id;
                     } else {
                         itemPayload.product_id = item.id;
                     }

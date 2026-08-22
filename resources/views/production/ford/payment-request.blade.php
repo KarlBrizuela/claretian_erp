@@ -1,4 +1,4 @@
-<x-app-layout :title="'Payment Request'" :sidebar="'production'">
+ <x-app-layout :title="'Payment Request'" :sidebar="'production'">
     <div class="container-fluid">
         <!-- Alert Messages -->
         @if(session('success'))

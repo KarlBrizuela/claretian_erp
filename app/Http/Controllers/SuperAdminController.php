@@ -232,7 +232,7 @@ class SuperAdminController extends Controller
                 'marketing.ads_promo.marketing_plan' => '— Marketing Plan Itinerary Budget',
                 'marketing.ads_promo.sponsors' => '— List of Sponsors',
                 'marketing.ecom' => 'E-Com',
-                'marketing.ecom.pos' => '— E-Commerce POS',
+                'marketing.ecom.pos' => '— MIBF POS',
                 'marketing.book_mgmt' => 'Book Management',
                 'marketing.book_mgmt.book_list' => '— Book List (Master)',
                 'marketing.book_mgmt.consignment' => '— Consignment Management',

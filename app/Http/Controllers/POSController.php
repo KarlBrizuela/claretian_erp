@@ -31,6 +31,7 @@ class POSController extends Controller
             'items'               => 'required|array|min:1',
             'items.*.product_id'  => 'nullable|exists:books,id',
             'items.*.bundle_id'   => 'nullable|exists:book_bundles,id',
+            'items.*.book_index_id' => 'nullable|exists:book_indices,id',
             'items.*.quantity'    => 'required|numeric|min:0.1',
             'items.*.price'       => 'required|numeric|min:0',
             'items.*.discount_value'  => 'nullable|numeric|min:0',
@@ -77,6 +78,14 @@ class POSController extends Controller
                             $insufficientItems[] = "{$book->name} in bundle {$bundle->name} (Available: {$book->stock} pcs, Needed: $need pcs)";
                         }
                     }
+                }
+            } elseif (!empty($item['book_index_id'])) {
+                // --- Book Index item ---
+                $index = \App\Models\BookIndex::find($item['book_index_id']);
+                $stock = $index ? (int)($index->main_stock ?? $index->stock ?? 0) : 0;
+                if (!$index || $stock < $qty) {
+                    $name = $index ? $index->display_name : "Index #{$item['book_index_id']}";
+                    $insufficientItems[] = "$name (Index stock available: $stock, requested: $qty)";
                 }
             } else {
                 // --- Regular book item ---
@@ -151,7 +160,7 @@ class POSController extends Controller
             foreach ($validated['items'] as $item) {
                 $discVal = (float) ($item['discount_value'] ?? 0);
                 $discType = $item['discount_type'] ?? 'percentage';
-                $key = (!empty($item['bundle_id']) ? 'bundle_' . $item['bundle_id'] : 'prod_' . ($item['product_id'] ?? 'none'))
+                $key = (!empty($item['bundle_id']) ? 'bundle_' . $item['bundle_id'] : (!empty($item['book_index_id']) ? 'index_' . $item['book_index_id'] : 'prod_' . ($item['product_id'] ?? 'none')))
                      . '_' . $discVal . '_' . $discType;
 
                 if (isset($aggregatedItems[$key])) {
@@ -160,6 +169,7 @@ class POSController extends Controller
                     $aggregatedItems[$key] = [
                         'product_id'     => $item['product_id'] ?? null,
                         'bundle_id'      => $item['bundle_id'] ?? null,
+                        'book_index_id'  => $item['book_index_id'] ?? null,
                         'quantity'       => (float) $item['quantity'],
                         'price'          => (float) $item['price'],
                         'discount_value' => $discVal,
@@ -224,6 +234,54 @@ class POSController extends Controller
                             'unit_cost'        => $book->cost ?? 0,
                             'total_cost'       => $bookQtyToDeduct * ($book->cost ?? 0),
                             'notes'            => "Bundle \"{$bundle->name}\" × {$qty} — POS Order #{$orderNumber}",
+                            'status'           => 'completed',
+                            'transaction_date' => now(),
+                            'user_id'          => auth()->id(),
+                        ]);
+                    }
+
+                } elseif (!empty($item['book_index_id'])) {
+                    // ── Book Index item ───────────────────────────────────
+                    $index = \App\Models\BookIndex::with('book')->find($item['book_index_id']);
+
+                    SalesOrderItem::create([
+                        'sales_order_id'      => $order->id,
+                        'book_id'             => $index ? $index->book_id : null,
+                        'book_index_id'       => $index ? $index->id : null,
+                        'bundle_id'           => null,
+                        'quantity'            => $qty,
+                        'price'               => $price,
+                        'discount_value'      => $discVal,
+                        'discount_type'       => $discType,
+                        'discount_amount'     => $discAmount,
+                        'subtotal'            => $subtotal,
+                        'unit'                => 'pcs',
+                        'source_price_at_sale'=> $index ? ($index->price ?: ($index->book?->source_price ?? 0)) : 0,
+                    ]);
+
+                    if ($index) {
+                        $index->stock = max(0, ($index->stock ?? 0) - $qty);
+                        $index->save();
+
+                        // Sync Main Warehouse site inventory for index
+                        $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
+                        if ($mainWarehouse) {
+                            \App\Models\SiteInventory::updateOrCreate(
+                                ['site_id' => $mainWarehouse->id, 'book_index_id' => $index->id],
+                                ['quantity' => $index->stock]
+                            );
+                        }
+
+                        \App\Models\InventoryTransaction::create([
+                            'book_id'          => $index->book_id,
+                            'type'             => 'out',
+                            'quantity'         => $qty,
+                            'location'         => 'Main Warehouse',
+                            'source'           => 'POS Index Sale',
+                            'reference_number' => $orderNumber,
+                            'unit_cost'        => $index->book?->cost ?? 0,
+                            'total_cost'       => $qty * ($index->book?->cost ?? 0),
+                            'notes'            => 'Index "' . $index->display_name . '" × ' . $qty . ' — POS Order #' . $orderNumber,
                             'status'           => 'completed',
                             'transaction_date' => now(),
                             'user_id'          => auth()->id(),
@@ -389,47 +447,77 @@ class POSController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
-            'platform' => 'required|in:lazada,shopee,tiktok,website,facebook,other',
-            'payment_method' => 'required|in:cod,gcash,lazada,shopee,paymaya,card,bank,check',
+            'platform' => 'nullable|string',
+            'payment_method' => 'required|in:cod,cash,gcash,lazada,shopee,paymaya,card,bank,check',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:books,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.product_id' => 'nullable',
+            'items.*.type' => 'nullable|string',
+            'items.*.book_id' => 'nullable',
+            'items.*.book_index_id' => 'nullable',
+            'items.*.book_bundle_id' => 'nullable',
+            'items.*.quantity' => 'required|numeric|min:0.1',
             'items.*.price' => 'required|numeric|min:0',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
             'total' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
             'payment_reference' => 'nullable|string',
+            'cash_received' => 'nullable|numeric|min:0',
             'discount_value' => 'nullable|numeric|min:0',
             'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
 
-        // STOCK VALIDATION: Check if all items have sufficient stock
+        $platformName = !empty($validated['platform']) ? $validated['platform'] : 'MIBF';
+
+        // STOCK VALIDATION: Check if all items have sufficient stock in MIBF Team Stock
         $insufficientItems = [];
         foreach ($validated['items'] as $item) {
-            $book = Book::withSum('inventory as stock', 'quantity')->find($item['product_id']);
-            if (!$book || $book->stock < $item['quantity']) {
-                $bookName = $book ? $book->name : "Product #{$item['product_id']}";
-                $availableStock = $book ? $book->stock : 0;
-                $insufficientItems[] = "$bookName (Available: $availableStock pcs, Requested: {$item['quantity']} pcs)";
+            $bookId = $item['book_id'] ?? ($item['type'] === 'book' ? $item['product_id'] : null);
+            $indexId = $item['book_index_id'] ?? ($item['type'] === 'index' ? $item['product_id'] : null);
+            $bundleId = $item['book_bundle_id'] ?? ($item['type'] === 'bundle' ? $item['product_id'] : null);
+
+            $ts = \App\Models\TeamStock::where('team_name', 'MIBF')
+                ->where(function($q) use ($bookId, $indexId, $bundleId) {
+                    if ($indexId) {
+                        $q->where('book_index_id', $indexId);
+                    } elseif ($bundleId) {
+                        $q->where('book_bundle_id', $bundleId);
+                    } elseif ($bookId) {
+                        $q->where('book_id', $bookId);
+                    }
+                })->first();
+
+            $avail = $ts ? (int)$ts->quantity : 0;
+            if ($avail < $item['quantity']) {
+                $itemName = "Item #" . ($item['product_id'] ?? '');
+                if ($indexId) {
+                    $idxObj = \App\Models\BookIndex::find($indexId);
+                    if ($idxObj) $itemName = $idxObj->display_name;
+                } elseif ($bundleId) {
+                    $bunObj = \App\Models\BookBundle::find($bundleId);
+                    if ($bunObj) $itemName = $bunObj->name;
+                } elseif ($bookId) {
+                    $bObj = Book::find($bookId);
+                    if ($bObj) $itemName = $bObj->name;
+                }
+                $insufficientItems[] = "$itemName (MIBF Stock Available: $avail pcs, Requested: {$item['quantity']} pcs)";
             }
         }
 
         if (!empty($insufficientItems)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient stock for items: ' . implode(', ', $insufficientItems)
+                'message' => 'Insufficient MIBF stock: ' . implode('; ', $insufficientItems)
             ], 422);
         }
 
         try {
             DB::beginTransaction();
 
-            // Generate order number for E-com
+            // Generate order number for MIBF
             $date = now()->format('Ymd');
-            $prefix = 'ECOM'; // Separate prefix for E-com
+            $prefix = 'MIBF';
             
-            // Get the last order number for today with this prefix
             $lastOrder = SalesOrder::where('so_number', 'like', "{$prefix}-{$date}-%")
                 ->orderBy('so_number', 'desc')
                 ->first();
@@ -442,10 +530,11 @@ class POSController extends Controller
             }
             
             $orderNumber = "{$prefix}-{$date}-{$newNumber}";
-
-            // Determine payment status
-            // COD is unpaid, others are considered paid (or at least authorized)
             $paymentStatus = ($validated['payment_method'] === 'cod') ? 'unpaid' : 'paid';
+
+            $changeAmount = ($validated['payment_method'] === 'cash' && !empty($validated['cash_received']))
+                ? max(0, $validated['cash_received'] - $validated['total'])
+                : null;
 
             $discountAmount = 0;
             $discountPercentage = 0;
@@ -464,11 +553,14 @@ class POSController extends Controller
                 'customer_id' => $validated['customer_id'],
                 'so_number' => $orderNumber,
                 'type' => 'ecom_direct',
-                'status' => 'completed', // Immediately completed for simplified flow, or use 'pending_delivery' if strict
-                'platform' => $validated['platform'],
+                'status' => 'completed',
+                'platform' => $platformName,
+                'ecom_platform' => $platformName,
                 'payment_method' => $validated['payment_method'],
                 'payment_status' => $paymentStatus,
                 'payment_reference' => $validated['payment_reference'] ?? null,
+                'cash_received' => $validated['cash_received'] ?? null,
+                'change_amount' => $changeAmount,
                 'total_amount' => $validated['total'],
                 'tax_amount' => $validated['tax'],
                 'discount_amount' => $discountAmount,
@@ -481,90 +573,75 @@ class POSController extends Controller
                 'acct_approved_at' => now(),
             ]);
 
-            // Determine platform site (Lazada, Shoppee, Tiktok)
-            $platformStr = strtolower($validated['platform'] ?? '');
-            $targetSite = null;
-            if ($platformStr === 'lazada') {
-                $targetSite = \App\Models\Site::whereRaw('LOWER(name) = ?', ['lazada'])->first();
-            } elseif ($platformStr === 'shopee' || $platformStr === 'shoppee') {
-                $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%shop%'])->first();
-            } elseif ($platformStr === 'tiktok') {
-                $targetSite = \App\Models\Site::whereRaw('LOWER(name) LIKE ?', ['%tik%'])->first();
-            }
-            if (!$targetSite) {
-                $targetSite = \App\Models\Site::where('name', 'Main Warehouse')->first();
-            }
-
-            // Aggregate duplicate item entries
-            $aggregatedEcomItems = [];
+            // Create order items & deduct stock from MIBF TeamStock
             foreach ($validated['items'] as $item) {
-                $pid = $item['product_id'];
-                if (isset($aggregatedEcomItems[$pid])) {
-                    $aggregatedEcomItems[$pid]['quantity'] += (int) $item['quantity'];
-                } else {
-                    $aggregatedEcomItems[$pid] = [
-                        'product_id' => $pid,
-                        'quantity'   => (int) $item['quantity'],
-                        'price'      => (float) $item['price'],
-                    ];
+                $bookId = $item['book_id'] ?? ($item['type'] === 'book' ? $item['product_id'] : null);
+                $indexId = $item['book_index_id'] ?? ($item['type'] === 'index' ? $item['product_id'] : null);
+                $bundleId = $item['book_bundle_id'] ?? ($item['type'] === 'bundle' ? $item['product_id'] : null);
+
+                $sourcePrice = 0;
+                if ($bookId) {
+                    $b = Book::find($bookId);
+                    if ($b) $sourcePrice = $b->source_price;
                 }
-            }
-            $validated['items'] = array_values($aggregatedEcomItems);
 
-            // Create order items & deduct stock from specific platform site
-            foreach ($validated['items'] as $item) {
-                $book = Book::find($item['product_id']);
                 SalesOrderItem::create([
                     'sales_order_id' => $order->id,
-                    'book_id' => $item['product_id'],
+                    'book_id' => $bookId,
+                    'book_index_id' => $indexId,
+                    'bundle_id' => $bundleId,
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'subtotal' => $item['quantity'] * $item['price'],
                     'unit' => 'pcs',
-                    'source_price_at_sale' => $book ? $book->source_price : 0,
+                    'source_price_at_sale' => $sourcePrice,
                 ]);
 
-                // Decrement specific platform site inventory (Lazada, Shoppee, Tiktok)
-                if ($targetSite && $book) {
-                    $siteInv = \App\Models\SiteInventory::firstOrNew([
-                        'site_id' => $targetSite->id,
-                        'book_id' => $book->id
-                    ]);
-                    $siteInv->quantity = max(0, ($siteInv->quantity ?? 0) - $item['quantity']);
-                    $siteInv->save();
+                // Decrement MIBF TeamStock
+                $ts = \App\Models\TeamStock::where('team_name', 'MIBF')
+                    ->where(function($q) use ($bookId, $indexId, $bundleId) {
+                        if ($indexId) {
+                            $q->where('book_index_id', $indexId);
+                        } elseif ($bundleId) {
+                            $q->where('book_bundle_id', $bundleId);
+                        } elseif ($bookId) {
+                            $q->where('book_id', $bookId);
+                        }
+                    })->first();
+
+                if ($ts) {
+                    $ts->quantity = max(0, ($ts->quantity ?? 0) - $item['quantity']);
+                    $ts->save();
                 }
 
-                // Decrement master book stock
-                if ($book) {
-                    $book->stock = max(0, ($book->stock ?? 0) - $item['quantity']);
-                    $book->save();
-
-                    // Record inventory transaction for platform site
-                    \App\Models\InventoryTransaction::create([
-                        'book_id' => $book->id,
-                        'type' => 'out',
-                        'quantity' => $item['quantity'],
-                        'location' => $targetSite ? $targetSite->name : 'Main Warehouse',
-                        'source' => 'E-com Direct',
-                        'reference_number' => $orderNumber,
-                        'unit_cost' => $book->cost ?? 0,
-                        'total_cost' => $item['quantity'] * ($book->cost ?? 0),
-                        'notes' => 'E-com Order #' . $orderNumber . ' - Platform: ' . ucfirst($validated['platform']),
-                        'status' => 'completed',
-                        'transaction_date' => now(),
-                        'user_id' => auth()->id()
-                    ]);
-                }
+                // Record inventory transaction
+                \App\Models\InventoryTransaction::create([
+                    'book_id' => $bookId,
+                    'type' => 'out',
+                    'quantity' => $item['quantity'],
+                    'location' => 'MIBF',
+                    'source' => 'MIBF POS',
+                    'reference_number' => $orderNumber,
+                    'unit_cost' => 0,
+                    'total_cost' => 0,
+                    'notes' => 'MIBF POS Order #' . $orderNumber,
+                    'status' => 'completed',
+                    'transaction_date' => now(),
+                    'user_id' => auth()->id()
+                ]);
             }
 
-            // --- ACCOUNTING INTEGRATION ---
+            // Synchronize site inventory for MIBF team site
+            \App\Services\StockDeductionService::syncTeamSitesInventory();
+
+            // Accounting integration
             $this->accounting->postSalesOrderEntry($order);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Online order processed successfully',
+                'message' => 'MIBF order processed successfully',
                 'order' => [
                     'id' => $order->id,
                     'order_number' => $orderNumber,
@@ -579,7 +656,7 @@ class POSController extends Controller
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to process order: ' . $e->getMessage()
+                'message' => 'Failed to process MIBF order: ' . $e->getMessage()
             ], 500);
         }
     }

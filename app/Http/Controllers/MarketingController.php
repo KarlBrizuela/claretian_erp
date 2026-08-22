@@ -3312,6 +3312,25 @@ class MarketingController extends Controller
                 ];
             });
 
+        $indices = \App\Models\BookIndex::with('book')
+            ->get()
+            ->map(function($idx) {
+                $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+                $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
+                $mainStock = (int) ($idx->main_stock ?? $idx->stock ?? 0);
+                return [
+                    'id' => $idx->id,
+                    'type' => 'index',
+                    'category' => 'indices',
+                    'name' => $idx->display_name,
+                    'price' => $price,
+                    'barcode' => $idx->barcode ?: ($idx->article ?: ($idx->nbs_barcode ?: '')),
+                    'sku' => $idx->article ?: '',
+                    'stock' => $mainStock,
+                    'image' => $img
+                ];
+            });
+
         $bundles = \App\Models\BookBundle::where('is_active', true)
             ->with(['books' => function ($q) {
                 $q->withPivot('quantity')
@@ -3340,6 +3359,7 @@ class MarketingController extends Controller
 
         return view('marketing.direct-sales.pos', [
             'products' => $products,
+            'indices' => $indices,
             'bundles' => $bundles,
             'customers' => \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get(),
             'title' => 'New Sale - Point of Sale',
@@ -3364,25 +3384,99 @@ class MarketingController extends Controller
         ]);
     }
 
-    // E-Com
+    // MIBF POS
     public function ecomPos()
     {
-        $products = Book::where('is_active', true)
-            ->withSum('inventory as stock', 'quantity')
+        $mibfStocks = \App\Models\TeamStock::where('team_name', 'MIBF')->get();
+        $bookStocksMap = $mibfStocks->whereNotNull('book_id')->pluck('quantity', 'book_id')->toArray();
+        $indexStocksMap = $mibfStocks->whereNotNull('book_index_id')->pluck('quantity', 'book_index_id')->toArray();
+        $bundleStocksMap = $mibfStocks->whereNotNull('book_bundle_id')->pluck('quantity', 'book_bundle_id')->toArray();
+
+        // 1. Books (is_book = true)
+        $books = Book::where('is_active', true)->where('is_book', true)
             ->orderBy('name', 'asc')
             ->get()
-            ->map(function($p) {
+            ->map(function($b) use ($bookStocksMap) {
+                $stock = (int) ($bookStocksMap[$b->id] ?? 0);
                 return [
-                    'id' => $p->id,
-                    'category' => strtolower($p->category ?? 'books'),
-                    'name' => $p->name,
-                    'price' => (float)$p->price,
-                    'image' => $p->image ? asset('storage/' . $p->image) : asset('images/no-book-cover.svg')
+                    'id' => 'book_' . $b->id,
+                    'type' => 'book',
+                    'real_id' => $b->id,
+                    'book_id' => $b->id,
+                    'category' => 'books',
+                    'name' => $b->name,
+                    'price' => (float)$b->price,
+                    'stock' => $stock,
+                    'barcode' => $b->barcode ?: ($b->isbn ?: ($b->sku ?: '')),
+                    'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg')
                 ];
             });
 
+        // 2. Book Indices
+        $indices = \App\Models\BookIndex::with('book')->get()
+            ->map(function($idx) use ($indexStocksMap) {
+                $stock = (int) ($indexStocksMap[$idx->id] ?? 0);
+                $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+                $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
+                return [
+                    'id' => 'index_' . $idx->id,
+                    'type' => 'index',
+                    'real_id' => $idx->id,
+                    'book_id' => $idx->book_id,
+                    'book_index_id' => $idx->id,
+                    'category' => 'indices',
+                    'name' => $idx->display_name,
+                    'price' => $price,
+                    'stock' => $stock,
+                    'barcode' => $idx->barcode ?: ($idx->article ?: ($idx->nbs_barcode ?: '')),
+                    'image' => $img
+                ];
+            });
+
+        // 3. Non-Books (is_book = false)
+        $nonBooks = Book::where('is_active', true)->where('is_book', false)
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(function($nb) use ($bookStocksMap) {
+                $stock = (int) ($bookStocksMap[$nb->id] ?? 0);
+                return [
+                    'id' => 'book_' . $nb->id,
+                    'type' => 'book',
+                    'real_id' => $nb->id,
+                    'book_id' => $nb->id,
+                    'category' => 'non-books',
+                    'name' => $nb->name,
+                    'price' => (float)$nb->price,
+                    'stock' => $stock,
+                    'barcode' => $nb->barcode ?: ($nb->sku ?: ($nb->item_code ?: '')),
+                    'image' => $nb->image ? asset('storage/' . $nb->image) : asset('images/no-book-cover.svg')
+                ];
+            });
+
+        // 4. Book Bundles
+        $bundles = \App\Models\BookBundle::where('is_active', true)
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(function($bun) use ($bundleStocksMap) {
+                $stock = (int) ($bundleStocksMap[$bun->id] ?? 0);
+                return [
+                    'id' => 'bundle_' . $bun->id,
+                    'type' => 'bundle',
+                    'real_id' => $bun->id,
+                    'book_bundle_id' => $bun->id,
+                    'category' => 'bundle',
+                    'name' => $bun->name . ' (bundle)',
+                    'price' => (float)$bun->price,
+                    'stock' => $stock,
+                    'barcode' => $bun->sku ?: '',
+                    'image' => asset('images/no-book-cover.svg')
+                ];
+            });
+
+        $products = $books->concat($indices)->concat($nonBooks)->concat($bundles)->values();
+
         return view('marketing.ecom.pos', [
-            'title' => 'E-Commerce POS',
+            'title' => 'MIBF POS',
             'role' => 'Marketing Manager',
             'sidebar' => 'marketing',
             'products' => $products,
