@@ -583,6 +583,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/sales-management', [App\Http\Controllers\AdminFinanceController::class, 'salesManagement'])->name('admin-finance.accounting.sales-management');
     Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');
     Route::get('/accounts-payable', [App\Http\Controllers\AdminFinanceController::class, 'accountsPayable'])->name('admin-finance.accounting.accounts-payable');
+    Route::get('/inventory-valuation', [App\Http\Controllers\Accounting\InventoryValuationController::class, 'index'])->name('admin-finance.accounting.inventory-valuation');
+    Route::get('/general-ledger', [App\Http\Controllers\Accounting\GeneralLedgerController::class, 'index'])->name('admin-finance.accounting.general-ledger');
+    Route::get('/procurement', [App\Http\Controllers\Accounting\ProcurementController::class, 'index'])->name('admin-finance.accounting.procurement');
     Route::post('/accounts-payable/suppliers', [App\Http\Controllers\AdminFinanceController::class, 'storeSupplier'])->name('admin-finance.accounting.accounts-payable.supplier.store');
     Route::post('/accounts-payable/suppliers/{id}/update', [App\Http\Controllers\AdminFinanceController::class, 'updateSupplier'])->name('admin-finance.accounting.accounts-payable.supplier.update');
     Route::delete('/accounts-payable/suppliers/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroySupplier'])->name('admin-finance.accounting.accounts-payable.supplier.destroy');

@@ -1,5 +1,245 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
-    <div class="container-fluid">
+@push('styles')
+<style>
+    /* 1. Page Layout & Grid Width Expansion (Guideline 2) */
+    .content-body .container-fluid {
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+        max-width: 100% !important;
+    }
+
+    /* 2. Modern Table Styles (Guideline 3) */
+    .table-responsive {
+        border: none !important;
+        overflow-x: auto;
+    }
+    table.table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+    table.table thead th {
+        background-color: #f8fafc !important;
+        color: #475569 !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        font-size: 11px !important;
+        padding: 8px 12px !important;
+        border-bottom: 2px solid #e2e8f0 !important;
+        border-top: none !important;
+        vertical-align: middle !important;
+    }
+    table.table tbody td {
+        padding: 8px 12px !important;
+        font-size: 12px !important;
+        color: #475569 !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        border-top: none !important;
+        vertical-align: middle !important;
+    }
+    table.table tbody tr {
+        transition: all 0.15s ease-in-out !important;
+    }
+    table.table tbody tr:hover {
+        background-color: #f8fafc !important;
+    }
+    
+    /* Make buttons inside table more compact */
+    table.table .btn {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+        border-radius: 4px !important;
+        line-height: 1.2 !important;
+    }
+
+    /* Subtle styling for Payment Method select inside table to prevent bright blue/large distraction */
+    table.table select.pm-select {
+        height: 28px !important;
+        font-size: 11px !important;
+        font-weight: 500 !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: #ffffff !important;
+        border-radius: 4px !important;
+        color: #0f172a !important;
+        padding: 2px 6px !important;
+        min-width: 115px !important;
+        cursor: pointer;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    table.table select.pm-select:focus {
+        border-color: #D9251C !important;
+    }
+
+    /* 3. Badge and Status Tint Accents (Guideline 1) */
+    .badge {
+        font-weight: 600 !important;
+        padding: 4px 8px !important;
+        border-radius: 4px !important;
+        font-size: 11px !important;
+        display: inline-block !important;
+        line-height: 1.2 !important;
+    }
+    .badge-success, .bg-success, .badge.bg-success {
+        background-color: rgba(16, 185, 129, 0.08) !important;
+        color: #10b981 !important;
+        border: 1px solid rgba(16, 185, 129, 0.15) !important;
+    }
+    .badge-warning, .bg-warning, .badge.bg-warning {
+        background-color: rgba(245, 158, 11, 0.08) !important;
+        color: #f59e0b !important;
+        border: 1px solid rgba(245, 158, 11, 0.15) !important;
+    }
+    .badge-danger, .bg-danger, .badge.bg-danger {
+        background-color: rgba(217, 37, 28, 0.08) !important;
+        color: #D9251C !important;
+        border: 1px solid rgba(217, 37, 28, 0.15) !important;
+    }
+    .badge-info, .bg-info, .badge.bg-info {
+        background-color: rgba(59, 130, 246, 0.08) !important;
+        color: #3b82f6 !important;
+        border: 1px solid rgba(59, 130, 246, 0.15) !important;
+    }
+    .badge-primary, .bg-primary, .badge.bg-primary {
+        background-color: rgba(217, 37, 28, 0.08) !important;
+        color: #D9251C !important;
+        border: 1px solid rgba(217, 37, 28, 0.15) !important;
+    }
+    .badge-secondary, .bg-secondary, .badge.bg-secondary {
+        background-color: #f1f5f9 !important;
+        color: #475569 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+    .badge-outline-dark {
+        background-color: #f8fafc !important;
+        color: #475569 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    /* 4. Tab Custom Indicator Colors (Flat borderless style) */
+    .nav-tabs {
+        border-bottom: 2px solid #e2e8f0 !important;
+    }
+    .nav-tabs .nav-link {
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.3px !important;
+        color: #64748b !important;
+        border: none !important;
+        background: transparent !important;
+        padding: 8px 12px !important;
+        border-bottom: 3px solid transparent !important;
+        margin-bottom: -2px !important;
+        transition: all 0.2s ease !important;
+    }
+    .nav-tabs .nav-link i {
+        font-size: 1.05rem !important;
+    }
+    .nav-tabs .nav-link:hover {
+        color: #0f172a !important;
+    }
+    .nav-tabs .nav-link.active {
+        color: #D9251C !important;
+        border-bottom: 3px solid #D9251C !important;
+        background: transparent !important;
+    }
+
+    /* 5. Pagination Custom Styles (Guideline 4) */
+    .pagination .page-item.active .page-link {
+        background-color: #D9251C !important;
+        border-color: #D9251C !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15) !important;
+    }
+    .pagination .page-link {
+        color: #475569 !important;
+        border-color: #cbd5e1 !important;
+        padding: 8px 14px !important;
+        font-size: 0.85rem !important;
+        transition: all 0.15s ease-in-out !important;
+        background-color: #ffffff !important;
+    }
+    .pagination .page-link:hover {
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+    }
+
+    /* 6. Form elements and buttons */
+    .form-control, .form-select {
+        border-color: #cbd5e1 !important;
+        font-size: 12px !important;
+        transition: all 0.15s ease-in-out !important;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #D9251C !important;
+        box-shadow: 0 0 0 2px rgba(217, 37, 28, 0.08) !important;
+    }
+    
+    /* Soften label weight and color */
+    .form-label {
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        color: #475569 !important;
+        margin-bottom: 4px !important;
+    }
+    /* Mute the label icons to reduce eye strain */
+    .form-label i {
+        color: #8a99ad !important;
+        font-size: 1rem !important;
+    }
+
+    .btn-primary {
+        background-color: #D9251C !important;
+        border-color: #D9251C !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 4px rgba(217, 37, 28, 0.1) !important;
+        transition: all 0.15s ease-in-out !important;
+    }
+    .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+        background-color: #b21e16 !important;
+        border-color: #b21e16 !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 8px rgba(217, 37, 28, 0.2) !important;
+    }
+    .btn-warning {
+        background-color: #f59e0b !important;
+        border-color: #f59e0b !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    .btn-warning:hover, .btn-warning:focus {
+        background-color: #d97706 !important;
+        border-color: #d97706 !important;
+        color: #ffffff !important;
+    }
+    .btn-success {
+        background-color: #10b981 !important;
+        border-color: #10b981 !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    .btn-success:hover, .btn-success:focus {
+        background-color: #059669 !important;
+        border-color: #059669 !important;
+        color: #ffffff !important;
+    }
+    .btn-info {
+        background-color: #3b82f6 !important;
+        border-color: #3b82f6 !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    .btn-info:hover, .btn-info:focus {
+        background-color: #2563eb !important;
+        border-color: #2563eb !important;
+        color: #ffffff !important;
+    }
+</style>
+@endpush
+
+    <div class="container-fluid p-0">
         <div class="row">
             <div class="col-12">
                 <div class="card">
@@ -7,73 +247,100 @@
                         <h4 class="fs-20 mb-0">Sales Invoice Management</h4>
                     </div>
                     <div class="card-body">
-                        <!-- Filters -->
-                        <div class="row mb-4 align-items-end">
-                            <div class="col-md mb-2 mb-md-0">
-                                <label for="siSearchInput" class="form-label fw-bold text-dark"><i class="fas fa-search me-1 text-primary"></i> Search</label>
-                                <input type="text" id="siSearchInput" class="form-control form-control-sm" placeholder="Search by SO #, Customer, Type, Status..." style="height: 36px;">
+                        <!-- Filters Section -->
+                        <div class="mb-4">
+                            <!-- Row 1: Primary Search & Controls -->
+                            <div class="row align-items-center g-2">
+                                <div class="col-md-5">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-white border-end-0" style="border-color: #cbd5e1; border-radius: 4px 0 0 4px; height: 38px; display: flex; align-items: center; justify-content: center; padding: 0 10px;">
+                                            <i class="las la-search text-muted fs-16"></i>
+                                        </span>
+                                        <input type="text" id="siSearchInput" class="form-control border-start-0" placeholder="Search by SO #, Customer, Type, Status..." style="height: 38px; border-color: #cbd5e1; border-radius: 0; font-size: 12px; padding-left: 0; outline: none; box-shadow: none;">
+                                        <button id="searchSubmitBtn" type="button" class="btn text-white fw-bold px-3 d-flex align-items-center justify-content-center" style="background: #D9251C; border-color: #D9251C; height: 38px; border-radius: 0 4px 4px 0; font-size: 12px;">
+                                            Search
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-auto">
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="false" aria-controls="advancedFilters" style="height: 38px; border-color: #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; padding: 0 12px; background-color: #ffffff; color: #475569;">
+                                        <i class="las la-filter me-1" style="font-size: 1.1rem; color: #64748b;"></i> Filter Options
+                                    </button>
+                                </div>
+                                <div class="col-md-auto ms-auto d-flex align-items-center gap-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="text-muted small fw-medium" style="font-size: 12px;">Show:</span>
+                                        <select id="siEntriesSelect" class="form-select form-select-sm text-black" style="height: 38px; min-width: 75px; font-size: 12px; border-radius: 4px; border-color: #cbd5e1;">
+                                            <option value="5" selected>5</option>
+                                            <option value="10">10</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                            <option value="500">500</option>
+                                            <option value="all">All</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-md mb-2 mb-md-0">
-                                <label for="siTypeSelect" class="form-label fw-bold text-dark"><i class="fas fa-filter me-1 text-primary"></i> Type / Category</label>
-                                <select id="siTypeSelect" class="form-select form-select-sm text-black" style="height: 36px;">
-                                    <option value="">All Types</option>
-                                    <option value="area_sales_consignment">Area Sales Consignment</option>
-                                    <option value="area_consignment">Area Consignment</option>
-                                    <option value="paid">Paid</option>
-                                    <option value="wholesale">Wholesale</option>
-                                    <option value="retail">Retail</option>
-                                    <option value="bookstore">Bookstore</option>
-                                    <option value="ecom_direct">E-Com Direct</option>
-                                </select>
-                            </div>
-                            <div class="col-md mb-2 mb-md-0">
-                                <label for="siPaymentMethodSelect" class="form-label fw-bold text-dark"><i class="las la-wallet me-1 text-primary"></i> Payment Method</label>
-                                <select id="siPaymentMethodSelect" class="form-select form-select-sm text-black" style="height: 36px;">
-                                    <option value="">All Payment Methods</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="gcash">GCash</option>
-                                    <option value="maya">Maya</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="check">Check</option>
-                                    <option value="card">Credit/Debit Card</option>
-                                </select>
-                            </div>
-                            <div class="col-md mb-2 mb-md-0" id="platformFilterContainer" style="display: none;">
-                                <label for="siPlatformSelect" class="form-label fw-bold text-dark"><i class="las la-store me-1 text-primary" style="font-size: 1.1rem;"></i> Platform</label>
-                                <select id="siPlatformSelect" class="form-select form-select-sm text-black" style="height: 36px;">
-                                    <option value="">All Platforms</option>
-                                    <option value="lazada">Lazada</option>
-                                    <option value="shopee">Shopee</option>
-                                    <option value="tiktok">TikTok</option>
-                                </select>
-                            </div>
-                            <div class="col-md mb-2 mb-md-0">
-                                <label for="siStartDate" class="form-label fw-bold text-dark"><i class="fas fa-calendar-alt me-1 text-primary"></i> Start Date</label>
-                                <input type="date" id="siStartDate" class="form-control form-control-sm" style="height: 36px;">
-                            </div>
-                            <div class="col-md mb-2 mb-md-0">
-                                <label for="siEndDate" class="form-label fw-bold text-dark"><i class="fas fa-calendar-alt me-1 text-primary"></i> End Date</label>
-                                <input type="date" id="siEndDate" class="form-control form-control-sm" style="height: 36px;">
-                            </div>
-                            <div class="col-md-auto mb-2 mb-md-0">
-                                <label for="siEntriesSelect" class="form-label fw-bold text-dark"><i class="fas fa-list me-1 text-primary"></i> Show Entries</label>
-                                <select id="siEntriesSelect" class="form-select form-select-sm text-black" style="height: 36px; min-width: 95px;">
-                                    <option value="5" selected>5</option>
-                                    <option value="10">10</option>
-                                    <option value="25">25</option>
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                    <option value="500">500</option>
-                                    <option value="all">All</option>
-                                </select>
-                            </div>
-                            <div class="col-md-auto">
-                                <button id="clearFiltersBtn" class="btn btn-light btn-sm" style="border: 1px solid #ddd; height: 36px; min-width: 100px;"><i class="fas fa-undo me-1"></i> Reset</button>
+
+                            <!-- Row 2: Collapsible Secondary Filters -->
+                            <div class="collapse mt-3" id="advancedFilters">
+                                <div class="p-3 rounded border" style="background-color: #f8fafc; border-color: #e2e8f0 !important;">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md">
+                                            <label for="siTypeSelect" class="form-label"><i class="las la-tags me-1"></i> Type / Category</label>
+                                            <select id="siTypeSelect" class="form-select form-select-sm text-black" style="height: 36px; font-size: 12px; border-radius: 6px;">
+                                                <option value="">All Types</option>
+                                                <option value="area_sales_consignment">Area Sales Consignment</option>
+                                                <option value="area_consignment">Area Consignment</option>
+                                                <option value="paid">Paid</option>
+                                                <option value="wholesale">Wholesale</option>
+                                                <option value="retail">Retail</option>
+                                                <option value="bookstore">Bookstore</option>
+                                                <option value="ecom_direct">E-Com Direct</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md">
+                                            <label for="siPaymentMethodSelect" class="form-label"><i class="las la-wallet me-1"></i> Payment Method</label>
+                                            <select id="siPaymentMethodSelect" class="form-select form-select-sm text-black" style="height: 36px; font-size: 12px; border-radius: 6px;">
+                                                <option value="">All Payment Methods</option>
+                                                <option value="cash">Cash</option>
+                                                <option value="gcash">GCash</option>
+                                                <option value="maya">Maya</option>
+                                                <option value="bank_transfer">Bank Transfer</option>
+                                                <option value="check">Check</option>
+                                                <option value="card">Credit/Debit Card</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md" id="platformFilterContainer" style="display: none;">
+                                            <label for="siPlatformSelect" class="form-label"><i class="las la-store me-1"></i> Platform</label>
+                                            <select id="siPlatformSelect" class="form-select form-select-sm text-black" style="height: 36px; font-size: 12px; border-radius: 6px;">
+                                                <option value="">All Platforms</option>
+                                                <option value="lazada">Lazada</option>
+                                                <option value="shopee">Shopee</option>
+                                                <option value="tiktok">TikTok</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md">
+                                            <label for="siStartDate" class="form-label"><i class="las la-calendar me-1"></i> Start Date</label>
+                                            <input type="date" id="siStartDate" class="form-control form-control-sm" style="height: 36px; font-size: 12px; border-radius: 6px;">
+                                        </div>
+                                        <div class="col-md">
+                                            <label for="siEndDate" class="form-label"><i class="las la-calendar me-1"></i> End Date</label>
+                                            <input type="date" id="siEndDate" class="form-control form-control-sm" style="height: 36px; font-size: 12px; border-radius: 6px;">
+                                        </div>
+                                        <div class="col-md-auto">
+                                            <button id="filterSubmitBtn" type="button" class="btn text-white fw-bold px-3 d-flex align-items-center justify-content-center" style="background: #D9251C; border-color: #D9251C; height: 36px; border-radius: 6px; font-size: 12px; min-width: 110px;">
+                                                Apply Filter
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Bulk Actions Bar -->
-                        <div id="bulkActionsBar" class="alert alert-light border d-none justify-content-between align-items-center mb-4 py-2 px-3 shadow-sm bg-white rounded" style="border-left: 4px solid #0d6efd !important;">
+                        <div id="bulkActionsBar" class="alert alert-light border d-none justify-content-between align-items-center mb-4 py-2 px-3 shadow-sm bg-white rounded" style="border-left: 4px solid #D9251C !important;">
                             <div class="d-flex align-items-center gap-3">
                                 <span class="fw-bold text-dark"><span id="selectedCount" class="badge bg-primary fs-14">0</span> Sales Order(s) selected</span>
                                 <span id="selectedTotalAmount" class="fw-bold text-success d-none">| Total: <span id="totalAmountValue">₱0.00</span></span>
@@ -94,7 +361,7 @@
                         <!-- Nav Tabs -->
                         <ul class="nav nav-tabs mb-4" id="siTabs" role="tablist" style="border-bottom: 2px solid #eee;">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active fw-bold text-uppercase border-0 bg-transparent text-dark" id="normal-tab" data-bs-toggle="tab" data-bs-target="#normal-pane" type="button" role="tab" aria-controls="normal-pane" aria-selected="true" style="border-bottom: 3px solid #ff0000; padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link active fw-bold text-uppercase border-0 bg-transparent text-dark" id="normal-tab" data-bs-toggle="tab" data-bs-target="#normal-pane" type="button" role="tab" aria-controls="normal-pane" aria-selected="true" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-file-invoice me-1 text-danger" style="font-size: 1.2rem;"></i> Normal Invoices ({{ $normalOrders->count() }})
                                 </button>
                             </li>
@@ -113,14 +380,13 @@
                                     <i class="las la-check-circle me-1 text-success" style="font-size: 1.2rem;"></i> Completed SI ({{ $completedSIs->count() }})
                                 </button>
                             </li>
-                            
                         </ul>
 
                         <div class="tab-content" id="siTabsContent">
                             <!-- Normal Invoices Tab Pane -->
                             <div class="tab-pane fade show active" id="normal-pane" role="tabpanel" aria-labelledby="normal-tab">
                                 <div class="table-responsive">
-                                    <table class="table table-responsive-md">
+                                    <table class="table table-hover">
                                         <thead>
                                             <tr>
                                                 <th style="width: 50px;">
@@ -207,40 +473,71 @@
                                                 </td>
                                                 <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</span></td>
                                                 <td>{{ $order->siPreparedBy->name ?? 'N/A' }}</td>
-                                                <td>
-                                                    <div class="d-flex align-items-center gap-1 flex-wrap">
-                                                        <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-primary shadow btn-sm" title="View SO Detail"><i class="fas fa-eye"></i> View</a>
-                                                        
-                                                        @if($remBal > 0 && $order->customer_id)
-                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $order->currency ?? 'USD' }}" data-symbol="{{ $ordSym }}">
-                                                                <i class="las la-coins me-1"></i> Pay
-                                                            </button>
-                                                        @endif
+                                                <td class="text-end">
+                                                     <div class="dropdown">
+                                                         <button class="btn btn-link text-muted p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="box-shadow: none;">
+                                                             <i class="las la-ellipsis-v" style="font-size: 1.25rem;"></i>
+                                                         </button>
+                                                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="font-size: 12px; border-radius: 6px; min-width: 140px; z-index: 1050;">
+                                                             <li>
+                                                                 <a class="dropdown-item py-2" href="{{ route('admin-finance.sales-order.detail', $order->id) }}">
+                                                                     <i class="las la-eye me-2 text-primary" style="font-size: 1rem;"></i> View SO Detail
+                                                                 </a>
+                                                             </li>
+                                                             
+                                                             @if($remBal > 0 && $order->customer_id)
+                                                                 <li>
+                                                                     <button type="button" class="dropdown-item py-2 open-pay-modal-btn" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $order->currency ?? 'USD' }}" data-symbol="{{ $ordSym }}">
+                                                                         <i class="las la-coins me-2 text-success" style="font-size: 1rem;"></i> Record Payment
+                                                                     </button>
+                                                                 </li>
+                                                             @endif
 
-                                                        @if($order->status === 'pending_si_prep' || $order->status === 'si_created' || $order->status === 'ar_created')
-                                                            @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || $paidAmt > 0)
-                                                                <a href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}" class="btn btn-warning btn-sm">Prepare SI</a>
-                                                            @else
-                                                                <button class="btn btn-warning btn-sm" disabled title="Proof of Payment is required to prepare SI"><i class="fas fa-exclamation-triangle me-1"></i> Prepare SI</button>
-                                                            @endif
-                                                        @endif
- 
-                                                        @if($order->status === 'pending_si_approval')
-                                                            @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']))
-                                                                <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
-                                                                    @csrf
-                                                                    <button type="submit" class="btn btn-success btn-sm">Sign & Approve</button>
-                                                                </form>
-                                                            @else
-                                                                <button class="btn btn-success btn-sm" disabled title="Proof of Payment is required to sign SI"><i class="fas fa-exclamation-triangle me-1"></i> Sign & Approve</button>
-                                                            @endif
-                                                        @endif
-                                                        
-                                                        @if($order->status === 'ready_for_delivery')
-                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-info btn-sm" target="_blank">Print SI</a>
-                                                        @endif
-                                                    </div>
-                                                </td>
+                                                             @if($order->status === 'pending_si_prep' || $order->status === 'si_created' || $order->status === 'ar_created')
+                                                                 @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || $paidAmt > 0)
+                                                                     <li>
+                                                                         <a class="dropdown-item py-2 text-warning fw-semibold" href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}">
+                                                                             <i class="las la-file-invoice me-2" style="font-size: 1rem;"></i> Prepare SI
+                                                                         </a>
+                                                                     </li>
+                                                                 @else
+                                                                     <li>
+                                                                         <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to prepare SI">
+                                                                             <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Prepare SI (Disabled)
+                                                                         </button>
+                                                                     </li>
+                                                                 @endif
+                                                             @endif
+                                                             
+                                                             @if($order->status === 'pending_si_approval')
+                                                                 @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']))
+                                                                     <li>
+                                                                         <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
+                                                                             @csrf
+                                                                             <button type="submit" class="dropdown-item py-2 text-success fw-semibold">
+                                                                                 <i class="las la-check-double me-2" style="font-size: 1rem;"></i> Sign & Approve
+                                                                             </button>
+                                                                         </form>
+                                                                     </li>
+                                                                 @else
+                                                                     <li>
+                                                                         <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to sign SI">
+                                                                             <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Sign & Approve (Disabled)
+                                                                         </button>
+                                                                     </li>
+                                                                 @endif
+                                                             @endif
+                                                             
+                                                             @if($order->status === 'ready_for_delivery')
+                                                                 <li>
+                                                                     <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" target="_blank">
+                                                                         <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                     </a>
+                                                                 </li>
+                                                             @endif
+                                                         </ul>
+                                                     </div>
+                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
@@ -260,21 +557,11 @@
                                     </table>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="normal-pagination">
-                                    <div class="d-flex align-items-center gap-2 text-muted small">
-                                        <span>Show</span>
-                                        <select class="form-select form-select-sm entries-per-page-select" style="width: auto; height: 30px; padding: 2px 24px 2px 8px; font-size: 12px;" data-pane="normal-pane">
-                                            <option value="5" selected>5</option>
-                                            <option value="10">10</option>
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                            <option value="500">500</option>
-                                            <option value="all">All</option>
-                                        </select>
-                                        <span>entries | Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</span>
+                                    <div class="text-muted small">
+                                        Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries
                                     </div>
                                     <nav>
-                                        <ul class="pagination pagination-sm mb-0"></ul>
+                                        <ul class="pagination mb-0"></ul>
                                     </nav>
                                 </div>
                             </div>
@@ -282,7 +569,7 @@
                             <!-- E-com Invoices Tab Pane -->
                             <div class="tab-pane fade" id="ecom-pane" role="tabpanel" aria-labelledby="ecom-tab">
                                 <div class="table-responsive">
-                                    <table class="table table-responsive-md">
+                                    <table class="table table-hover">
                                         <thead>
                                             <tr>
                                                 <th style="width: 50px;">
@@ -294,7 +581,7 @@
                                                 <th>Amount</th>
                                                 <th>Status</th>
                                                 <th>SI Prepared By</th>
-                                                <th>Action</th>
+                                                <th class="text-end" style="width: 80px;">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -354,12 +641,25 @@
                                                     </span>
                                                 </td>
                                                 <td>{{ $order->siPreparedBy->name ?? ($order->preparedBy->name ?? 'N/A') }}</td>
-                                                <td>
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <a href="{{ route('admin-finance.sales-order.detail', $order->id) }}" class="btn btn-danger shadow btn-sm" title="View SO Detail"><i class="fas fa-eye me-1"></i> View</a>
-                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" class="btn btn-outline-primary btn-sm" target="_blank" title="Print SI"><i class="fas fa-print me-1"></i> Print SI</a>
-                                                    </div>
-                                                </td>
+                                                <td class="text-end">
+                                                     <div class="dropdown">
+                                                         <button class="btn btn-link text-muted p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="box-shadow: none;">
+                                                             <i class="las la-ellipsis-v" style="font-size: 1.25rem;"></i>
+                                                         </button>
+                                                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="font-size: 12px; border-radius: 6px; min-width: 140px; z-index: 1050;">
+                                                             <li>
+                                                                 <a class="dropdown-item py-2" href="{{ route('admin-finance.sales-order.detail', $order->id) }}">
+                                                                     <i class="las la-eye me-2 text-primary" style="font-size: 1rem;"></i> View SO Detail
+                                                                 </a>
+                                                             </li>
+                                                             <li>
+                                                                 <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" target="_blank">
+                                                                     <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                 </a>
+                                                             </li>
+                                                         </ul>
+                                                     </div>
+                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
@@ -377,21 +677,11 @@
                                     </table>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="ecom-pagination">
-                                    <div class="d-flex align-items-center gap-2 text-muted small">
-                                        <span>Show</span>
-                                        <select class="form-select form-select-sm entries-per-page-select" style="width: auto; height: 30px; padding: 2px 24px 2px 8px; font-size: 12px;" data-pane="ecom-pane">
-                                            <option value="5" selected>5</option>
-                                            <option value="10">10</option>
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                            <option value="500">500</option>
-                                            <option value="all">All</option>
-                                        </select>
-                                        <span>entries | Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</span>
+                                    <div class="text-muted small">
+                                        Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries
                                     </div>
                                     <nav>
-                                        <ul class="pagination pagination-sm mb-0"></ul>
+                                        <ul class="pagination mb-0"></ul>
                                     </nav>
                                 </div>
                             </div>
@@ -399,7 +689,7 @@
                             <!-- Completed SI Tab Pane -->
                             <div class="tab-pane fade" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
                                 <div class="table-responsive">
-                                    <table class="table table-responsive-md">
+                                    <table class="table table-hover">
                                         <thead>
                                             <tr>
                                                 <th>SI Number</th>
@@ -413,7 +703,7 @@
                                                 <th>Order Status</th>
                                                 <th>Payment Status</th>
                                                 <th>Created Date</th>
-                                                <th>Action</th>
+                                                <th class="text-end" style="width: 80px;">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -453,18 +743,27 @@
                                                 <td><span class="badge bg-success text-white">Completed / Approved</span></td>
                                                 <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</span></td>
                                                 <td>{{ $si->created_at->format('M d, Y') }}</td>
-                                                <td>
-                                                    <div class="d-flex align-items-center gap-1 flex-wrap">
-                                                        @if($remBal > 0 && $so && $so->customer_id)
-                                                            <button type="button" class="btn btn-success btn-sm open-pay-modal-btn shadow-sm" data-so-id="{{ $so->id }}" data-customer-id="{{ $so->customer_id }}" data-so-number="{{ $so->so_number }}" data-total="{{ $totalAmt }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $so->terms ?? 'COD' }}" data-due-date="{{ $so->due_date ? $so->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $so->currency ?? 'USD' }}" data-symbol="{{ $siSym }}">
-                                                                <i class="las la-coins me-1"></i> Pay
-                                                            </button>
-                                                        @endif
-                                                        <a href="{{ route('admin-finance.accounting.sales-invoice.print', $si->so_id) }}" class="btn btn-info btn-sm" target="_blank">
-                                                            <i class="fas fa-print me-1"></i> Print SI
-                                                        </a>
-                                                    </div>
-                                                </td>
+                                                <td class="text-end">
+                                                     <div class="dropdown">
+                                                         <button class="btn btn-link text-muted p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="box-shadow: none;">
+                                                             <i class="las la-ellipsis-v" style="font-size: 1.25rem;"></i>
+                                                         </button>
+                                                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="font-size: 12px; border-radius: 6px; min-width: 140px; z-index: 1050;">
+                                                             @if($remBal > 0 && $so && $so->customer_id)
+                                                                 <li>
+                                                                     <button type="button" class="dropdown-item py-2 open-pay-modal-btn" data-so-id="{{ $so->id }}" data-customer-id="{{ $so->customer_id }}" data-so-number="{{ $so->so_number }}" data-total="{{ $totalAmt }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $so->terms ?? 'COD' }}" data-due-date="{{ $so->due_date ? $so->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $so->currency ?? 'USD' }}" data-symbol="{{ $siSym }}">
+                                                                         <i class="las la-coins me-2 text-success" style="font-size: 1rem;"></i> Record Payment
+                                                                     </button>
+                                                                 </li>
+                                                             @endif
+                                                             <li>
+                                                                 <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $si->so_id) }}" target="_blank">
+                                                                     <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                 </a>
+                                                             </li>
+                                                         </ul>
+                                                     </div>
+                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
@@ -484,21 +783,11 @@
                                     </table>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="completed-pagination">
-                                    <div class="d-flex align-items-center gap-2 text-muted small">
-                                        <span>Show</span>
-                                        <select class="form-select form-select-sm entries-per-page-select" style="width: auto; height: 30px; padding: 2px 24px 2px 8px; font-size: 12px;" data-pane="completed-pane">
-                                            <option value="5" selected>5</option>
-                                            <option value="10">10</option>
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                            <option value="500">500</option>
-                                            <option value="all">All</option>
-                                        </select>
-                                        <span>entries | Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</span>
+                                    <div class="text-muted small">
+                                        Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries
                                     </div>
                                     <nav>
-                                        <ul class="pagination pagination-sm mb-0"></ul>
+                                        <ul class="pagination mb-0"></ul>
                                     </nav>
                                 </div>
                             </div>
@@ -506,7 +795,7 @@
                             <!-- Completed E-com Invoices Tab Pane -->
                             <div class="tab-pane fade" id="completed-ecom-pane" role="tabpanel" aria-labelledby="completed-ecom-tab">
                                 <div class="table-responsive">
-                                    <table class="table table-responsive-md">
+                                    <table class="table table-hover">
                                         <thead>
                                             <tr>
                                                 <th>SI Number</th>
@@ -516,7 +805,7 @@
                                                 <th>Total Amount</th>
                                                 <th>Payment Status</th>
                                                 <th>Created Date</th>
-                                                <th class="text-end">Action</th>
+                                                <th class="text-end" style="width: 80px;">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -552,15 +841,28 @@
                                                 <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</span></td>
                                                 <td>{{ $si->created_at->format('M d, Y') }}</td>
                                                 <td class="text-end">
-                                                    <div class="d-flex justify-content-end gap-2">
-                                                        @if($so)
-                                                            <a href="{{ route('admin-finance.sales-order.detail', $so->id) }}" class="btn btn-danger shadow btn-sm" title="View SO Detail"><i class="fas fa-eye me-1"></i> View</a>
-                                                            <a href="{{ route('admin-finance.accounting.sales-invoice.print', $so->id) }}" class="btn btn-outline-primary btn-sm" target="_blank" title="Print SI"><i class="fas fa-print me-1"></i> Print SI</a>
-                                                        @else
-                                                            <span class="text-muted small">N/A</span>
-                                                        @endif
-                                                    </div>
-                                                </td>
+                                                     <div class="dropdown">
+                                                         <button class="btn btn-link text-muted p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="box-shadow: none;">
+                                                             <i class="las la-ellipsis-v" style="font-size: 1.25rem;"></i>
+                                                         </button>
+                                                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="font-size: 12px; border-radius: 6px; min-width: 140px; z-index: 1050;">
+                                                             @if($so)
+                                                                 <li>
+                                                                     <a class="dropdown-item py-2" href="{{ route('admin-finance.sales-order.detail', $so->id) }}">
+                                                                         <i class="las la-eye me-2 text-primary" style="font-size: 1rem;"></i> View SO Detail
+                                                                     </a>
+                                                                 </li>
+                                                                 <li>
+                                                                     <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $so->id) }}" target="_blank">
+                                                                         <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                     </a>
+                                                                 </li>
+                                                             @else
+                                                                 <li><span class="dropdown-item py-2 text-muted">N/A</span></li>
+                                                             @endif
+                                                         </ul>
+                                                     </div>
+                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
@@ -578,21 +880,11 @@
                                     </table>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3 px-2 py-2 border-top" id="completed-ecom-pagination">
-                                    <div class="d-flex align-items-center gap-2 text-muted small">
-                                        <span>Show</span>
-                                        <select class="form-select form-select-sm entries-per-page-select" style="width: auto; height: 30px; padding: 2px 24px 2px 8px; font-size: 12px;" data-pane="completed-ecom-pane">
-                                            <option value="5" selected>5</option>
-                                            <option value="10">10</option>
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                            <option value="500">500</option>
-                                            <option value="all">All</option>
-                                        </select>
-                                        <span>entries | Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries</span>
+                                    <div class="text-muted small">
+                                        Showing <span class="page-start">0</span> to <span class="page-end">0</span> of <span class="total-items">0</span> entries
                                     </div>
                                     <nav>
-                                        <ul class="pagination pagination-sm mb-0"></ul>
+                                        <ul class="pagination mb-0"></ul>
                                     </nav>
                                 </div>
                             </div>
@@ -614,14 +906,14 @@
                                         event.target.classList.add('text-dark', 'active');
                                         event.target.classList.remove('text-muted');
                                         if (event.target.id === 'normal-tab') {
-                                            event.target.style.borderBottom = '3px solid #ff0000';
-                                        } else if (event.target.id === 'ecom-tab') {
-                                            event.target.style.borderBottom = '3px solid #0d6efd';
-                                        } else if (event.target.id === 'completed-tab') {
-                                            event.target.style.borderBottom = '3px solid #198754';
-                                        } else if (event.target.id === 'completed-ecom-tab') {
-                                            event.target.style.borderBottom = '3px solid #0dcaf0';
-                                        }
+                                             event.target.style.borderBottom = '3px solid #D9251C';
+                                         } else if (event.target.id === 'ecom-tab') {
+                                             event.target.style.borderBottom = '3px solid #D9251C';
+                                         } else if (event.target.id === 'completed-tab') {
+                                             event.target.style.borderBottom = '3px solid #D9251C';
+                                         } else if (event.target.id === 'completed-ecom-tab') {
+                                             event.target.style.borderBottom = '3px solid #D9251C';
+                                         }
                                     });
                                 });
                             });
@@ -798,30 +1090,41 @@
 
                         // Prev button
                         const prevLi = document.createElement('li');
-                        prevLi.className = `page-item ${currPage === 1 ? 'disabled' : ''}`;
-                        prevLi.innerHTML = `<a class="page-link" href="javascript:void(0)"><i class="fas fa-chevron-left"></i></a>`;
-                        prevLi.addEventListener('click', () => {
-                            if (currPage > 1) {
+                        if (currPage === 1) {
+                            prevLi.className = 'page-item disabled';
+                            prevLi.setAttribute('aria-disabled', 'true');
+                            prevLi.innerHTML = `<span class="page-link" aria-hidden="true">&lsaquo;</span>`;
+                        } else {
+                            prevLi.className = 'page-item';
+                            prevLi.innerHTML = `<a class="page-link" href="javascript:void(0)" aria-label="Previous">&lsaquo;</a>`;
+                            prevLi.addEventListener('click', () => {
                                 pageState[paneId]--;
                                 filterAndPaginate();
-                            }
-                        });
+                            });
+                        }
                         ul.appendChild(prevLi);
 
                         // Page numbers
                         for (let i = 1; i <= totalPages; i++) {
                             if (totalPages <= 7 || i === 1 || i === totalPages || (i >= currPage - 1 && i <= currPage + 1)) {
                                 const pageLi = document.createElement('li');
-                                pageLi.className = `page-item ${i === currPage ? 'active' : ''}`;
-                                pageLi.innerHTML = `<a class="page-link" href="javascript:void(0)">${i}</a>`;
-                                pageLi.addEventListener('click', () => {
-                                    pageState[paneId] = i;
-                                    filterAndPaginate();
-                                });
+                                if (i === currPage) {
+                                    pageLi.className = 'page-item active';
+                                    pageLi.setAttribute('aria-current', 'page');
+                                    pageLi.innerHTML = `<span class="page-link">${i}</span>`;
+                                } else {
+                                    pageLi.className = 'page-item';
+                                    pageLi.innerHTML = `<a class="page-link" href="javascript:void(0)">${i}</a>`;
+                                    pageLi.addEventListener('click', () => {
+                                        pageState[paneId] = i;
+                                        filterAndPaginate();
+                                    });
+                                }
                                 ul.appendChild(pageLi);
                             } else if (i === currPage - 2 || i === currPage + 2) {
                                 const dotsLi = document.createElement('li');
                                 dotsLi.className = 'page-item disabled';
+                                dotsLi.setAttribute('aria-disabled', 'true');
                                 dotsLi.innerHTML = `<span class="page-link">...</span>`;
                                 ul.appendChild(dotsLi);
                             }
@@ -829,14 +1132,18 @@
 
                         // Next button
                         const nextLi = document.createElement('li');
-                        nextLi.className = `page-item ${currPage === totalPages ? 'disabled' : ''}`;
-                        nextLi.innerHTML = `<a class="page-link" href="javascript:void(0)"><i class="fas fa-chevron-right"></i></a>`;
-                        nextLi.addEventListener('click', () => {
-                            if (currPage < totalPages) {
+                        if (currPage === totalPages) {
+                            nextLi.className = 'page-item disabled';
+                            nextLi.setAttribute('aria-disabled', 'true');
+                            nextLi.innerHTML = `<span class="page-link" aria-hidden="true">&rsaquo;</span>`;
+                        } else {
+                            nextLi.className = 'page-item';
+                            nextLi.innerHTML = `<a class="page-link" href="javascript:void(0)" aria-label="Next">&rsaquo;</a>`;
+                            nextLi.addEventListener('click', () => {
                                 pageState[paneId]++;
                                 filterAndPaginate();
-                            }
-                        });
+                            });
+                        }
                         ul.appendChild(nextLi);
                     }
                 }
@@ -846,42 +1153,88 @@
         // Calculate on page load
         filterAndPaginate();
 
-        if (searchInput) searchInput.addEventListener('input', () => { resetPageStates(); filterAndPaginate(); });
-        if (typeSelect) typeSelect.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
-        if (pmSelect) pmSelect.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
-        if (platformSelect) platformSelect.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
-        if (startDateInput) startDateInput.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
-        if (endDateInput) endDateInput.addEventListener('change', () => { resetPageStates(); filterAndPaginate(); });
+        const searchBtn = document.getElementById('searchSubmitBtn');
+        const filterSubmitBtn = document.getElementById('filterSubmitBtn');
 
-        if (entriesSelect) {
-            entriesSelect.addEventListener('change', function() {
-                currentPageSize = this.value;
-                syncEntriesDropdowns(this.value);
+        if (searchBtn) {
+            searchBtn.addEventListener('click', function() {
+                if (this.textContent.trim() === 'Clear') {
+                    if (searchInput) searchInput.value = '';
+                    this.textContent = 'Search';
+                } else {
+                    const query = searchInput ? searchInput.value.trim() : '';
+                    if (query) {
+                        this.textContent = 'Clear';
+                    }
+                }
                 resetPageStates();
                 filterAndPaginate();
             });
         }
 
-        document.querySelectorAll('.entries-per-page-select').forEach(sel => {
-            sel.addEventListener('change', function() {
-                currentPageSize = this.value;
-                syncEntriesDropdowns(this.value);
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                if (searchBtn) {
+                    if (searchInput.value.trim() !== '') {
+                        searchBtn.textContent = 'Clear';
+                    } else {
+                        searchBtn.textContent = 'Search';
+                    }
+                }
                 resetPageStates();
                 filterAndPaginate();
             });
-        });
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    if (searchBtn) {
+                        if (searchInput.value.trim() !== '') {
+                            searchBtn.textContent = 'Clear';
+                        } else {
+                            searchBtn.textContent = 'Search';
+                        }
+                    }
+                    resetPageStates();
+                    filterAndPaginate();
+                }
+            });
+        }
 
-        if (clearBtn) {
-            clearBtn.addEventListener('click', function () {
-                if (searchInput) searchInput.value = '';
-                if (typeSelect) typeSelect.value = '';
-                if (pmSelect) pmSelect.value = '';
-                if (platformSelect) platformSelect.value = '';
-                if (startDateInput) startDateInput.value = '';
-                if (endDateInput) endDateInput.value = '';
-                if (entriesSelect) entriesSelect.value = '5';
-                currentPageSize = 5;
-                syncEntriesDropdowns('5');
+        if (filterSubmitBtn) {
+            filterSubmitBtn.addEventListener('click', function() {
+                if (this.textContent.trim() === 'Clear Filter') {
+                    if (typeSelect) typeSelect.value = '';
+                    if (pmSelect) pmSelect.value = '';
+                    if (platformSelect) platformSelect.value = '';
+                    if (startDateInput) startDateInput.value = '';
+                    if (endDateInput) endDateInput.value = '';
+
+                    this.textContent = 'Apply Filter';
+                    this.className = 'btn text-white fw-bold px-3 d-flex align-items-center justify-content-center';
+                    this.style.background = '#D9251C';
+                    this.style.borderColor = '#D9251C';
+                } else {
+                    const hasFilters = (typeSelect && typeSelect.value !== '') ||
+                                       (pmSelect && pmSelect.value !== '') ||
+                                       (platformSelect && platformSelect.value !== '') ||
+                                       (startDateInput && startDateInput.value !== '') ||
+                                       (endDateInput && endDateInput.value !== '');
+                    
+                    if (hasFilters) {
+                        this.textContent = 'Clear Filter';
+                        this.className = 'btn btn-light text-dark fw-bold px-3 d-flex align-items-center justify-content-center';
+                        this.style.background = '#f1f5f9';
+                        this.style.borderColor = '#cbd5e1';
+                    }
+                }
+                resetPageStates();
+                filterAndPaginate();
+            });
+        }
+
+        if (entriesSelect) {
+            entriesSelect.addEventListener('change', function() {
+                currentPageSize = this.value;
+                syncEntriesDropdowns(this.value);
                 resetPageStates();
                 filterAndPaginate();
             });
@@ -1119,56 +1472,65 @@
 
     <!-- Record Payment Modal -->
     <div class="modal fade" id="recordPaymentModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title text-white"><i class="las la-money-bill-wave me-2"></i>Payment History & Record Installment</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header border-bottom-0 pb-0">
+                    <div class="d-flex align-items-center justify-content-between w-100">
+                        <div>
+                            <h4 class="modal-title text-dark fw-bold" id="recordPaymentModalLabel"><i class="las la-money-bill-wave me-2 text-success" style="font-size: 1.5rem;"></i>Payment History & Record Installment</h4>
+                            <span class="text-muted small">Record installment and view previous logs for this transaction</span>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="margin-top: -15px;"></button>
+                    </div>
                 </div>
                 <form id="recordPaymentForm">
                     <div class="modal-body">
                         <input type="hidden" id="paySoId">
                         <input type="hidden" id="payCustomerId">
                         
-                        <div class="alert alert-light border mb-3">
-                            <div class="row g-2 text-center text-md-start">
-                                <div class="col-6 col-md-2 border-end">
-                                    <span class="text-muted small d-block">Transaction #:</span>
-                                    <strong id="paySoNumber" class="text-dark">SO-0000</strong>
-                                </div>
-                                <div class="col-6 col-md-2 border-end">
-                                    <span class="text-muted small d-block">Terms:</span>
-                                    <span id="payTerms" class="badge bg-info text-white fw-semibold">COD</span>
-                                </div>
-                                <div class="col-6 col-md-2 border-end">
-                                    <span class="text-muted small d-block">Due Date:</span>
-                                    <strong id="payDueDate" class="text-dark">N/A</strong>
-                                </div>
-                                <div class="col-6 col-md-2 border-end">
-                                    <span class="text-muted small d-block">Grand Total:</span>
-                                    <strong id="payTotalAmount" class="text-dark">₱0.00</strong>
-                                </div>
-                                <div class="col-6 col-md-2 border-end">
-                                    <span class="text-muted small d-block">Already Paid:</span>
-                                    <span id="payAlreadyPaid" class="text-success fw-bold">₱0.00</span>
-                                </div>
-                                <div class="col-6 col-md-2">
-                                    <span class="text-muted small d-block">Remaining:</span>
-                                    <strong id="payRemainingBalance" class="text-danger fs-16">₱0.00</strong>
+                        <div class="card mb-4 border-0 shadow-sm" style="background-color: #f8fafc; border-radius: 8px;">
+                            <div class="card-body p-3">
+                                <div class="row align-items-center g-3 text-center text-md-start">
+                                    <div class="col-md-2 border-md-end">
+                                        <span class="text-muted small d-block text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">Transaction #:</span>
+                                        <strong id="paySoNumber" class="text-dark fs-14">SO-0000</strong>
+                                    </div>
+                                    <div class="col-md-2 border-md-end">
+                                        <span class="text-muted small d-block text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">Terms:</span>
+                                        <span id="payTerms" class="badge badge-info text-white fw-bold">COD</span>
+                                    </div>
+                                    <div class="col-md-2 border-md-end">
+                                        <span class="text-muted small d-block text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">Due Date:</span>
+                                        <strong id="payDueDate" class="text-dark fs-14">N/A</strong>
+                                    </div>
+                                    <div class="col-md-2 border-md-end">
+                                        <span class="text-muted small d-block text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">Grand Total:</span>
+                                        <strong id="payTotalAmount" class="text-dark fs-14">₱0.00</strong>
+                                    </div>
+                                    <div class="col-md-2 border-md-end">
+                                        <span class="text-muted small d-block text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">Already Paid:</span>
+                                        <span id="payAlreadyPaid" class="text-success fw-bold fs-14">₱0.00</span>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <span class="text-muted small d-block text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">Remaining Balance:</span>
+                                        <span id="payRemainingBalance" class="px-2 py-1 rounded fw-bold text-danger d-inline-block mt-1" style="font-size: 1.1rem; background-color: rgba(217, 37, 28, 0.08); border: 1px solid rgba(217, 37, 28, 0.15);">
+                                            ₱0.00
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Payment History Breakdown Table -->
-                        <div class="card mb-3 border">
-                            <div class="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center">
+                        <div class="card mb-4 border-0 shadow-sm" style="border-radius: 8px; overflow: hidden;">
+                            <div class="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center" style="border-bottom: 1px solid #e2e8f0;">
                                 <span class="fw-bold small text-dark"><i class="las la-history me-1 text-primary"></i> Previous Installments Log</span>
-                                <span class="badge bg-secondary" id="payHistoryBadge">0 payments</span>
+                                <span class="badge badge-secondary" id="payHistoryBadge">0 payments</span>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
-                                    <table class="table table-sm table-striped table-bordered mb-0 align-middle" style="font-size: 11px;">
-                                        <thead class="bg-light sticky-top">
+                                    <table class="table table-hover mb-0 align-middle">
+                                        <thead>
                                             <tr>
                                                 <th>Date</th>
                                                 <th>Amount</th>

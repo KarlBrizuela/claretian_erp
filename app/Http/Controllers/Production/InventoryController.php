@@ -77,27 +77,9 @@ class InventoryController extends Controller
         // Sync TeamStock into SiteInventory so team site columns in Master Registry are always 100% up-to-date
         \App\Services\StockDeductionService::syncTeamSitesInventory();
 
-        // Fetch physical sites with fresh inventory after any sync
-        $sitesBaseQuery = Site::where('is_active', true)
-            ->whereNotIn('name', $masterCategoryWarehouseNames)
-            ->with(['inventory' => function ($q) {
-                $q->where('quantity', '>', 0)->with(['book', 'bookIndex.book', 'bookBundle']);
-            }]);
+        // Sites query has been moved below pagination to filter inventory only for visible items.
 
-        $allSites = (clone $sitesBaseQuery)->get();
-
-        $sitesQuery = clone $sitesBaseQuery;
-        if (!empty($siteSearch)) {
-            $sitesQuery->where(function($q) use ($siteSearch) {
-                $q->where('name', 'like', '%' . $siteSearch . '%')
-                  ->orWhere('code', 'like', '%' . $siteSearch . '%')
-                  ->orWhere('location', 'like', '%' . $siteSearch . '%');
-            });
-        }
-        $sites = $sitesQuery->paginate(10, ['*'], 'sites_page')->withQueryString();
-
-        // Get all books
-        $allBooks = Book::with(['inventory.site'])->get();
+        $allBooks = Book::select('id', 'name', 'stock', 'cost', 'reorder_point')->get();
         
         $query = Book::where('is_book', true)->with(['inventory.site'])->latest();
         if (!empty($search)) {
@@ -271,11 +253,11 @@ class InventoryController extends Controller
         $isAccountingReviewer = $this->isAccountingReviewer($user);
         $isLogisticsAssigner = $this->isLogisticsAssigner($user);
 
-        $allIndices = \App\Models\BookIndex::with(['book', 'inventory'])->get();
-        $allBundles = \App\Models\BookBundle::with(['books', 'inventory'])->get();
+        $allIndices = null;
+        $allBundles = null;
 
         // Fetch book indices
-        $indicesQuery = \App\Models\BookIndex::with('book')->latest();
+        $indicesQuery = \App\Models\BookIndex::with(['book', 'inventory'])->latest();
         if (!empty($search)) {
             $indicesQuery->where(function($q) use ($search) {
                 $q->where('index_value', 'like', '%' . $search . '%')
@@ -288,7 +270,7 @@ class InventoryController extends Controller
         $indices = $indicesQuery->paginate(10, ['*'], 'indices_page')->withQueryString();
 
         // Fetch book bundles
-        $bundlesQuery = \App\Models\BookBundle::with('books')->latest();
+        $bundlesQuery = \App\Models\BookBundle::with(['books', 'inventory'])->latest();
         if (!empty($search)) {
             $bundlesQuery->where(function($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
@@ -296,6 +278,37 @@ class InventoryController extends Controller
             });
         }
         $bundles = $bundlesQuery->paginate(10, ['*'], 'bundles_page')->withQueryString();
+
+        // Fetch physical sites with fresh inventory after any sync
+        $visibleBookIds = collect($books->items())->pluck('id')
+            ->merge(collect($nonBooks->items())->pluck('id'))
+            ->unique()
+            ->toArray();
+        $visibleIndexIds = collect($indices->items())->pluck('id')->unique()->toArray();
+        $visibleBundleIds = collect($bundles->items())->pluck('id')->unique()->toArray();
+
+        $sitesBaseQuery = Site::where('is_active', true)
+            ->whereNotIn('name', $masterCategoryWarehouseNames)
+            ->with(['inventory' => function ($q) use ($visibleBookIds, $visibleIndexIds, $visibleBundleIds) {
+                $q->where('quantity', '>', 0)
+                  ->where(function($query) use ($visibleBookIds, $visibleIndexIds, $visibleBundleIds) {
+                      $query->whereIn('book_id', $visibleBookIds)
+                            ->orWhereIn('book_index_id', $visibleIndexIds)
+                            ->orWhereIn('book_bundle_id', $visibleBundleIds);
+                  });
+            }]);
+
+        $allSites = (clone $sitesBaseQuery)->get();
+
+        $sitesQuery = clone $sitesBaseQuery;
+        if (!empty($siteSearch)) {
+            $sitesQuery->where(function($q) use ($siteSearch) {
+                $q->where('name', 'like', '%' . $siteSearch . '%')
+                  ->orWhere('code', 'like', '%' . $siteSearch . '%')
+                  ->orWhere('location', 'like', '%' . $siteSearch . '%');
+            });
+        }
+        $sites = $sitesQuery->paginate(10, ['*'], 'sites_page')->withQueryString();
 
         // Fetch consignment inventory: 1. Area Consignment (grouped by area sales staff)
         $areaOrders = \App\Models\SalesOrder::with(['areaSalesStaff', 'preparedBy', 'items.book', 'items.bookIndex', 'items.bookBundle'])
@@ -376,6 +389,17 @@ class InventoryController extends Controller
             ];
         })->sortBy(fn($c) => $c->customer_name);
 
+        $sidebar = 'production';
+        $role = 'Production Manager';
+        if ($user) {
+            $division = strtolower($user->division ?? '');
+            $department = strtolower($user->department ?? '');
+            if (str_contains($division, 'finance') || str_contains($division, 'accounting') || str_contains($division, 'admin') || str_contains($department, 'finance') || str_contains($department, 'accounting')) {
+                $sidebar = 'admin-finance';
+                $role = 'Finance Manager';
+            }
+        }
+
         return view('production.inventory.overview', compact(
             'totalBooks', 
             'lowStock', 
@@ -400,7 +424,9 @@ class InventoryController extends Controller
             'allBundles',
             'consignmentStaff',
             'directConsignmentCustomers',
-            'batchData'
+            'batchData',
+            'sidebar',
+            'role'
         ));
     }
 

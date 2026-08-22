@@ -16,15 +16,16 @@ This skill documents the standard design tokens, layouts, and components used to
 * **Primary Branding Color (Claretian Red)**: 
   * Hex Code: `#D9251C`
   * Use for: Primary action buttons, active tab borders, active pagination blocks, and key warning badges.
+* **Action Button Color Mapping**:
+  * **View Details**: Blue (`#0ea5e9` or `#3b82f6`)
+  * **Edit**: Yellow/Orange-Yellow (`#ffb800` or `#f59e0b`)
+  * **Delete**: Red (`#ef4444` or `#D9251C`)
+* **Text Depths & Visual Hierarchy**:
+  * **Titles & Value Fields**: MUST be Deep Black (`#000000` or `#0f172a`) for maximum readability. This includes section headers (e.g. "Company Details", "Contact Information", "SUPPLIER PROFILE") and user profile value texts.
+  * **Keys & Labels**: MUST be Dark Slate Gray (`#475569`) to contrast nicely against values. Never make them too light (do not use `#94a3b8` or `.text-muted` without specific scoping).
 * **Secondary / Neutral Grays**:
   * Off-White (Table Headers / Hover): `#f8fafc`
   * Light Gray Borders: `#e2e8f0` (cards) and `#cbd5e1` (inputs/borders)
-  * Dark Slate Text (Keys): `#475569`
-  * Deep Dark Text (Values/Titles): `#000000` or `#0f172a`
-* **Status Tint Accents**:
-  * Success Green Tint (Rating / Paid): `rgba(16, 185, 129, 0.08)` background with `#10b981` text.
-  * Danger Red Tint (Outstanding / Overdue): `rgba(217, 37, 28, 0.08)` background with `#D9251C` text.
-  * Info Blue Tint (Rating / View): `rgba(59, 130, 246, 0.08)` background with `#3b82f6` text.
 
 ---
 
@@ -63,6 +64,11 @@ Accounting lists and records tables must be styled cleanly without heavy grid li
   tbody tr { transition: all 0.15s ease-in-out !important; }
   tbody tr:hover { background-color: #f8fafc !important; }
   ```
+* **Row Action Buttons**:
+  * Action buttons inside table cells must use the small, sharp, shadow-shaded icon-only button styles:
+    * **View / Details**: `btn btn-info shadow btn-xs sharp text-white` (with icon `<i class="las la-eye"></i>`)
+    * **Edit**: `btn btn-warning shadow btn-xs sharp text-white` (with icon `<i class="las la-pen"></i>`)
+    * **Delete**: `btn btn-danger shadow btn-xs sharp` (with icon `<i class="las la-trash"></i>`)
 
 ---
 
@@ -153,3 +159,23 @@ For displaying customer ledger cards, statements, or detailed accounts:
      const tables = body.querySelectorAll('table.table-hover');
      tables.forEach(table => initTablePagination(table, 5));
      ```
+
+---
+
+## 📝 7. Form Modals Design Guidelines
+
+For all forms inside popups/modals (e.g. Add/Edit Supplier, Record Invoice, Record Payment):
+1. **Modal Header Aesthetics**:
+   * NEVER use dark or vibrant colored headers (e.g. `bg-danger`, `bg-dark`, `bg-success`).
+   * Headers MUST be clean white or light gray (`#ffffff` or `#f8fafc`), utilizing bold pure black title text (`#000000`) and standard close icons (`btn-close`).
+2. **Form Labels Visual Hierarchy**:
+   * Form labels MUST use the Dark Slate Gray color (`#475569`), uppercase rendering, bold weight (`600`), and a small size (`0.72rem`) with letter-spacing (`0.5px`).
+3. **Inputs and Select Controls**:
+   * Borders must be light gray (`#cbd5e1`), with a border-radius of `6px`.
+   * Input text value MUST be deep black (`#000000`) for high-contrast.
+   * Active inputs must display a subtle Claretian Red `#D9251C` focus ring shadow.
+4. **Action Buttons**:
+   * Submit/Save buttons must be branded in Claretian Red (`#D9251C`).
+   * Cancel/Dismiss buttons must be standard neutral outline/light border style (`btn-light border`).
+   * Do not stack buttons; align them horizontally in the footer.
+

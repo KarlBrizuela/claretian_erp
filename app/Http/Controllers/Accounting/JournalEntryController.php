@@ -84,9 +84,8 @@ class JournalEntryController extends Controller
             );
         }
 
-        // Fetch ONLY Bank Accounts starting with BANK-
-        $accounts = ChartOfAccount::where('code', 'like', 'BANK-%')
-            ->orderBy('code')
+        // Fetch all active accounts from Chart of Accounts
+        $accounts = ChartOfAccount::orderBy('code')
             ->get();
         
         // Generate next Entry No (JV-YEAR-SEQ)
