@@ -6,75 +6,145 @@
             border-radius: 12px;
             padding: 1.75rem;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-            border: 0;
+            border: 1px solid #e2e8f0;
             margin-bottom: 1.5rem;
         }
 
-        .hover-row {
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Premium Dashboard KPI Cards Styling matching COA */
+        .hover-card {
+            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
-
-        .hover-row:hover {
+        .hover-card:hover {
+            transform: translateY(-4px) !important;
             background-color: #ffffff !important;
-            transform: translateY(-3px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
-            border-left-width: 6px !important;
-        }
-
-        .transition-icon {
-            transition: transform 0.2s ease;
-        }
-
-        .cursor-pointer[aria-expanded="true"] .transition-icon {
-            transform: rotate(180deg);
-        }
-
-        .bg-soft-success {
-            background-color: rgba(40, 167, 69, 0.1);
-        }
-
-        .text-success {
-            color: #28a745 !important;
+            border-color: #D9251C !important;
+            box-shadow: 0 12px 24px -5px rgba(217, 37, 28, 0.12), 0 4px 12px -2px rgba(217, 37, 28, 0.08) !important;
         }
 
         .bg-soft-primary {
-            background-color: rgba(217, 37, 28, 0.08);
+            background-color: rgba(217, 37, 28, 0.05) !important;
         }
 
         .text-primary {
             color: #D9251C !important;
         }
+
+        /* Borderless flat sub-navigation tabs */
+        .sales-nav-tabs {
+            border-bottom: 1px solid #e2e8f0 !important;
+            padding-left: 10px !important;
+        }
         
-        .bg-soft-info {
-            background-color: rgba(23, 162, 184, 0.1);
+        .sales-nav-tabs .nav-link {
+            border: none !important;
+            color: #475569 !important;
+            font-weight: 600 !important;
+            padding: 12px 24px !important;
+            font-size: 0.88rem !important;
+            border-bottom: 3px solid transparent !important;
+            border-radius: 0 !important;
+            transition: all 0.15s ease-in-out !important;
+            background: transparent !important;
+        }
+        
+        .sales-nav-tabs .nav-link.active {
+            color: #D9251C !important;
+            border-bottom: 3px solid #D9251C !important;
+        }
+        
+        .sales-nav-tabs .nav-link:hover:not(.active) {
+            color: #0f172a !important;
+            border-bottom: 3px solid #cbd5e1 !important;
         }
 
-        .text-info {
-            color: #17a2b8 !important;
+        /* Modal tabs borderless styling */
+        .modal-tabs {
+            border-bottom: 1px solid #e2e8f0 !important;
         }
-
-        .bg-soft-warning {
-            background-color: rgba(255, 193, 7, 0.15);
-        }
-
-        .text-warning {
-            color: #ffc107 !important;
-        }
-
         .modal-tabs .nav-link {
-            border: none;
-            color: #666;
-            font-weight: 500;
-            padding: 10px 15px;
-            font-size: 0.85rem;
-            border-bottom: 2px solid transparent;
-            border-radius: 0;
+            border: none !important;
+            color: #475569 !important;
+            font-weight: 600 !important;
+            padding: 10px 16px !important;
+            font-size: 0.85rem !important;
+            border-bottom: 3px solid transparent !important;
+            border-radius: 0 !important;
+            transition: all 0.15s ease-in-out !important;
+            background: transparent !important;
+        }
+        .modal-tabs .nav-link.active {
+            color: #D9251C !important;
+            border-bottom: 3px solid #D9251C !important;
+        }
+        .modal-tabs .nav-link:hover:not(.active) {
+            color: #0f172a !important;
+            border-bottom: 3px solid #cbd5e1 !important;
         }
 
-        .modal-tabs .nav-link.active {
-            color: #D9251C;
-            border-bottom: 2px solid #D9251C;
-            background: transparent;
+        /* Modal styling overrides */
+        .modal-content {
+            border-radius: 12px !important;
+            border: none !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        }
+        .modal-header {
+            background-color: #ffffff !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            padding: 16px 24px !important;
+        }
+        .modal-header .modal-title {
+            font-size: 0.95rem !important;
+            font-weight: 700 !important;
+            color: #000000 !important;
+        }
+        
+        /* Modern table overrides inside modals */
+        .table-modern {
+            border: none !important;
+        }
+        .table-modern thead th {
+            background-color: #f8fafc !important;
+            color: #475569 !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            font-size: 0.72rem !important;
+            padding: 10px 14px !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-right: none !important;
+        }
+        .table-modern tbody td {
+            padding: 10px 14px !important;
+            color: #475569 !important;
+            font-size: 0.84rem !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-right: none !important;
+        }
+        .table-modern tbody tr {
+            transition: all 0.15s ease-in-out !important;
+        }
+        .table-modern tbody tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        /* Paginator Link Styles inside Modal */
+        .pagination .page-item.active .page-link {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+        }
+        .pagination .page-link {
+            color: #475569 !important;
+            border-color: #cbd5e1 !important;
+            background-color: #ffffff !important;
+        }
+        .pagination .page-link:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
         }
     </style>
     @endpush
@@ -103,26 +173,26 @@
         @if($tab !== 'complimentary')
         <div class="row mb-4">
             <div class="col-12">
-                <div class="card border-0 shadow-sm" style="border-radius: 12px;">
-                    <div class="card-body p-2">
-                        <ul class="nav nav-pills nav-fill gap-2">
+                <div class="card border-0 shadow-sm" style="border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <div class="card-body p-0">
+                        <ul class="nav sales-nav-tabs">
                             <li class="nav-item">
-                                <a class="nav-link py-2 fw-bold {{ $tab === 'bookstore' ? 'active bg-danger text-white' : 'text-dark' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'bookstore']) }}">
+                                <a class="nav-link {{ $tab === 'bookstore' ? 'active' : '' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'bookstore']) }}">
                                     <i class="las la-store me-1"></i> Bookstore
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link py-2 fw-bold {{ $tab === 'areasales' ? 'active bg-danger text-white' : 'text-dark' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'areasales']) }}">
+                                <a class="nav-link {{ $tab === 'areasales' ? 'active' : '' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'areasales']) }}">
                                     <i class="las la-map-marked-alt me-1"></i> Area Sales
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link py-2 fw-bold {{ $tab === 'ecom' ? 'active bg-danger text-white' : 'text-dark' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'ecom']) }}">
+                                <a class="nav-link {{ $tab === 'ecom' ? 'active' : '' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'ecom']) }}">
                                     <i class="las la-shopping-cart me-1"></i> E-Commerce
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link py-2 fw-bold {{ $tab === 'wholesale' ? 'active bg-danger text-white' : 'text-dark' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'wholesale']) }}">
+                                <a class="nav-link {{ $tab === 'wholesale' ? 'active' : '' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'wholesale']) }}">
                                     <i class="las la-boxes me-1"></i> Wholesale
                                 </a>
                             </li>
@@ -154,8 +224,8 @@
     <!-- Generic Ledger Detail Modal -->
     <div class="modal fade" id="salesLedgerModal" tabindex="-1" aria-labelledby="salesLedgerModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
-                <div class="modal-header bg-light border-0 py-3">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
                     <h5 class="modal-title fw-bold text-dark" id="salesLedgerModalLabel">Account Ledger</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>

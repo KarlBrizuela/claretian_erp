@@ -4998,12 +4998,23 @@ public function checkVoucher()
         $selectedTab = $request->query('tab', 'Cash Position');
         $search = $request->query('search');
 
-        $bankAccounts = \App\Models\CompanyBankAccount::with('transactions')->get();
+        $allBankAccounts = \App\Models\CompanyBankAccount::with('transactions')->get();
 
-        foreach ($bankAccounts as $acct) {
+        foreach ($allBankAccounts as $acct) {
             $acct->recalculateBalance();
             $acct->save();
         }
+
+        $bankAccountsQuery = \App\Models\CompanyBankAccount::with('transactions');
+        if ($search) {
+            $bankAccountsQuery->where(function($q) use ($search) {
+                $q->where('bank_name', 'like', "%{$search}%")
+                  ->orWhere('account_name', 'like', "%{$search}%")
+                  ->orWhere('account_number', 'like', "%{$search}%")
+                  ->orWhere('account_code', 'like', "%{$search}%");
+            });
+        }
+        $bankAccounts = $bankAccountsQuery->paginate(10)->withQueryString();
 
         $query = \App\Models\CashTransaction::with(['bankAccount', 'destinationBankAccount']);
 
@@ -5027,9 +5038,9 @@ public function checkVoucher()
             });
         }
 
-        $transactions = $query->latest('transaction_date')->get();
+        $transactions = $query->latest('transaction_date')->paginate(10)->withQueryString();
 
-        $totalCashPosition = $bankAccounts->sum('current_balance');
+        $totalCashPosition = $allBankAccounts->sum('current_balance');
         $totalInflows = \App\Models\CashTransaction::where('category', 'Inflow')->where('status', '!=', 'Cancelled')->sum('amount');
         $totalOutflows = \App\Models\CashTransaction::where('category', 'Outflow')->where('status', '!=', 'Cancelled')->sum('amount');
         $netCashFlow = $totalInflows - $totalOutflows;
@@ -5045,6 +5056,7 @@ public function checkVoucher()
             'selectedTab' => $selectedTab,
             'search' => $search,
             'bankAccounts' => $bankAccounts,
+            'allBankAccounts' => $allBankAccounts,
             'transactions' => $transactions,
             'metrics' => [
                 'total_cash_position' => $totalCashPosition,
@@ -5052,22 +5064,38 @@ public function checkVoucher()
                 'total_outflows' => $totalOutflows,
                 'net_cash_flow' => $netCashFlow,
                 'projected_30_days' => $projected30Days,
-                'active_accounts_count' => $bankAccounts->where('status', 'Active')->count(),
+                'active_accounts_count' => $allBankAccounts->where('status', 'Active')->count(),
             ],
         ]);
     }
 
-    public function showCashManagementAccount($id)
+    public function showCashManagementAccount(Request $request, $id)
     {
         $account = \App\Models\CompanyBankAccount::with('transactions')->findOrFail($id);
         $account->recalculateBalance();
         $account->save();
+
+        $query = \App\Models\CashTransaction::where('bank_account_id', $id);
+
+        $search = $request->query('search');
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('transaction_no', 'like', "%{$search}%")
+                  ->orWhere('reference_no', 'like', "%{$search}%")
+                  ->orWhere('payee_or_payer', 'like', "%{$search}%")
+                  ->orWhere('transaction_type', 'like', "%{$search}%");
+            });
+        }
+
+        $transactions = $query->latest('transaction_date')->paginate(10)->withQueryString();
 
         return view('admin-finance.accounting.cash-management-detail', [
             'title' => 'Bank Account Statement: ' . $account->bank_name,
             'role' => 'Finance Manager',
             'sidebar' => 'admin-finance',
             'account' => $account,
+            'transactions' => $transactions,
+            'search' => $search,
         ]);
     }
 
