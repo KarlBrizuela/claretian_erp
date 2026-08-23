@@ -1743,8 +1743,12 @@ class MarketingController extends Controller
             }
         }
 
-        $books = \App\Models\Book::where('is_active', true)
-            ->orderBy('name')
+        $booksQuery = \App\Models\Book::where('is_active', true);
+        if (!empty($teamName)) {
+            $allowedBookIds = array_map(fn($k) => (int)str_replace('book_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'book_') && $v > 0, ARRAY_FILTER_USE_BOTH)));
+            $booksQuery->whereIn('id', $allowedBookIds ?? [0]);
+        }
+        $books = $booksQuery->orderBy('name')
             ->get()
             ->map(function($b) use ($teamName, $teamStocksMap) {
                 $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
@@ -1774,8 +1778,12 @@ class MarketingController extends Controller
                 ];
             });
 
-        $indices = \App\Models\BookIndex::with('book')
-            ->get()
+        $indicesQuery = \App\Models\BookIndex::with('book');
+        if (!empty($teamName)) {
+            $allowedIndexIds = array_map(fn($k) => (int)str_replace('index_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'index_') && $v > 0, ARRAY_FILTER_USE_BOTH)));
+            $indicesQuery->whereIn('id', $allowedIndexIds ?? [0]);
+        }
+        $indices = $indicesQuery->get()
             ->map(function($idx) use ($teamName, $teamStocksMap) {
                 $fullName = $idx->display_name;
                 $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
@@ -1800,8 +1808,12 @@ class MarketingController extends Controller
                 ];
             });
 
-        $bundles = \App\Models\BookBundle::where('is_active', true)
-            ->orderBy('name')
+        $bundlesQuery = \App\Models\BookBundle::where('is_active', true);
+        if (!empty($teamName)) {
+            $allowedBundleIds = array_map(fn($k) => (int)str_replace('bundle_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'bundle_') && $v > 0, ARRAY_FILTER_USE_BOTH)));
+            $bundlesQuery->whereIn('id', $allowedBundleIds ?? [0]);
+        }
+        $bundles = $bundlesQuery->orderBy('name')
             ->get()
             ->map(function($bun) use ($teamName, $teamStocksMap) {
                 $fullName = $bun->name . ' (bundle)';
@@ -1825,7 +1837,11 @@ class MarketingController extends Controller
                 ];
             });
 
-        return $books->concat($indices)->concat($bundles);
+        $unified = $books->concat($indices)->concat($bundles);
+        if (empty($teamName)) {
+            $unified = $unified->filter(fn($p) => $p->stock > 0)->values();
+        }
+        return $unified;
     }
 
     public function resolveItemTarget($pid)
