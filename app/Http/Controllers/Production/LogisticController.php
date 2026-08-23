@@ -500,8 +500,19 @@ class LogisticController extends Controller
             })
             ->where('status', '!=', 'ready_for_packing')
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
+            ->whereDoesntHave('invoice', function($invQ) {
+                $invQ->whereIn('status', ['approved', 'completed', 'posted', 'signed', 'paid']);
+            })
+            ->whereNull('signed_by_af_manager')
+            ->whereNull('signed_at')
             ->orderByRaw('COALESCE(signed_at, created_at) DESC')
             ->get();
+
+        $allOrders = $allOrders->reject(function($order) {
+            $hasCompletedInvoice = $order->invoice && in_array(strtolower($order->invoice->status ?? ''), ['approved', 'completed', 'posted', 'signed', 'paid']);
+            $isSignedAndApprovedSI = !is_null($order->signed_by_af_manager) || !is_null($order->signed_at);
+            return $hasCompletedInvoice || $isSignedAndApprovedSI;
+        });
 
         $landtripOrders = $allOrders->where('is_pickup', false)->where('status', 'ready_for_delivery');
         $pickupOrders = $allOrders->where('is_pickup', true);
@@ -1209,6 +1220,9 @@ class LogisticController extends Controller
     private function isAccountingOrderOrDr($order, $deliveryReceipt = null)
     {
         if ($order) {
+            if (in_array($order->status, ['ready_for_packing', 'ready_for_delivery', 'si_created', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval']) || !empty($order->dr_approved_at)) {
+                return true;
+            }
             if (str_contains($order->remarks ?? '', '[ACCOUNTING_DR]')) {
                 return true;
             }
@@ -1224,6 +1238,9 @@ class LogisticController extends Controller
             }
         }
         if ($deliveryReceipt) {
+            if ($deliveryReceipt->status === 'completed') {
+                return true;
+            }
             if (str_contains($deliveryReceipt->notes ?? '', '[ACCOUNTING_DR]')) {
                 return true;
             }
@@ -1271,6 +1288,10 @@ class LogisticController extends Controller
                     ->orWhere('remarks', 'like', '%[ACCOUNTING_DR]%');
                 });
             };
+
+            $applyFilter($ordersQuery);
+            // Allow Accounting to see all completed/approved DRs (matching Logistics)
+            $completedOrdersQuery->where('so_number', 'not like', 'SO-NBS-%');
         } else {
             $applyFilter = function ($query) {
                 $query->where(function ($q) {
@@ -1300,10 +1321,10 @@ class LogisticController extends Controller
                     $sub3->whereNull('remarks')->orWhere('remarks', 'not like', '%[ACCOUNTING_DR]%');
                 });
             };
-        }
 
-        $applyFilter($ordersQuery);
-        $applyFilter($completedOrdersQuery);
+            $applyFilter($ordersQuery);
+            $applyFilter($completedOrdersQuery);
+        }
 
         $orders = $ordersQuery->latest()->get();
         $completedOrders = $completedOrdersQuery->orderByRaw('COALESCE(dr_prepared_at, updated_at, created_at) DESC')->get();

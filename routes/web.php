@@ -72,6 +72,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/update-index-stock/{indexId}', [InventoryController::class, 'updateIndexStockDirectly'])->name('update-index-stock');
       Route::post('/update-bundle-stock/{bundleId}', [InventoryController::class, 'updateBundleStockDirectly'])->name('update-bundle-stock');
       Route::post('/reconcile-stock', [InventoryController::class, 'reconcileStock'])->name('reconcile-stock');
+      Route::post('/mark-as-lost', [InventoryController::class, 'markAsLost'])->name('mark-as-lost');
     });
 
     // Production Costing
@@ -425,6 +426,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/area-sales/team-stocks/template', [MarketingController::class, 'downloadTeamStockTransferTemplate'])->name('marketing.area-sales.team-stocks.template');
     Route::post('/marketing/area-sales/team-stocks/parse-excel', [MarketingController::class, 'parseTeamStockTransferExcel'])->name('marketing.area-sales.team-stocks.parse-excel');
     Route::post('/marketing/area-sales/team-stocks/transfer', [MarketingController::class, 'storeTeamStockTransfer'])->name('marketing.area-sales.team-stocks.transfer');
+    Route::post('/marketing/area-sales/team-stocks/return', [MarketingController::class, 'storeTeamStockReturn'])->name('marketing.area-sales.team-stocks.return');
     Route::post('/marketing/area-sales/team-stocks/{id}/approve', [MarketingController::class, 'approveTeamStockTransferByMarketing'])->name('marketing.area-sales.team-stocks.approve');
     Route::post('/marketing/area-sales/team-stocks/{id}/reject', [MarketingController::class, 'rejectTeamStockTransferByMarketing'])->name('marketing.area-sales.team-stocks.reject');
     Route::get('/marketing/sales-invoice', [MarketingController::class, 'salesInvoice'])->name('marketing.sales-invoice');

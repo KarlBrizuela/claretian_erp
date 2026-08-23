@@ -11,6 +11,7 @@ class TeamStockTransfer extends Model
 
     protected $fillable = [
         'transfer_number',
+        'transfer_type',
         'team_name',
         'transferred_by',
         'notes',

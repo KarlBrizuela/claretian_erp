@@ -400,6 +400,21 @@ class InventoryController extends Controller
             }
         }
 
+        // Lost Inventory Query
+        $lostQuery = \App\Models\LostInventory::with(['book', 'bookIndex', 'bookBundle', 'site', 'user'])->latest();
+        if (!empty($search)) {
+            $lostQuery->where(function($q) use ($search) {
+                $q->where('reason', 'like', '%' . $search . '%')
+                  ->orWhere('team_name', 'like', '%' . $search . '%')
+                  ->orWhereHas('book', fn($b) => $b->where('name', 'like', '%' . $search . '%')->orWhere('sku', 'like', '%' . $search . '%'))
+                  ->orWhereHas('bookIndex', fn($idx) => $idx->where('title', 'like', '%' . $search . '%')->orWhere('article_number', 'like', '%' . $search . '%'))
+                  ->orWhereHas('bookBundle', fn($bdl) => $bdl->where('bundle_name', 'like', '%' . $search . '%')->orWhere('bundle_code', 'like', '%' . $search . '%'))
+                  ->orWhereHas('site', fn($st) => $st->where('name', 'like', '%' . $search . '%'));
+            });
+        }
+        $lostInventories = $lostQuery->paginate(15, ['*'], 'lost_page')->withQueryString();
+        $totalLostQty = \App\Models\LostInventory::sum('quantity');
+
         return view('production.inventory.overview', compact(
             'totalBooks', 
             'lowStock', 
@@ -426,8 +441,160 @@ class InventoryController extends Controller
             'directConsignmentCustomers',
             'batchData',
             'sidebar',
-            'role'
+            'role',
+            'lostInventories',
+            'totalLostQty'
         ));
+    }
+
+    public function markAsLost(Request $request)
+    {
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'product_type'  => 'required|in:book,index,bundle,non_book',
+            'product_id'    => 'required|integer',
+            'quantity'      => 'required|integer|min:1',
+            'location_type' => 'required|in:site,team',
+            'site_id'       => 'nullable|required_if:location_type,site|integer|exists:sites,id',
+            'team_name'     => 'nullable|required_if:location_type,team|string',
+            'reason'        => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput()->with('error', 'Failed to mark item as lost: ' . $validator->errors()->first());
+        }
+
+        $productType = $request->input('product_type');
+        $productId = (int) $request->input('product_id');
+        $lostQty = (int) $request->input('quantity');
+        $locationType = $request->input('location_type');
+        $siteId = $request->input('site_id');
+        $teamName = $request->input('team_name');
+        $reason = $request->input('reason');
+        $userId = auth()->id();
+
+        try {
+            \DB::transaction(function() use ($productType, $productId, $lostQty, $locationType, $siteId, $teamName, $reason, $userId) {
+                $bookId = null;
+                $bookIndexId = null;
+                $bookBundleId = null;
+                $productName = '';
+
+                if ($productType === 'book' || $productType === 'non_book') {
+                    $book = \App\Models\Book::findOrFail($productId);
+                    $bookId = $book->id;
+                    $productName = $book->name;
+
+                    if ($locationType === 'site') {
+                        $siteInv = \App\Models\SiteInventory::where('site_id', $siteId)->where('book_id', $bookId)->first();
+                        $availQty = $siteInv ? (int) $siteInv->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock at selected site is only {$availQty} pcs.");
+                        }
+                        $siteInv->decrement('quantity', $lostQty);
+                        if ($book->stock >= $lostQty) {
+                            $book->decrement('stock', $lostQty);
+                        }
+                    } else {
+                        $teamStock = \App\Models\TeamStock::where('team_name', $teamName)->where('book_id', $bookId)->first();
+                        $availQty = $teamStock ? (int) $teamStock->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock for {$teamName} is only {$availQty} pcs.");
+                        }
+                        $teamStock->decrement('quantity', $lostQty);
+                        if ($book->stock >= $lostQty) {
+                            $book->decrement('stock', $lostQty);
+                        }
+                    }
+                } elseif ($productType === 'index') {
+                    $index = \App\Models\BookIndex::findOrFail($productId);
+                    $bookIndexId = $index->id;
+                    $productName = $index->title;
+
+                    if ($locationType === 'site') {
+                        $siteInv = \App\Models\SiteInventory::where('site_id', $siteId)->where('book_index_id', $bookIndexId)->first();
+                        $availQty = $siteInv ? (int) $siteInv->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock at selected site is only {$availQty} pcs.");
+                        }
+                        $siteInv->decrement('quantity', $lostQty);
+                        if ($index->stock >= $lostQty) {
+                            $index->decrement('stock', $lostQty);
+                        }
+                    } else {
+                        $teamStock = \App\Models\TeamStock::where('team_name', $teamName)->where('book_index_id', $bookIndexId)->first();
+                        $availQty = $teamStock ? (int) $teamStock->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock for {$teamName} is only {$availQty} pcs.");
+                        }
+                        $teamStock->decrement('quantity', $lostQty);
+                        if ($index->stock >= $lostQty) {
+                            $index->decrement('stock', $lostQty);
+                        }
+                    }
+                } elseif ($productType === 'bundle') {
+                    $bundle = \App\Models\BookBundle::findOrFail($productId);
+                    $bookBundleId = $bundle->id;
+                    $productName = $bundle->bundle_name;
+
+                    if ($locationType === 'site') {
+                        $siteInv = \App\Models\SiteInventory::where('site_id', $siteId)->where('book_bundle_id', $bookBundleId)->first();
+                        $availQty = $siteInv ? (int) $siteInv->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock at selected site is only {$availQty} pcs.");
+                        }
+                        $siteInv->decrement('quantity', $lostQty);
+                        if ($bundle->stock >= $lostQty) {
+                            $bundle->decrement('stock', $lostQty);
+                        }
+                    } else {
+                        $teamStock = \App\Models\TeamStock::where('team_name', $teamName)->where('book_bundle_id', $bookBundleId)->first();
+                        $availQty = $teamStock ? (int) $teamStock->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock for {$teamName} is only {$availQty} pcs.");
+                        }
+                        $teamStock->decrement('quantity', $lostQty);
+                        if ($bundle->stock >= $lostQty) {
+                            $bundle->decrement('stock', $lostQty);
+                        }
+                    }
+                }
+
+                // Record entry in lost_inventories
+                \App\Models\LostInventory::create([
+                    'product_type'   => $productType,
+                    'book_id'        => $bookId,
+                    'book_index_id'  => $bookIndexId,
+                    'book_bundle_id' => $bookBundleId,
+                    'quantity'       => $lostQty,
+                    'site_id'        => $locationType === 'site' ? $siteId : null,
+                    'team_name'      => $locationType === 'team' ? $teamName : null,
+                    'reason'         => $reason,
+                    'user_id'        => $userId,
+                    'lost_date'      => now(),
+                ]);
+
+                // Audit trail in InventoryTransaction if book_id is present
+                if ($bookId) {
+                    $siteObj = $siteId ? \App\Models\Site::find($siteId) : null;
+                    \App\Models\InventoryTransaction::create([
+                        'book_id'          => $bookId,
+                        'type'             => 'LOST',
+                        'quantity'         => -$lostQty,
+                        'location'         => $locationType === 'site' ? ($siteObj->name ?? 'Main Warehouse') : $teamName,
+                        'source'           => 'Lost Inventory Adjustment',
+                        'reference_number' => 'LOST-' . date('YmdHis'),
+                        'notes'            => $reason ?: 'Marked as lost in Inventory Overview',
+                        'status'           => 'completed',
+                        'transaction_date' => now(),
+                        'user_id'          => $userId,
+                    ]);
+                }
+            });
+
+            return redirect()->back()->with('success', "Successfully recorded lost inventory and deducted stock.");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error marking inventory as lost: ' . $e->getMessage());
+        }
     }
 
     private function isAccountingReviewer($user): bool

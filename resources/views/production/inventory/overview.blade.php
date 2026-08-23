@@ -274,10 +274,18 @@
                                             </button>
                                         </li>
                                         <li class="nav-item" role="presentation">
-                                            <button class="nav-link font-w600" id="registry-bundles-tab" data-bs-toggle="tab" data-bs-target="#registry-bundles-content" type="button" role="tab" aria-controls="registry-bundles-content" aria-selected="false">
-                                                <i class="las la-boxes me-1"></i>Bundles
-                                            </button>
-                                        </li>
+                                             <button class="nav-link font-w600" id="registry-bundles-tab" data-bs-toggle="tab" data-bs-target="#registry-bundles-content" type="button" role="tab" aria-controls="registry-bundles-content" aria-selected="false">
+                                                 <i class="las la-boxes me-1"></i>Bundles
+                                             </button>
+                                         </li>
+                                         <li class="nav-item" role="presentation">
+                                             <button class="nav-link font-w600" id="registry-lost-tab" data-bs-toggle="tab" data-bs-target="#registry-lost-content" type="button" role="tab" aria-controls="registry-lost-content" aria-selected="false">
+                                                 <i class="las la-exclamation-triangle me-1"></i>Lost Inventory
+                                                 @if(isset($totalLostQty) && $totalLostQty > 0)
+                                                     <span class="badge bg-danger text-white ms-1" style="font-size: 0.72rem; padding: 2px 6px; border-radius: 10px;">{{ number_format($totalLostQty) }}</span>
+                                                 @endif
+                                             </button>
+                                         </li>
                                     </ul>
                                 </div>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
@@ -859,6 +867,90 @@
                                                 {{ $bundles->appends(['search' => request('search')])->links() }}
                                             </nav>
                                         </div>
+                                    </div>
+
+                                    <!-- Lost Inventory Registry Tab Pane -->
+                                    <div class="tab-pane fade" id="registry-lost-content" role="tabpanel" aria-labelledby="registry-lost-tab">
+                                        <div class="table-responsive">
+                                            <table class="table table-responsive-md align-middle table-hover mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th><strong>ITEM DESCRIPTION</strong></th>
+                                                        <th class="text-center"><strong>TYPE</strong></th>
+                                                        <th class="text-center"><strong>LOST QTY</strong></th>
+                                                        <th><strong>SITE / WAREHOUSE</strong></th>
+                                                        <th><strong>TEAM</strong></th>
+                                                        <th><strong>DATE LOST</strong></th>
+                                                        <th><strong>REASON / REMARKS</strong></th>
+                                                        <th><strong>RECORDED BY</strong></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($lostInventories ?? [] as $lost)
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-bold text-dark">{{ $lost->product_name }}</div>
+                                                            <small class="text-muted"><i class="las la-barcode me-1"></i>{{ $lost->sku_isbn }}</small>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            @if($lost->product_type === 'book')
+                                                                <span class="badge bg-primary text-white px-2 py-1" style="font-size: 0.78rem;">Book</span>
+                                                            @elseif($lost->product_type === 'index')
+                                                                <span class="badge bg-info text-white px-2 py-1" style="font-size: 0.78rem;">Index</span>
+                                                            @elseif($lost->product_type === 'bundle')
+                                                                <span class="badge bg-warning text-white px-2 py-1" style="font-size: 0.78rem;">Bundle</span>
+                                                            @else
+                                                                <span class="badge bg-secondary text-white px-2 py-1" style="font-size: 0.78rem;">Non-Book</span>
+                                                            @endif
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="fw-bold text-danger fs-14">{{ number_format($lost->quantity) }} pcs</span>
+                                                        </td>
+                                                        <td>
+                                                            @if($lost->site)
+                                                                <span class="fw-semibold text-dark"><i class="las la-warehouse me-1 text-primary"></i>{{ $lost->site->name }}</span>
+                                                            @else
+                                                                <span class="text-muted small">N/A</span>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            @if($lost->team_name)
+                                                                <span class="badge bg-danger text-white px-2 py-1" style="font-size: 0.78rem;">{{ $lost->team_name }}</span>
+                                                            @else
+                                                                <span class="text-muted small">N/A</span>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            <small class="text-dark fw-medium">{{ optional($lost->lost_date ?: $lost->created_at)->format('M d, Y h:i A') }}</small>
+                                                        </td>
+                                                        <td>
+                                                            <small class="text-secondary fw-medium">{{ $lost->reason ?: 'No remarks provided' }}</small>
+                                                        </td>
+                                                        <td>
+                                                            <small class="fw-semibold text-dark">{{ $lost->user->name ?? 'System' }}</small>
+                                                        </td>
+                                                    </tr>
+                                                    @empty
+                                                    <tr>
+                                                        <td colspan="8" class="text-center py-4 text-muted">
+                                                            <i class="las la-check-circle fs-24 text-success d-block mb-1"></i>
+                                                            No lost inventory records found.
+                                                        </td>
+                                                    </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        @if(isset($lostInventories) && method_exists($lostInventories, 'links'))
+                                        <div class="d-flex justify-content-between align-items-center mt-4">
+                                            <div class="pagination-info">
+                                                Showing {{ $lostInventories->firstItem() ?? 0 }} to {{ $lostInventories->lastItem() ?? 0 }} of {{ $lostInventories->total() }} entries
+                                            </div>
+                                            <nav>
+                                                {{ $lostInventories->appends(['search' => request('search')])->links() }}
+                                            </nav>
+                                        </div>
+                                        @endif
                                     </div>
 
                                 </div>
@@ -3843,7 +3935,158 @@
             .catch(err => {
                 alert('Error: ' + err.message);
             });
+    <!-- Mark Item as Lost Modal -->
+    <div class="modal fade" id="markAsLostModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger text-white py-3">
+                    <h5 class="modal-title text-white fw-bold"><i class="las la-exclamation-triangle me-2"></i>Mark Inventory as Lost</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ route('production.inventory.mark-as-lost') }}" method="POST">
+                    @csrf
+                    <div class="modal-body p-4">
+                        <div class="alert alert-warning mb-4 py-2 px-3 small d-flex align-items-center gap-2">
+                            <i class="las la-info-circle fs-18"></i>
+                            <span>Marking stock as lost will deduct the specified quantity from available stock and log a permanent audit record. The product record will NOT be deleted.</span>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-dark">Product Type <span class="text-danger">*</span></label>
+                                <select name="product_type" id="lostProductType" class="form-select" required onchange="onLostProductTypeChange()">
+                                    <option value="book">Book</option>
+                                    <option value="non_book">Non-Book</option>
+                                    <option value="index">Index</option>
+                                    <option value="bundle">Bundle</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-dark">Select Item / Product <span class="text-danger">*</span></label>
+                                <select name="product_id" id="lostProductId" class="form-select" required>
+                                    <option value="">Select product...</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-dark">Location Type <span class="text-danger">*</span></label>
+                                <select name="location_type" id="lostLocationType" class="form-select" required onchange="onLostLocationTypeChange()">
+                                    <option value="site">Site / Warehouse</option>
+                                    <option value="team">Sales Team</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6" id="lostSiteGroup">
+                                <label class="form-label fw-semibold text-dark">Select Site / Warehouse <span class="text-danger">*</span></label>
+                                <select name="site_id" id="lostSiteId" class="form-select">
+                                    @foreach($allSites ?? $sites ?? [] as $site)
+                                        <option value="{{ $site->id }}" {{ $site->name === 'Main Warehouse' ? 'selected' : '' }}>{{ $site->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 d-none" id="lostTeamGroup">
+                                <label class="form-label fw-semibold text-dark">Select Sales Team <span class="text-danger">*</span></label>
+                                <select name="team_name" id="lostTeamName" class="form-select">
+                                    <option value="Team A">Team A</option>
+                                    <option value="Team B">Team B</option>
+                                    <option value="Team C">Team C</option>
+                                    <option value="Book Sales">Book Sales</option>
+                                    <option value="MIBF">MIBF</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-dark">Lost Quantity <span class="text-danger">*</span></label>
+                                <input type="number" name="quantity" class="form-control" min="1" required placeholder="Enter lost quantity (e.g. 1)">
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold text-dark">Reason / Remarks</label>
+                                <textarea name="reason" class="form-control" rows="3" placeholder="Reason for marking as lost (e.g. Damaged during transfer, missing during audit)..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light py-3">
+                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4 fw-bold" style="background-color: #D9251C; border-color: #D9251C;">
+                            <i class="las la-exclamation-triangle me-1"></i>Confirm & Mark as Lost
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @php
+        $getLostProductList = function($items) {
+            $list = [];
+            $collection = is_object($items) && method_exists($items, 'items') ? $items->items() : (is_array($items) ? $items : (is_object($items) && method_exists($items, 'all') ? $items->all() : []));
+            foreach ($collection as $item) {
+                if (is_object($item)) {
+                    $id = $item->id ?? null;
+                    $name = $item->name ?? ($item->title ?? ($item->bundle_name ?? ''));
+                    if (isset($item->index_value) && $item->index_value) {
+                        $name = ($item->book->name ?? 'Index') . ' - ' . $item->index_value;
+                    }
+                    $stock = $item->stock ?? 0;
+                    if ($id) {
+                        $list[] = ['id' => $id, 'name' => $name . ' (Stock: ' . $stock . ')'];
+                    }
+                }
+            }
+            return $list;
         };
+    @endphp
+
+    <script>
+        const lostBooksData = @json($getLostProductList($allBooks ?? []));
+        const lostNonBooksData = @json($getLostProductList($nonBooks ?? []));
+        const lostIndicesData = @json($getLostProductList($allIndices ?? []));
+        const lostBundlesData = @json($getLostProductList($allBundles ?? []));
+
+        window.onLostProductTypeChange = function() {
+            const type = document.getElementById('lostProductType').value;
+            const selectEl = document.getElementById('lostProductId');
+            let data = [];
+
+            if (type === 'book') data = lostBooksData;
+            else if (type === 'non_book') data = lostNonBooksData;
+            else if (type === 'index') data = lostIndicesData;
+            else if (type === 'bundle') data = lostBundlesData;
+
+            let html = '<option value="">Select product...</option>';
+            data.forEach(item => {
+                html += `<option value="${item.id}">${item.name}</option>`;
+            });
+            selectEl.innerHTML = html;
+        };
+
+        window.onLostLocationTypeChange = function() {
+            const locType = document.getElementById('lostLocationType').value;
+            const siteGroup = document.getElementById('lostSiteGroup');
+            const teamGroup = document.getElementById('lostTeamGroup');
+            const siteSelect = document.getElementById('lostSiteId');
+            const teamSelect = document.getElementById('lostTeamName');
+
+            if (locType === 'site') {
+                siteGroup.classList.remove('d-none');
+                teamGroup.classList.add('d-none');
+                if (siteSelect) siteSelect.required = true;
+                if (teamSelect) teamSelect.required = false;
+            } else {
+                siteGroup.classList.add('d-none');
+                teamGroup.classList.remove('d-none');
+                if (siteSelect) siteSelect.required = false;
+                if (teamSelect) teamSelect.required = true;
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            onLostProductTypeChange();
+            onLostLocationTypeChange();
+        });
     </script>
 @endpush
 </x-app-layout>
