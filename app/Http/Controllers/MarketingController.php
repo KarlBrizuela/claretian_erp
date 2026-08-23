@@ -1412,6 +1412,13 @@ class MarketingController extends Controller
         if ($typeFilter && $typeFilter !== 'all') {
             if ($typeFilter === 'area_sales_consignment') {
                 $query->whereIn('type', ['area_sales_consignment', 'area_consignment']);
+            } elseif ($typeFilter === 'mibf') {
+                $query->where(function($q) {
+                    $q->where('platform', 'MIBF')
+                      ->orWhere('ecom_platform', 'MIBF')
+                      ->orWhere('type', 'mibf')
+                      ->orWhere('so_number', 'like', 'MIBF-%');
+                });
             } else {
                 $query->where('type', $typeFilter);
             }

@@ -371,7 +371,6 @@
         </div>
     </div>
     @endif
-    @endif
 
     @if($hasCC)
     <div class="modern-nav-group">

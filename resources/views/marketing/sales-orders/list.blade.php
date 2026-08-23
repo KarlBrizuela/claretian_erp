@@ -52,6 +52,7 @@
                                 <option value="paid" {{ request('type') == 'paid' ? 'selected' : '' }}>Paid Transaction</option>
                                 <option value="charge" {{ request('type') == 'charge' ? 'selected' : '' }}>Charge Transaction</option>
                                 <option value="area_sales_consignment" {{ request('type') == 'area_sales_consignment' ? 'selected' : '' }}>Area Sales Consignment</option>
+                                <option value="mibf" {{ request('type') == 'mibf' ? 'selected' : '' }}>MIBF Direct</option>
                                 <option value="ecom_direct" {{ request('type') == 'ecom_direct' ? 'selected' : '' }}>Direct Invoice (E-com)</option>
                                 <option value="calculator_pos" {{ request('type') == 'calculator_pos' ? 'selected' : '' }}>Direct POS</option>
                                 <option value="complimentary" {{ request('type') == 'complimentary' ? 'selected' : '' }}>Complimentary</option>

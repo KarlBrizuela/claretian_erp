@@ -25,7 +25,7 @@ class POSController extends Controller
     {
         $validated = $request->validate([
             'customer_id'         => 'nullable|exists:customers,customer_id',
-            'payment_method'      => 'required|in:cash,gcash,paymaya,card,bank,check',
+            'payment_method'      => 'required|in:cash,gcash,paymaya,maya,card,bank,bank_transfer,check',
             'payment_reference'   => 'required_unless:payment_method,cash|nullable|string|max:20',
             'cash_received'       => ['nullable', 'required_if:payment_method,cash', 'numeric', 'min:0'],
             'items'               => 'required|array|min:1',
@@ -370,7 +370,7 @@ class POSController extends Controller
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
             'platform' => 'nullable|string',
-            'payment_method' => 'required|in:cod,cash,gcash,lazada,shopee,paymaya,card,bank,check',
+            'payment_method' => 'required|in:cod,cash,gcash,lazada,shopee,paymaya,maya,card,bank,check,bank_transfer',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'nullable',
             'items.*.type' => 'nullable|string',

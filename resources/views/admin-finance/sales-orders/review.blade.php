@@ -148,6 +148,7 @@
                                 <td class="fw-bold text-dark">Forwarder:</td>
                                 <td class="fw-bold text-primary"><i class="las la-shipping-fast me-1"></i>{{ $order->forwarder ?? 'N/A' }}</td>
                             </tr>
+                            @endif
                             <tr>
                                 <td class="fw-bold text-dark">Terms:</td>
                                 <td class="fw-bold text-primary">{{ $order->terms ?: 'N/A' }}</td>

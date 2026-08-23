@@ -179,7 +179,12 @@
             </div>
             
             <div class="pos-form-group">
-                <label>Customer *</label>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="mb-0 font-w600">Customer *</label>
+                    <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2" style="font-size: 0.75rem; border-radius: 4px;" data-bs-toggle="modal" data-bs-target="#quickCustomerModal">
+                        <i class="las la-user-plus me-1"></i>+ Add Customer
+                    </button>
+                </div>
                 <select class="form-control" id="customerSelect">
                     <option value="">Select Customer</option>
                     @foreach($customers as $customer)
@@ -238,6 +243,14 @@
                             <i class="las la-money-bill-wave"></i>
                             <span>Cash</span>
                         </div>
+                        <div class="payment-method-card" onclick="selectMethod(this, 'gcash')">
+                            <i class="las la-mobile"></i>
+                            <span>GCash</span>
+                        </div>
+                        <div class="payment-method-card" onclick="selectMethod(this, 'maya')">
+                            <i class="las la-wallet"></i>
+                            <span>Maya</span>
+                        </div>
                         <div class="payment-method-card" onclick="selectMethod(this, 'card')">
                             <i class="las la-credit-card"></i>
                             <span>Card</span>
@@ -245,6 +258,10 @@
                         <div class="payment-method-card" onclick="selectMethod(this, 'check')">
                             <i class="las la-money-check"></i>
                             <span>Check</span>
+                        </div>
+                        <div class="payment-method-card" onclick="selectMethod(this, 'bank_transfer')">
+                            <i class="las la-university"></i>
+                            <span>Bank Transfer</span>
                         </div>
                     </div>
 
@@ -296,6 +313,63 @@
                     <button type="button" class="btn btn-danger btn-sm px-4 font-w700" onclick="document.getElementById('ecomOrderInvoiceIframe').contentWindow.print()" style="background:#ff0000;">
                         <i class="las la-print me-1"></i> PRINT INVOICE
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Customer Registration Modal -->
+    <div class="modal fade" id="quickCustomerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white py-2">
+                    <h6 class="modal-title m-0 text-white"><i class="las la-user-plus me-2"></i>Quick Customer Registration</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <form id="quickCustomerForm">
+                        <div class="mb-3">
+                            <label class="form-label font-w600">Customer Name *</label>
+                            <input type="text" class="form-control" name="customer_name" required placeholder="Full Name">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label font-w600">Mobile Number</label>
+                                <input type="tel" class="form-control" name="mobile" placeholder="09xxxxxxxxx">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label font-w600">Email Address</label>
+                                <input type="email" class="form-control" name="main_email" placeholder="email@example.com">
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label font-w600">Billing Address</label>
+                            <textarea class="form-control" name="billing_address" rows="2" placeholder="Full Address"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-sm px-4 font-w700" id="saveQuickCustomerBtn">REGISTER & SELECT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Validation Errors Modal -->
+    <div class="modal fade" id="validationErrorsModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white py-2">
+                    <h6 class="modal-title m-0 text-white"><i class="fas fa-exclamation-triangle me-2"></i>Registration Errors</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <p class="fw-bold">Please correct the following errors:</p>
+                    <ul id="modalErrorList" class="text-danger mb-0"></ul>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-sm btn-danger" data-bs-dismiss="modal">Fix Errors</button>
                 </div>
             </div>
         </div>
@@ -398,7 +472,16 @@
             if (cart.length === 0) return alert('Your cart is empty');
             
             const customerId = document.getElementById('customerSelect').value;
-            if (!customerId) return alert('Please select a customer');
+            if (!customerId) {
+                const quickModalEl = document.getElementById('quickCustomerModal');
+                if (quickModalEl) {
+                    const quickModal = bootstrap.Modal.getInstance(quickModalEl) || new bootstrap.Modal(quickModalEl);
+                    quickModal.show();
+                } else {
+                    alert('Please select a customer');
+                }
+                return;
+            }
             
             document.getElementById('modalSubtotal').textContent = `₱${currentSubtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             
@@ -437,6 +520,21 @@
                 if (refLabel) refLabel.textContent = 'Order Notes (Optional)';
                 if (refInput) refInput.placeholder = 'Notes (Optional)';
                 calculateChange();
+            } else if (method === 'gcash') {
+                if (cashDetails) cashDetails.style.display = 'none';
+                if (refDetails) refDetails.style.display = 'block';
+                if (refLabel) refLabel.textContent = 'GCash Reference Number';
+                if (refInput) refInput.placeholder = 'Enter GCash Reference Number';
+            } else if (method === 'maya' || method === 'paymaya') {
+                if (cashDetails) cashDetails.style.display = 'none';
+                if (refDetails) refDetails.style.display = 'block';
+                if (refLabel) refLabel.textContent = 'Maya Reference Number';
+                if (refInput) refInput.placeholder = 'Enter Maya Reference Number';
+            } else if (method === 'bank_transfer' || method === 'bank') {
+                if (cashDetails) cashDetails.style.display = 'none';
+                if (refDetails) refDetails.style.display = 'block';
+                if (refLabel) refLabel.textContent = 'Bank Reference Number';
+                if (refInput) refInput.placeholder = 'Enter Bank Reference Number';
             } else if (method === 'card') {
                 if (cashDetails) cashDetails.style.display = 'none';
                 if (refDetails) refDetails.style.display = 'block';
@@ -771,7 +869,7 @@
             }
         }
 
-        // Initialize grid & Select2
+        // Initialize grid, Select2 & Quick Customer Registration
         document.addEventListener('DOMContentLoaded', function() {
             if (window.jQuery && $('#customerSelect').length) {
                 $('#customerSelect').select2({
@@ -780,6 +878,84 @@
                     width: '100%'
                 });
             }
+
+            const quickCustForm = document.getElementById('quickCustomerForm');
+            const saveQuickBtn = document.getElementById('saveQuickCustomerBtn');
+            const quickModalEl = document.getElementById('quickCustomerModal');
+
+            saveQuickBtn?.addEventListener('click', async function() {
+                saveQuickBtn.disabled = true;
+                saveQuickBtn.textContent = 'Registering...';
+
+                const formData = new FormData(quickCustForm);
+                const data = {};
+                formData.forEach((value, key) => data[key] = value);
+
+                try {
+                    const response = await fetch('/marketing/customers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        const quickModalInstance = bootstrap.Modal.getInstance(quickModalEl) || new bootstrap.Modal(quickModalEl);
+                        quickModalInstance.hide();
+                        quickCustForm.reset();
+
+                        const custObj = result.customer || result;
+                        const custId = custObj.customer_id || custObj.id;
+                        const custName = custObj.customer_name || data.customer_name;
+
+                        if (custId) {
+                            const newOption = new Option(custName, custId, true, true);
+                            if (window.jQuery && $('#customerSelect').length) {
+                                $('#customerSelect').append(newOption).trigger('change');
+                            } else {
+                                const sel = document.getElementById('customerSelect');
+                                sel.add(newOption);
+                                sel.value = custId;
+                            }
+
+                            if (cart.length > 0) {
+                                setTimeout(() => openCheckoutModal(), 400);
+                            }
+                        } else {
+                            location.reload();
+                        }
+                    } else if (response.status === 422) {
+                        const errorList = document.getElementById('modalErrorList');
+                        if (errorList) {
+                            errorList.innerHTML = '';
+                            Object.values(result.errors || {}).flat().forEach(err => {
+                                const li = document.createElement('li');
+                                li.textContent = err;
+                                errorList.appendChild(li);
+                            });
+                        }
+                        const errModalEl = document.getElementById('validationErrorsModal');
+                        if (errModalEl) {
+                            const errModal = bootstrap.Modal.getInstance(errModalEl) || new bootstrap.Modal(errModalEl);
+                            errModal.show();
+                        }
+                    } else {
+                        alert(result.message || 'Error registering customer');
+                    }
+                } catch (err) {
+                    console.error('Error registering customer:', err);
+                    alert('An error occurred while registering customer.');
+                } finally {
+                    saveQuickBtn.disabled = false;
+                    saveQuickBtn.textContent = 'REGISTER & SELECT';
+                }
+            });
+
             renderProducts();
         });
     </script>
