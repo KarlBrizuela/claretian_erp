@@ -1,6 +1,33 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
 @push('styles')
+<link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
 <style>
+    /* Create SI Modal Expansion */
+    @media (min-width: 1200px) {
+        #createSalesOrderModal .modal-dialog {
+            max-width: 1250px !important;
+        }
+    }
+    .select2-container--default .select2-selection--single {
+        height: 31px !important;
+        padding: 2px 6px !important;
+        font-size: 0.875rem !important;
+        border: 1px solid #ced4da !important;
+        border-radius: 0.25rem !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 25px !important;
+        color: #212529 !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 29px !important;
+    }
+    .select2-dropdown {
+        z-index: 99999 !important;
+        font-size: 0.875rem !important;
+        border-color: #ced4da !important;
+    }
+
     /* 1. Page Layout & Grid Width Expansion (Guideline 2) */
     .content-body .container-fluid {
         padding-left: 15px !important;
@@ -262,11 +289,16 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div class="col-md-auto">
-                                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="false" aria-controls="advancedFilters" style="height: 38px; border-color: #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; padding: 0 12px; background-color: #ffffff; color: #475569;">
-                                        <i class="las la-filter me-1" style="font-size: 1.1rem; color: #64748b;"></i> Filter Options
-                                    </button>
-                                </div>
+                                 <div class="col-md-auto">
+                                     <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="false" aria-controls="advancedFilters" style="height: 38px; border-color: #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; padding: 0 12px; background-color: #ffffff; color: #475569;">
+                                         <i class="las la-filter me-1" style="font-size: 1.1rem; color: #64748b;"></i> Filter Options
+                                     </button>
+                                 </div>
+                                 <div class="col-md-auto">
+                                      <button type="button" class="btn text-white fw-bold btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#createSalesOrderModal" style="height: 38px; border-color: #28a745; background-color: #28a745; border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 14px;">
+                                          <i class="las la-plus-circle me-1" style="font-size: 1.1rem;"></i> Create
+                                      </button>
+                                 </div>
                                 <div class="col-md-auto ms-auto d-flex align-items-center gap-3">
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="text-muted small fw-medium" style="font-size: 12px;">Show:</span>
@@ -358,25 +390,28 @@
                             </div>
                         </div>
 
+                        @php
+                            $activeTab = request('tab', 'normal');
+                        @endphp
                         <!-- Nav Tabs -->
                         <ul class="nav nav-tabs mb-4" id="siTabs" role="tablist" style="border-bottom: 2px solid #eee;">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active fw-bold text-uppercase border-0 bg-transparent text-dark" id="normal-tab" data-bs-toggle="tab" data-bs-target="#normal-pane" type="button" role="tab" aria-controls="normal-pane" aria-selected="true" style="padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link {{ $activeTab === 'normal' ? 'active text-dark' : 'text-muted' }} fw-bold text-uppercase border-0 bg-transparent" id="normal-tab" data-bs-toggle="tab" data-bs-target="#normal-pane" type="button" role="tab" aria-controls="normal-pane" aria-selected="{{ $activeTab === 'normal' ? 'true' : 'false' }}" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-file-invoice me-1 text-danger" style="font-size: 1.2rem;"></i> Normal Invoices ({{ $normalOrders->count() }})
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-pane" type="button" role="tab" aria-controls="ecom-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link {{ $activeTab === 'ecom' ? 'active text-dark' : 'text-muted' }} fw-bold text-uppercase border-0 bg-transparent" id="ecom-tab" data-bs-toggle="tab" data-bs-target="#ecom-pane" type="button" role="tab" aria-controls="ecom-pane" aria-selected="{{ $activeTab === 'ecom' ? 'true' : 'false' }}" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-store me-1 text-primary" style="font-size: 1.2rem;"></i> Direct Invoice (E-com) ({{ $ecomOrders->count() }})
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="completed-ecom-tab" data-bs-toggle="tab" data-bs-target="#completed-ecom-pane" type="button" role="tab" aria-controls="completed-ecom-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link {{ $activeTab === 'completed-ecom' ? 'active text-dark' : 'text-muted' }} fw-bold text-uppercase border-0 bg-transparent" id="completed-ecom-tab" data-bs-toggle="tab" data-bs-target="#completed-ecom-pane" type="button" role="tab" aria-controls="completed-ecom-pane" aria-selected="{{ $activeTab === 'completed-ecom' ? 'true' : 'false' }}" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-shopping-cart me-1 text-info" style="font-size: 1.2rem;"></i> Completed E-com ({{ $completedEcomSIs->count() }})
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold text-uppercase border-0 bg-transparent text-muted" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-pane" type="button" role="tab" aria-controls="completed-pane" aria-selected="false" style="padding: 10px 15px; transition: all 0.3s;">
+                                <button class="nav-link {{ $activeTab === 'completed' ? 'active text-dark' : 'text-muted' }} fw-bold text-uppercase border-0 bg-transparent" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-pane" type="button" role="tab" aria-controls="completed-pane" aria-selected="{{ $activeTab === 'completed' ? 'true' : 'false' }}" style="padding: 10px 15px; transition: all 0.3s;">
                                     <i class="las la-check-circle me-1 text-success" style="font-size: 1.2rem;"></i> Completed SI ({{ $completedSIs->count() }})
                                 </button>
                             </li>
@@ -384,7 +419,7 @@
 
                         <div class="tab-content" id="siTabsContent">
                             <!-- Normal Invoices Tab Pane -->
-                            <div class="tab-pane fade show active" id="normal-pane" role="tabpanel" aria-labelledby="normal-tab">
+                            <div class="tab-pane fade {{ $activeTab === 'normal' ? 'show active' : '' }}" id="normal-pane" role="tabpanel" aria-labelledby="normal-tab">
                                 <div class="table-responsive">
                                     <table class="table table-hover">
                                         <thead>
@@ -687,7 +722,7 @@
                             </div>
 
                             <!-- Completed SI Tab Pane -->
-                            <div class="tab-pane fade" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
+                            <div class="tab-pane fade {{ $activeTab === 'completed' ? 'show active' : '' }}" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
                                 <div class="table-responsive">
                                     <table class="table table-hover">
                                         <thead>
@@ -1758,4 +1793,514 @@
         });
     });
     </script>
+
+    <!-- Create Sales Order Modal (Matches official Sales Order UI) -->
+    <div class="modal fade" id="createSalesOrderModal" tabindex="-1" aria-labelledby="createSalesOrderModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header border-0 bg-white pb-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 pt-1" style="max-height: 82vh; overflow-y: auto;">
+                    <div class="card order-form border-0 p-0 shadow-none">
+                        <!-- Form Header -->
+                        <div class="form-header text-center mb-4 pb-3" style="border-bottom: 2px solid #e0e0e0;">
+                            <div class="company-info d-flex align-items-center justify-content-center gap-3 mb-2">
+                                <div class="company-logo" style="width: 55px; height: 55px; background: #ff0000; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.8rem; font-weight: bold;">C</div>
+                                <div class="company-details text-start">
+                                    <div class="company-name" style="font-size: 1.15rem; font-weight: 700; color: #333; text-transform: uppercase;">CLARETIAN COMMUNICATIONS FOUNDATION INC.</div>
+                                    <div class="company-address" style="font-size: 0.85rem; color: #666;">8 Mayumi St., UP Village, Diliman, Quezon City</div>
+                                    <div class="company-contact" style="font-size: 0.85rem; color: #666;">Tel. No.: 921-3984</div>
+                                </div>
+                            </div>
+                            <div class="document-title" style="font-size: 1.5rem; font-weight: 700; color: #333; letter-spacing: 1px; margin-top: 0.5rem;">SALES ORDER</div>
+                        </div>
+
+                        <form id="modalSoForm" action="{{ route('marketing.sales-orders.store') }}" method="POST" enctype="multipart/form-data">
+                            @csrf
+                            <input type="hidden" name="source" value="si">
+
+                            <!-- Customer and Order Details Grid -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="p-3 border rounded bg-light">
+                                        <h5 class="fw-bold text-dark mb-3" style="font-size: 0.95rem;">Customer Information</h5>
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Company: <span class="text-danger">*</span></label>
+                                            <select class="form-select form-select-sm" name="customer_id" id="modalCustomerSelect" required>
+                                                <option value="" selected disabled>Select Company...</option>
+                                                @foreach($customers as $customer)
+                                                    <option value="{{ $customer->customer_id }}"
+                                                        data-address="{{ $customer->shipping_address ?? $customer->billing_address ?? 'No address found' }}"
+                                                        data-customer-name="{{ $customer->customer_name ?? '' }}"
+                                                        data-phone="{{ $customer->mobile ?: ($customer->main_phone ?: ($customer->work_phone ?: '')) }}"
+                                                        data-representatives='@json($customer->representatives ?? [])'>
+                                                        {{ $customer->customer_name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Site: <span class="text-danger">*</span></label>
+                                            <select class="form-select form-select-sm" name="site_name" id="modalSiteSelect" required style="width: 100%;">
+                                                <option value="Main Warehouse" selected>Main Warehouse</option>
+                                                <option value="Book Sale">Book Sale</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Customer Name:</label>
+                                            <select class="form-select form-select-sm" name="customer_representative" id="modalCustomerRepSelect">
+                                                <option value="">Select Representative...</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Contact:</label>
+                                            <input type="text" class="form-control form-control-sm" name="customer_contact" id="modalCustomerContactInput" placeholder="Contact number...">
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Address:</label>
+                                            <textarea class="form-control form-control-sm" name="billing_address" id="modalBillingAddress" rows="2" placeholder="Customer address..."></textarea>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Transaction Type: <span class="text-danger">*</span></label>
+                                            <select class="form-select form-select-sm" name="type" id="modalTransactionType" required>
+                                                <option value="paid" selected>Paid Transaction</option>
+                                                <option value="charge">Charge Transaction</option>
+                                                <option value="area_consignment">Area Consignment</option>
+                                                <option value="area_sales_consignment">Area Sales Consignment</option>
+                                                <option value="direct_consignment">Direct Consignment</option>
+                                                <option value="foreign">Foreign Order</option>
+                                                <option value="complimentary">Complimentary</option>
+                                                <option value="cod">Due on Receipt (COD)</option>
+                                                <option value="evaluation">Evaluation</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2" id="modalAreaSalesStaffGroup" style="display: none;">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Area Sales Staff:</label>
+                                            <select class="form-select form-select-sm" name="area_sales_staff_id" id="modalAreaSalesStaffSelect">
+                                                <option value="" selected disabled>Select Area Sales Staff...</option>
+                                                @foreach($areaSalesStaff ?? [] as $staff)
+                                                    <option value="{{ $staff->id }}">{{ $staff->name }}{{ $staff->position ? ' - '.$staff->position : '' }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-0">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Remarks:</label>
+                                            <textarea class="form-control form-control-sm" name="remarks" rows="2" placeholder="Additional notes..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="p-3 border rounded bg-light">
+                                        <h5 class="fw-bold text-dark mb-3" style="font-size: 0.95rem;">Order Information</h5>
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Date:</label>
+                                            <input type="date" class="form-control form-control-sm bg-white" value="{{ date('Y-m-d') }}" readonly>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">S.O. #:</label>
+                                            <input type="text" class="form-control form-control-sm bg-white" name="so_number" value="SO-{{ date('Y') }}-{{ rand(1000,9999) }}" readonly>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Terms:</label>
+                                            <input type="text" class="form-control form-control-sm" name="terms" placeholder="e.g. 30 Days">
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">REF #:</label>
+                                            <input type="text" class="form-control form-control-sm" name="ref_number" placeholder="PO Reference...">
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Freight Option:</label>
+                                            <select class="form-select form-select-sm" name="freight_option" id="modalFreightOptionSelect">
+                                                <option value="">Select Freight Option</option>
+                                                <option value="freight_collect">Freight Collect</option>
+                                                <option value="freight_billing">Freight Billing</option>
+                                                <option value="bill_client">Bill Client</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2" id="modalForwarderGroup" style="display: none;">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Forwarder / Carrier:</label>
+                                            <input type="text" class="form-control form-control-sm" name="forwarder" placeholder="Enter Forwarder (e.g. LBC, J&T, 2GO)">
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">PO Attachment:</label>
+                                            <input type="file" class="form-control form-control-sm" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+                                        </div>
+
+                                        <div class="mb-0">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Proof of Payment Attachment:</label>
+                                            <input type="file" class="form-control form-control-sm" name="proof_of_payment" accept=".pdf,.jpg,.jpeg,.png">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Items Section -->
+                            <div class="mb-3">
+                                <button type="button" class="btn text-white fw-bold btn-sm mb-3 px-3 shadow-sm" id="modalAddItemBtn" style="background: #ff0000; border-color: #ff0000;">
+                                    <i class="las la-plus me-1"></i> Add Item
+                                </button>
+
+                                <div class="table-responsive">
+                                    <table class="table table-bordered align-middle mb-0" id="modalItemsTable" style="font-size: 12px; table-layout: fixed;">
+                                        <thead style="background: #ff0000; color: #ffffff;">
+                                            <tr>
+                                                <th style="width: 65px; color: #fff; white-space: nowrap; text-align: center;">QTY</th>
+                                                <th style="width: 65px; color: #fff; white-space: nowrap; text-align: center;">UNIT</th>
+                                                <th style="color: #fff; white-space: nowrap;">DESCRIPTION / PRODUCT</th>
+                                                <th style="width: 105px; color: #fff; white-space: nowrap; text-align: center;">ISBN</th>
+                                                <th style="width: 80px; color: #fff; white-space: nowrap; text-align: center;">AREA</th>
+                                                <th style="width: 105px; color: #fff; white-space: nowrap; text-align: center;">UNIT PRICE</th>
+                                                <th style="width: 125px; color: #fff; white-space: nowrap; text-align: center;">DISCOUNT</th>
+                                                <th style="width: 110px; color: #fff; white-space: nowrap; text-align: center;">AMOUNT</th>
+                                                <th style="width: 75px; color: #fff; white-space: nowrap; text-align: center;">ACTION</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="modalItemsBody">
+                                            <!-- Dynamic Rows -->
+                                        </tbody>
+                                        <tfoot class="bg-light">
+                                            <tr>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase" style="vertical-align: middle; white-space: nowrap;">Items Subtotal:</td>
+                                                <td class="text-end fw-bold fs-6 text-dark" id="modalSubtotalAmount" style="vertical-align: middle; white-space: nowrap;">₱ 0.00</td>
+                                                <td></td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase" style="vertical-align: middle;">
+                                                    <div class="d-inline-flex align-items-center justify-content-end gap-2" style="white-space: nowrap;">
+                                                        <span class="fw-bold text-dark" style="font-size: 11px;">Discount:</span>
+                                                        <input type="number" step="any" min="0" name="discount_value" id="modalDiscountValue" class="form-control form-control-sm text-end bg-white shadow-none" style="width: 80px; display: inline-block; height: 30px;" value="0">
+                                                        <select name="discount_type" id="modalDiscountType" class="form-select form-select-sm bg-white shadow-none" style="width: 85px; display: inline-block; height: 30px; font-size: 11px;">
+                                                            <option value="amount">₱ (Amt)</option>
+                                                            <option value="percentage">% (Pct)</option>
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                                <td class="text-end fw-bold fs-6 text-danger" id="modalDiscountAmountDisplay" style="vertical-align: middle; white-space: nowrap;">- ₱ 0.00</td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="modalServiceFeeTotalRow" style="display: none;">
+                                                <td colspan="7" class="text-end fw-bold text-uppercase" style="vertical-align: middle; white-space: nowrap;">Service Fee:</td>
+                                                <td class="text-end fw-bold fs-6 text-dark" style="vertical-align: middle; white-space: nowrap;">₱ 50.00</td>
+                                                <td></td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase" style="vertical-align: middle; white-space: nowrap;">Total Amount:</td>
+                                                <td class="text-end fw-bold fs-5 text-success" id="modalGrandTotal" style="vertical-align: middle; white-space: nowrap;">₱ 0.00</td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                                <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn text-white fw-bold px-4" style="background: #ff0000; border-color: #ff0000;">
+                                    <i class="las la-check me-1"></i> Create Sales Order
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+@push('scripts')
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const productsData = @json($products ?? []);
+        const itemsBody = document.getElementById('modalItemsBody');
+        const addItemBtn = document.getElementById('modalAddItemBtn');
+        const grandTotalEl = document.getElementById('modalGrandTotal');
+        const subtotalEl = document.getElementById('modalSubtotalAmount');
+        const discountValueInput = document.getElementById('modalDiscountValue');
+        const discountTypeSelect = document.getElementById('modalDiscountType');
+        const discountAmountDisplay = document.getElementById('modalDiscountAmountDisplay');
+        const freightOptionSelect = document.getElementById('modalFreightOptionSelect');
+        const forwarderGroup = document.getElementById('modalForwarderGroup');
+        const serviceFeeRow = document.getElementById('modalServiceFeeTotalRow');
+        const customerSelect = document.getElementById('modalCustomerSelect');
+        const repSelect = document.getElementById('modalCustomerRepSelect');
+        const contactInput = document.getElementById('modalCustomerContactInput');
+        const addressTextarea = document.getElementById('modalBillingAddress');
+        const transactionTypeSelect = document.getElementById('modalTransactionType');
+        const areaStaffGroup = document.getElementById('modalAreaSalesStaffGroup');
+        const siteSelect = document.getElementById('modalSiteSelect');
+
+        function updateAllProductOptionsStock() {
+            const selectedSite = siteSelect ? siteSelect.value : 'Main Warehouse';
+            if (!itemsBody) return;
+            itemsBody.querySelectorAll('.item-product').forEach(select => {
+                Array.from(select.options).forEach(opt => {
+                    if (!opt.value) return;
+                    const stockMain = opt.getAttribute('data-stock-main') || 0;
+                    const stockBookSale = opt.getAttribute('data-stock-booksale') || 0;
+                    const stockVal = (selectedSite === 'Book Sale') ? stockBookSale : stockMain;
+                    const baseName = opt.textContent.replace(/\s*\(Stock:\s*\d+\)/, '');
+                    opt.textContent = `${baseName} (Stock: ${stockVal})`;
+                });
+                if (window.jQuery && typeof jQuery.fn.select2 === 'function' && $(select).data('select2')) {
+                    $(select).trigger('change.select2');
+                }
+            });
+        }
+
+        if (siteSelect) {
+            siteSelect.addEventListener('change', updateAllProductOptionsStock);
+        }
+
+        // Initialize Select2 on Customer (Company) dropdown
+        if (window.jQuery && typeof jQuery.fn.select2 === 'function' && customerSelect) {
+            $('#modalCustomerSelect').select2({
+                dropdownParent: $('#createSalesOrderModal'),
+                placeholder: 'Select Company...',
+                allowClear: true,
+                width: '100%'
+            }).on('change select2:select', function() {
+                const opt = this.options[this.selectedIndex];
+                if (!opt) return;
+                const addr = opt.getAttribute('data-address');
+                const phone = opt.getAttribute('data-phone');
+                const repsRaw = opt.getAttribute('data-representatives');
+
+                if (addressTextarea) addressTextarea.value = (addr && addr !== 'No address found') ? addr : '';
+                if (contactInput) contactInput.value = phone || '';
+
+                if (repSelect) {
+                    repSelect.innerHTML = '<option value="">Select Representative...</option>';
+                    if (repsRaw) {
+                        try {
+                            const reps = JSON.parse(repsRaw);
+                            if (Array.isArray(reps)) {
+                                reps.forEach(r => {
+                                    const rName = r.name || r.rep_name;
+                                    if (rName) {
+                                        const o = document.createElement('option');
+                                        o.value = rName;
+                                        o.textContent = rName;
+                                        repSelect.appendChild(o);
+                                    }
+                                });
+                            }
+                        } catch(e) {}
+                    }
+                }
+            });
+        } else if (customerSelect) {
+            customerSelect.addEventListener('change', function() {
+                const opt = this.options[this.selectedIndex];
+                const addr = opt.getAttribute('data-address');
+                const phone = opt.getAttribute('data-phone');
+                const repsRaw = opt.getAttribute('data-representatives');
+
+                if (addressTextarea) addressTextarea.value = (addr && addr !== 'No address found') ? addr : '';
+                if (contactInput) contactInput.value = phone || '';
+
+                if (repSelect) {
+                    repSelect.innerHTML = '<option value="">Select Representative...</option>';
+                    if (repsRaw) {
+                        try {
+                            const reps = JSON.parse(repsRaw);
+                            if (Array.isArray(reps)) {
+                                reps.forEach(r => {
+                                    const rName = r.name || r.rep_name;
+                                    if (rName) {
+                                        const o = document.createElement('option');
+                                        o.value = rName;
+                                        o.textContent = rName;
+                                        repSelect.appendChild(o);
+                                    }
+                                });
+                            }
+                        } catch(e) {}
+                    }
+                }
+            });
+        }
+
+        // Transaction Type change
+        if (transactionTypeSelect) {
+            transactionTypeSelect.addEventListener('change', function() {
+                const isAreaStaff = this.value === 'area_sales_consignment';
+                if (areaStaffGroup) areaStaffGroup.style.display = isAreaStaff ? '' : 'none';
+            });
+        }
+
+        // Freight Option change
+        if (freightOptionSelect) {
+            freightOptionSelect.addEventListener('change', function() {
+                const isCollect = this.value === 'freight_collect';
+                const hasFreight = !!this.value;
+                if (forwarderGroup) forwarderGroup.style.display = hasFreight ? '' : 'none';
+                if (serviceFeeRow) serviceFeeRow.style.display = isCollect ? '' : 'none';
+                calculateModalTotals();
+            });
+        }
+
+        function calculateModalTotals() {
+            let itemsSubtotal = 0;
+            if (itemsBody) {
+                itemsBody.querySelectorAll('tr').forEach(row => {
+                    const qty = parseFloat(row.querySelector('.item-qty')?.value || 0);
+                    const price = parseFloat(row.querySelector('.item-price')?.value || 0);
+                    const discVal = parseFloat(row.querySelector('.item-disc-val')?.value || 0);
+                    const discType = row.querySelector('.item-disc-type')?.value || 'percentage';
+
+                    const gross = qty * price;
+                    let discAmt = 0;
+                    if (discType === 'percentage') {
+                        discAmt = gross * (discVal / 100);
+                    } else {
+                        discAmt = discVal;
+                    }
+                    const rowSubtotal = Math.max(0, gross - discAmt);
+                    const amtCell = row.querySelector('.item-amount');
+                    if (amtCell) amtCell.textContent = '₱ ' + rowSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    itemsSubtotal += rowSubtotal;
+                });
+            }
+
+            if (subtotalEl) subtotalEl.textContent = '₱ ' + itemsSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const overallDiscVal = parseFloat(discountValueInput?.value || 0);
+            const overallDiscType = discountTypeSelect?.value || 'amount';
+            let overallDiscAmt = 0;
+            if (overallDiscType === 'percentage') {
+                overallDiscAmt = itemsSubtotal * (overallDiscVal / 100);
+            } else {
+                overallDiscAmt = overallDiscVal;
+            }
+
+            if (discountAmountDisplay) discountAmountDisplay.textContent = '- ₱ ' + overallDiscAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            let serviceFee = 0;
+            if (freightOptionSelect?.value === 'freight_collect') {
+                serviceFee = 50.00;
+            }
+
+            const grandTotal = Math.max(0, itemsSubtotal - overallDiscAmt + serviceFee);
+            if (grandTotalEl) grandTotalEl.textContent = '₱ ' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function addModalRow() {
+            if (!itemsBody) return;
+            const rowIndex = itemsBody.children.length;
+            const tr = document.createElement('tr');
+            const selectedSite = siteSelect ? siteSelect.value : 'Main Warehouse';
+
+            let productOptions = '<option value="" selected disabled>Select Product...</option>';
+            productsData.forEach(p => {
+                const stockMain = p.stock_main !== undefined ? p.stock_main : (p.stock || 0);
+                const stockBookSale = p.stock_booksale !== undefined ? p.stock_booksale : 0;
+                const stockVal = (selectedSite === 'Book Sale') ? stockBookSale : stockMain;
+                productOptions += `<option value="${p.id}" data-price="${p.price}" data-isbn="${p.isbn || ''}" data-stock-main="${stockMain}" data-stock-booksale="${stockBookSale}">${p.display_name} (Stock: ${stockVal})</option>`;
+            });
+
+            tr.innerHTML = `
+                <td><input type="number" min="1" class="form-control form-control-sm item-qty text-center" name="items[${rowIndex}][quantity]" value="1" required style="border: 1px solid #ced4da;"></td>
+                <td><input type="text" class="form-control form-control-sm text-center" name="items[${rowIndex}][unit]" value="pcs" style="border: 1px solid #ced4da;"></td>
+                <td>
+                    <select class="form-select form-select-sm item-product" name="items[${rowIndex}][product_id]" required style="border: 1px solid #ced4da; width: 100%;">
+                        ${productOptions}
+                    </select>
+                </td>
+                <td><input type="text" class="form-control form-control-sm item-isbn bg-light text-center" readonly style="border: 1px solid #ced4da;"></td>
+                <td><input type="text" class="form-control form-control-sm text-center" name="items[${rowIndex}][area]" placeholder="Area" style="border: 1px solid #ced4da;"></td>
+                <td><input type="number" step="0.01" min="0" class="form-control form-control-sm item-price text-end" name="items[${rowIndex}][price]" value="0.00" required style="border: 1px solid #ced4da;"></td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" step="any" min="0" class="form-control form-control-sm item-disc-val text-end px-1 shadow-none" name="items[${rowIndex}][discount_value]" value="0" style="border: 1px solid #ced4da; height: 30px; font-size: 11px;">
+                        <select class="form-select form-select-sm item-disc-type px-1 bg-light shadow-none" name="items[${rowIndex}][discount_type]" style="border: 1px solid #ced4da; max-width: 48px; height: 30px; font-size: 10px;">
+                            <option value="percentage">%</option>
+                            <option value="amount">₱</option>
+                        </select>
+                    </div>
+                </td>
+                <td class="text-end fw-bold item-amount">₱ 0.00</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm text-white remove-row-btn p-1" style="background: #ff0000; border-radius: 4px;"><i class="las la-trash"></i></button>
+                </td>
+            `;
+
+            itemsBody.appendChild(tr);
+
+            const prodSelect = tr.querySelector('.item-product');
+            const priceInput = tr.querySelector('.item-price');
+            const qtyInput = tr.querySelector('.item-qty');
+            const isbnInput = tr.querySelector('.item-isbn');
+            const discValInput = tr.querySelector('.item-disc-val');
+            const discTypeSelect = tr.querySelector('.item-disc-type');
+            const removeBtn = tr.querySelector('.remove-row-btn');
+
+            if (window.jQuery && typeof jQuery.fn.select2 === 'function' && prodSelect) {
+                $(prodSelect).select2({
+                    dropdownParent: $('#createSalesOrderModal'),
+                    placeholder: 'Select Product...',
+                    allowClear: true,
+                    width: '100%'
+                }).on('change select2:select', function() {
+                    const selectedOpt = this.options[this.selectedIndex];
+                    if (selectedOpt) {
+                        const defaultPrice = selectedOpt.getAttribute('data-price') || 0;
+                        const isbn = selectedOpt.getAttribute('data-isbn') || '';
+                        if (priceInput) priceInput.value = parseFloat(defaultPrice).toFixed(2);
+                        if (isbnInput) isbnInput.value = isbn;
+                    }
+                    calculateModalTotals();
+                });
+            } else if (prodSelect) {
+                prodSelect.addEventListener('change', function() {
+                    const selectedOpt = prodSelect.options[prodSelect.selectedIndex];
+                    const defaultPrice = selectedOpt.getAttribute('data-price') || 0;
+                    const isbn = selectedOpt.getAttribute('data-isbn') || '';
+                    if (priceInput) priceInput.value = parseFloat(defaultPrice).toFixed(2);
+                    if (isbnInput) isbnInput.value = isbn;
+                    calculateModalTotals();
+                });
+            }
+
+            if (qtyInput) qtyInput.addEventListener('input', calculateModalTotals);
+            if (priceInput) priceInput.addEventListener('input', calculateModalTotals);
+            if (discValInput) discValInput.addEventListener('input', calculateModalTotals);
+            if (discTypeSelect) discTypeSelect.addEventListener('change', calculateModalTotals);
+
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    tr.remove();
+                    calculateModalTotals();
+                });
+            }
+
+            calculateModalTotals();
+        }
+
+        if (discountValueInput) discountValueInput.addEventListener('input', calculateModalTotals);
+        if (discountTypeSelect) discountTypeSelect.addEventListener('change', calculateModalTotals);
+
+        if (addItemBtn) {
+            addItemBtn.addEventListener('click', addModalRow);
+            if (itemsBody && itemsBody.children.length === 0) {
+                addModalRow();
+            }
+        }
+    });
+    </script>
+@endpush
 </x-app-layout>

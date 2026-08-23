@@ -1,6 +1,48 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
+    <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
+        /* Select2 POS Theme Fixes */
+        .select2-container--default .select2-selection--single {
+            height: 48px;
+            border: 2px solid #eef0f2;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        .select2-container--default .select2-selection--single:focus,
+        .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: #ff0000;
+            outline: none;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 48px;
+            padding-left: 15px;
+            font-weight: 600;
+            color: #333;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 46px;
+        }
+        .select2-dropdown {
+            border: 2px solid #ff0000;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .select2-search--dropdown {
+            padding: 10px;
+        }
+        .select2-search--dropdown .select2-search__field {
+            border: 1px solid #eef0f2;
+            border-radius: 5px;
+            padding: 8px;
+        }
+        .select2-results__option--highlighted[aria-selected] {
+            background-color: #ff0000;
+        }
+
         .pos-container { display: flex; gap: 1rem; height: auto; min-height: calc(100vh - 200px); align-items: flex-start; }
         .pos-products-panel { flex: 1; display: flex; flex-direction: column; background: #fff; border-radius: 10px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
@@ -93,7 +135,7 @@
         .checkout-summary-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #eef0f2; font-size: 0.9rem; }
         .checkout-summary-row:last-child { border-bottom: none; font-size: 1.1rem; font-weight: 800; color: #ff0000; padding-top: 0.5rem; }
         
-        .payment-method-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
+        .payment-method-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
         .payment-method-card { 
             padding: 1rem; border: 2px solid #eef0f2; border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.3s ease; background: #fff;
         }
@@ -146,22 +188,6 @@
                 </select>
             </div>
 
-            <!-- Whole vs Half Item Quantity Option -->
-            <div class="pos-form-group mb-3">
-                <label class="d-flex justify-content-between align-items-center mb-1">
-                    <span>Quantity Option *</span>
-                    <span class="badge bg-danger" id="ecomQtyModeBadge">WHOLE (100% Qty)</span>
-                </label>
-                <div class="btn-group w-100" role="group">
-                    <button type="button" class="btn btn-danger btn-sm font-w700 active" id="ecomModeWholeBtn" onclick="setEcomQtyMode('whole')" style="background:#ff0000;">
-                        <i class="las la-boxes me-1"></i> WHOLE (e.g. 10)
-                    </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm font-w700" id="ecomModeHalfBtn" onclick="setEcomQtyMode('half')">
-                        <i class="las la-cut me-1"></i> HALF (e.g. 5)
-                    </button>
-                </div>
-            </div>
-
             <div class="pos-cart-items" id="cartItems">
                 <div class="text-center text-muted p-5">
                     <i class="las la-shopping-cart" style="font-size: 4rem; opacity: 0.2;"></i>
@@ -182,7 +208,6 @@
                     </div>
                 </div>
                 <div class="d-flex justify-content-between mb-2 text-muted"><span>Discount Amt</span><span id="discountDisplay" class="text-danger">-₱0.00</span></div>
-                <div class="d-flex justify-content-between mb-2 text-muted"><span>Tax (12%)</span><span id="tax">₱0.00</span></div>
                 <div class="d-flex justify-content-between mt-3 pt-3 border-top"><h4 class="mb-0">Total</h4><h4 id="total" class="text-primary mb-0">₱0.00</h4></div>
             </div>
 
@@ -204,31 +229,18 @@
                     <div class="checkout-summary">
                         <div class="checkout-summary-row"><span>Subtotal</span><span id="modalSubtotal">₱0.00</span></div>
                         <div class="checkout-summary-row"><span>Discount</span><span id="modalDiscount" class="text-danger">-₱0.00</span></div>
-                        <div class="checkout-summary-row"><span>VAT (12%)</span><span id="modalTax">₱0.00</span></div>
                         <div class="checkout-summary-row"><span>Grand Total</span><span id="modalTotal">₱0.00</span></div>
                     </div>
 
                     <h6 class="mb-2 font-w700 mt-2" style="font-size: 0.85rem;">Payment Channel</h6>
                     <div class="payment-method-grid">
-                        <div class="payment-method-card active" onclick="selectMethod(this, 'cod')">
-                            <i class="las la-truck"></i>
-                            <span>COD</span>
-                        </div>
-                        <div class="payment-method-card" onclick="selectMethod(this, 'cash')">
+                        <div class="payment-method-card active" onclick="selectMethod(this, 'cash')">
                             <i class="las la-money-bill-wave"></i>
                             <span>Cash</span>
                         </div>
-                        <div class="payment-method-card" onclick="selectMethod(this, 'gcash')">
-                            <i class="las la-mobile-alt"></i>
-                            <span>GCash</span>
-                        </div>
-                        <div class="payment-method-card" onclick="selectMethod(this, 'paymaya')">
-                            <i class="las la-wallet"></i>
-                            <span>PayMaya</span>
-                        </div>
-                        <div class="payment-method-card" onclick="selectMethod(this, 'bank')">
-                            <i class="las la-university"></i>
-                            <span>Bank Transfer</span>
+                        <div class="payment-method-card" onclick="selectMethod(this, 'card')">
+                            <i class="las la-credit-card"></i>
+                            <span>Card</span>
                         </div>
                         <div class="payment-method-card" onclick="selectMethod(this, 'check')">
                             <i class="las la-money-check"></i>
@@ -265,10 +277,21 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0" style="background: #f4f6f9;">
-                    <iframe id="ecomOrderInvoiceIframe" src="about:blank" style="width: 100%; height: 650px; border: none;"></iframe>
+                    <iframe id="ecomOrderInvoiceIframe" src="about:blank" style="width: 100%; height: 78vh; min-height: 680px; border: none;"></iframe>
                 </div>
                 <div class="modal-footer py-2">
                     <a id="ecomPrintInvoiceNewTabBtn" href="#" target="_blank" class="btn btn-sm btn-outline-danger me-auto"><i class="las la-external-link-alt me-1"></i> Open In New Tab</a>
+                    
+                    <div class="form-check form-switch mb-0 ms-2 me-3">
+                        <input class="form-check-input" type="checkbox" id="posPreprintedToggle" onchange="togglePosPreprintedMode(this)">
+                        <label class="form-check-label fw-bold small text-dark" for="posPreprintedToggle">Print Data Only (For Official BIR Paper)</label>
+                    </div>
+
+                    <div class="btn-group btn-group-sm me-2" role="group">
+                        <button type="button" class="btn btn-danger active" id="btnFormatWhole" onclick="switchPrintFormat('whole')">Whole Page</button>
+                        <button type="button" class="btn btn-outline-danger" id="btnFormatHalf" onclick="switchPrintFormat('half')">1/2</button>
+                    </div>
+
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-danger btn-sm px-4 font-w700" onclick="document.getElementById('ecomOrderInvoiceIframe').contentWindow.print()" style="background:#ff0000;">
                         <i class="las la-print me-1"></i> PRINT INVOICE
@@ -279,6 +302,7 @@
     </div>
 
     @push('scripts')
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
         const products = @json($products);
         let cart = [];
@@ -347,15 +371,28 @@
                 }
                 existing.qty++;
             } else {
-                cart.push({ ...product, qty: 1 });
+                cart.push({ ...product, qty: 1, discount_value: 0, discount_type: 'percentage' });
             }
             renderCart();
+        }
+
+        function updateItemDiscount(index, val, type) {
+            const item = cart[index];
+            if (!item) return;
+
+            if (val !== null && val !== undefined) {
+                item.discount_value = val === '' ? '' : (parseFloat(val) || 0);
+            }
+            if (type !== null && type !== undefined) {
+                item.discount_type = type;
+            }
+            updateTotals();
         }
 
         let currentSubtotal = 0;
         let currentTax = 0;
         let currentTotal = 0;
-        let selectedMethodName = 'cod';
+        let selectedMethodName = 'cash';
 
         function openCheckoutModal() {
             if (cart.length === 0) return alert('Your cart is empty');
@@ -377,8 +414,6 @@
                 discountAmount = discountVal;
             }
             document.getElementById('modalDiscount').textContent = `-₱${discountAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-
-            document.getElementById('modalTax').textContent = `₱${currentTax.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('modalTotal').textContent = `₱${currentTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             
             selectMethod(document.querySelector('.payment-method-card.active') || document.querySelector('.payment-method-card'), selectedMethodName);
@@ -389,7 +424,7 @@
         function selectMethod(el, method) {
             selectedMethodName = method;
             document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
+            if (el) el.classList.add('active');
             
             const refLabel = document.getElementById('refLabel');
             const refInput = document.getElementById('refNumber');
@@ -399,24 +434,24 @@
             if (method === 'cash') {
                 if (cashDetails) cashDetails.style.display = 'block';
                 if (refDetails) refDetails.style.display = 'block';
-                refLabel.textContent = 'Order Notes (Optional)';
-                refInput.placeholder = 'Notes (Optional)';
+                if (refLabel) refLabel.textContent = 'Order Notes (Optional)';
+                if (refInput) refInput.placeholder = 'Notes (Optional)';
                 calculateChange();
-            } else if (method === 'cod') {
+            } else if (method === 'card') {
                 if (cashDetails) cashDetails.style.display = 'none';
                 if (refDetails) refDetails.style.display = 'block';
-                refLabel.textContent = 'Order Notes (Optional)';
-                refInput.placeholder = 'Notes (Optional)';
+                if (refLabel) refLabel.textContent = 'Card Reference Number';
+                if (refInput) refInput.placeholder = 'Enter Card Reference Number';
             } else if (method === 'check') {
                 if (cashDetails) cashDetails.style.display = 'none';
                 if (refDetails) refDetails.style.display = 'block';
-                refLabel.textContent = 'Check Number';
-                refInput.placeholder = 'Enter Check Number';
+                if (refLabel) refLabel.textContent = 'Check Number';
+                if (refInput) refInput.placeholder = 'Enter Check Number';
             } else {
                 if (cashDetails) cashDetails.style.display = 'none';
                 if (refDetails) refDetails.style.display = 'block';
-                refLabel.textContent = method.toUpperCase() + ' Reference #';
-                refInput.placeholder = 'Enter Reference Number';
+                if (refLabel) refLabel.textContent = method.toUpperCase() + ' Reference #';
+                if (refInput) refInput.placeholder = 'Enter Reference Number';
             }
         }
 
@@ -437,8 +472,8 @@
                 return alert('Insufficient cash received. Order Total is ₱' + currentTotal.toLocaleString(undefined, {minimumFractionDigits: 2}));
             }
             
-            if (selectedMethodName !== 'cod' && selectedMethodName !== 'cash' && !refNumber) {
-                return alert('Please enter a payment reference number');
+            if (selectedMethodName !== 'cash' && !refNumber) {
+                return alert('Please enter a payment reference / check number');
             }
             
             const orderData = {
@@ -453,15 +488,19 @@
                     book_index_id: item.book_index_id || null,
                     book_bundle_id: item.book_bundle_id || null,
                     quantity: item.qty,
-                    price: item.price
+                    price: item.price,
+                    discount_value: parseFloat(item.discount_value) || 0,
+                    discount_type: item.discount_type || 'percentage',
+                    discount_amount: item.itemDiscAmount || 0,
+                    subtotal: item.itemSubtotal || (item.qty * item.price)
                 })),
                 subtotal: currentSubtotal,
-                tax: currentTax,
+                tax: 0,
                 total: currentTotal,
                 discount_value: parseFloat(document.getElementById('discountValue').value) || 0,
                 discount_type: document.getElementById('discountType').value,
-                notes: (selectedMethodName === 'cod' || selectedMethodName === 'cash') ? refNumber : null,
-                payment_reference: (selectedMethodName !== 'cod' && selectedMethodName !== 'cash') ? refNumber : null
+                notes: selectedMethodName === 'cash' ? refNumber : null,
+                payment_reference: selectedMethodName !== 'cash' ? refNumber : null
             };
 
             fetch("{{ route('marketing.pos.process-ecom-order') }}", {
@@ -478,9 +517,8 @@
                     bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
                     
                     if (data.order && data.order.print_url) {
-                        const targetUrl = data.order.print_url + (data.order.print_url.includes('?') ? '&' : '?') + 'hide_actions=1';
-                        document.getElementById('ecomOrderInvoiceIframe').src = targetUrl;
-                        document.getElementById('ecomPrintInvoiceNewTabBtn').href = data.order.print_url;
+                        currentOrderPrintUrl = data.order.print_url;
+                        switchPrintFormat('whole');
                     }
                     
                     new bootstrap.Modal(document.getElementById('successModal')).show();
@@ -496,64 +534,58 @@
             });
         }
 
-        let ecomQtyMode = 'whole';
+        let currentOrderPrintUrl = '';
 
-        function setEcomQtyMode(mode) {
-            ecomQtyMode = mode;
+        function switchPrintFormat(format) {
+            if (!currentOrderPrintUrl) return;
             
-            const btnWhole = document.getElementById('ecomModeWholeBtn');
-            const btnHalf = document.getElementById('ecomModeHalfBtn');
-            const badge = document.getElementById('ecomQtyModeBadge');
+            const btnWhole = document.getElementById('btnFormatWhole');
+            const btnHalf = document.getElementById('btnFormatHalf');
             
-            if (mode === 'half') {
-                btnWhole?.classList.remove('btn-danger', 'active');
-                btnWhole?.classList.add('btn-outline-danger');
-                btnWhole?.style.removeProperty('background');
+            // Reset all buttons
+            [btnWhole, btnHalf].forEach(btn => {
+                if (btn) {
+                    btn.classList.remove('btn-danger', 'active');
+                    btn.classList.add('btn-outline-danger');
+                }
+            });
+            
+            // Highlight the active button
+            if (format === 'half') {
                 btnHalf?.classList.remove('btn-outline-danger');
                 btnHalf?.classList.add('btn-danger', 'active');
-                btnHalf?.style.setProperty('background', '#ff0000', 'important');
-                if (badge) {
-                    badge.textContent = 'HALF (50% Qty)';
-                    badge.className = 'badge bg-warning text-dark';
-                }
             } else {
-                btnHalf?.classList.remove('btn-danger', 'active');
-                btnHalf?.classList.add('btn-outline-danger');
-                btnHalf?.style.removeProperty('background');
                 btnWhole?.classList.remove('btn-outline-danger');
                 btnWhole?.classList.add('btn-danger', 'active');
-                btnWhole?.style.setProperty('background', '#ff0000', 'important');
-                if (badge) {
-                    badge.textContent = 'WHOLE (100% Qty)';
-                    badge.className = 'badge bg-danger';
+            }
+            
+            let targetUrl = currentOrderPrintUrl + (currentOrderPrintUrl.includes('?') ? '&' : '?') + 'format=' + format + '&hide_actions=1';
+            document.getElementById('ecomOrderInvoiceIframe').src = targetUrl;
+            document.getElementById('ecomPrintInvoiceNewTabBtn').href = targetUrl;
+        }
+
+        function togglePosPreprintedMode(checkbox) {
+            const iframe = document.getElementById('ecomOrderInvoiceIframe');
+            if (iframe && iframe.contentWindow && iframe.contentWindow.document && iframe.contentWindow.document.body) {
+                if (checkbox.checked) {
+                    iframe.contentWindow.document.body.classList.add('preprinted-mode');
+                } else {
+                    iframe.contentWindow.document.body.classList.remove('preprinted-mode');
                 }
             }
-
-            if (cart.length > 0) {
-                cart.forEach(item => {
-                    item.portion = mode;
-                    if (item.baseQty === undefined) item.baseQty = item.qty;
-                    item.qty = (mode === 'half') ? item.baseQty / 2 : item.baseQty;
-                });
-                renderCart();
-            }
         }
 
-        function setEcomItemPortion(index, portion) {
-            const item = cart[index];
-            if (!item) return;
-
-            item.portion = portion;
-            if (item.baseQty === undefined) item.baseQty = item.qty;
-
-            if (portion === 'half') {
-                item.qty = item.baseQty / 2;
-            } else {
-                item.qty = item.baseQty;
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframe = document.getElementById('ecomOrderInvoiceIframe');
+            if (iframe) {
+                iframe.onload = function() {
+                    const toggle = document.getElementById('posPreprintedToggle');
+                    if (toggle && toggle.checked && this.contentWindow && this.contentWindow.document && this.contentWindow.document.body) {
+                        this.contentWindow.document.body.classList.add('preprinted-mode');
+                    }
+                };
             }
-
-            renderCart();
-        }
+        });
 
         function renderCart() {
             const container = document.getElementById('cartItems');
@@ -565,28 +597,42 @@
                     </div>`;
             } else {
                 container.innerHTML = cart.map((item, index) => {
-                    const isHalf = item.portion === 'half';
+                    const discVal = item.discount_value !== undefined && item.discount_value !== '' ? item.discount_value : '';
+                    const discType = item.discount_type || 'percentage';
+
                     return `
-                    <div class="cart-item-card mb-2">
+                    <div class="cart-item-card mb-2 p-2" style="background:#fff; border:1px solid #e9ecef; border-radius:8px;">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h6 class="mb-1" style="font-size: 0.9rem;">${item.name}</h6>
-                                <div class="text-primary font-w600">₱${item.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                            <div style="flex:1; padding-right:8px;">
+                                <h6 class="mb-1 fw-bold" style="font-size: 0.85rem; line-height:1.2;">${item.name}</h6>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="text-primary font-w600" id="cart-item-subtotal-${index}" style="font-size: 0.85rem;">
+                                        ₱${(item.itemSubtotal || (item.qty * item.price)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                    </span>
+                                </div>
                             </div>
                             <div class="d-flex flex-column align-items-end">
-                                <button class="btn btn-xs btn-outline-danger mb-2" onclick="removeItem(${index})">&times;</button>
+                                <button class="btn btn-xs btn-outline-danger mb-1 py-0 px-1" onclick="removeItem(${index})" title="Remove item" style="line-height:1;">×</button>
                                 <div class="input-group input-group-sm mb-1" style="width: 100px;">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="updateQty(${index}, -1)">-</button>
-                                    <input type="number" step="any" class="form-control text-center px-0" value="${item.qty}" min="0.1" oninput="updateQtyDirect(${index}, this.value)">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="updateQty(${index}, 1)">+</button>
+                                    <button class="btn btn-outline-secondary py-0 px-2" type="button" onclick="updateQty(${index}, -1)">-</button>
+                                    <input type="number" step="any" class="form-control text-center px-0 qty-input" value="${item.qty}" min="0.1" oninput="updateQtyDirect(${index}, this.value)">
+                                    <button class="btn btn-outline-secondary py-0 px-2" type="button" onclick="updateQty(${index}, 1)">+</button>
                                 </div>
                             </div>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                            <span class="small text-muted font-w600">Item Portion:</span>
-                            <div class="btn-group btn-group-sm" role="group" style="width: 130px;">
-                                <button type="button" class="btn ${!isHalf ? 'btn-danger active' : 'btn-outline-danger'} btn-xs py-1" onclick="setEcomItemPortion(${index}, 'whole')" style="${!isHalf ? 'background:#ff0000;color:#fff;' : ''}">Whole</button>
-                                <button type="button" class="btn ${isHalf ? 'btn-danger active' : 'btn-outline-danger'} btn-xs py-1" onclick="setEcomItemPortion(${index}, 'half')" style="${isHalf ? 'background:#ff0000;color:#fff;' : ''}">Half</button>
+                        <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top" style="border-color:#f1f3f5!important;">
+                            <span class="text-muted" style="font-size: 0.75rem;"><i class="las la-tag me-1"></i>Item Disc:</span>
+                            <div class="d-flex align-items-center gap-1">
+                                <input type="number" step="any" min="0" class="form-control form-control-sm text-end p-1" 
+                                       style="width: 65px; font-size: 0.75rem; height: 24px;" 
+                                       value="${discVal}" placeholder="0" 
+                                       oninput="updateItemDiscount(${index}, this.value, null)">
+                                <select class="form-select form-select-sm px-1 py-0" 
+                                        style="width: 52px; font-size: 0.75rem; height: 24px;" 
+                                        onchange="updateItemDiscount(${index}, null, this.value)">
+                                    <option value="percentage" ${discType === 'percentage' ? 'selected' : ''}>%</option>
+                                    <option value="amount" ${discType === 'amount' ? 'selected' : ''}>₱</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -601,14 +647,12 @@
             const item = cart[index];
             if (!item) return;
 
-            if (item.baseQty === undefined) item.baseQty = item.qty;
-            const newBase = item.baseQty + change;
-            if (newBase > 0) {
-                if (newBase > item.stock) {
+            const newQty = item.qty + change;
+            if (newQty > 0) {
+                if (newQty > item.stock) {
                     return alert(`Cannot exceed available MIBF stock (${item.stock} pcs).`);
                 }
-                item.baseQty = newBase;
-                item.qty = item.portion === 'half' ? item.baseQty / 2 : item.baseQty;
+                item.qty = newQty;
             } else {
                 cart.splice(index, 1);
             }
@@ -625,17 +669,39 @@
                     return;
                 }
                 item.qty = qtyVal;
-                if (item.portion === 'half') {
-                    item.baseQty = qtyVal * 2;
-                } else {
-                    item.baseQty = qtyVal;
-                }
                 updateTotals();
             }
         }
 
         function updateTotals() {
-            currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            currentSubtotal = 0;
+            cart.forEach((item, index) => {
+                const qty = parseFloat(item.qty) || 0;
+                const price = parseFloat(item.price) || 0;
+                const gross = qty * price;
+                const discVal = parseFloat(item.discount_value) || 0;
+                const discType = item.discount_type || 'percentage';
+
+                let dAmt = discType === 'percentage' ? gross * (discVal / 100) : discVal;
+                dAmt = Math.min(gross, Math.max(0, dAmt));
+                const netSub = Math.max(0, gross - dAmt);
+
+                item.itemDiscAmount = dAmt;
+                item.itemSubtotal = netSub;
+
+                currentSubtotal += netSub;
+
+                const cardSubtotalEl = document.getElementById(`cart-item-subtotal-${index}`);
+                if (cardSubtotalEl) {
+                    let discTag = '';
+                    if (discVal > 0) {
+                        discTag = discType === 'percentage' 
+                            ? `<span class="badge bg-danger-subtle text-danger ms-1" style="font-size:0.65rem; padding: 2px 4px;">-${discVal}%</span>`
+                            : `<span class="badge bg-danger-subtle text-danger ms-1" style="font-size:0.65rem; padding: 2px 4px;">-₱${dAmt.toFixed(2)}</span>`;
+                    }
+                    cardSubtotalEl.innerHTML = `₱${netSub.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` + discTag;
+                }
+            });
             
             const discountValueInput = document.getElementById('discountValue');
             const discountTypeSelect = document.getElementById('discountType');
@@ -654,14 +720,10 @@
                 discountDisplay.textContent = `-₱${discountAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             }
 
-            const taxRate = 0.12; // 12% tax
-            
-            const discountedSubtotal = Math.max(0, currentSubtotal - discountAmount);
-            currentTax = discountedSubtotal * taxRate;
-            currentTotal = discountedSubtotal + currentTax;
+            currentTax = 0; // Tax 12% removed
+            currentTotal = Math.max(0, currentSubtotal - discountAmount);
 
             document.getElementById('subtotal').textContent = `₱${currentSubtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById('tax').textContent = `₱${currentTax.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('total').textContent = `₱${currentTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
         }
 
@@ -672,6 +734,9 @@
 
         function clearCart() {
             cart = [];
+            if (window.jQuery && $('#customerSelect').length) {
+                $('#customerSelect').val('').trigger('change');
+            }
             renderCart();
             updateTotals();
         }
@@ -706,8 +771,17 @@
             }
         }
 
-        // Initialize grid
-        document.addEventListener('DOMContentLoaded', renderProducts);
+        // Initialize grid & Select2
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.jQuery && $('#customerSelect').length) {
+                $('#customerSelect').select2({
+                    placeholder: "Search for a customer...",
+                    allowClear: true,
+                    width: '100%'
+                });
+            }
+            renderProducts();
+        });
     </script>
     @endpush
 </x-app-layout>

@@ -325,7 +325,8 @@
                                     <th>Cover</th>
                                     <th>SKU</th>
                                     <th>Item Name</th>
-                                    <th>Price</th>
+                                    <th>Selling Price</th>
+                                    <th>MIBF Price</th>
                                     <th>Cost</th>
                                     <th>Stock</th>
                                     <th>Classification</th>
@@ -343,6 +344,7 @@
                                     <td><strong>#{{ $book->sku }}</strong></td>
                                     <td>{{ $book->name }}</td>
                                     <td>₱{{ number_format($book->price, 2) }}</td>
+                                    <td>{{ $book->mibf_price !== null ? '₱' . number_format($book->mibf_price, 2) : '-' }}</td>
                                     <td>₱{{ number_format($book->cost, 2) }}</td>
                                     <td>
                                         @if($book->stock > 0)
@@ -376,7 +378,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="9" class="text-center">No non-books in the list.</td>
+                                    <td colspan="10" class="text-center">No non-books in the list.</td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -389,7 +391,7 @@
                             Showing {{ $books->firstItem() ?? 0 }} to {{ $books->lastItem() ?? 0 }} of {{ $books->total() }} entries
                         </div>
                         <div>
-                            {{ $books->links() }}
+                            {{ $books->appends(['search' => request('search')])->links() }}
                         </div>
                     </div>
                 </div>
@@ -413,8 +415,7 @@
                         <div class="alert alert-info">
                             <strong>Instructions:</strong>
                             <ul class="mb-0 ps-3 small">
-                                <li>Ensure your file is in `.xlsx`, `.xls`, or `.csv` format.</li>
-                                <li>`SKU` and `Book Title` columns are required for every row.</li>
+                                <li>`SKU` and `Item Name` columns are required for every row.</li>
                                 <li>Duplicate SKUs are not allowed. If a SKU already exists, the import will be blocked and none of the changes will be saved.</li>
                                 <li>If a Category or Sub-category does not exist, it will be automatically created.</li>
                             </ul>
@@ -663,6 +664,13 @@
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">₱</span>
                                         <input type="number" class="form-control" name="price" step="0.01">
+                                    </div>
+                                </div>
+                                <div class="form-row-custom">
+                                    <label>MIBF PRICE</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">₱</span>
+                                        <input type="number" class="form-control" name="mibf_price" step="0.01" min="0" placeholder="Optional">
                                     </div>
                                 </div>
                                 <div class="form-row-custom">
@@ -1023,6 +1031,8 @@
             nonBookForm.querySelector('[name="weight"]').value = data.weight || '';
             nonBookForm.querySelector('[name="cost"]').value = data.cost;
             nonBookForm.querySelector('[name="price"]').value = data.price;
+            const mibfEl = nonBookForm.querySelector('[name="mibf_price"]');
+            if (mibfEl) mibfEl.value = (data.mibf_price !== null && data.mibf_price !== undefined) ? data.mibf_price : '';
             calculateDollarPrice();
             nonBookForm.querySelector('[name="cogs_account"]').value = data.cogs_account || '';
             nonBookForm.querySelector('[name="reorder_point"]').value = data.reorder_point;

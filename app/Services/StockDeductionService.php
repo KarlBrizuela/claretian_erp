@@ -28,9 +28,17 @@ class StockDeductionService
         try {
             $order->load(['items', 'preparedBy']);
             
-            // Determine team name (if user/staff is assigned to a sales team)
+            // Determine team/site name (if user/staff is assigned to a sales team or site tag in remarks)
             $userTeam = null;
-            if ($order->area_sales_staff_id) {
+            if (!empty($order->remarks) && preg_match('/\[SITE:\s*([^\]]+)\]/i', $order->remarks, $m)) {
+                $siteTag = trim($m[1]);
+                if ($siteTag === 'Book Sale') {
+                    $userTeam = 'Book Sale';
+                } elseif ($siteTag === 'Main Warehouse') {
+                    $userTeam = null;
+                }
+            }
+            if (empty($userTeam) && $order->area_sales_staff_id) {
                 $staff = \App\Models\User::find($order->area_sales_staff_id);
                 if ($staff && !empty($staff->sales_team)) {
                     $userTeam = trim($staff->sales_team);

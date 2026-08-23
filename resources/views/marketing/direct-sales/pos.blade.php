@@ -218,22 +218,6 @@
                 </select>
             </div>
 
-            <!-- Whole vs Half Item Quantity Option -->
-            <div class="pos-form-group mb-3" style="display: none;">
-                <label class="d-flex justify-content-between align-items-center mb-1">
-                    <span>Quantity Option *</span>
-                    <span class="badge bg-danger" id="qtyModeBadge">WHOLE (100% Qty)</span>
-                </label>
-                <div class="btn-group w-100" role="group">
-                    <button type="button" class="btn btn-danger btn-sm font-w700 active" id="modeWholeBtn" onclick="setQtyMode('whole')" style="background:#ff0000;">
-                        <i class="las la-boxes me-1"></i> WHOLE (e.g. 10)
-                    </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm font-w700" id="modeHalfBtn" onclick="setQtyMode('half')">
-                        <i class="las la-cut me-1"></i> HALF (e.g. 5)
-                    </button>
-                </div>
-            </div>
-
             <div class="pos-cart-items" id="cartItems">
                 <div class="text-center text-muted p-5">
                     <i class="las la-shopping-cart" style="font-size: 4rem; opacity: 0.2;"></i>
@@ -337,8 +321,7 @@
 
                     <div class="btn-group btn-group-sm me-2" role="group">
                         <button type="button" class="btn btn-danger active" id="btnFormatWhole" onclick="switchPrintFormat('whole')">Whole Page</button>
-                        <button type="button" class="btn btn-outline-danger" id="btnFormatHalf1" onclick="switchPrintFormat('half', 1)">First Half</button>
-                        <button type="button" class="btn btn-outline-danger" id="btnFormatHalf2" onclick="switchPrintFormat('half', 2)">Second Half</button>
+                        <button type="button" class="btn btn-outline-danger" id="btnFormatHalf" onclick="switchPrintFormat('half')">1/2</button>
                     </div>
 
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -423,6 +406,8 @@
         let selectedPaymentMethod = 'cash';
         let paymentSettings = {};
         let taxRate = 0.12; // Default 12%
+        let qtyMode = 'full';
+        window.showAlert = window.showAlert || function(msg, type) { alert(msg); };
 
         // Show barcode notification
         function showBarcodeNotification(message, type = 'success') {
@@ -488,49 +473,6 @@
             renderProducts();
         }
 
-        let qtyMode = 'whole'; // 'whole' or 'half'
-
-        function setQtyMode(mode) {
-            qtyMode = mode;
-            
-            const btnWhole = document.getElementById('modeWholeBtn');
-            const btnHalf = document.getElementById('modeHalfBtn');
-            const badge = document.getElementById('qtyModeBadge');
-            
-            if (mode === 'half') {
-                btnWhole?.classList.remove('btn-danger', 'active');
-                btnWhole?.classList.add('btn-outline-danger');
-                btnWhole?.style.removeProperty('background');
-                btnHalf?.classList.remove('btn-outline-danger');
-                btnHalf?.classList.add('btn-danger', 'active');
-                btnHalf?.style.setProperty('background', '#ff0000', 'important');
-                if (badge) {
-                    badge.textContent = 'HALF (50% Qty)';
-                    badge.className = 'badge bg-warning text-dark';
-                }
-            } else {
-                btnHalf?.classList.remove('btn-danger', 'active');
-                btnHalf?.classList.add('btn-outline-danger');
-                btnHalf?.style.removeProperty('background');
-                btnWhole?.classList.remove('btn-outline-danger');
-                btnWhole?.classList.add('btn-danger', 'active');
-                btnWhole?.style.setProperty('background', '#ff0000', 'important');
-                if (badge) {
-                    badge.textContent = 'WHOLE (100% Qty)';
-                    badge.className = 'badge bg-danger';
-                }
-            }
-
-            if (cart.length > 0) {
-                cart.forEach(item => {
-                    item.portion = mode;
-                    if (item.baseQty === undefined) item.baseQty = item.qty;
-                    item.qty = (mode === 'half') ? item.baseQty / 2 : item.baseQty;
-                });
-                renderCart();
-            }
-        }
-
         function addToCart(cartKey) {
             const item = allItems.find(p => (p.type + '_' + p.id) === cartKey);
             if (!item) return;
@@ -542,17 +484,18 @@
             }
 
             const existing = cart.find(c => c.cartKey === cartKey);
+            const currentQtyMode = typeof qtyMode !== 'undefined' ? qtyMode : 'full';
             if (existing) {
                 if (item.stock !== undefined && (existing.baseQty + 1) > item.stock) {
                     window.showAlert(`Only ${item.stock} unit(s) of "${item.name}" available.`, 'error');
                     return;
                 }
                 existing.baseQty += 1;
-                const portion = existing.portion || qtyMode;
+                const portion = existing.portion || currentQtyMode;
                 existing.qty = portion === 'half' ? existing.baseQty / 2 : existing.baseQty;
             } else {
                 const baseQty = 1;
-                const portion = qtyMode;
+                const portion = currentQtyMode;
                 const qty = portion === 'half' ? 0.5 : 1;
                 cart.push({ ...item, cartKey, baseQty, qty, portion, discount_value: 0, discount_type: 'percentage' });
             }
@@ -899,15 +842,14 @@
 
         let currentOrderPrintUrl = '';
 
-        function switchPrintFormat(format, halfPart) {
+        function switchPrintFormat(format) {
             if (!currentOrderPrintUrl) return;
             
             const btnWhole = document.getElementById('btnFormatWhole');
-            const btnHalf1 = document.getElementById('btnFormatHalf1');
-            const btnHalf2 = document.getElementById('btnFormatHalf2');
+            const btnHalf = document.getElementById('btnFormatHalf');
             
             // Reset all buttons
-            [btnWhole, btnHalf1, btnHalf2].forEach(btn => {
+            [btnWhole, btnHalf].forEach(btn => {
                 if (btn) {
                     btn.classList.remove('btn-danger', 'active');
                     btn.classList.add('btn-outline-danger');
@@ -915,21 +857,15 @@
             });
             
             // Highlight the active button
-            if (format === 'half' && halfPart == 1) {
-                btnHalf1?.classList.remove('btn-outline-danger');
-                btnHalf1?.classList.add('btn-danger', 'active');
-            } else if (format === 'half' && halfPart == 2) {
-                btnHalf2?.classList.remove('btn-outline-danger');
-                btnHalf2?.classList.add('btn-danger', 'active');
+            if (format === 'half') {
+                btnHalf?.classList.remove('btn-outline-danger');
+                btnHalf?.classList.add('btn-danger', 'active');
             } else {
                 btnWhole?.classList.remove('btn-outline-danger');
                 btnWhole?.classList.add('btn-danger', 'active');
             }
             
             let targetUrl = currentOrderPrintUrl + (currentOrderPrintUrl.includes('?') ? '&' : '?') + 'format=' + format + '&hide_actions=1';
-            if (halfPart) {
-                targetUrl += '&half=' + halfPart;
-            }
             document.getElementById('orderInvoiceIframe').src = targetUrl;
             document.getElementById('printInvoiceNewTabBtn').href = targetUrl;
         }

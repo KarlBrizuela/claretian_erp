@@ -14,28 +14,54 @@ class LogisticController extends Controller
     {
         $this->accounting = $accounting;
     }
+    private function excludeTeamSalesOrders($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereDoesntHave('areaSalesStaff', function ($u) {
+                $u->whereNotNull('sales_team')->where('sales_team', '!=', '');
+            })
+            ->whereDoesntHave('preparedBy', function ($u) {
+                $u->whereNotNull('sales_team')->where('sales_team', '!=', '');
+            });
+        });
+    }
+
+    private function excludeTeamPickLists($query)
+    {
+        return $query->whereDoesntHave('salesOrder', function ($soQuery) {
+            $soQuery->where(function ($q) {
+                $q->whereHas('areaSalesStaff', function ($u) {
+                    $u->whereNotNull('sales_team')->where('sales_team', '!=', '');
+                })
+                ->orWhereHas('preparedBy', function ($u) {
+                    $u->whereNotNull('sales_team')->where('sales_team', '!=', '');
+                });
+            });
+        });
+    }
+
     public function pickListManagement(Request $request)
     {
-        // Get existing pick lists (not completed)
-        $pickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'pickListItems.salesOrderItem.bundle', 'pickListItems.salesOrderItem.bookIndex.book', 'preparedByUser'])
-            ->where('status', '!=', 'completed')
-            ->latest()
-            ->get();
+        // Get existing pick lists (not completed) - EXCLUDING Team A, B, C
+        $pickListsQuery = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'pickListItems.salesOrderItem.bundle', 'pickListItems.salesOrderItem.bookIndex.book', 'preparedByUser'])
+            ->where('status', '!=', 'completed');
+        $this->excludeTeamPickLists($pickListsQuery);
+        $pickLists = $pickListsQuery->latest()->get();
 
-        // Get completed pick lists for recreation option
-        $completedPickLists = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'pickListItems.salesOrderItem.bundle', 'pickListItems.salesOrderItem.bookIndex.book', 'preparedByUser'])
-            ->where('status', 'completed')
-            ->latest()
-            ->paginate(10);
+        // Get completed pick lists for recreation option - EXCLUDING Team A, B, C
+        $completedPickListsQuery = \App\Models\PickList::with(['salesOrder', 'salesOrder.customer', 'pickListItems.salesOrderItem.book', 'pickListItems.salesOrderItem.bundle', 'pickListItems.salesOrderItem.bookIndex.book', 'preparedByUser'])
+            ->where('status', 'completed');
+        $this->excludeTeamPickLists($completedPickListsQuery);
+        $completedPickLists = $completedPickListsQuery->latest()->paginate(10);
 
-        // Get pending Sales Orders ready for picking (status = 'picking' and no active pick list yet)
-        $pendingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+        // Get pending Sales Orders ready for picking - EXCLUDING Team A, B, C
+        $pendingOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'picking')
             ->whereDoesntHave('pickLists', function($query) {
                 $query->where('status', '!=', 'completed');
-            })
-            ->latest()
-            ->get();
+            });
+        $this->excludeTeamSalesOrders($pendingOrdersQuery);
+        $pendingOrders = $pendingOrdersQuery->latest()->get();
 
         // If pickListId is provided, preload that pick list
         $preloadPickListId = $request->input('pickListId');
@@ -64,11 +90,12 @@ class LogisticController extends Controller
 
     public function pickListList()
     {
-        // Auto-heal: Ensure all sales orders in 'picking' status have a PickList
-        $pickingOrdersNoList = \App\Models\SalesOrder::with('items')
+        // Auto-heal: Ensure all sales orders in 'picking' status have a PickList (excluding Team A, B, C)
+        $pickingOrdersNoListQuery = \App\Models\SalesOrder::with('items')
             ->where('status', 'picking')
-            ->whereDoesntHave('pickLists')
-            ->get();
+            ->whereDoesntHave('pickLists');
+        $this->excludeTeamSalesOrders($pickingOrdersNoListQuery);
+        $pickingOrdersNoList = $pickingOrdersNoListQuery->get();
 
         foreach ($pickingOrdersNoList as $pOrder) {
             if ($pOrder->items && $pOrder->items->count() > 0) {
@@ -90,32 +117,32 @@ class LogisticController extends Controller
             }
         }
 
-        // Get active pick lists (not completed) - EXCLUDING e-commerce direct and complimentary
-        $pickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
+        // Get active pick lists (not completed) - EXCLUDING e-commerce direct, complimentary, and Team A, B, C
+        $pickListsQuery = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
             ->whereHas('salesOrder', function($query) {
                 $query->whereNotIn('type', ['ecom_direct', 'complimentary']);
             })
-            ->where('status', '!=', 'completed')
-            ->latest()
-            ->get();
+            ->where('status', '!=', 'completed');
+        $this->excludeTeamPickLists($pickListsQuery);
+        $pickLists = $pickListsQuery->latest()->get();
 
-        // Get e-commerce pick lists (type='ecom_direct'), organized by platform
-        $ecomPickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
+        // Get e-commerce pick lists (type='ecom_direct') - EXCLUDING Team A, B, C
+        $ecomPickListsQuery = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
             ->whereHas('salesOrder', function($query) {
                 $query->where('type', 'ecom_direct');
             })
-            ->where('status', '!=', 'completed')
-            ->latest()
-            ->get();
+            ->where('status', '!=', 'completed');
+        $this->excludeTeamPickLists($ecomPickListsQuery);
+        $ecomPickLists = $ecomPickListsQuery->latest()->get();
 
-        // Get complimentary pick lists (type='complimentary')
-        $complimentaryPickLists = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
+        // Get complimentary pick lists (type='complimentary') - EXCLUDING Team A, B, C
+        $complimentaryPickListsQuery = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
             ->whereHas('salesOrder', function($query) {
                 $query->where('type', 'complimentary');
             })
-            ->where('status', '!=', 'completed')
-            ->latest()
-            ->get();
+            ->where('status', '!=', 'completed');
+        $this->excludeTeamPickLists($complimentaryPickListsQuery);
+        $complimentaryPickLists = $complimentaryPickListsQuery->latest()->get();
 
         // Organize e-com pick lists by platform
         $ecomByPlatform = [
@@ -133,14 +160,14 @@ class LogisticController extends Controller
             })->values(),
         ];
 
-        // Get pending Sales Orders ready for picking (status = 'picking' and no active pick list yet)
-        $pendingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+        // Get pending Sales Orders ready for picking - EXCLUDING Team A, B, C
+        $pendingOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'picking')
             ->whereDoesntHave('pickLists', function($query) {
                 $query->where('status', '!=', 'completed');
-            })
-            ->latest()
-            ->get();
+            });
+        $this->excludeTeamSalesOrders($pendingOrdersQuery);
+        $pendingOrders = $pendingOrdersQuery->latest()->get();
 
         \Illuminate\Support\Facades\Log::debug('PickListList pick lists count: ' . $pickLists->count());
         if ($pickLists->count() > 0) {
@@ -1167,25 +1194,127 @@ class LogisticController extends Controller
         ]);
     }
 
+    private function isAccountingUser($user)
+    {
+        if (!$user) return false;
+        $div = strtolower($user->division ?? '');
+        $dept = strtolower($user->department ?? '');
+        $pos = strtolower($user->position ?? '');
+
+        return str_contains($div, 'admin') || str_contains($div, 'finance') ||
+               str_contains($dept, 'accounting') || str_contains($dept, 'finance') || str_contains($dept, 'credit') ||
+               str_contains($pos, 'accounting') || str_contains($pos, 'finance');
+    }
+
+    private function isAccountingOrderOrDr($order, $deliveryReceipt = null)
+    {
+        if ($order) {
+            if (str_contains($order->remarks ?? '', '[ACCOUNTING_DR]')) {
+                return true;
+            }
+            if ($order->drPreparedBy && $this->isAccountingUser($order->drPreparedBy)) {
+                return true;
+            }
+            if (!$order->dr_prepared_by && $order->preparedBy && $this->isAccountingUser($order->preparedBy)) {
+                return true;
+            }
+            $userTeam = $order->preparedBy->sales_team ?? $order->areaSalesStaff->sales_team ?? null;
+            if (!empty($userTeam)) {
+                return true;
+            }
+        }
+        if ($deliveryReceipt) {
+            if (str_contains($deliveryReceipt->notes ?? '', '[ACCOUNTING_DR]')) {
+                return true;
+            }
+            if ($deliveryReceipt->preparedByUser && $this->isAccountingUser($deliveryReceipt->preparedByUser)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public function deliveryReceiptList()
     {
-        // Get sales orders pending DR prep/approval
-        $orders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval'])
-            ->latest()
-            ->get();
+        $isAccountingContext = request()->is('admin-finance*');
 
-        // Get sales orders where DR is completed (moved to packing, ready for delivery, moved to SI, AR/CR, completed)
-        $completedOrders = \App\Models\SalesOrder::with('customer', 'preparedBy')
-            ->whereIn('status', ['ready_for_packing', 'ready_for_delivery', 'si_created', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval'])
-            ->orderByRaw('COALESCE(dr_prepared_at, updated_at, created_at) DESC')
-            ->get();
+        // Get sales orders pending DR prep/approval
+        $ordersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy')
+            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval']);
+
+        // Get sales orders where DR is completed
+        $completedOrdersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy')
+            ->whereIn('status', ['ready_for_packing', 'ready_for_delivery', 'si_created', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval']);
+
+        if ($isAccountingContext) {
+            $applyFilter = function ($query) {
+                $query->where('so_number', 'not like', 'SO-NBS-%')
+                ->where(function ($q) {
+                    $q->whereHas('drPreparedBy', function ($u) {
+                        $u->where('division', 'like', '%Admin%')
+                          ->orWhere('division', 'like', '%Finance%')
+                          ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                          ->orWhere('position', 'like', '%Accounting%')
+                          ->orWhere('position', 'like', '%Finance%');
+                    })
+                    ->orWhereHas('preparedBy', function ($u) {
+                        $u->where('division', 'like', '%Admin%')
+                          ->orWhere('division', 'like', '%Finance%')
+                          ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                          ->orWhere('position', 'like', '%Accounting%')
+                          ->orWhere('position', 'like', '%Finance%')
+                          ->orWhereNotNull('sales_team');
+                    })
+                    ->orWhereHas('areaSalesStaff', function ($u) {
+                        $u->whereNotNull('sales_team')->where('sales_team', '!=', '');
+                    })
+                    ->orWhere('remarks', 'like', '%[ACCOUNTING_DR]%');
+                });
+            };
+        } else {
+            $applyFilter = function ($query) {
+                $query->where(function ($q) {
+                    $q->where('so_number', 'like', 'SO-NBS-%')
+                      ->orWhere(function ($sub) {
+                          $sub->whereDoesntHave('drPreparedBy', function ($u) {
+                              $u->where('division', 'like', '%Admin%')
+                                ->orWhere('division', 'like', '%Finance%')
+                                ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                                ->orWhere('position', 'like', '%Accounting%')
+                                ->orWhere('position', 'like', '%Finance%');
+                          })
+                          ->whereDoesntHave('preparedBy', function ($u) {
+                              $u->where('division', 'like', '%Admin%')
+                                ->orWhere('division', 'like', '%Finance%')
+                                ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                                ->orWhere('position', 'like', '%Accounting%')
+                                ->orWhere('position', 'like', '%Finance%')
+                                ->orWhereNotNull('sales_team');
+                          })
+                          ->whereDoesntHave('areaSalesStaff', function ($u) {
+                              $u->whereNotNull('sales_team')->where('sales_team', '!=', '');
+                          });
+                      });
+                })
+                ->where(function ($sub3) {
+                    $sub3->whereNull('remarks')->orWhere('remarks', 'not like', '%[ACCOUNTING_DR]%');
+                });
+            };
+        }
+
+        $applyFilter($ordersQuery);
+        $applyFilter($completedOrdersQuery);
+
+        $orders = $ordersQuery->latest()->get();
+        $completedOrders = $completedOrdersQuery->orderByRaw('COALESCE(dr_prepared_at, updated_at, created_at) DESC')->get();
+
+        $sidebar = $isAccountingContext ? 'admin-finance' : 'production';
 
         return view('production.logistic.delivery-receipt-list', [
             'orders' => $orders,
             'completedOrders' => $completedOrders,
             'title' => 'Delivery Receipts',
-            'sidebar' => 'production'
+            'sidebar' => $sidebar
         ]);
     }
 
@@ -1194,29 +1323,42 @@ class LogisticController extends Controller
         $user = auth()->user();
         $userPos = $user->position;
         $isSuperAdmin = $user->isSuperAdmin();
+        $isAcct = $this->isAccountingUser($user);
         
-        if (!$isSuperAdmin && 
+        if (!$isSuperAdmin && !$isAcct &&
             !str_contains($userPos, 'Manager') && 
             !str_contains($userPos, 'Supervisor') && 
             !str_contains($userPos, 'Head') && 
             !str_contains($userPos, 'Senior Logistics Staff') && 
             !str_contains($userPos, 'Logistics Staff')) {
-             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can complete Delivery Receipts.');
+             return redirect()->back()->with('error', 'Only Super Admins, Accounting Staff, or Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can complete Delivery Receipts.');
         }
 
         $order = \App\Models\SalesOrder::findOrFail($id);
+
+        $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance');
+        $remarks = $order->remarks ?? '';
+        if ($isAccountingContext && !str_contains($remarks, '[ACCOUNTING_DR]')) {
+            $remarks = trim($remarks . ' [ACCOUNTING_DR]');
+        }
 
         $order->update([
             'status' => 'pending_dr_approval',
             'dr_prepared_at' => now(),
             'dr_prepared_by' => auth()->id(),
+            'remarks' => $remarks
         ]);
 
         $dr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
         if ($dr) {
+            $drNotes = $dr->notes ?? '';
+            if ($isAccountingContext && !str_contains($drNotes, '[ACCOUNTING_DR]')) {
+                $drNotes = trim($drNotes . ' [ACCOUNTING_DR]');
+            }
             $dr->update([
                 'status' => 'pending_approval',
                 'prepared_by' => auth()->id(),
+                'notes' => $drNotes
             ]);
         }
 
@@ -1228,7 +1370,9 @@ class LogisticController extends Controller
             'reference_id' => $order->id,
         ]);
 
-        return redirect()->route('production.logistic.delivery-receipt-list')
+        $redirectRoute = $isAccountingContext ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
+
+        return redirect()->route($redirectRoute)
             ->with('success', "Delivery Receipt for Sales Order #{$order->so_number} submitted for Approval! Sent to Approval Queue.");
     }
 
@@ -1284,18 +1428,20 @@ class LogisticController extends Controller
         $user = auth()->user();
         $userPos = $user->position;
         $isSuperAdmin = $user->isSuperAdmin();
+        $isAcct = $this->isAccountingUser($user);
         
-        if (!$isSuperAdmin && 
+        if (!$isSuperAdmin && !$isAcct && 
             !str_contains($userPos, 'Manager') && 
             !str_contains($userPos, 'Supervisor') && 
             !str_contains($userPos, 'Head') && 
             !str_contains($userPos, 'Senior Logistics Staff') && 
             !str_contains($userPos, 'Logistics Staff')) {
-             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
+             return redirect()->back()->with('error', 'Only Super Admins, Accounting Staff, or Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
         }
 
         $deliveryReceipt = null;
         $order = null;
+        $isAccountingContext = request()->is('admin-finance*');
         
         if ($id) {
             // Check if it's a delivery receipt ID
@@ -1315,18 +1461,75 @@ class LogisticController extends Controller
                     $order->load(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'preparedBy', 'drPreparedBy']);
                 }
             } else {
-                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'preparedBy', 'drPreparedBy'])->findOrFail($id);
+                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'preparedBy', 'drPreparedBy'])->find($id);
+            }
+
+            if ($order || $deliveryReceipt) {
+                $isAcctDR = $this->isAccountingOrderOrDr($order, $deliveryReceipt);
+                if ($isAccountingContext && !$isAcctDR) {
+                    return redirect()->route('admin-finance.accounting.delivery-receipt-list')->with('error', 'The requested Delivery Receipt belongs to Logistics.');
+                }
+                if (!$isAccountingContext && $isAcctDR) {
+                    return redirect()->route('production.logistic.delivery-receipt-list')->with('error', 'The requested Delivery Receipt belongs to Accounting.');
+                }
             }
         }
 
-        // Get all sales orders for dropdown
-        $salesOrders = \App\Models\SalesOrder::with('customer', 'items.product')
-            ->whereIn('status', ['gathered', 'pending_si_prep', 'pending_si_approval', 'ready_for_delivery'])
-            ->latest()
-            ->get();
-        
-        // Get all customers
+        // Get sales orders for dropdown, filtered by context
+        $salesOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.product')
+            ->whereIn('status', ['gathered', 'pending_si_prep', 'pending_si_approval', 'ready_for_delivery']);
+
+        if ($isAccountingContext) {
+            $salesOrdersQuery->where(function ($q) {
+                $q->whereHas('drPreparedBy', function ($u) {
+                    $u->where('division', 'like', '%Admin%')
+                      ->orWhere('division', 'like', '%Finance%')
+                      ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                      ->orWhere('position', 'like', '%Accounting%')
+                      ->orWhere('position', 'like', '%Finance%');
+                })
+                ->orWhere(function ($sub) {
+                    $sub->whereNull('dr_prepared_by')
+                        ->whereHas('preparedBy', function ($u) {
+                            $u->where('division', 'like', '%Admin%')
+                              ->orWhere('division', 'like', '%Finance%')
+                              ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                              ->orWhere('position', 'like', '%Accounting%')
+                              ->orWhere('position', 'like', '%Finance%');
+                        });
+                })
+                ->orWhere('remarks', 'like', '%[ACCOUNTING_DR]%');
+            });
+        } else {
+            $salesOrdersQuery->where(function ($q) {
+                $q->where(function ($sub) {
+                    $sub->whereDoesntHave('drPreparedBy', function ($u) {
+                        $u->where('division', 'like', '%Admin%')
+                          ->orWhere('division', 'like', '%Finance%')
+                          ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                          ->orWhere('position', 'like', '%Accounting%')
+                          ->orWhere('position', 'like', '%Finance%');
+                    })
+                    ->where(function ($sub2) {
+                        $sub2->whereNotNull('dr_prepared_by')
+                             ->orWhereDoesntHave('preparedBy', function ($u) {
+                                 $u->where('division', 'like', '%Admin%')
+                                   ->orWhere('division', 'like', '%Finance%')
+                                   ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                                   ->orWhere('position', 'like', '%Accounting%')
+                                   ->orWhere('position', 'like', '%Finance%');
+                             });
+                    });
+                })
+                ->where(function ($sub3) {
+                    $sub3->whereNull('remarks')->orWhere('remarks', 'not like', '%[ACCOUNTING_DR]%');
+                });
+            });
+        }
+
+        $salesOrders = $salesOrdersQuery->latest()->get();
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
+        $sidebar = $isAccountingContext ? 'admin-finance' : 'production';
 
         return view('production.logistic.delivery-receipt', [
             'deliveryReceipt' => $deliveryReceipt,
@@ -1334,7 +1537,7 @@ class LogisticController extends Controller
             'salesOrders' => $salesOrders,
             'customers' => $customers,
             'title' => 'Delivery Receipt',
-            'sidebar' => 'production'
+            'sidebar' => $sidebar
         ]);
     }
 
@@ -1371,14 +1574,15 @@ class LogisticController extends Controller
         $user = auth()->user();
         $userPos = $user->position;
         $isSuperAdmin = $user->isSuperAdmin();
+        $isAcct = $this->isAccountingUser($user);
         
-        if (!$isSuperAdmin && 
+        if (!$isSuperAdmin && !$isAcct && 
             !str_contains($userPos, 'Manager') && 
             !str_contains($userPos, 'Supervisor') && 
             !str_contains($userPos, 'Head') && 
             !str_contains($userPos, 'Senior Logistics Staff') && 
             !str_contains($userPos, 'Logistics Staff')) {
-             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
+             return redirect()->back()->with('error', 'Only Super Admins, Accounting Staff, or Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
         }
 
         $validated = $request->validate([
@@ -1391,16 +1595,31 @@ class LogisticController extends Controller
             'items' => 'required|array',
         ]);
 
+        $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance');
+
         try {
+            $so = \App\Models\SalesOrder::find($validated['so_id']);
+            if ($so && $isAccountingContext) {
+                $remarks = $so->remarks ?? '';
+                if (!str_contains($remarks, '[ACCOUNTING_DR]')) {
+                    $so->update(['remarks' => trim($remarks . ' [ACCOUNTING_DR]')]);
+                }
+            }
+
             if ($id) {
                 $dr = \App\Models\DeliveryReceipt::findOrFail($id);
+                if ($isAccountingContext && !str_contains($dr->notes ?? '', '[ACCOUNTING_DR]')) {
+                    $validated['notes'] = trim(($dr->notes ?? '') . ' [ACCOUNTING_DR]');
+                }
                 $dr->update($validated);
                 $dr->items()->delete();
             } else {
-                $so = \App\Models\SalesOrder::findOrFail($validated['so_id']);
-                $validated['so_number'] = $so->so_number;
+                $validated['so_number'] = $so ? $so->so_number : null;
                 $validated['prepared_by'] = auth()->id();
                 $validated['prepared_at'] = now();
+                if ($isAccountingContext) {
+                    $validated['notes'] = trim(($validated['notes'] ?? '') . ' [ACCOUNTING_DR]');
+                }
                 $dr = \App\Models\DeliveryReceipt::create($validated);
             }
 
@@ -1421,7 +1640,9 @@ class LogisticController extends Controller
             $dr->total_amount = $dr->items()->sum('amount');
             $dr->save();
 
-            return redirect()->route('production.logistic.delivery-receipt-list')
+            $redirectRoute = $isAccountingContext ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
+
+            return redirect()->route($redirectRoute)
                 ->with('success', 'Delivery Receipt #' . $dr->dr_number . ' saved successfully.');
         } catch (\Exception $e) {
             return back()->with('error', 'Error saving delivery receipt: ' . $e->getMessage());
@@ -1433,14 +1654,15 @@ class LogisticController extends Controller
         $user = auth()->user();
         $userPos = $user->position;
         $isSuperAdmin = $user->isSuperAdmin();
+        $isAcct = $this->isAccountingUser($user);
         
-        if (!$isSuperAdmin && 
+        if (!$isSuperAdmin && !$isAcct && 
             !str_contains($userPos, 'Manager') && 
             !str_contains($userPos, 'Supervisor') && 
             !str_contains($userPos, 'Head') && 
             !str_contains($userPos, 'Senior Logistics Staff') && 
             !str_contains($userPos, 'Logistics Staff')) {
-             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
+             return redirect()->back()->with('error', 'Only Super Admins, Accounting Staff, or Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can prepare Delivery Receipts.');
         }
 
         $order = \App\Models\SalesOrder::findOrFail($id);
@@ -1456,27 +1678,32 @@ class LogisticController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'DR marked as prepared for Order #' . $order->so_number . '. Pending approval.');
+        $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance');
+        $redirectRoute = $isAccountingContext ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
+
+        return redirect()->route($redirectRoute)->with('success', 'DR marked as prepared for Order #' . $order->so_number . '. Pending approval.');
     }
 
     public function approveDR($id)
     {
-        // Role Enforcement: Super Admin OR Production Manager or Logistics Supervisor/Head
+        // Role Enforcement: Super Admin OR Production Manager or Logistics Supervisor/Head OR Accounting Staff
         $user = auth()->user();
         $userPos = $user->position;
         $isSuperAdmin = $user->isSuperAdmin();
+        $isAcct = $this->isAccountingUser($user);
         
-        if (!$isSuperAdmin && 
+        if (!$isSuperAdmin && !$isAcct && 
             !str_contains($userPos, 'Manager') && 
             !str_contains($userPos, 'Supervisor') && 
             !str_contains($userPos, 'Head') && 
             !str_contains($userPos, 'Senior Logistics Staff')) {
-             return redirect()->back()->with('error', 'Only Super Admins, Production/Logistics Managers, Supervisors, Heads, or Senior Logistics Staff can approve Delivery Receipts.');
+             return redirect()->back()->with('error', 'Only Super Admins, Accounting Staff, or Production/Logistics Managers, Supervisors, Heads, or Senior Logistics Staff can approve Delivery Receipts.');
         }
 
         $order = \App\Models\SalesOrder::findOrFail($id);
+        $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) || $order->transaction_type === 'consignment' ? 'completed' : 'ready_for_packing';
         $order->update([
-            'status' => 'ready_for_packing',
+            'status' => $newStatus,
             'dr_approved_at' => now(),
             'dr_approved_by' => auth()->id(),
             'signed_at' => now()
@@ -1495,7 +1722,10 @@ class LogisticController extends Controller
             'reference_id' => $order->id,
         ]);
 
-        return redirect()->back()->with('success', 'DR approved for Order #' . $order->so_number . '. Moved to Packing Management and Completed DRs.');
+        $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance');
+        $redirectRoute = $isAccountingContext ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
+
+        return redirect()->route($redirectRoute)->with('success', 'DR approved for Order #' . $order->so_number . '.');
     }
 
     public function viewDeliveryForm($id)
@@ -2098,8 +2328,8 @@ class LogisticController extends Controller
 
     public function packingManagement(Request $request)
     {
-        // Get orders ready for packing - EXCLUDING ecom_direct and complimentary
-        $packingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+        // Get orders ready for packing - EXCLUDING ecom_direct, complimentary, and Team A, B, C
+        $packingOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.book')
             ->whereIn('status', ['ready_for_delivery', 'ready_for_packing', 'pending_ar_prep'])
             ->whereNotIn('type', ['ecom_direct', 'complimentary'])
             ->where(function($query) {
@@ -2108,12 +2338,12 @@ class LogisticController extends Controller
                           $innerQ->where('packing_data->status', '<>', 'ready_for_pickup')
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
-            })
-            ->orderBy('id', 'desc')
-            ->get();
+            });
+        $this->excludeTeamSalesOrders($packingOrdersQuery);
+        $packingOrders = $packingOrdersQuery->orderBy('id', 'desc')->get();
 
-        // Get complimentary orders ready for packing
-        $complimentaryPackingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+        // Get complimentary orders ready for packing - EXCLUDING Team A, B, C
+        $complimentaryPackingOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.book')
             ->whereIn('status', ['ready_for_delivery', 'ready_for_packing', 'pending_ar_prep'])
             ->where('type', 'complimentary')
             ->where(function($query) {
@@ -2122,12 +2352,12 @@ class LogisticController extends Controller
                           $innerQ->where('packing_data->status', '<>', 'ready_for_pickup')
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
-            })
-            ->orderBy('id', 'desc')
-            ->get();
+            });
+        $this->excludeTeamSalesOrders($complimentaryPackingOrdersQuery);
+        $complimentaryPackingOrders = $complimentaryPackingOrdersQuery->orderBy('id', 'desc')->get();
 
-        // Get e-commerce direct orders ready for packing
-        $ecomPackingOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+        // Get e-commerce direct orders ready for packing - EXCLUDING Team A, B, C
+        $ecomPackingOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
             ->where('type', 'ecom_direct')
             ->where(function($query) {
@@ -2136,9 +2366,9 @@ class LogisticController extends Controller
                           $innerQ->where('packing_data->status', '<>', 'ready_for_pickup')
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
-            })
-            ->orderBy('id', 'desc')
-            ->get();
+            });
+        $this->excludeTeamSalesOrders($ecomPackingOrdersQuery);
+        $ecomPackingOrders = $ecomPackingOrdersQuery->orderBy('id', 'desc')->get();
 
         // Organize e-com packing orders by platform
         $ecomByPlatform = [
@@ -2156,19 +2386,18 @@ class LogisticController extends Controller
             })->values(),
         ];
 
-        // Get orders ready for pickup (only those marked as 'ready_for_pickup' but NOT gathered)
-        $readyForPickupOrders = \App\Models\SalesOrder::with('customer', 'items.book')
+        // Get orders ready for pickup - EXCLUDING Team A, B, C
+        $readyForPickupOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.book')
             ->where('status', 'ready_for_delivery')
             ->where('type', '=', 'ecom_direct')
             ->whereNotNull('packing_data')
             ->where('packing_data->status', '=', 'ready_for_pickup')
             ->where(function($query) {
-                // Exclude orders that have been marked as gathered
                 $query->whereNull('packing_data->gathered_at')
                       ->orWhere('packing_data->gathered_at', '=', null);
-            })
-            ->orderBy('id', 'desc')
-            ->get();
+            });
+        $this->excludeTeamSalesOrders($readyForPickupOrdersQuery);
+        $readyForPickupOrders = $readyForPickupOrdersQuery->orderBy('id', 'desc')->get();
 
         // Organize ready for pickup orders by platform
         $readyByPlatform = [
@@ -3249,9 +3478,8 @@ class LogisticController extends Controller
             $totalAmount = 0;
 
             foreach ($order->items as $item) {
-                $qty = $isConsignment
-                    ? (int)($item->customer_selected_qty ?? 0)
-                    : (int)($item->quantity ?? 0);
+                $selected = (int)($item->customer_selected_qty ?? 0);
+                $qty = $selected > 0 ? $selected : (int)($item->quantity ?? 0);
 
                 if ($qty <= 0) continue;
 

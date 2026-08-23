@@ -117,7 +117,7 @@
                                     @php
                                         $typeDisplay = str_replace('_', ' ', $order->type);
                                         if ($order->type == 'calculator_pos') $typeDisplay = 'direct POS';
-                                        if ($order->type == 'ecom_direct') $typeDisplay = $order->platform ?: ($order->ecom_platform ?: 'MIBF');
+                                        if ($order->type == 'ecom_direct') $typeDisplay = $order->ecom_platform ?: ($order->platform && $order->platform !== 'other' ? $order->platform : 'MIBF');
                                         if ($order->type == 'paid') $typeDisplay = 'paid transac';
                                     @endphp
                                     <td class="text-uppercase {{ $order->type === 'paid' ? 'text-success' : 'text-primary' }}">{{ $typeDisplay }}</td>

@@ -161,6 +161,7 @@
                                     <th>Resulting Book Name</th>
                                     <th>Stock</th>
                                     <th>Price (₱)</th>
+                                    <th>MIBF Price (₱)</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -175,7 +176,8 @@
                                     <td><span class="badge badge-outline-primary">{{ $idx->index_value }}</span></td>
                                     <td><strong class="text-success">{{ $idx->display_name }}</strong></td>
                                     <td><span class="badge badge-light">{{ $idx->main_stock }}</span></td>
-                                    <td><strong class="text-dark">₱{{ number_format($idx->price ?? 0, 2) }}</strong></td>
+                                    <td><strong class="text-dark">₱{{ number_format(($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0), 2) }}</strong></td>
+                                    <td>{{ $idx->mibf_price !== null ? '₱' . number_format($idx->mibf_price, 2) : '-' }}</td>
                                     <td>
                                         <div class="d-flex">
                                             <a href="javascript:void(0);" class="btn btn-primary shadow btn-xs sharp me-1 edit-index-btn" 
@@ -187,7 +189,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="10" class="text-center">No book indices mapped.</td>
+                                    <td colspan="11" class="text-center">No book indices mapped.</td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -213,7 +215,7 @@
     <div class="modal" id="addIndexModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
         <div class="modal-dialog modal-md modal-dialog-centered">
             <div class="modal-content">
-                <form id="addIndexForm">
+                <form id="indexForm">
                     @csrf
                     <input type="hidden" name="index_id" id="modal_index_id">
                     <div class="modal-header" style="background: #D9251C; color: #fff;">
@@ -238,12 +240,10 @@
                         <div class="mb-3">
                             <label class="form-label small fw-bold">INDEX VALUE / SUFFIX <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="index_value" id="index_value_field" required placeholder="e.g. Index 1, Vol 2, Part A">
-                            <p class="text-muted small mt-1">This will be appended as 'Book Name + Index Value'.</p>
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">CUSTOM RESULTING NAME (Optional)</label>
                             <input type="text" class="form-control" name="custom_name" id="index_custom_name_field" placeholder="e.g. Mang Inasal Index 2">
-                            <p class="text-muted small mt-1">Leave empty to keep default 'Book Name + Index Value'. Does NOT change original Book Name.</p>
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">ARTICLE</label>
@@ -264,6 +264,10 @@
                         <div class="mb-3">
                             <label class="form-label small fw-bold">PRICE (₱)</label>
                             <input type="number" step="0.01" class="form-control" name="price" id="index_price_field" min="0" value="0.00" placeholder="0.00">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">MIBF PRICE (₱)</label>
+                            <input type="number" step="0.01" class="form-control" name="mibf_price" id="index_mibf_price_field" min="0" placeholder="Leave empty for default price">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -299,9 +303,7 @@
     @push('scripts')
     <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
-        // Custom show/hide helper to bypass template transform container trapping
         function showCustomModal(id) {
-            // Close other custom modals first
             ['addIndexModal', 'deleteIndexModal'].forEach(function(mid) {
                 var m = document.getElementById(mid);
                 if (m) { m.style.display = 'none'; m.removeAttribute('aria-modal'); m.setAttribute('aria-hidden', 'true'); }
@@ -341,7 +343,6 @@
 
         let isEditingIndexMode = false;
 
-        // Initialize Select2 dropdown parented to modal
         $(document).ready(function() {
             if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
                 $('#index_book_id').select2({
@@ -366,37 +367,27 @@
             }
         });
 
-        // Open Modal Event
         const addNewIndexBtn = document.getElementById('addNewIndexBtn');
         if (addNewIndexBtn) {
             addNewIndexBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 isEditingIndexMode = false;
                 document.getElementById('modal_index_id').value = '';
-                document.getElementById('addIndexForm').reset();
-                document.getElementById('index_value_field').value = '';
-                document.getElementById('index_custom_name_field').value = '';
-                document.getElementById('index_article_field').value = '';
-                document.getElementById('index_barcode_field').value = '';
-                document.getElementById('index_nbs_barcode_field').value = '';
-                document.getElementById('index_stock_field').value = 0;
-                document.getElementById('index_price_field').value = '0.00';
+                document.getElementById('indexForm').reset();
                 $('#index_book_id').val('').trigger('change');
                 document.getElementById('addIndexModalTitle').innerText = 'Add Book Index Mapping';
                 showCustomModal('addIndexModal');
             });
         }
 
-        // Close button handlers
-        document.querySelectorAll('#addIndexModal [data-bs-dismiss="modal"], #deleteIndexModal [data-bs-dismiss="modal"]').forEach(function(btn) {
+        document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 var modal = this.closest('.modal');
                 if (modal) hideCustomModal(modal.id);
             });
         });
 
-        // Form Submit
-        const indexForm = document.getElementById('addIndexForm');
+        const indexForm = document.getElementById('indexForm');
         if (indexForm) {
             indexForm.addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -412,7 +403,8 @@
                     barcode: formData.get('barcode'),
                     nbs_barcode: formData.get('nbs_barcode'),
                     stock: formData.get('stock'),
-                    price: formData.get('price') || 0
+                    price: formData.get('price') || 0,
+                    mibf_price: formData.get('mibf_price') || null
                 };
 
                 const indexId = document.getElementById('modal_index_id').value;
@@ -449,7 +441,6 @@
             });
         }
 
-        // Edit triggers
         document.querySelectorAll('.edit-index-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = this.dataset.id;
@@ -466,13 +457,13 @@
                         document.getElementById('index_nbs_barcode_field').value = data.nbs_barcode || '';
                         document.getElementById('index_stock_field').value = data.stock ?? 0;
                         document.getElementById('index_price_field').value = data.price ?? '0.00';
+                        document.getElementById('index_mibf_price_field').value = data.mibf_price !== null ? data.mibf_price : '';
                         document.getElementById('addIndexModalTitle').innerText = 'Edit Book Index Mapping';
                         showCustomModal('addIndexModal');
                     });
             });
         });
 
-        // Delete triggers
         document.querySelectorAll('.delete-index-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 document.getElementById('delete_index_id').value = this.dataset.id;

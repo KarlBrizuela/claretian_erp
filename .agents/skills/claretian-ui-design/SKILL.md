@@ -179,3 +179,94 @@ For all forms inside popups/modals (e.g. Add/Edit Supplier, Record Invoice, Reco
    * Cancel/Dismiss buttons must be standard neutral outline/light border style (`btn-light border`).
    * Do not stack buttons; align them horizontally in the footer.
 
+---
+
+## 📐 8. Viewport Spacing & Cutoff Fixes
+
+To prevent fixed main sidebars/containers from cutting off buttons at the bottom of standard pages:
+1. **Physical Padding Bottom**: Add `padding-bottom: 80px !important;` to `.content-body .container-fluid` via a style tag inside the view to guarantee clear viewport scrolling.
+2. **Button Vertical Text Alignment**: Avoid setting arbitrary `line-height` on forms buttons. Instead, center text vertically using flexbox utilities:
+   ```html
+   <button type="submit" class="btn btn-sm btn-danger d-inline-flex align-items-center justify-content-center" style="height: 38px;">
+       <i class="las la-trash-alt me-1"></i> Button Text
+   </button>
+   ```
+
+---
+
+## 🔍 9. Select2 Custom Integration
+
+When replacing standard selects with searchable Select2 inputs, enforce the Claretian theme branding manually inside `<style>` overrides:
+```css
+/* Select2 Height & Border Match */
+.select2-container .select2-selection--single {
+    height: 38px !important;
+    border-color: #cbd5e1 !important;
+    border-radius: 6px !important;
+}
+/* Select2 Rendering Line Height Match */
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 36px !important;
+    color: #000000 !important;
+}
+/* Focus border override */
+.select2-container--default.select2-container--focus .select2-selection--single {
+    border-color: #D9251C !important;
+}
+/* Prevent sidebar and modal overlapping z-index issues */
+.select2-dropdown {
+    z-index: 9999 !important;
+}
+```
+
+---
+
+## 🖇️ 10. Blade Component Layout `@push` Constraints
+
+When building pages inheriting view component layouts like `<x-app-layout>`:
+* **Tag Nesting Rule**: All `@push('styles')`, `@push('scripts')`, and styles/scripts stack directives MUST be nested **inside** the layout element tags (before the closing `</x-app-layout>`).
+* **Correct Syntax**:
+  ```html
+  <x-app-layout>
+      <!-- Content here -->
+      
+      @push('scripts')
+          <script>...</script>
+      @endpush
+  </x-app-layout>
+  ```
+* **Why**: Blade layout components compile within a specific slots rendering cycle. Anything pushed outside the component tags is completely ignored.
+
+---
+
+## 🗂️ 11. Stacking Cards & Height Adjustments
+
+To prevent stacked card containers from stretching artificially when placed side-by-side:
+1. **Auto Height**: Set `height: auto !important;` on cards when grouping multiple boxes in a column layout (to override the theme's global `height: 100%` rules).
+2. **Top Alignment**: Set `style="align-items: flex-start;"` on the row container. This ensures side-by-side cards maintain their natural content height rather than stretching to match the taller column's bottom.
+
+---
+
+## ⚠️ 12. SweetAlert2 Confirmation Modals
+
+Always override native browser confirmations with SweetAlert2 warnings for destructive actions (e.g. Delete, Void):
+1. **Interactive Triggering**: Change confirmation button types to `type="button"` and handle submit events via jQuery:
+   ```javascript
+   $(document).on('click', '.btn-void-confirm', function(e) {
+       e.preventDefault();
+       const form = $(this).closest('form');
+       Swal.fire({
+           title: 'Are you sure?',
+           text: "This action will reverse ledger entries and restore/deduct inventory.",
+           icon: 'warning',
+           showCancelButton: true,
+           confirmButtonColor: '#D9251C',
+           cancelButtonColor: '#475569',
+           confirmButtonText: 'Yes, execute it!'
+       }).then((result) => {
+           if (result.isConfirmed) {
+               form.submit();
+           }
+       });
+   });
+   ```

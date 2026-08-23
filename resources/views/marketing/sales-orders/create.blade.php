@@ -32,8 +32,9 @@
                         }
                     }
                 @endphp
-                <form id="soForm" action="{{ $isEdit ? route('marketing.sales-orders.update', $order->id) : route('marketing.sales-orders.store') }}" method="POST" enctype="multipart/form-data" class="form-section">
+                <form id="soForm" action="{{ $isEdit ? route('marketing.sales-orders.update', $order->id) : route('marketing.sales-orders.store', array_filter(['source' => request('source', old('source'))])) }}" method="POST" enctype="multipart/form-data" class="form-section">
                     @csrf
+                    <input type="hidden" name="source" value="{{ request('source', old('source')) }}">
                     @if($isEdit)
                         @method('PUT')
                     @endif

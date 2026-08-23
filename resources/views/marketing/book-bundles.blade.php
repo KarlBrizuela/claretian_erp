@@ -200,6 +200,7 @@
                                     <th>Description</th>
                                     <th>Included Books</th>
                                     <th>Price</th>
+                                    <th>MIBF Price</th>
                                     <th>Stock</th>
                                     <th>Status</th>
                                     <th>Action</th>
@@ -229,6 +230,7 @@
                                          @endif
                                      </td>
                                     <td>₱{{ number_format($bundle->price, 2) }}</td>
+                                    <td>{{ $bundle->mibf_price !== null ? '₱' . number_format($bundle->mibf_price, 2) : '-' }}</td>
                                     <td>
                                         @if($bundle->stock > 0)
                                             <span class="badge badge-success">{{ $bundle->stock }} pcs</span>
@@ -256,7 +258,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="8" class="text-center">No bundles in the list.</td>
+                                    <td colspan="9" class="text-center">No book bundles found.</td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -301,6 +303,10 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label small fw-bold">PRICE (₱) <span class="text-danger">*</span></label>
                             <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="price" id="bundle_price" required placeholder="e.g. 1500.00">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">MIBF PRICE (₱)</label>
+                            <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="mibf_price" id="bundle_mibf_price" placeholder="Optional">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label small fw-bold">STOCK <span class="text-danger">*</span></label>
@@ -360,18 +366,6 @@
                     <h5 class="modal-title text-white"><i class="las la-boxes me-2"></i>View Bundle Details</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
-                    <div class="mb-3">
-                        <label class="fw-bold small text-muted text-uppercase d-block">SKU</label>
-                        <span id="view_bundle_sku" class="fw-bold"></span>
-                    </div>
-                    <div class="mb-3">
-                        <label class="fw-bold small text-muted text-uppercase d-block">Bundle Name</label>
-                        <span id="view_bundle_name" class="fs-5 fw-bold"></span>
-                    </div>
-                    <div class="mb-3">
-                        <label class="fw-bold small text-muted text-uppercase d-block">Price</label>
-                        <span id="view_bundle_price" class="text-success fw-bold fs-5"></span>
                     </div>
                     <div class="mb-3">
                         <label class="fw-bold small text-muted text-uppercase d-block">Stock</label>

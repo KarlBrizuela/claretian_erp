@@ -1389,6 +1389,12 @@ public function checkVoucher()
         return $type === 'ecom_direct' || str_contains($si->transaction_type ?? '', 'ecom');
     })->sortByDesc('id')->values();
 
+    $customers = \App\Models\Customer::orderBy('customer_name')->get();
+    $userTeam = auth()->user()->sales_team ?? null;
+    $mktController = app(\App\Http\Controllers\MarketingController::class);
+    $products = $mktController->getUnifiedProducts($userTeam);
+    $areaSalesStaff = \App\Models\User::where('department', 'Area Sales')->get();
+
     return view('admin-finance.accounting.sales-invoice', [
       'title' => 'Sales Invoice Management',
       'role' => 'Finance Manager',
@@ -1396,7 +1402,11 @@ public function checkVoucher()
       'normalOrders' => $normalOrders,
       'ecomOrders' => $ecomOrders,
       'completedSIs' => $completedNormalSIs,
-      'completedEcomSIs' => $completedEcomSIs
+      'completedEcomSIs' => $completedEcomSIs,
+      'customers' => $customers,
+      'products' => $products,
+      'areaSalesStaff' => $areaSalesStaff,
+      'userTeam' => $userTeam
     ]);
   }
 
@@ -1441,7 +1451,7 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
 
-    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']);
+    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || strtolower($order->transaction_type ?? '') === 'charge';
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
@@ -1459,15 +1469,21 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
+    if ($request->hasFile('proof_of_payment')) {
+      $path = $request->file('proof_of_payment')->store('sales_orders', 'public');
+      $order->proof_of_payment = $path;
+      $order->save();
+    }
+
     if ($request->filled('payment_method')) {
       $order->payment_method = strtolower($request->input('payment_method'));
       $order->save();
     }
 
-    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']);
+    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || strtolower($order->transaction_type ?? '') === 'charge';
 
     if (!$isExempt && !$order->proof_of_payment) {
-      return redirect()->route('admin-finance.accounting.sales-invoice')->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
+      return redirect()->route('admin-finance.accounting.sales-invoice')->with('error', 'Cannot proceed. Proof of Payment is required for Paid transactions before Sales Invoice can be generated.');
     }
 
     $isEcomDirect = $order->type === 'ecom_direct';
@@ -1712,10 +1728,10 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
-    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']);
+    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || strtolower($order->transaction_type ?? '') === 'charge';
 
     if (!$isExempt && !$order->proof_of_payment) {
-      return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
+      return redirect()->back()->with('error', 'Cannot proceed. Proof of Payment is required for Paid transactions before Sales Invoice can be signed.');
     }
 
     $isEcomDirect = $order->type === 'ecom_direct';
@@ -2572,11 +2588,24 @@ public function checkVoucher()
   public function invoice()
   {
     $invoices = \App\Models\SalesOrder::with(['customer', 'items.product'])
-      ->whereIn('status', ['ready_for_delivery', 'completed', 'verified', 'draft', 'pending_si_prep']) // Adjust statuses as needed based on "Order Fulfillment" context
+      ->whereIn('status', ['ready_for_delivery', 'completed', 'verified', 'draft', 'pending_si_prep', 'pending_dr_prep', 'pending_dr_approval'])
       ->latest()
       ->get();
 
     $products = \App\Models\Book::where('is_active', true)->orderBy('name')->get();
+
+    $bookSaleTeamStocks = \App\Models\TeamStock::whereIn('team_name', ['Book Sale', 'Book Sales', 'Book Sale Warehouse'])
+        ->get()
+        ->keyBy(function($item) {
+            return $item->book_id ?: ($item->book_index_id ?: ($item->book_bundle_id ?: ''));
+        });
+
+    $products->transform(function ($book) use ($bookSaleTeamStocks) {
+        $ts = $bookSaleTeamStocks->get($book->id);
+        $book->stock_booksale = $ts ? (int) $ts->quantity : 0;
+        $book->stock_main = (int) ($book->stock ?? 0);
+        return $book;
+    });
 
     return view('admin-finance.credit-collection.invoice.invoice', [
       'title' => 'Invoice',
@@ -2740,8 +2769,33 @@ public function checkVoucher()
     \Log::info('Processing approval for SO #' . $order->so_number . ' with ' . $order->items->count() . ' items');
     
 
+    // Determine if order belongs to Team A, B, or C (or user assigned to a sales team)
+    $userTeam = null;
+    if ($order->area_sales_staff_id) {
+        $staff = \App\Models\User::find($order->area_sales_staff_id);
+        if ($staff && !empty($staff->sales_team)) {
+            $userTeam = trim($staff->sales_team);
+        }
+    }
+    if (empty($userTeam) && $order->preparedBy && !empty($order->preparedBy->sales_team)) {
+        $userTeam = trim($order->preparedBy->sales_team);
+    }
+    if (empty($userTeam) && auth()->check() && !empty(auth()->user()->sales_team)) {
+        $userTeam = trim(auth()->user()->sales_team);
+    }
+
+    $isTeamUser = !empty($userTeam);
+    $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) || $order->transaction_type === 'consignment';
+
+    if ($isTeamUser) {
+        // Team A, B, C: SO will NOT go through picklist and packing!
+        $nextStatus = $isConsignment ? 'pending_dr_prep' : 'pending_si_prep';
+    } else {
+        $nextStatus = 'picking';
+    }
+
     $updateData = [
-      'status' => 'picking',
+      'status' => $nextStatus,
       'approved_by_acct' => auth()->id(),
       'acct_approved_at' => now()
     ];
@@ -2751,10 +2805,17 @@ public function checkVoucher()
       $updateData['remarks'] = trim(($order->remarks ? $order->remarks . "\n" : '') . '[' . $userTitle . ']: ' . $request->remarks);
     }
 
-    // Normal flow for other transaction types
+    // Update Sales Order status
     $order->update($updateData);
 
-    // Automatically create a pick list after accounting approval
+    if ($isTeamUser) {
+        $msg = $isConsignment 
+            ? 'Sales Order #' . $order->so_number . ' approved! Directly routed to Delivery Receipt (DR) Preparation (Bypassed picklist & packing).'
+            : 'Sales Order #' . $order->so_number . ' approved! Directly routed to Sales Invoice (SI) Preparation (Bypassed picklist & packing).';
+        return redirect()->route('admin-finance.approval-queue')->with('success', $msg);
+    }
+
+    // Automatically create a pick list after accounting approval for non-team orders
     try {
       $order->load('items');
       // Check if SO has items
