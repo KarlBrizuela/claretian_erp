@@ -302,7 +302,7 @@
 
     <!-- Accounting Reports Dropdown -->
     @if($hasChartOfAccounts)
-    <div class="modern-nav-group {{ request()->is('admin-finance/financial-reports*', 'admin-finance/chart-of-accounts*', 'admin-finance/sales-management*', 'admin-finance/accounts-receivable*', 'admin-finance/accounts-payable*', 'admin-finance/investments*', 'admin-finance/donations*', 'admin-finance/budgeting*', 'admin-finance/cash-management*', 'production/inventory/overview*', 'admin-finance/accounting/expenses*', 'admin-finance/accounting/inventory-valuation*', 'admin-finance/accounting/journal*', 'admin-finance/accounting/general-ledger*', 'admin-finance/accounting/procurement*') ? 'active' : '' }}">
+    <div class="modern-nav-group {{ request()->is('admin-finance/financial-reports*', 'admin-finance/chart-of-accounts*', 'admin-finance/sales-management*', 'admin-finance/accounts-receivable*', 'admin-finance/accounts-payable*', 'admin-finance/investments*', 'admin-finance/donations*', 'admin-finance/budgeting*', 'admin-finance/cash-management*', 'production/inventory/overview*', 'admin-finance/accounting/expenses*', 'admin-finance/inventory-valuation*', 'admin-finance/accounting/journal*', 'admin-finance/general-ledger*', 'admin-finance/procurement*', 'admin-finance/accounting/office-supplies*', 'admin-finance/gsd/asset-management*', 'admin-finance/sales-returns*', 'admin-finance/purchase-returns*') ? 'active' : '' }}">
         <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="accounting-reports">
             <div class="modern-nav-icon">
                 <i class="las la-chart-bar"></i>
@@ -339,10 +339,10 @@
             <a href="{{ route('admin-finance.accounting.procurement') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.procurement') ? 'active' : '' }}">Purchasing / Procurement</a>
             @endif
             @if($hasChartOfAccounts)
-            <a href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'bookstore']) }}" class="modern-nav-subitem">Sales Return (Coming Soon)</a>
+            <a href="{{ route('admin-finance.accounting.sales-returns.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.sales-returns.*') ? 'active' : '' }}">Sales Return</a>
             @endif
             @if($hasChartOfAccounts)
-            <a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-subitem">Purchase Return (Coming Soon)</a>
+            <a href="{{ route('admin-finance.accounting.purchase-returns.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.purchase-returns.*') ? 'active' : '' }}">Purchase Return</a>
             @endif
             @if($hasChartOfAccounts)
             <a href="{{ route('admin-finance.cash-management.index') }}" class="modern-nav-subitem {{ request()->is('admin-finance/cash-management*') ? 'active' : '' }}">Cash Management</a>

@@ -817,6 +817,297 @@ class AccountingService
         });
     }
 
+    /**
+     * Post a journal entry for a Sales Return
+     * 
+     * Target Flow:
+     * DR Sales Returns and Allowances (Contra-Revenue)
+     * CR Accounts Receivable (or Bank/Cash)
+     * If physical inventory returned:
+     * DR Inventory
+     * CR Cost of Sales (COGS reversal)
+     */
+    public function postSalesReturnEntry(\App\Models\SalesReturn $return)
+    {
+        return DB::transaction(function () use ($return) {
+            $order = $return->salesOrder;
+            if (!$order) return null;
+
+            // 1. Determine Accounts
+            $salesReturnAccount = ChartOfAccount::where('code', '4050')
+                ->orWhere('name', 'like', '%Sales Return%')
+                ->first();
+            if (!$salesReturnAccount) {
+                $salesReturnAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '4050'],
+                    ['name' => 'Sales Returns and Allowances', 'type' => 'Income', 'category' => 'Revenue']
+                );
+            }
+
+            $arAccount = ChartOfAccount::where('code', '1200')
+                ->orWhere('name', 'like', '%Accounts Receivable%')
+                ->orWhere('name', 'like', '%Trade%Receivable%')
+                ->first();
+            if (!$arAccount) {
+                $arAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1200'],
+                    ['name' => 'Trade/Accounts Receivable', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
+
+            $cashAccount = ChartOfAccount::where('code', '1000')
+                ->orWhere('name', 'like', '%Cash%Bank%')
+                ->first();
+            if (!$cashAccount) {
+                $cashAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1000'],
+                    ['name' => 'Cash in Bank', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
+
+            $cashHandAccount = ChartOfAccount::where('name', 'like', '%Cash%Hand%')
+                ->orWhere('name', 'like', '%Cash on Hand%')
+                ->first();
+            if (!$cashHandAccount) {
+                $cashHandAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1010'],
+                    ['name' => 'Cash on Hand', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
+
+            $ewalletAccount = ChartOfAccount::where('name', 'like', '%E-Wallet%')
+                ->orWhere('name', 'like', '%GCash%')
+                ->orWhere('name', 'like', '%Maya%')
+                ->first();
+            if (!$ewalletAccount) {
+                $ewalletAccount = ChartOfAccount::firstOrCreate(
+                    ['code' => '1020'],
+                    ['name' => 'Cash Equivalents - E-Wallet', 'type' => 'Asset', 'category' => 'Current Asset']
+                );
+            }
+
+            $paymentMethod = strtolower($order->payment_method ?? '');
+            if (in_array($paymentMethod, ['gcash', 'maya', 'paymaya', 'e-wallet', 'ewallet'])) {
+                $creditAccount = $ewalletAccount;
+            } elseif ($paymentMethod === 'cash') {
+                $creditAccount = $cashHandAccount;
+            } elseif (in_array($paymentMethod, ['bank_transfer', 'check', 'card'])) {
+                $creditAccount = $cashAccount;
+            } elseif ($order->type === 'calculator_pos' || $order->type === 'ecom_direct') {
+                $creditAccount = $cashAccount;
+            } else {
+                $creditAccount = $arAccount;
+            }
+
+            // 2. Create Header
+            $entry = JournalEntry::create([
+                'entry_no' => $this->generateEntryNumber('JV'),
+                'entry_type' => 'RETURN',
+                'date' => $return->return_date ?? now(),
+                'reference' => $return->return_no,
+                'memo' => "Sales Return recognition for Return #" . $return->return_no . " (Order #" . $order->so_number . ")",
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 3. Create items (Compound Entry)
+            // Line 1: DR Sales Returns and Allowances (Refund amount)
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $salesReturnAccount->id,
+                'debit' => $return->refund_amount,
+                'credit' => 0,
+                'memo' => "Reversal of revenue for " . $order->so_number,
+            ]);
+
+            // Line 2: CR Accounts Receivable / Cash (Refund amount)
+            JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $creditAccount->id,
+                'debit' => 0,
+                'credit' => $return->refund_amount,
+                'memo' => "Refund or credit to customer",
+            ]);
+
+            // 4. Reverse COGS / Restore Inventory if inventory was returned
+            if ($return->inventory_restored) {
+                $inventoryAccount = ChartOfAccount::where('code', '1300')
+                    ->orWhere('name', 'like', '%Inventory%')
+                    ->first();
+                $cogsAccount = ChartOfAccount::where('code', '5000')
+                    ->orWhere('name', 'like', '%Cost of Sales%')
+                    ->orWhere('name', 'like', '%COGS%')
+                    ->first();
+
+                $totalCost = 0;
+                foreach ($return->items as $item) {
+                    $book = $item->book;
+                    if ($book && $book->cost > 0) {
+                        $totalCost += ($book->cost * $item->returned_qty);
+                    }
+                }
+
+                if ($totalCost > 0) {
+                    if (!$cogsAccount) {
+                        $cogsAccount = ChartOfAccount::firstOrCreate(
+                            ['code' => '5000'],
+                            ['name' => 'Cost of Sales', 'type' => 'Expense', 'category' => 'COGS']
+                        );
+                    }
+                    if (!$inventoryAccount) {
+                        $inventoryAccount = ChartOfAccount::firstOrCreate(
+                            ['code' => '1300'],
+                            ['name' => 'Inventory - Books', 'type' => 'Asset', 'category' => 'Current Asset']
+                        );
+                    }
+
+                    // Line 3: DR Inventory (Restoring asset)
+                    JournalEntryItem::create([
+                        'journal_entry_id' => $entry->id,
+                        'chart_of_account_id' => $inventoryAccount->id,
+                        'debit' => $totalCost,
+                        'credit' => 0,
+                        'memo' => "Restored inventory stock value",
+                    ]);
+
+                    // Line 4: CR Cost of Sales (Reducing expense)
+                    JournalEntryItem::create([
+                        'journal_entry_id' => $entry->id,
+                        'chart_of_account_id' => $cogsAccount->id,
+                        'debit' => 0,
+                        'credit' => $totalCost,
+                        'memo' => "Reversal of COGS for returned items",
+                    ]);
+                }
+            }
+
+            // Link journal entry back to return
+            $return->update(['journal_entry_id' => $entry->id]);
+
+            return $entry;
+        });
+    }
+
+    /**
+     * Post a journal entry for a Purchase Return (PR)
+     * 
+     * Target Flow:
+     * DR Accounts Payable (for outstanding unpaid balance portion)
+     * DR Supplier Receivable / Refund Receivable (for paid portion)
+     * CR Inventory
+     */
+    public function postPurchaseReturnEntry(\App\Models\PurchaseReturn $purchaseReturn)
+    {
+        return DB::transaction(function () use ($purchaseReturn) {
+            $totalRefund = $purchaseReturn->refund_amount;
+
+            // 1. Create the base Journal Entry header
+            $entryNo = $this->generateEntryNumber('JV'); // Using general JV prefix
+            $entry = JournalEntry::create([
+                'entry_no' => $entryNo,
+                'date' => $purchaseReturn->return_date,
+                'entry_type' => 'JV',
+                'memo' => "Purchase Return Reversal - " . $purchaseReturn->return_no,
+                'reference' => $purchaseReturn->return_no,
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            // 2. Resolve Chart of Accounts
+            // Accounts Payable - typically 2000
+            $payableAccount = ChartOfAccount::where('code', '2000')
+                ->orWhere('code', '2010')
+                ->orWhere('name', 'like', '%Accounts Payable%')
+                ->first();
+            if (!$payableAccount) {
+                $payableAccount = ChartOfAccount::where('type', 'Liability')->first();
+            }
+
+            // Refund/Supplier Receivable (Asset) - typically 1210 or 1200
+            $receivableAccount = ChartOfAccount::where('code', '1210')
+                ->orWhere('name', 'like', '%Supplier Receivable%')
+                ->orWhere('name', 'like', '%Refund%Receivable%')
+                ->first();
+            if (!$receivableAccount) {
+                $receivableAccount = ChartOfAccount::where('code', '1200')
+                    ->orWhere('name', 'like', '%Accounts Receivable%')
+                    ->first();
+            }
+
+            // Inventory Asset - typically 1300
+            $inventoryAccount = ChartOfAccount::where('code', '1300')
+                ->orWhere('name', 'like', '%Inventory%')
+                ->first();
+            if (!$inventoryAccount) {
+                $inventoryAccount = ChartOfAccount::where('type', 'Asset')->first();
+            }
+
+            // 3. Determine unpaid outstanding portion vs already paid portion
+            $apDebitAmount = 0.00;
+            $arDebitAmount = 0.00;
+
+            if ($purchaseReturn->supplierInvoice) {
+                $invoice = $purchaseReturn->supplierInvoice;
+                $outstandingBalance = $invoice->balance; // total_amount - amount_paid
+
+                if ($outstandingBalance >= $totalRefund) {
+                    // Entire refund reduces outstanding payable balance
+                    $apDebitAmount = $totalRefund;
+                } else {
+                    // Reduces outstanding payable to zero, rest goes to receivable
+                    $apDebitAmount = $outstandingBalance;
+                    $arDebitAmount = $totalRefund - $outstandingBalance;
+                }
+            } else {
+                // If no supplier invoice is linked, default to full accounts payable reduction
+                $apDebitAmount = $totalRefund;
+            }
+
+            // 4. Create DEBIT items
+            // A. Debit Accounts Payable if applicable
+            if ($apDebitAmount > 0 && $payableAccount) {
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $payableAccount->id,
+                    'debit' => $apDebitAmount,
+                    'credit' => 0,
+                    'memo' => "Debit Accounts Payable for returned goods - " . $purchaseReturn->return_no,
+                ]);
+            }
+
+            // B. Debit Supplier/Refund Receivable if applicable
+            if ($arDebitAmount > 0 && $receivableAccount) {
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $receivableAccount->id,
+                    'debit' => $arDebitAmount,
+                    'credit' => 0,
+                    'memo' => "Debit Refund Receivable for paid returned goods - " . $purchaseReturn->return_no,
+                ]);
+            }
+
+            // 5. Create CREDIT item
+            // Credit Inventory for the returned cost
+            if ($inventoryAccount) {
+                JournalEntryItem::create([
+                    'journal_entry_id' => $entry->id,
+                    'chart_of_account_id' => $inventoryAccount->id,
+                    'debit' => 0,
+                    'credit' => $totalRefund,
+                    'memo' => "Credit Inventory for returned goods - " . $purchaseReturn->return_no,
+                ]);
+            }
+
+            // Link journal entry back to purchase return
+            $purchaseReturn->update(['journal_entry_id' => $entry->id]);
+
+            return $entry;
+        });
+    }
+
     private function generateEntryNumber($prefix)
     {
         $year = now()->year;
