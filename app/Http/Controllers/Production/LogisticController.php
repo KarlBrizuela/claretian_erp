@@ -500,22 +500,19 @@ class LogisticController extends Controller
             })
             ->where('status', '!=', 'ready_for_packing')
             ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
-            ->whereDoesntHave('invoice', function($invQ) {
-                $invQ->whereIn('status', ['approved', 'completed', 'posted', 'signed', 'paid']);
-            })
-            ->whereNull('signed_by_af_manager')
-            ->whereNull('signed_at')
-            ->orderByRaw('COALESCE(signed_at, created_at) DESC')
+            ->orderByRaw('COALESCE(delivery_date, created_at) DESC')
             ->get();
 
         $allOrders = $allOrders->reject(function($order) {
-            $hasCompletedInvoice = $order->invoice && in_array(strtolower($order->invoice->status ?? ''), ['approved', 'completed', 'posted', 'signed', 'paid']);
-            $isSignedAndApprovedSI = !is_null($order->signed_by_af_manager) || !is_null($order->signed_at);
-            return $hasCompletedInvoice || $isSignedAndApprovedSI;
+            if (in_array($order->status, ['ready_for_delivery', 'ready_for_pickup'])) {
+                return false;
+            }
+            $hasCompletedInvoice = $order->invoice && in_array(strtolower($order->invoice->status ?? ''), ['approved', 'completed', 'posted', 'signed']);
+            return $hasCompletedInvoice;
         });
 
-        $landtripOrders = $allOrders->where('is_pickup', false)->where('status', 'ready_for_delivery');
-        $pickupOrders = $allOrders->where('is_pickup', true);
+        $landtripOrders = $allOrders->where('is_pickup', false)->where('status', 'ready_for_delivery')->values();
+        $pickupOrders = $allOrders->where('is_pickup', true)->values();
 
         $approvedRequests = \App\Models\PickupRequest::with('createdByUser')
             ->whereIn('status', ['approved', 'completed'])
@@ -825,6 +822,9 @@ class LogisticController extends Controller
             'delivery_date' => $request->delivery_date,
             'remarks' => $request->remarks,
             'ref_number' => $request->ref_number,
+            'driver_approval_status' => 'pending_approval',
+            'driver_approved_by' => null,
+            'driver_approved_at' => null,
         ]);
 
         // Create RiderCollection if this is a COD (Cash on Delivery) order
@@ -849,7 +849,58 @@ class LogisticController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'Driver ' . $driver->first_name . ' ' . $driver->last_name . ' assigned to Order #' . $order->so_number);
+        return redirect()->back()->with('success', 'Driver ' . $driver->first_name . ' ' . $driver->last_name . ' assigned to Order #' . $order->so_number . ' (Pending Approval).');
+    }
+
+    public function approveDriverAssignment(Request $request, $id)
+    {
+        $order = \App\Models\SalesOrder::findOrFail($id);
+
+        if (!$order->driver_id && !$order->driver) {
+            return redirect()->back()->with('error', 'Cannot approve: No driver assigned to this order.');
+        }
+
+        $order->update([
+            'driver_approval_status' => 'approved',
+            'driver_approved_by' => auth()->id(),
+            'driver_approved_at' => now(),
+        ]);
+
+        // Create RiderCollection if COD order and not yet created
+        if ($order->transaction_type === 'COD') {
+            $existingCollection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
+            if (!$existingCollection) {
+                \App\Models\RiderCollection::create([
+                    'sales_order_id' => $order->id,
+                    'rider_id' => $order->driver_id,
+                    'amount_to_collect' => $order->total_amount,
+                    'transaction_type' => $order->transaction_type,
+                    'status' => 'pending',
+                ]);
+                $order->update([
+                    'collection_status' => 'pending_collection',
+                ]);
+            }
+        }
+
+        return redirect()->back()->with('success', 'Driver assignment for Order #' . $order->so_number . ' approved successfully.');
+    }
+
+    public function rejectDriverAssignment(Request $request, $id)
+    {
+        $order = \App\Models\SalesOrder::findOrFail($id);
+
+        $order->update([
+            'driver_id' => null,
+            'driver' => null,
+            'plate_number' => null,
+            'helper' => null,
+            'driver_approval_status' => 'rejected',
+            'driver_approved_by' => auth()->id(),
+            'driver_approved_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Driver assignment for Order #' . $order->so_number . ' rejected.');
     }
 
     public function printTransmittal($id)
@@ -1722,31 +1773,44 @@ class LogisticController extends Controller
         }
 
         $order = \App\Models\SalesOrder::findOrFail($id);
-        $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) || $order->transaction_type === 'consignment' ? 'completed' : 'ready_for_packing';
-        $order->update([
+        $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance') || $this->isAccountingOrderOrDr($order);
+        
+        if ($isAccountingContext && !in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) && $order->transaction_type !== 'consignment') {
+            $newStatus = 'pending_si_prep';
+        } else {
+            $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) || $order->transaction_type === 'consignment' ? 'completed' : 'ready_for_packing';
+        }
+
+        $updateData = [
             'status' => $newStatus,
             'dr_approved_at' => now(),
             'dr_approved_by' => auth()->id(),
             'signed_at' => now()
-        ]);
+        ];
+
+        if (empty($order->dr_prepared_at)) {
+            $updateData['dr_prepared_at'] = now();
+            $updateData['dr_prepared_by'] = auth()->id();
+        }
+
+        $order->update($updateData);
 
         $dr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
         if ($dr) {
-            $dr->update(['status' => 'completed']);
+            $dr->update(['status' => 'completed', 'prepared_by' => $dr->prepared_by ?: auth()->id()]);
         }
 
         \App\Models\ActivityLog::create([
             'user_id' => auth()->id(),
-            'action' => 'DR Approved & Moved to Packing',
-            'description' => "Delivery Receipt for Sales Order {$order->so_number} approved by " . auth()->user()->name . " and moved to Packing Management.",
+            'action' => 'DR Approved & Signed',
+            'description' => "Delivery Receipt for Sales Order {$order->so_number} approved and signed by " . auth()->user()->name . ".",
             'reference_type' => 'SalesOrder',
             'reference_id' => $order->id,
         ]);
 
-        $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance');
         $redirectRoute = $isAccountingContext ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
 
-        return redirect()->route($redirectRoute)->with('success', 'DR approved for Order #' . $order->so_number . '.');
+        return redirect()->route($redirectRoute)->with('success', 'DR approved and signed for Order #' . $order->so_number . '.');
     }
 
     public function viewDeliveryForm($id)

@@ -460,25 +460,45 @@
                     @else
                         @php
                             $drListRoute = ($sidebar ?? (request()->is('admin-finance*') ? 'admin-finance' : 'production')) === 'admin-finance' ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
+                            $user = auth()->user();
+                            $canApproveDR = $user && ($user->isSuperAdmin() || 
+                                str_contains($user->position ?? '', 'Manager') || 
+                                str_contains($user->position ?? '', 'Supervisor') || 
+                                str_contains($user->position ?? '', 'Head') || 
+                                str_contains($user->position ?? '', 'Senior Logistics Staff') ||
+                                str_contains($user->position ?? '', 'Accounting') ||
+                                str_contains($user->position ?? '', 'Finance') ||
+                                str_contains($user->division ?? '', 'Admin') ||
+                                str_contains($user->division ?? '', 'Finance') ||
+                                str_contains($user->department ?? '', 'Accounting') ||
+                                $user->hasPermission('admin_finance.accounting'));
                         @endphp
                         <a href="{{ route($drListRoute) }}" class="btn btn-secondary">
                             <i class="las la-arrow-left"></i> Back to List
                         </a>
-                        @if($order->status === 'pending_dr_approval')
+                        @if(!empty($order->dr_approved_at) || !empty($order->dr_approved_by))
                             <div class="d-inline-block ms-2">
-                                <span class="badge bg-warning text-dark me-2 fs-13 py-2 px-3"><i class="las la-clock me-1"></i> Pending DR Approval</span>
+                                <span class="badge bg-success text-white me-2 fs-13 py-2 px-3">
+                                    <i class="las la-check-circle me-1"></i> DR Signed & Approved
+                                </span>
+                            </div>
+                        @elseif(in_array($order->status, ['pending_dr_prep', 'pending_dr_approval']) && $canApproveDR)
+                            <div class="d-inline-block ms-2">
+                                @if($order->status === 'pending_dr_approval')
+                                    <span class="badge bg-warning text-dark me-2 fs-13 py-2 px-3"><i class="las la-clock me-1"></i> Pending DR Approval</span>
+                                @endif
                                 <form action="{{ route('production.logistic.approve-dr', $order->id) }}" method="POST" style="display:inline-block;">
                                     @csrf
                                     <button type="submit" class="btn btn-success shadow-sm">
-                                        <i class="las la-check-double me-1"></i> Approve DR
+                                        <i class="las la-check-double me-1"></i> Approve & Sign DR
                                     </button>
                                 </form>
                             </div>
-                        @else
+                        @elseif(in_array($order->status, ['pending_dr_prep']))
                             <form action="{{ route('production.logistic.complete-dr', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
                                 @csrf
                                 <button type="submit" class="btn btn-success">
-                                    <i class="las la-check-circle me-1"></i> Complete DR
+                                    <i class="las la-check-circle me-1"></i> Submit for DR Approval
                                 </button>
                             </form>
                         @endif

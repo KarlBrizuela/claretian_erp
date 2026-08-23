@@ -334,6 +334,15 @@
                                             <span class="status-badge status-{{ $order->status }}">
                                                 {{ ucwords(str_replace('_', ' ', $order->status)) }}
                                             </span>
+                                            @if($order->driver_approval_status === 'pending_approval')
+                                                <div class="mt-1">
+                                                    <span class="badge bg-warning text-dark font-w500 fs-11"><i class="las la-clock me-1"></i>Pending Assignment Approval</span>
+                                                </div>
+                                            @elseif($order->driver_approval_status === 'approved')
+                                                <div class="mt-1">
+                                                    <span class="badge bg-success text-white font-w500 fs-11"><i class="las la-check-circle me-1"></i>Assignment Approved</span>
+                                                </div>
+                                            @endif
                                         </td>
                                         <td class="align-middle text-end">
                                             <div class="d-flex justify-content-end gap-2">
@@ -351,7 +360,10 @@
                                                 @php
                                                     $canMarkComplete = true;
                                                     $completeReason = 'Mark Complete';
-                                                    if ($order->type === 'paid') {
+                                                    if ($order->driver_approval_status === 'pending_approval') {
+                                                        $canMarkComplete = false;
+                                                        $completeReason = 'Driver assignment pending approval';
+                                                    } elseif ($order->type === 'paid') {
                                                         $canMarkComplete = true;
                                                     } elseif ($order->transaction_type === 'COD') {
                                                         $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();
