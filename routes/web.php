@@ -239,6 +239,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/freight-quotation/{id}', [App\Http\Controllers\Production\FORDController::class, 'freightQuotationShow'])->name('freight-quotation.show');
       Route::get('/sales-order', [App\Http\Controllers\Production\FORDController::class, 'salesOrder'])->name('sales-order');
       Route::get('/sales-order/create', [App\Http\Controllers\Production\FORDController::class, 'salesOrderCreate'])->name('sales-order.create');
+      Route::get('/sales-order/products/search', [App\Http\Controllers\Production\FORDController::class, 'searchProducts'])->name('sales-order.products-search');
       Route::post('/sales-order/store', [App\Http\Controllers\Production\FORDController::class, 'storeSalesOrder'])->name('sales-order.store');
       Route::get('/sales-order/{id}/review', [App\Http\Controllers\Production\FORDController::class, 'reviewSalesOrder'])->name('sales-order.review');
       Route::post('/sales-order/{id}/approve', [App\Http\Controllers\Production\FORDController::class, 'approveSalesOrder'])->name('sales-order.approve');

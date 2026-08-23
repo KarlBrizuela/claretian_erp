@@ -1709,90 +1709,54 @@ class MarketingController extends Controller
 
     public function getUnifiedProducts($teamName = null)
     {
+        $teamStocksMap = [];
         if (!empty($teamName)) {
-            $teamStocks = \App\Models\TeamStock::with(['book', 'bookIndex.book', 'bookBundle'])
-                ->where('team_name', $teamName)
-                ->where('quantity', '>', 0)
-                ->get();
+            $rawTeam = trim($teamName);
+            $cleanName = trim(preg_replace('/^(site\s+|team\s+)+/i', '', $rawTeam));
+            $variations = array_unique([
+                $rawTeam,
+                'Team ' . $cleanName,
+                'SITE TEAM ' . strtoupper($cleanName),
+                'SITE TEAM ' . $cleanName,
+                'SITE ' . strtoupper($cleanName),
+                'SITE ' . $cleanName,
+                $cleanName,
+                strtoupper($rawTeam),
+                strtolower($rawTeam),
+            ]);
 
-            return $teamStocks->map(function($ts) {
-                if ($ts->book_index_id && $ts->bookIndex) {
-                    $idx = $ts->bookIndex;
-                    $fullName = $idx->display_name;
-                    $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
-                    $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
-                    $stock = (int) $ts->quantity;
-                    return (object)[
-                        'id' => 'index_' . $idx->id,
-                        'type' => 'index',
-                        'real_id' => $idx->id,
-                        'book_id' => $idx->book_id,
-                        'name' => $fullName,
-                        'category' => 'Book Indices',
-                        'display_name' => '[Index] ' . $fullName . ' (Stock: ' . $stock . ')',
-                        'price' => $price,
-                        'isbn' => $idx->book?->isbn ?? '',
-                        'stock' => $stock,
-                        'main_stock' => $stock,
-                        'image' => $img,
-                    ];
-                } elseif ($ts->book_bundle_id && $ts->bookBundle) {
-                    $bun = $ts->bookBundle;
-                    $fullName = $bun->name . ' (bundle)';
-                    $stock = (int) $ts->quantity;
-                    return (object)[
-                        'id' => 'bundle_' . $bun->id,
-                        'type' => 'bundle',
-                        'real_id' => $bun->id,
-                        'book_id' => null,
-                        'name' => $fullName,
-                        'category' => 'Book Bundles',
-                        'display_name' => '[Bundle] ' . $bun->name . ' (Stock: ' . $stock . ')',
-                        'price' => (float) $bun->price,
-                        'isbn' => $bun->sku ?? '',
-                        'stock' => $stock,
-                        'main_stock' => $stock,
-                        'image' => asset('images/no-book-cover.svg'),
-                    ];
-                } elseif ($ts->book_id && $ts->book) {
-                    $b = $ts->book;
-                    $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
-                                 (isset($b->category) && strtolower($b->category) === 'non-book') ||
-                                 (isset($b->book_type) && strtolower($b->book_type) === 'non-book');
-                    $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
-                    $fullName = $b->name . $typeSuffix;
-                    $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
-                    $stock = (int) $ts->quantity;
-                    return (object)[
-                        'id' => 'book_' . $b->id,
-                        'type' => 'book',
-                        'real_id' => $b->id,
-                        'book_id' => $b->id,
-                        'name' => $fullName,
-                        'category' => $isNonBook ? 'Non-Books' : 'Books',
-                        'display_name' => $prefix . $b->name . ' (Stock: ' . $stock . ')',
-                        'price' => (float) $b->price,
-                        'isbn' => $b->isbn ?? $b->barcode ?? $b->sku ?? '',
-                        'stock' => $stock,
-                        'main_stock' => $stock,
-                        'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg'),
-                    ];
+            $tsList = \App\Models\TeamStock::where(function($q) use ($variations) {
+                foreach ($variations as $var) {
+                    $q->orWhere('team_name', $var)
+                      ->orWhereRaw('LOWER(team_name) = ?', [strtolower($var)]);
                 }
-                return null;
-            })->filter()->values();
+            })->get();
+
+            foreach ($tsList as $ts) {
+                if ($ts->book_index_id) {
+                    $teamStocksMap['index_' . $ts->book_index_id] = (int)$ts->quantity;
+                } elseif ($ts->book_bundle_id) {
+                    $teamStocksMap['bundle_' . $ts->book_bundle_id] = (int)$ts->quantity;
+                } elseif ($ts->book_id) {
+                    $teamStocksMap['book_' . $ts->book_id] = (int)$ts->quantity;
+                }
+            }
         }
 
         $books = \App\Models\Book::where('is_active', true)
             ->orderBy('name')
             ->get()
-            ->map(function($b) {
+            ->map(function($b) use ($teamName, $teamStocksMap) {
                 $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
                              (isset($b->category) && strtolower($b->category) === 'non-book') ||
                              (isset($b->book_type) && strtolower($b->book_type) === 'non-book');
                 $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
                 $fullName = $b->name . $typeSuffix;
                 $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
-                $mainStock = (int) ($b->main_stock ?? $b->stock ?? 0);
+
+                $stock = !empty($teamName) 
+                    ? (int)($teamStocksMap['book_' . $b->id] ?? 0)
+                    : (int)($b->main_stock ?? $b->stock ?? 0);
 
                 return (object)[
                     'id' => 'book_' . $b->id,
@@ -1801,22 +1765,25 @@ class MarketingController extends Controller
                     'book_id' => $b->id,
                     'name' => $fullName,
                     'category' => $isNonBook ? 'Non-Books' : 'Books',
-                    'display_name' => $prefix . $b->name . ' (Stock: ' . $mainStock . ')',
+                    'display_name' => $prefix . $b->name . ' (Stock: ' . $stock . ')',
                     'price' => (float) $b->price,
                     'isbn' => $b->isbn ?? $b->barcode ?? $b->sku ?? '',
-                    'stock' => $mainStock,
-                    'main_stock' => $mainStock,
+                    'stock' => $stock,
+                    'main_stock' => $stock,
                     'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg'),
                 ];
             });
 
         $indices = \App\Models\BookIndex::with('book')
             ->get()
-            ->map(function($idx) {
+            ->map(function($idx) use ($teamName, $teamStocksMap) {
                 $fullName = $idx->display_name;
                 $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
                 $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
-                $mainStock = (int) ($idx->main_stock ?? $idx->stock ?? 0);
+                $stock = !empty($teamName) 
+                    ? (int)($teamStocksMap['index_' . $idx->id] ?? 0)
+                    : (int)($idx->main_stock ?? $idx->stock ?? 0);
+
                 return (object)[
                     'id' => 'index_' . $idx->id,
                     'type' => 'index',
@@ -1824,11 +1791,11 @@ class MarketingController extends Controller
                     'book_id' => $idx->book_id,
                     'name' => $fullName,
                     'category' => 'Book Indices',
-                    'display_name' => '[Index] ' . $fullName . ' (Stock: ' . $mainStock . ')',
+                    'display_name' => '[Index] ' . $fullName . ' (Stock: ' . $stock . ')',
                     'price' => $price,
                     'isbn' => $idx->book?->isbn ?? '',
-                    'stock' => $mainStock,
-                    'main_stock' => $mainStock,
+                    'stock' => $stock,
+                    'main_stock' => $stock,
                     'image' => $img,
                 ];
             });
@@ -1836,9 +1803,12 @@ class MarketingController extends Controller
         $bundles = \App\Models\BookBundle::where('is_active', true)
             ->orderBy('name')
             ->get()
-            ->map(function($bun) {
+            ->map(function($bun) use ($teamName, $teamStocksMap) {
                 $fullName = $bun->name . ' (bundle)';
-                $mainStock = (int) ($bun->main_stock ?? $bun->stock ?? 0);
+                $stock = !empty($teamName) 
+                    ? (int)($teamStocksMap['bundle_' . $bun->id] ?? 0)
+                    : (int)($bun->main_stock ?? $bun->stock ?? 0);
+
                 return (object)[
                     'id' => 'bundle_' . $bun->id,
                     'type' => 'bundle',
@@ -1846,11 +1816,11 @@ class MarketingController extends Controller
                     'book_id' => null,
                     'name' => $fullName,
                     'category' => 'Book Bundles',
-                    'display_name' => '[Bundle] ' . $bun->name . ' (Stock: ' . $mainStock . ')',
+                    'display_name' => '[Bundle] ' . $bun->name . ' (Stock: ' . $stock . ')',
                     'price' => (float) $bun->price,
                     'isbn' => $bun->sku ?? '',
-                    'stock' => $mainStock,
-                    'main_stock' => $mainStock,
+                    'stock' => $stock,
+                    'main_stock' => $stock,
                     'image' => asset('images/no-book-cover.svg'),
                 ];
             });
@@ -2003,7 +1973,26 @@ class MarketingController extends Controller
             }
 
             if (!empty($userTeam)) {
-                $ts = \App\Models\TeamStock::where('team_name', $userTeam)
+                $rawTeam = trim($userTeam);
+                $cleanName = trim(preg_replace('/^(site\s+|team\s+)+/i', '', $rawTeam));
+                $variations = array_unique([
+                    $rawTeam,
+                    'Team ' . $cleanName,
+                    'SITE TEAM ' . strtoupper($cleanName),
+                    'SITE TEAM ' . $cleanName,
+                    'SITE ' . strtoupper($cleanName),
+                    'SITE ' . $cleanName,
+                    $cleanName,
+                    strtoupper($rawTeam),
+                    strtolower($rawTeam),
+                ]);
+
+                $ts = \App\Models\TeamStock::where(function($q) use ($variations) {
+                        foreach ($variations as $var) {
+                            $q->orWhere('team_name', $var)
+                              ->orWhereRaw('LOWER(team_name) = ?', [strtolower($var)]);
+                        }
+                    })
                     ->where(function($q) use ($target) {
                         if (!empty($target['book_index_id'])) $q->where('book_index_id', $target['book_index_id']);
                         elseif (!empty($target['book_id'])) $q->where('book_id', $target['book_id']);

@@ -288,8 +288,8 @@ class FORDController extends Controller
     public function salesOrderCreate()
     {
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
-        $books = \App\Models\Book::orderBy('name', 'asc')->get();
-        $products = (new \App\Http\Controllers\MarketingController)->getUnifiedProducts();
+        $books = [];
+        $products = [];
         $areaSalesStaff = \App\Models\User::where(function($q) {
             $q->where('position', 'like', '%Sales%')
               ->orWhere('position', 'like', '%Area%');
@@ -304,6 +304,97 @@ class FORDController extends Controller
             'products' => $products,
             'areaSalesStaff' => $areaSalesStaff,
         ]);
+    }
+
+    public function searchProducts(Request $request)
+    {
+        $term = trim($request->input('q', ''));
+        $limit = 30;
+
+        $booksQuery = \App\Models\Book::where('is_active', true);
+        if ($term !== '') {
+            $booksQuery->where(function($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                  ->orWhere('sku', 'like', "%{$term}%")
+                  ->orWhere('barcode', 'like', "%{$term}%")
+                  ->orWhere('item_code', 'like', "%{$term}%");
+            });
+        }
+        $books = $booksQuery->select(['id', 'name', 'price', 'sku', 'barcode', 'item_code', 'is_book', 'category', 'book_type', 'image', 'stock'])
+            ->limit($limit)
+            ->get()
+            ->map(function($b) {
+                $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
+                             (isset($b->category) && strtolower($b->category) === 'non-book') ||
+                             (isset($b->book_type) && strtolower($b->book_type) === 'non-book');
+                $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
+                $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
+                $code = $b->barcode ?: ($b->sku ?: ($b->item_code ?: ''));
+                $price = (float)$b->price;
+                return [
+                    'id' => 'book_' . $b->id,
+                    'text' => $prefix . $b->name . $typeSuffix . ' - ₱' . number_format($price, 2) . ($code ? " ({$code})" : ''),
+                    'name' => $b->name . $typeSuffix,
+                    'price' => $price,
+                    'isbn' => $code,
+                    'stock' => (int)($b->stock ?? 0)
+                ];
+            });
+
+        $remainingLimit = max(0, $limit - $books->count());
+        $indices = collect();
+        if ($remainingLimit > 0) {
+            $idxQuery = \App\Models\BookIndex::with('book');
+            if ($term !== '') {
+                $idxQuery->where(function($q) use ($term) {
+                    $q->whereHas('book', function($bq) use ($term) {
+                        $bq->where('name', 'like', "%{$term}%");
+                    })
+                    ->orWhere('index_value', 'like', "%{$term}%")
+                    ->orWhere('custom_name', 'like', "%{$term}%")
+                    ->orWhere('barcode', 'like', "%{$term}%");
+                });
+            }
+            $indices = $idxQuery->limit($remainingLimit)->get()->map(function($idx) {
+                $code = $idx->barcode ?: ($idx->book?->barcode ?: ($idx->book?->sku ?: ''));
+                $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+                $dispName = $idx->display_name ?? ($idx->custom_name ?: ($idx->book?->name . ' - ' . $idx->index_value));
+                return [
+                    'id' => 'index_' . $idx->id,
+                    'text' => '[Index] ' . $dispName . ' - ₱' . number_format($price, 2) . ($code ? " ({$code})" : ''),
+                    'name' => $dispName,
+                    'price' => $price,
+                    'isbn' => $code,
+                    'stock' => (int)($idx->stock ?? 0)
+                ];
+            });
+        }
+
+        $remainingLimit2 = max(0, $limit - $books->count() - $indices->count());
+        $bundles = collect();
+        if ($remainingLimit2 > 0) {
+            $bunQuery = \App\Models\BookBundle::where('is_active', true);
+            if ($term !== '') {
+                $bunQuery->where(function($q) use ($term) {
+                    $q->where('name', 'like', "%{$term}%")
+                      ->orWhere('sku', 'like', "%{$term}%");
+                });
+            }
+            $bundles = $bunQuery->limit($remainingLimit2)->get()->map(function($bun) {
+                $price = (float)$bun->price;
+                return [
+                    'id' => 'bundle_' . $bun->id,
+                    'text' => '[Bundle] ' . $bun->name . ' (bundle) - ₱' . number_format($price, 2),
+                    'name' => $bun->name . ' (bundle)',
+                    'price' => $price,
+                    'isbn' => $bun->sku ?? '',
+                    'stock' => (int)($bun->stock ?? 0)
+                ];
+            });
+        }
+
+        $results = $books->concat($indices)->concat($bundles)->values();
+        return response()->json(['results' => $results]);
     }
 
     public function reviewSalesOrder($id)
