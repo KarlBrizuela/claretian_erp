@@ -312,7 +312,28 @@
                                                                     @if(!empty($order->helper))
                                                                         <span class="text-muted extra-small d-block"><i class="las la-user-friends me-1"></i>Helper: {{ $order->helper }}</span>
                                                                     @endif
-                                                                    <button type="button" class="btn btn-link btn-xs p-0 text-primary border-0" data-bs-toggle="modal" data-bs-target="#assignDriverModal{{ $order->id }}">Change</button>
+                                                                    @if($order->driver_approval_status === 'pending_approval')
+                                                                        <div class="mt-1">
+                                                                            <span class="badge bg-warning text-dark font-w500 fs-11 mb-1 d-inline-block"><i class="las la-clock me-1"></i>Pending Approval</span>
+                                                                            <div class="d-flex gap-1 mt-1">
+                                                                                <form action="{{ route('production.logistic.approve-driver', $order->id) }}" method="POST" class="d-inline">
+                                                                                    @csrf
+                                                                                    <button type="submit" class="btn btn-success btn-xxs px-2 shadow-sm" title="Approve Driver Assignment">
+                                                                                        <i class="las la-check me-1"></i>Approve
+                                                                                    </button>
+                                                                                </form>
+                                                                                <form action="{{ route('production.logistic.reject-driver', $order->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reject this driver assignment?');">
+                                                                                    @csrf
+                                                                                    <button type="submit" class="btn btn-danger btn-xxs px-2 shadow-sm" title="Reject Driver Assignment">
+                                                                                        <i class="las la-times me-1"></i>Reject
+                                                                                    </button>
+                                                                                </form>
+                                                                            </div>
+                                                                        </div>
+                                                                    @elseif($order->driver_approval_status === 'approved')
+                                                                        <span class="badge bg-success text-white font-w500 fs-11 mt-1 d-inline-block"><i class="las la-check-circle me-1"></i>Approved</span>
+                                                                    @endif
+                                                                    <button type="button" class="btn btn-link btn-xs p-0 text-primary border-0 ms-1" data-bs-toggle="modal" data-bs-target="#assignDriverModal{{ $order->id }}">Change</button>
                                                                 </div>
                                                             </div>
                                                         @else
@@ -361,7 +382,10 @@
                                                             @php
                                                                 $canDeliver = true;
                                                                 $disableReason = '';
-                                                                if ($order->type === 'paid') {
+                                                                if ($order->driver_approval_status === 'pending_approval') {
+                                                                    $canDeliver = false;
+                                                                    $disableReason = 'Driver assignment pending approval';
+                                                                } elseif ($order->type === 'paid') {
                                                                     $canDeliver = true;
                                                                 } elseif ($order->transaction_type === 'COD') {
                                                                     $collection = \App\Models\RiderCollection::where('sales_order_id', $order->id)->first();

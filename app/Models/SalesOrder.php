@@ -81,6 +81,9 @@ class SalesOrder extends Model
         'freight_option',
         'forwarder',
         'ecom_payout_status',
+        'driver_approval_status',
+        'driver_approved_by',
+        'driver_approved_at',
     ];
 
     public function customer()
@@ -91,6 +94,11 @@ class SalesOrder extends Model
     public function areaSalesStaff()
     {
         return $this->belongsTo(User::class, 'area_sales_staff_id');
+    }
+
+    public function driverApprovedBy()
+    {
+        return $this->belongsTo(User::class, 'driver_approved_by');
     }
 
     public function items()

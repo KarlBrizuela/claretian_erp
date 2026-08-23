@@ -144,6 +144,8 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/delivery-scheduling/{id}/picked-up', [App\Http\Controllers\Production\LogisticController::class, 'markAsPickedUp'])->name('mark-as-picked-up');
       Route::post('/delivery-scheduling/{id}/move-back-to-delivery', [App\Http\Controllers\Production\LogisticController::class, 'moveBackToDelivery'])->name('move-back-to-delivery');
       Route::post('/delivery-scheduling/{id}/assign-driver', [App\Http\Controllers\Production\LogisticController::class, 'assignDriver'])->name('assign-driver');
+      Route::post('/delivery-scheduling/{id}/approve-driver', [App\Http\Controllers\Production\LogisticController::class, 'approveDriverAssignment'])->name('approve-driver');
+      Route::post('/delivery-scheduling/{id}/reject-driver', [App\Http\Controllers\Production\LogisticController::class, 'rejectDriverAssignment'])->name('reject-driver');
       Route::get('/delivery-scheduling/{id}/transmittal', [App\Http\Controllers\Production\LogisticController::class, 'printTransmittal'])->name('print-transmittal');
       Route::get('/driver-dashboard', [App\Http\Controllers\Production\LogisticController::class, 'driverDashboard'])->name('driver-dashboard');
       Route::get('/delivery-tracking', [App\Http\Controllers\Production\LogisticController::class, 'deliveryTracking'])->name('delivery-tracking');
