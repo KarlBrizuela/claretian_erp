@@ -1451,7 +1451,7 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::with('customer', 'items.product', 'preparedBy')->findOrFail($id);
 
-    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']);
+    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || strtolower($order->transaction_type ?? '') === 'charge';
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Sales Order #' . $order->so_number . ' does not have a Proof of Payment attached.');
@@ -1480,7 +1480,7 @@ public function checkVoucher()
       $order->save();
     }
 
-    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary']) || $order->transaction_type === 'charge';
+    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || strtolower($order->transaction_type ?? '') === 'charge';
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->route('admin-finance.accounting.sales-invoice')->with('error', 'Cannot proceed. Proof of Payment is required for Paid transactions before Sales Invoice can be generated.');
@@ -1728,7 +1728,7 @@ public function checkVoucher()
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
-    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary']) || $order->transaction_type === 'charge';
+    $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || strtolower($order->transaction_type ?? '') === 'charge';
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Proof of Payment is required for Paid transactions before Sales Invoice can be signed.');
@@ -2588,11 +2588,24 @@ public function checkVoucher()
   public function invoice()
   {
     $invoices = \App\Models\SalesOrder::with(['customer', 'items.product'])
-      ->whereIn('status', ['ready_for_delivery', 'completed', 'verified', 'draft', 'pending_si_prep']) // Adjust statuses as needed based on "Order Fulfillment" context
+      ->whereIn('status', ['ready_for_delivery', 'completed', 'verified', 'draft', 'pending_si_prep', 'pending_dr_prep', 'pending_dr_approval'])
       ->latest()
       ->get();
 
     $products = \App\Models\Book::where('is_active', true)->orderBy('name')->get();
+
+    $bookSaleTeamStocks = \App\Models\TeamStock::whereIn('team_name', ['Book Sale', 'Book Sales', 'Book Sale Warehouse'])
+        ->get()
+        ->keyBy(function($item) {
+            return $item->book_id ?: ($item->book_index_id ?: ($item->book_bundle_id ?: ''));
+        });
+
+    $products->transform(function ($book) use ($bookSaleTeamStocks) {
+        $ts = $bookSaleTeamStocks->get($book->id);
+        $book->stock_booksale = $ts ? (int) $ts->quantity : 0;
+        $book->stock_main = (int) ($book->stock ?? 0);
+        return $book;
+    });
 
     return view('admin-finance.credit-collection.invoice.invoice', [
       'title' => 'Invoice',

@@ -1,6 +1,33 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
 @push('styles')
+<link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
 <style>
+    /* Create SI Modal Expansion */
+    @media (min-width: 1200px) {
+        #createSalesOrderModal .modal-dialog {
+            max-width: 1250px !important;
+        }
+    }
+    .select2-container--default .select2-selection--single {
+        height: 31px !important;
+        padding: 2px 6px !important;
+        font-size: 0.875rem !important;
+        border: 1px solid #ced4da !important;
+        border-radius: 0.25rem !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 25px !important;
+        color: #212529 !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 29px !important;
+    }
+    .select2-dropdown {
+        z-index: 99999 !important;
+        font-size: 0.875rem !important;
+        border-color: #ced4da !important;
+    }
+
     /* 1. Page Layout & Grid Width Expansion (Guideline 2) */
     .content-body .container-fluid {
         padding-left: 15px !important;
@@ -1815,6 +1842,14 @@
                                         </div>
 
                                         <div class="mb-2">
+                                            <label class="form-label fw-semibold text-dark small mb-1">Site: <span class="text-danger">*</span></label>
+                                            <select class="form-select form-select-sm" name="site_name" id="modalSiteSelect" required style="width: 100%;">
+                                                <option value="Main Warehouse" selected>Main Warehouse</option>
+                                                <option value="Book Sale">Book Sale</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-2">
                                             <label class="form-label fw-semibold text-dark small mb-1">Customer Name:</label>
                                             <select class="form-select form-select-sm" name="customer_representative" id="modalCustomerRepSelect">
                                                 <option value="">Select Representative...</option>
@@ -1924,15 +1959,15 @@
                                     <table class="table table-bordered align-middle mb-0" id="modalItemsTable" style="font-size: 12px; table-layout: fixed;">
                                         <thead style="background: #ff0000; color: #ffffff;">
                                             <tr>
-                                                <th style="width: 70px; color: #fff;">QTY</th>
-                                                <th style="width: 70px; color: #fff;">UNIT</th>
-                                                <th style="color: #fff;">DESCRIPTION / PRODUCT</th>
-                                                <th style="width: 110px; color: #fff;">ISBN</th>
-                                                <th style="width: 90px; color: #fff;">AREA</th>
-                                                <th style="width: 110px; color: #fff;">UNIT PRICE</th>
-                                                <th style="width: 120px; color: #fff;">DISCOUNT</th>
-                                                <th style="width: 110px; color: #fff;">AMOUNT</th>
-                                                <th style="width: 70px; color: #fff;" class="text-center">ACTION</th>
+                                                <th style="width: 65px; color: #fff; white-space: nowrap; text-align: center;">QTY</th>
+                                                <th style="width: 65px; color: #fff; white-space: nowrap; text-align: center;">UNIT</th>
+                                                <th style="color: #fff; white-space: nowrap;">DESCRIPTION / PRODUCT</th>
+                                                <th style="width: 105px; color: #fff; white-space: nowrap; text-align: center;">ISBN</th>
+                                                <th style="width: 80px; color: #fff; white-space: nowrap; text-align: center;">AREA</th>
+                                                <th style="width: 105px; color: #fff; white-space: nowrap; text-align: center;">UNIT PRICE</th>
+                                                <th style="width: 125px; color: #fff; white-space: nowrap; text-align: center;">DISCOUNT</th>
+                                                <th style="width: 110px; color: #fff; white-space: nowrap; text-align: center;">AMOUNT</th>
+                                                <th style="width: 75px; color: #fff; white-space: nowrap; text-align: center;">ACTION</th>
                                             </tr>
                                         </thead>
                                         <tbody id="modalItemsBody">
@@ -1940,32 +1975,32 @@
                                         </tbody>
                                         <tfoot class="bg-light">
                                             <tr>
-                                                <td colspan="7" class="text-end fw-bold text-uppercase">Items Subtotal:</td>
-                                                <td class="text-end fw-bold fs-6 text-dark" id="modalSubtotalAmount">₱ 0.00</td>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase" style="vertical-align: middle; white-space: nowrap;">Items Subtotal:</td>
+                                                <td class="text-end fw-bold fs-6 text-dark" id="modalSubtotalAmount" style="vertical-align: middle; white-space: nowrap;">₱ 0.00</td>
                                                 <td></td>
                                             </tr>
                                             <tr>
-                                                <td colspan="7" class="text-end fw-bold text-uppercase">
-                                                    <div class="d-inline-flex align-items-center justify-content-end gap-2">
-                                                        <span>Discount:</span>
-                                                        <input type="number" step="any" min="0" name="discount_value" id="modalDiscountValue" class="form-control form-control-sm text-end" style="width: 90px;" value="0">
-                                                        <select name="discount_type" id="modalDiscountType" class="form-select form-select-sm" style="width: 80px;">
+                                                <td colspan="7" class="text-end fw-bold text-uppercase" style="vertical-align: middle;">
+                                                    <div class="d-inline-flex align-items-center justify-content-end gap-2" style="white-space: nowrap;">
+                                                        <span class="fw-bold text-dark" style="font-size: 11px;">Discount:</span>
+                                                        <input type="number" step="any" min="0" name="discount_value" id="modalDiscountValue" class="form-control form-control-sm text-end bg-white shadow-none" style="width: 80px; display: inline-block; height: 30px;" value="0">
+                                                        <select name="discount_type" id="modalDiscountType" class="form-select form-select-sm bg-white shadow-none" style="width: 85px; display: inline-block; height: 30px; font-size: 11px;">
                                                             <option value="amount">₱ (Amt)</option>
                                                             <option value="percentage">% (Pct)</option>
                                                         </select>
                                                     </div>
                                                 </td>
-                                                <td class="text-end fw-bold fs-6 text-danger" id="modalDiscountAmountDisplay">- ₱ 0.00</td>
+                                                <td class="text-end fw-bold fs-6 text-danger" id="modalDiscountAmountDisplay" style="vertical-align: middle; white-space: nowrap;">- ₱ 0.00</td>
                                                 <td></td>
                                             </tr>
                                             <tr id="modalServiceFeeTotalRow" style="display: none;">
-                                                <td colspan="7" class="text-end fw-bold text-uppercase">Service Fee:</td>
-                                                <td class="text-end fw-bold fs-6 text-dark">₱ 50.00</td>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase" style="vertical-align: middle; white-space: nowrap;">Service Fee:</td>
+                                                <td class="text-end fw-bold fs-6 text-dark" style="vertical-align: middle; white-space: nowrap;">₱ 50.00</td>
                                                 <td></td>
                                             </tr>
                                             <tr>
-                                                <td colspan="7" class="text-end fw-bold text-uppercase">Total Amount:</td>
-                                                <td class="text-end fw-bold fs-5 text-success" id="modalGrandTotal">₱ 0.00</td>
+                                                <td colspan="7" class="text-end fw-bold text-uppercase" style="vertical-align: middle; white-space: nowrap;">Total Amount:</td>
+                                                <td class="text-end fw-bold fs-5 text-success" id="modalGrandTotal" style="vertical-align: middle; white-space: nowrap;">₱ 0.00</td>
                                                 <td></td>
                                             </tr>
                                         </tfoot>
@@ -1986,6 +2021,8 @@
         </div>
     </div>
 
+@push('scripts')
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const productsData = @json($products ?? []);
@@ -2005,9 +2042,68 @@
         const addressTextarea = document.getElementById('modalBillingAddress');
         const transactionTypeSelect = document.getElementById('modalTransactionType');
         const areaStaffGroup = document.getElementById('modalAreaSalesStaffGroup');
+        const siteSelect = document.getElementById('modalSiteSelect');
 
-        // Customer change auto-fill
-        if (customerSelect) {
+        function updateAllProductOptionsStock() {
+            const selectedSite = siteSelect ? siteSelect.value : 'Main Warehouse';
+            if (!itemsBody) return;
+            itemsBody.querySelectorAll('.item-product').forEach(select => {
+                Array.from(select.options).forEach(opt => {
+                    if (!opt.value) return;
+                    const stockMain = opt.getAttribute('data-stock-main') || 0;
+                    const stockBookSale = opt.getAttribute('data-stock-booksale') || 0;
+                    const stockVal = (selectedSite === 'Book Sale') ? stockBookSale : stockMain;
+                    const baseName = opt.textContent.replace(/\s*\(Stock:\s*\d+\)/, '');
+                    opt.textContent = `${baseName} (Stock: ${stockVal})`;
+                });
+                if (window.jQuery && typeof jQuery.fn.select2 === 'function' && $(select).data('select2')) {
+                    $(select).trigger('change.select2');
+                }
+            });
+        }
+
+        if (siteSelect) {
+            siteSelect.addEventListener('change', updateAllProductOptionsStock);
+        }
+
+        // Initialize Select2 on Customer (Company) dropdown
+        if (window.jQuery && typeof jQuery.fn.select2 === 'function' && customerSelect) {
+            $('#modalCustomerSelect').select2({
+                dropdownParent: $('#createSalesOrderModal'),
+                placeholder: 'Select Company...',
+                allowClear: true,
+                width: '100%'
+            }).on('change select2:select', function() {
+                const opt = this.options[this.selectedIndex];
+                if (!opt) return;
+                const addr = opt.getAttribute('data-address');
+                const phone = opt.getAttribute('data-phone');
+                const repsRaw = opt.getAttribute('data-representatives');
+
+                if (addressTextarea) addressTextarea.value = (addr && addr !== 'No address found') ? addr : '';
+                if (contactInput) contactInput.value = phone || '';
+
+                if (repSelect) {
+                    repSelect.innerHTML = '<option value="">Select Representative...</option>';
+                    if (repsRaw) {
+                        try {
+                            const reps = JSON.parse(repsRaw);
+                            if (Array.isArray(reps)) {
+                                reps.forEach(r => {
+                                    const rName = r.name || r.rep_name;
+                                    if (rName) {
+                                        const o = document.createElement('option');
+                                        o.value = rName;
+                                        o.textContent = rName;
+                                        repSelect.appendChild(o);
+                                    }
+                                });
+                            }
+                        } catch(e) {}
+                    }
+                }
+            });
+        } else if (customerSelect) {
             customerSelect.addEventListener('change', function() {
                 const opt = this.options[this.selectedIndex];
                 const addr = opt.getAttribute('data-address');
@@ -2107,17 +2203,21 @@
             if (!itemsBody) return;
             const rowIndex = itemsBody.children.length;
             const tr = document.createElement('tr');
+            const selectedSite = siteSelect ? siteSelect.value : 'Main Warehouse';
 
             let productOptions = '<option value="" selected disabled>Select Product...</option>';
             productsData.forEach(p => {
-                productOptions += `<option value="${p.id}" data-price="${p.price}" data-isbn="${p.isbn || ''}" data-stock="${p.stock || 0}">${p.display_name} (Stock: ${p.stock || 0})</option>`;
+                const stockMain = p.stock_main !== undefined ? p.stock_main : (p.stock || 0);
+                const stockBookSale = p.stock_booksale !== undefined ? p.stock_booksale : 0;
+                const stockVal = (selectedSite === 'Book Sale') ? stockBookSale : stockMain;
+                productOptions += `<option value="${p.id}" data-price="${p.price}" data-isbn="${p.isbn || ''}" data-stock-main="${stockMain}" data-stock-booksale="${stockBookSale}">${p.display_name} (Stock: ${stockVal})</option>`;
             });
 
             tr.innerHTML = `
                 <td><input type="number" min="1" class="form-control form-control-sm item-qty text-center" name="items[${rowIndex}][quantity]" value="1" required style="border: 1px solid #ced4da;"></td>
                 <td><input type="text" class="form-control form-control-sm text-center" name="items[${rowIndex}][unit]" value="pcs" style="border: 1px solid #ced4da;"></td>
                 <td>
-                    <select class="form-select form-select-sm item-product" name="items[${rowIndex}][product_id]" required style="border: 1px solid #ced4da;">
+                    <select class="form-select form-select-sm item-product" name="items[${rowIndex}][product_id]" required style="border: 1px solid #ced4da; width: 100%;">
                         ${productOptions}
                     </select>
                 </td>
@@ -2125,9 +2225,9 @@
                 <td><input type="text" class="form-control form-control-sm text-center" name="items[${rowIndex}][area]" placeholder="Area" style="border: 1px solid #ced4da;"></td>
                 <td><input type="number" step="0.01" min="0" class="form-control form-control-sm item-price text-end" name="items[${rowIndex}][price]" value="0.00" required style="border: 1px solid #ced4da;"></td>
                 <td>
-                    <div class="d-flex align-items-center gap-1">
-                        <input type="number" step="any" min="0" class="form-control form-control-sm item-disc-val text-end" name="items[${rowIndex}][discount_value]" value="0" style="border: 1px solid #ced4da; width: 55px;">
-                        <select class="form-select form-select-sm item-disc-type p-1" name="items[${rowIndex}][discount_type]" style="border: 1px solid #ced4da; width: 45px; font-size: 10px;">
+                    <div class="input-group input-group-sm">
+                        <input type="number" step="any" min="0" class="form-control form-control-sm item-disc-val text-end px-1 shadow-none" name="items[${rowIndex}][discount_value]" value="0" style="border: 1px solid #ced4da; height: 30px; font-size: 11px;">
+                        <select class="form-select form-select-sm item-disc-type px-1 bg-light shadow-none" name="items[${rowIndex}][discount_type]" style="border: 1px solid #ced4da; max-width: 48px; height: 30px; font-size: 10px;">
                             <option value="percentage">%</option>
                             <option value="amount">₱</option>
                         </select>
@@ -2149,7 +2249,23 @@
             const discTypeSelect = tr.querySelector('.item-disc-type');
             const removeBtn = tr.querySelector('.remove-row-btn');
 
-            if (prodSelect) {
+            if (window.jQuery && typeof jQuery.fn.select2 === 'function' && prodSelect) {
+                $(prodSelect).select2({
+                    dropdownParent: $('#createSalesOrderModal'),
+                    placeholder: 'Select Product...',
+                    allowClear: true,
+                    width: '100%'
+                }).on('change select2:select', function() {
+                    const selectedOpt = this.options[this.selectedIndex];
+                    if (selectedOpt) {
+                        const defaultPrice = selectedOpt.getAttribute('data-price') || 0;
+                        const isbn = selectedOpt.getAttribute('data-isbn') || '';
+                        if (priceInput) priceInput.value = parseFloat(defaultPrice).toFixed(2);
+                        if (isbnInput) isbnInput.value = isbn;
+                    }
+                    calculateModalTotals();
+                });
+            } else if (prodSelect) {
                 prodSelect.addEventListener('change', function() {
                     const selectedOpt = prodSelect.options[prodSelect.selectedIndex];
                     const defaultPrice = selectedOpt.getAttribute('data-price') || 0;
@@ -2186,4 +2302,5 @@
         }
     });
     </script>
+@endpush
 </x-app-layout>

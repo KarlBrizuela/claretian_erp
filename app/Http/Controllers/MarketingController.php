@@ -605,6 +605,7 @@ class MarketingController extends Controller
             'nbs_barcode' => 'nullable|string|max:255',
             'stock' => 'required|integer|min:0',
             'price' => 'nullable|numeric|min:0',
+            'mibf_price' => 'nullable|numeric|min:0',
         ]);
 
         \DB::transaction(function() use ($validated) {
@@ -657,6 +658,7 @@ class MarketingController extends Controller
             'nbs_barcode' => 'nullable|string|max:255',
             'stock' => 'required|integer|min:0',
             'price' => 'nullable|numeric|min:0',
+            'mibf_price' => 'nullable|numeric|min:0',
         ]);
 
         \DB::transaction(function() use ($validated, $id) {
@@ -801,6 +803,7 @@ class MarketingController extends Controller
             'max_stock' => 'nullable|integer',
             'cost' => 'nullable|numeric|min:0',
             'price' => 'nullable|numeric|min:0',
+            'mibf_price' => 'nullable|numeric|min:0',
             'shelf_number' => 'nullable|string|max:50',
             'rack_number' => 'nullable|string|max:50',
             'category' => 'nullable|string',
@@ -1347,6 +1350,7 @@ class MarketingController extends Controller
             'cogs_account' => 'nullable',
             'purchase_description' => 'nullable',
             'price' => 'nullable|numeric',
+            'mibf_price' => 'nullable|numeric|min:0',
             'category' => 'nullable|string',
             'category_id' => 'nullable|exists:book_categories,id',
             'sub_category_id' => 'nullable|exists:book_categories,id',
@@ -1965,7 +1969,15 @@ class MarketingController extends Controller
         $itemErrors = [];
         $userTeam = auth()->user()->sales_team ?? null;
 
-        if ($request->type === 'area_sales_consignment' && $request->filled('area_sales_staff_id')) {
+        if ($request->filled('site_name')) {
+            if ($request->site_name === 'Book Sale') {
+                $userTeam = 'Book Sale';
+            } elseif ($request->site_name === 'Main Warehouse') {
+                $userTeam = null;
+            }
+        }
+
+        if (empty($userTeam) && $request->type === 'area_sales_consignment' && $request->filled('area_sales_staff_id')) {
             $staff = \App\Models\User::find($request->area_sales_staff_id);
             if ($staff && $staff->sales_team) {
                 $userTeam = $staff->sales_team;
@@ -2039,6 +2051,14 @@ class MarketingController extends Controller
         }
 
         // 3. Create Header
+        $remarks = $request->remarks;
+        if ($request->filled('site_name')) {
+            $siteTag = "[SITE: " . trim($request->site_name) . "]";
+            if (!str_contains($remarks ?? '', '[SITE:')) {
+                $remarks = trim(($remarks ? $remarks . ' | ' : '') . $siteTag);
+            }
+        }
+
         $soData = [
             'customer_id' => $request->customer_id,
             'customer_representative' => $request->customer_representative,
@@ -2048,7 +2068,7 @@ class MarketingController extends Controller
             'status' => $initialStatus,
             'prepared_by' => auth()->id(),
             'approved_by_mkt' => $action === 'submit' ? auth()->id() : null, // Only set for submissions
-            'remarks' => $request->remarks,
+            'remarks' => $remarks,
             'terms' => $request->terms,
             'ref_number' => $request->ref_number,
             'billing_address' => $request->billing_address,
@@ -3414,6 +3434,7 @@ class MarketingController extends Controller
             ->get()
             ->map(function($b) use ($bookStocksMap) {
                 $stock = (int) ($bookStocksMap[$b->id] ?? 0);
+                $effectivePrice = ($b->mibf_price !== null && $b->mibf_price > 0) ? (float)$b->mibf_price : (float)$b->price;
                 return [
                     'id' => 'book_' . $b->id,
                     'type' => 'book',
@@ -3421,7 +3442,7 @@ class MarketingController extends Controller
                     'book_id' => $b->id,
                     'category' => 'books',
                     'name' => $b->name,
-                    'price' => (float)$b->price,
+                    'price' => $effectivePrice,
                     'stock' => $stock,
                     'barcode' => $b->barcode ?: ($b->isbn ?: ($b->sku ?: '')),
                     'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg')
@@ -3432,7 +3453,8 @@ class MarketingController extends Controller
         $indices = \App\Models\BookIndex::with('book')->get()
             ->map(function($idx) use ($indexStocksMap) {
                 $stock = (int) ($indexStocksMap[$idx->id] ?? 0);
-                $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+                $normalPrice = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+                $effectivePrice = ($idx->mibf_price !== null && $idx->mibf_price > 0) ? (float)$idx->mibf_price : $normalPrice;
                 $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
                 return [
                     'id' => 'index_' . $idx->id,
@@ -3442,7 +3464,7 @@ class MarketingController extends Controller
                     'book_index_id' => $idx->id,
                     'category' => 'indices',
                     'name' => $idx->display_name,
-                    'price' => $price,
+                    'price' => $effectivePrice,
                     'stock' => $stock,
                     'barcode' => $idx->barcode ?: ($idx->article ?: ($idx->nbs_barcode ?: '')),
                     'image' => $img
@@ -3455,6 +3477,7 @@ class MarketingController extends Controller
             ->get()
             ->map(function($nb) use ($bookStocksMap) {
                 $stock = (int) ($bookStocksMap[$nb->id] ?? 0);
+                $effectivePrice = ($nb->mibf_price !== null && $nb->mibf_price > 0) ? (float)$nb->mibf_price : (float)$nb->price;
                 return [
                     'id' => 'book_' . $nb->id,
                     'type' => 'book',
@@ -3462,7 +3485,7 @@ class MarketingController extends Controller
                     'book_id' => $nb->id,
                     'category' => 'non-books',
                     'name' => $nb->name,
-                    'price' => (float)$nb->price,
+                    'price' => $effectivePrice,
                     'stock' => $stock,
                     'barcode' => $nb->barcode ?: ($nb->sku ?: ($nb->item_code ?: '')),
                     'image' => $nb->image ? asset('storage/' . $nb->image) : asset('images/no-book-cover.svg')
@@ -3475,6 +3498,7 @@ class MarketingController extends Controller
             ->get()
             ->map(function($bun) use ($bundleStocksMap) {
                 $stock = (int) ($bundleStocksMap[$bun->id] ?? 0);
+                $effectivePrice = ($bun->mibf_price !== null && $bun->mibf_price > 0) ? (float)$bun->mibf_price : (float)$bun->price;
                 return [
                     'id' => 'bundle_' . $bun->id,
                     'type' => 'bundle',
@@ -3482,7 +3506,7 @@ class MarketingController extends Controller
                     'book_bundle_id' => $bun->id,
                     'category' => 'bundle',
                     'name' => $bun->name . ' (bundle)',
-                    'price' => (float)$bun->price,
+                    'price' => $effectivePrice,
                     'stock' => $stock,
                     'barcode' => $bun->sku ?: '',
                     'image' => asset('images/no-book-cover.svg')
@@ -3717,6 +3741,7 @@ class MarketingController extends Controller
             'sku' => 'required|string|unique:book_bundles,sku',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
+            'mibf_price' => 'nullable|numeric|min:0',
             'stock' => 'required|integer|min:0',
             'is_active' => 'nullable',
             'items' => 'required|array|min:1',
@@ -3729,6 +3754,7 @@ class MarketingController extends Controller
             'sku' => $validated['sku'],
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
+            'mibf_price' => $request->filled('mibf_price') ? $validated['mibf_price'] : null,
             'stock' => $validated['stock'],
             'is_active' => $request->has('is_active') ? (bool)$request->input('is_active') : true,
         ]);
@@ -3758,6 +3784,7 @@ class MarketingController extends Controller
             'sku' => 'required|string|unique:book_bundles,sku,' . $bundle->id,
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
+            'mibf_price' => 'nullable|numeric|min:0',
             'stock' => 'required|integer|min:0',
             'is_active' => 'nullable',
             'items' => 'required|array|min:1',
@@ -3770,6 +3797,7 @@ class MarketingController extends Controller
             'sku' => $validated['sku'],
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
+            'mibf_price' => $request->filled('mibf_price') ? $validated['mibf_price'] : null,
             'stock' => $validated['stock'],
             'is_active' => $request->has('is_active') ? (bool)$request->input('is_active') : true,
         ]);
@@ -3821,6 +3849,7 @@ class MarketingController extends Controller
             'max_stock' => 'nullable|integer',
             'cost' => 'nullable|numeric|min:0',
             'price' => 'nullable|numeric|min:0',
+            'mibf_price' => 'nullable|numeric|min:0',
             'shelf_number' => 'nullable|string|max:50',
             'rack_number' => 'nullable|string|max:50',
             'category' => 'nullable|string',
@@ -3849,6 +3878,7 @@ class MarketingController extends Controller
         $validated['cost'] = $validated['cost'] ?? 0;
         $validated['pages'] = $validated['pages'] ?? 0;
         $validated['price'] = $validated['price'] ?? 0;
+        $validated['mibf_price'] = $request->filled('mibf_price') ? $validated['mibf_price'] : null;
         $validated['is_active'] = $request->has('is_active');
         $validated['is_book'] = false;
 
@@ -3898,6 +3928,7 @@ class MarketingController extends Controller
             'cogs_account' => 'nullable',
             'purchase_description' => 'nullable',
             'price' => 'nullable|numeric',
+            'mibf_price' => 'nullable|numeric|min:0',
             'category' => 'nullable|string',
             'category_id' => 'nullable|exists:book_categories,id',
             'sub_category_id' => 'nullable|exists:book_categories,id',
@@ -3920,6 +3951,7 @@ class MarketingController extends Controller
         $validated['cost'] = $validated['cost'] ?? 0;
         $validated['pages'] = $validated['pages'] ?? 0;
         $validated['price'] = $validated['price'] ?? 0;
+        $validated['mibf_price'] = $request->filled('mibf_price') ? $validated['mibf_price'] : null;
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('books', 'public');

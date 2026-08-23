@@ -211,35 +211,6 @@ class POSController extends Controller
                         'source_price_at_sale'=> 0,
                     ]);
 
-                    // 2. Decrement bundle stock
-                    \App\Models\BookBundle::where('id', $bundle->id)->decrement('stock', $qty);
-
-                    // 3. Decrement each book's stock and log inventory transactions
-                    foreach ($bundle->books as $book) {
-                        $bookQtyToDeduct = $book->pivot->quantity * $qty;
-
-                        $bookModel = Book::find($book->id);
-                        if ($bookModel) {
-                            $bookModel->stock -= $bookQtyToDeduct;
-                            $bookModel->save();
-                        }
-
-                        \App\Models\InventoryTransaction::create([
-                            'book_id'          => $book->id,
-                            'type'             => 'out',
-                            'quantity'         => $bookQtyToDeduct,
-                            'location'         => 'Main Warehouse',
-                            'source'           => 'POS Bundle Sale',
-                            'reference_number' => $orderNumber,
-                            'unit_cost'        => $book->cost ?? 0,
-                            'total_cost'       => $bookQtyToDeduct * ($book->cost ?? 0),
-                            'notes'            => "Bundle \"{$bundle->name}\" × {$qty} — POS Order #{$orderNumber}",
-                            'status'           => 'completed',
-                            'transaction_date' => now(),
-                            'user_id'          => auth()->id(),
-                        ]);
-                    }
-
                 } elseif (!empty($item['book_index_id'])) {
                     // ── Book Index item ───────────────────────────────────
                     $index = \App\Models\BookIndex::with('book')->find($item['book_index_id']);
@@ -259,35 +230,6 @@ class POSController extends Controller
                         'source_price_at_sale'=> $index ? ($index->price ?: ($index->book?->source_price ?? 0)) : 0,
                     ]);
 
-                    if ($index) {
-                        $index->stock = max(0, ($index->stock ?? 0) - $qty);
-                        $index->save();
-
-                        // Sync Main Warehouse site inventory for index
-                        $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
-                        if ($mainWarehouse) {
-                            \App\Models\SiteInventory::updateOrCreate(
-                                ['site_id' => $mainWarehouse->id, 'book_index_id' => $index->id],
-                                ['quantity' => $index->stock]
-                            );
-                        }
-
-                        \App\Models\InventoryTransaction::create([
-                            'book_id'          => $index->book_id,
-                            'type'             => 'out',
-                            'quantity'         => $qty,
-                            'location'         => 'Main Warehouse',
-                            'source'           => 'POS Index Sale',
-                            'reference_number' => $orderNumber,
-                            'unit_cost'        => $index->book?->cost ?? 0,
-                            'total_cost'       => $qty * ($index->book?->cost ?? 0),
-                            'notes'            => 'Index "' . $index->display_name . '" × ' . $qty . ' — POS Order #' . $orderNumber,
-                            'status'           => 'completed',
-                            'transaction_date' => now(),
-                            'user_id'          => auth()->id(),
-                        ]);
-                    }
-
                 } else {
                     // ── Regular book item ─────────────────────────────────
                     $book = Book::find($item['product_id']);
@@ -305,32 +247,12 @@ class POSController extends Controller
                         'unit'                => 'pcs',
                         'source_price_at_sale'=> $book ? $book->source_price : 0,
                     ]);
-
-                    $bookModel = Book::find($item['product_id']);
-                    if ($bookModel) {
-                        $bookModel->stock -= $qty;
-                        $bookModel->save();
-                    }
-
-                    if ($book) {
-                        \App\Models\InventoryTransaction::create([
-                            'book_id'          => $book->id,
-                            'type'             => 'out',
-                            'quantity'         => $qty,
-                            'location'         => 'Main Warehouse',
-                            'source'           => 'POS Calculator',
-                            'reference_number' => $orderNumber,
-                            'unit_cost'        => $book->cost ?? 0,
-                            'total_cost'       => $qty * ($book->cost ?? 0),
-                            'notes'            => 'POS Order #' . $orderNumber,
-                            'status'           => 'completed',
-                            'transaction_date' => now(),
-                            'user_id'          => auth()->id(),
-                        ]);
-                    }
                 }
             }
             // ────────────────────────────────────────────────────────────────
+
+            // Deduct stock via StockDeductionService (respects user sales_team vs Main Warehouse)
+            \App\Services\StockDeductionService::deductForSalesOrder($order);
 
             // Accounting integration
             $this->accounting->postSalesOrderEntry($order);
@@ -457,6 +379,10 @@ class POSController extends Controller
             'items.*.book_bundle_id' => 'nullable',
             'items.*.quantity' => 'required|numeric|min:0.1',
             'items.*.price' => 'required|numeric|min:0',
+            'items.*.discount_value' => 'nullable|numeric|min:0',
+            'items.*.discount_type' => 'nullable|string',
+            'items.*.discount_amount' => 'nullable|numeric|min:0',
+            'items.*.subtotal' => 'nullable|numeric|min:0',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
             'total' => 'required|numeric|min:0',
@@ -554,7 +480,7 @@ class POSController extends Controller
                 'so_number' => $orderNumber,
                 'type' => 'ecom_direct',
                 'status' => 'completed',
-                'platform' => $platformName,
+                'platform' => in_array(strtolower($platformName), ['lazada', 'shopee', 'tiktok', 'website', 'facebook', 'other']) ? strtolower($platformName) : 'other',
                 'ecom_platform' => $platformName,
                 'payment_method' => $validated['payment_method'],
                 'payment_status' => $paymentStatus,
@@ -585,14 +511,26 @@ class POSController extends Controller
                     if ($b) $sourcePrice = $b->source_price;
                 }
 
+                $qty = (float) $item['quantity'];
+                $price = (float) $item['price'];
+                $discVal = (float) ($item['discount_value'] ?? 0);
+                $discType = $item['discount_type'] ?? 'percentage';
+                $gross = $qty * $price;
+                $discAmount = $discType === 'percentage' ? $gross * ($discVal / 100) : $discVal;
+                $discAmount = min($gross, max(0, $discAmount));
+                $subtotal = isset($item['subtotal']) && $item['subtotal'] > 0 ? (float) $item['subtotal'] : max(0, $gross - $discAmount);
+
                 SalesOrderItem::create([
                     'sales_order_id' => $order->id,
                     'book_id' => $bookId,
                     'book_index_id' => $indexId,
                     'bundle_id' => $bundleId,
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'subtotal' => $item['quantity'] * $item['price'],
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'discount_value' => $discVal,
+                    'discount_type' => $discType,
+                    'discount_amount' => $discAmount,
+                    'subtotal' => $subtotal,
                     'unit' => 'pcs',
                     'source_price_at_sale' => $sourcePrice,
                 ]);

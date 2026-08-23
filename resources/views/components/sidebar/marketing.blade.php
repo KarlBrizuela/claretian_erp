@@ -151,14 +151,14 @@
 	</div>
 	@endif
 
-	<!-- E-Com -->
+	<!-- MIBF POS -->
 	@if($hasEcom)
 	<div class="modern-nav-group {{ request()->is('marketing/ecom-pos*') ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="ecom">
 			<div class="modern-nav-icon">
 				<i class="las la-shopping-cart"></i>
 			</div>
-			<span class="modern-nav-label">E-Com</span>
+			<span class="modern-nav-label">MIBF POS</span>
 			<i class="modern-nav-arrow las la-chevron-right"></i>
 		</a>
 		<div class="modern-nav-submenu">

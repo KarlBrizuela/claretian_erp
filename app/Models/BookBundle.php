@@ -14,12 +14,14 @@ class BookBundle extends Model
         'sku',
         'description',
         'price',
+        'mibf_price',
         'stock',
         'is_active',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'mibf_price' => 'decimal:2',
         'stock' => 'integer',
         'is_active' => 'boolean',
     ];

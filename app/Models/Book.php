@@ -49,6 +49,7 @@ class Book extends Model
         'consignment_owner_id',
         'source_price',
         'markup_amount',
+        'mibf_price',
         'is_book',
     ];
 
@@ -69,6 +70,7 @@ class Book extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'mibf_price' => 'decimal:2',
         'is_active' => 'boolean',
         'cost' => 'decimal:2',
         'stock' => 'integer',

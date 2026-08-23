@@ -143,7 +143,7 @@
 
     @if($hasEcomM)
     <div class="modern-nav-group">
-        <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-shopping-cart"></i></div><span class="modern-nav-label">E-Com</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
+        <a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle"><div class="modern-nav-icon"><i class="las la-shopping-cart"></i></div><span class="modern-nav-label">MIBF POS</span><i class="modern-nav-arrow las la-chevron-right"></i></a>
         <div class="modern-nav-submenu"><a href="{{ route('marketing.ecom.pos') }}" class="modern-nav-subitem">MIBF POS</a></div>
     </div>
     @endif

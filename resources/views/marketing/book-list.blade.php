@@ -331,7 +331,8 @@
                                             <th>SKU</th>
                                             <th>Book Title</th>
                                             <th>Author</th>
-                                            <th>Price</th>
+                                            <th>Selling Price</th>
+                                            <th>MIBF Price</th>
                                             <th>Cost</th>
                                             <th>Stock</th>
                                             <th>Classification</th>
@@ -350,6 +351,7 @@
                                             <td>{{ $book->name }}</td>
                                             <td>{{ $book->author ?? 'N/A' }}</td>
                                             <td>₱{{ number_format($book->price, 2) }}</td>
+                                            <td>{{ $book->mibf_price !== null ? '₱' . number_format($book->mibf_price, 2) : '-' }}</td>
                                             <td>₱{{ number_format($book->cost, 2) }}</td>
                                             <td>
                                                 @if($book->stock > 0)
@@ -670,6 +672,13 @@
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">₱</span>
                                         <input type="number" class="form-control" name="price" step="0.01">
+                                    </div>
+                                </div>
+                                <div class="form-row-custom">
+                                    <label>MIBF PRICE</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">₱</span>
+                                        <input type="number" class="form-control" name="mibf_price" step="0.01" min="0" placeholder="Optional">
                                     </div>
                                 </div>
                                 <div class="form-row-custom">
@@ -1040,6 +1049,8 @@
             bookForm.querySelector('[name="weight"]').value = data.weight || '';
             bookForm.querySelector('[name="cost"]').value = data.cost;
             bookForm.querySelector('[name="price"]').value = data.price;
+            const mibfEl = bookForm.querySelector('[name="mibf_price"]');
+            if (mibfEl) mibfEl.value = (data.mibf_price !== null && data.mibf_price !== undefined) ? data.mibf_price : '';
             calculateDollarPrice();
             bookForm.querySelector('[name="cogs_account"]').value = data.cogs_account || '';
             bookForm.querySelector('[name="reorder_point"]').value = data.reorder_point;

@@ -17,11 +17,13 @@ class BookIndex extends Model
         'nbs_barcode',
         'stock',
         'price',
+        'mibf_price',
     ];
 
     protected $casts = [
         'stock' => 'integer',
         'price' => 'decimal:2',
+        'mibf_price' => 'decimal:2',
     ];
 
     /**
