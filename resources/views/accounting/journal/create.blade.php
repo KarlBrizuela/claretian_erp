@@ -285,7 +285,7 @@
     @endpush
 
     @push('scripts')
-    <script src="{{ asset('vendor/select2/js/select2.min.js') }}"></script>
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
         jQuery(document).ready(function($) {
             // Use DOM count to be safer than PHP variable

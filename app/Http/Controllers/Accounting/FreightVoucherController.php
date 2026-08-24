@@ -70,8 +70,12 @@ class FreightVoucherController extends Controller
 
     public function create()
     {
-        $expenseAccounts = ChartOfAccount::where('type', 'Expense')
-            ->orWhereIn('code', ['5000', '5010', '5020', '5030', '6000'])
+        $expenseAccounts = ChartOfAccount::where('is_active', 1)
+            ->where('is_postable', 1)
+            ->where(function($query) {
+                $query->where('type', 'Expense')
+                      ->orWhereIn('code', ['5000', '5010', '5020', '5030', '6000']);
+            })
             ->orderBy('code')
             ->get();
 

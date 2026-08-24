@@ -20,8 +20,22 @@ class GeneralLedgerController extends Controller
         $sidebar = 'admin-finance';
         $role = 'Finance Manager';
 
-        // 1. Fetch all active accounts sorted by code
-        $accounts = ChartOfAccount::orderBy('code')->get();
+        // 1. Fetch active, postable accounts sorted by type hierarchy, display_order, and code
+        $accounts = ChartOfAccount::where('is_active', 1)
+            ->where('is_postable', 1)
+            ->orderByRaw("
+                CASE type
+                    WHEN 'Asset' THEN 1
+                    WHEN 'Liability' THEN 2
+                    WHEN 'Equity' THEN 3
+                    WHEN 'Income' THEN 4
+                    WHEN 'Expense' THEN 5
+                    ELSE 6
+                END,
+                display_order,
+                code
+            ")
+            ->get();
 
         // 2. Determine selected account
         $accountId = $request->input('account_id');

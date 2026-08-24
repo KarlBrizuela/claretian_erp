@@ -1,6 +1,39 @@
 <x-app-layout :title="'Purchasing & Procurement'" :sidebar="$sidebar ?? 'admin-finance'" :role="$role ?? 'Finance Manager'">
     @push('styles')
+    <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
+        /* Select2 theme overrides for consistent form height and border */
+        .select2-container--default .select2-selection--single {
+            border: 1px solid #cbd5e1 !important;
+            height: 38px !important;
+            border-radius: 4px !important;
+            display: flex;
+            align-items: center;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 38px !important;
+            padding-left: 12px !important;
+            font-size: 0.85rem !important;
+            color: #0f172a !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+        }
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default .select2-selection--single:focus {
+            border-color: #D9251C !important;
+            box-shadow: 0 0 0 2px rgba(217, 37, 28, 0.1) !important;
+        }
+        .select2-dropdown {
+            border-color: #cbd5e1 !important;
+            border-radius: 4px !important;
+        }
+        .select2-container--default .select2-search--dropdown .select2-search__field {
+            border-color: #cbd5e1 !important;
+            border-radius: 4px !important;
+            height: 32px !important;
+            font-size: 0.82rem !important;
+        }
         /* Widescreen Spacing Override */
         .content-body .container-fluid {
             padding-left: 15px !important;
@@ -520,7 +553,7 @@
     <!-- Modals -->
     @push('modals')
     <!-- Add Material Requisition Modal -->
-    <div class="modal fade" id="addRequisitionModal" tabindex="-1" aria-labelledby="addRequisitionModalLabel" aria-hidden="true">
+    <div class="modal fade" id="addRequisitionModal" aria-labelledby="addRequisitionModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header">
@@ -558,7 +591,12 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label for="reqSupplier" class="form-label">Supplier Reference</label>
-                            <input type="text" class="form-control" id="reqSupplier" placeholder="e.g. Pacific Paper Mills">
+                            <select class="form-control select2-supplier" id="reqSupplier" style="width: 100%;">
+                                <option value="">Select Supplier...</option>
+                                @foreach($suppliers as $supplier)
+                                    <option value="{{ $supplier->company_name }}">{{ $supplier->company_name }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label for="reqPO" class="form-label">PO # Reference</label>
@@ -674,7 +712,16 @@
     @endpush
 
     @push('scripts')
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
+        jQuery(document).ready(function($) {
+            $('.select2-supplier').select2({
+                placeholder: "Select Supplier...",
+                allowClear: true,
+                dropdownParent: $('#addRequisitionModal')
+            });
+        });
+
         function addReqRow() {
             const row = `
                 <tr>

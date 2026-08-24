@@ -47,13 +47,17 @@ class ProcurementController extends Controller
             $activeTab = 'receiving-reports';
         }
 
+        // 4. Fetch all suppliers for the dropdown
+        $suppliers = \App\Models\Supplier::orderBy('company_name')->get();
+
         return view('admin-finance.accounting.procurement', compact(
             'requisitions',
             'purchaseOrders',
             'receivingReports',
             'activeTab',
             'sidebar',
-            'role'
+            'role',
+            'suppliers'
         ));
     }
 }

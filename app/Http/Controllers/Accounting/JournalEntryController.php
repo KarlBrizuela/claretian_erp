@@ -84,8 +84,25 @@ class JournalEntryController extends Controller
             );
         }
 
-        // Fetch all active accounts from Chart of Accounts
-        $accounts = ChartOfAccount::orderBy('code')
+        // Fetch all active, postable accounts from Chart of Accounts sorted hierarchically
+        $accounts = ChartOfAccount::select('chart_of_accounts.*')
+            ->leftJoin('chart_of_accounts as p', 'chart_of_accounts.parent_id', '=', 'p.id')
+            ->where('chart_of_accounts.is_active', 1)
+            ->where('chart_of_accounts.is_postable', 1)
+            ->orderByRaw("
+                CASE chart_of_accounts.type
+                    WHEN 'Asset' THEN 1
+                    WHEN 'Liability' THEN 2
+                    WHEN 'Equity' THEN 3
+                    WHEN 'Income' THEN 4
+                    WHEN 'Expense' THEN 5
+                    ELSE 6
+                END,
+                COALESCE(p.display_order, chart_of_accounts.display_order),
+                COALESCE(p.code, chart_of_accounts.code),
+                chart_of_accounts.display_order,
+                chart_of_accounts.code
+            ")
             ->get();
         
         // Generate next Entry No (JV-YEAR-SEQ)
