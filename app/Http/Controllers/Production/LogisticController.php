@@ -1271,9 +1271,6 @@ class LogisticController extends Controller
     private function isAccountingOrderOrDr($order, $deliveryReceipt = null)
     {
         if ($order) {
-            if (in_array($order->status, ['ready_for_packing', 'ready_for_delivery', 'si_created', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval']) || !empty($order->dr_approved_at)) {
-                return true;
-            }
             if (str_contains($order->remarks ?? '', '[ACCOUNTING_DR]')) {
                 return true;
             }
@@ -1283,15 +1280,14 @@ class LogisticController extends Controller
             if (!$order->dr_prepared_by && $order->preparedBy && $this->isAccountingUser($order->preparedBy)) {
                 return true;
             }
-            $userTeam = $order->preparedBy->sales_team ?? $order->areaSalesStaff->sales_team ?? null;
-            if (!empty($userTeam)) {
-                return true;
+            if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+                $userTeam = $order->preparedBy->sales_team ?? $order->areaSalesStaff->sales_team ?? null;
+                if (!empty($userTeam)) {
+                    return true;
+                }
             }
         }
         if ($deliveryReceipt) {
-            if ($deliveryReceipt->status === 'completed') {
-                return true;
-            }
             if (str_contains($deliveryReceipt->notes ?? '', '[ACCOUNTING_DR]')) {
                 return true;
             }
@@ -1408,18 +1404,35 @@ class LogisticController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
 
-        $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance');
+        $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance') || str_contains($order->remarks ?? '', '[ACCOUNTING_DR]') || $this->isAccountingOrderOrDr($order);
         $remarks = $order->remarks ?? '';
-        if ($isAccountingContext && !str_contains($remarks, '[ACCOUNTING_DR]')) {
-            $remarks = trim($remarks . ' [ACCOUNTING_DR]');
+
+        if ($isAccountingContext) {
+            if (!str_contains($remarks, '[ACCOUNTING_DR]')) {
+                $remarks = trim($remarks . ' [ACCOUNTING_DR]');
+            }
+            $newStatus = 'pending_dr_approval';
+            $updateData = [
+                'status' => $newStatus,
+                'dr_prepared_at' => now(),
+                'dr_prepared_by' => auth()->id(),
+                'remarks' => $remarks
+            ];
+        } else {
+            // Logistics DR: clicking complete DR moves order to packing management
+            $newStatus = 'ready_for_packing';
+            $updateData = [
+                'status' => $newStatus,
+                'dr_prepared_at' => now(),
+                'dr_prepared_by' => auth()->id(),
+                'dr_approved_at' => now(),
+                'dr_approved_by' => auth()->id(),
+                'signed_at' => now(),
+                'remarks' => $remarks
+            ];
         }
 
-        $order->update([
-            'status' => 'pending_dr_approval',
-            'dr_prepared_at' => now(),
-            'dr_prepared_by' => auth()->id(),
-            'remarks' => $remarks
-        ]);
+        $order->update($updateData);
 
         $dr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();
         if ($dr) {
@@ -1428,7 +1441,7 @@ class LogisticController extends Controller
                 $drNotes = trim($drNotes . ' [ACCOUNTING_DR]');
             }
             $dr->update([
-                'status' => 'pending_approval',
+                'status' => $isAccountingContext ? 'pending_approval' : 'completed',
                 'prepared_by' => auth()->id(),
                 'notes' => $drNotes
             ]);
@@ -1436,16 +1449,15 @@ class LogisticController extends Controller
 
         \App\Models\ActivityLog::create([
             'user_id' => auth()->id(),
-            'action' => 'DR Prepared & Submitted for Approval',
-            'description' => "Delivery Receipt for Sales Order {$order->so_number} prepared and submitted to Approval Queue for approval.",
+            'action' => $isAccountingContext ? 'DR Prepared & Submitted for Approval' : 'DR Completed & Moved to Packing',
+            'description' => "Delivery Receipt for Sales Order {$order->so_number} " . ($isAccountingContext ? "prepared and submitted to Accounting for approval." : "completed and moved to Packing Management."),
             'reference_type' => 'SalesOrder',
             'reference_id' => $order->id,
         ]);
 
         $redirectRoute = $isAccountingContext ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
 
-        return redirect()->route($redirectRoute)
-            ->with('success', "Delivery Receipt for Sales Order #{$order->so_number} submitted for Approval! Sent to Approval Queue.");
+        return redirect()->route($redirectRoute)->with('success', 'DR completed for Order #' . $order->so_number . '.');
     }
 
 

@@ -190,6 +190,7 @@
         @media print {
             body {
                 background: #fff !important;
+                color: #000000 !important;
                 padding: 0 !important;
             }
             .dr-box {
@@ -202,6 +203,27 @@
             }
             .actions-bar {
                 display: none !important;
+            }
+            .receipt-table,
+            .receipt-table td,
+            .receipt-table th,
+            .receipt-table span,
+            .receipt-table div {
+                color: #000000 !important;
+                font-weight: 700 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .badge,
+            span.badge {
+                background: transparent !important;
+                background-color: transparent !important;
+                color: #000000 !important;
+                border: 1px solid #000000 !important;
+                font-weight: bold !important;
+                font-size: 10px !important;
+                padding: 1px 4px !important;
+                box-shadow: none !important;
             }
             @page {
                 size: letter portrait;
@@ -359,9 +381,39 @@
                         $totalItemDiscounts += $itemDiscountAmt;
                         $rowAmount = max(0, $itemSubtotal - $itemDiscountAmt);
                     @endphp
+                    @php
+                        $soNum = strtolower($order->so_number ?? '');
+                        $drNum = strtolower($deliveryReceipt->dr_number ?? '');
+                        $cName = strtolower($order->customer?->customer_name ?? '');
+                        $cRep = strtolower($order->customer_representative ?? '');
+                        $isNBS = str_contains($soNum, 'nbs') || 
+                                 str_contains($drNum, 'nbs') || 
+                                 str_contains($cName, 'national book store') || 
+                                 str_contains($cName, 'nbs') || 
+                                 str_contains($cRep, 'national book store') || 
+                                 str_contains($cRep, 'nbs');
+
+                        $articleNo = $item->article_number 
+                            ?? ($item->article 
+                            ?? ($item->bookIndex->article_number 
+                            ?? ($item->bookIndex->article 
+                            ?? ($item->book->article_number 
+                            ?? ($item->book->article 
+                            ?? ($item->bookIndex->barcode 
+                            ?? ($item->bookIndex->item_code 
+                            ?? ($item->book->sku 
+                            ?? ($item->book->item_code ?? null)))))))));
+                    @endphp
                     <tr>
                         <td style="text-align: center; font-weight: bold;">{{ $displayQty }}</td>
-                        <td style="font-weight: 600;">{{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}</td>
+                        <td style="font-weight: 600;">
+                            {{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}
+                            @if($isNBS && !empty($articleNo))
+                                <div style="font-size: 11px; font-weight: bold; color: #000; margin-top: 2px;">
+                                    Article #: {{ $articleNo }}
+                                </div>
+                            @endif
+                        </td>
                         <td style="text-align: right;">₱{{ number_format($unitPrice, 2) }}</td>
                         <td style="text-align: center;">
                             @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)

@@ -170,6 +170,28 @@
                                                 @php
                                                     $dItemName = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bundle ? $item->bundle->name : ($item->product ? $item->product->name : ($item->item_name ?? ($item->product_name ?? 'Unknown Item')))));
                                                     $dType = $item->item_type ?? ($item->bookIndex || !empty($item->book_index_id) ? 'Index' : (!empty($item->bundle_id) || !empty($item->bundle) ? 'Bundle' : 'Book'));
+
+                                                    $soNum = strtolower($order->so_number ?? '');
+                                                    $drNum = strtolower($deliveryReceipt->dr_number ?? '');
+                                                    $cName = strtolower($order->customer?->customer_name ?? '');
+                                                    $cRep = strtolower($order->customer_representative ?? '');
+                                                    $isNBS = str_contains($soNum, 'nbs') || 
+                                                             str_contains($drNum, 'nbs') || 
+                                                             str_contains($cName, 'national book store') || 
+                                                             str_contains($cName, 'nbs') || 
+                                                             str_contains($cRep, 'national book store') || 
+                                                             str_contains($cRep, 'nbs');
+
+                                                    $articleNo = $item->article_number 
+                                                        ?? ($item->article 
+                                                        ?? ($item->bookIndex->article_number 
+                                                        ?? ($item->bookIndex->article 
+                                                        ?? ($item->book->article_number 
+                                                        ?? ($item->book->article 
+                                                        ?? ($item->bookIndex->barcode 
+                                                        ?? ($item->bookIndex->item_code 
+                                                        ?? ($item->book->sku 
+                                                        ?? ($item->book->item_code ?? null)))))))));
                                                 @endphp
                                                 <div class="d-flex align-items-center flex-wrap gap-1">
                                                     <span class="fw-semibold text-dark">{{ $dItemName }}</span>
@@ -181,6 +203,11 @@
                                                         <span class="badge bg-primary ms-1" style="font-size: 11px; padding: 3px 7px;">Book</span>
                                                     @endif
                                                 </div>
+                                                @if($isNBS && !empty($articleNo))
+                                                    <div class="print-only-article" style="font-size: 11px; font-weight: bold; color: #000; margin-top: 2px;">
+                                                        Article #: {{ $articleNo }}
+                                                    </div>
+                                                @endif
                                             </td>
                                             @php
                                                 $drSym = (($order->currency ?? ($dr->salesOrder->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
@@ -843,7 +870,8 @@
             min-height: 80px;
         }
 
-        .print-only-remarks {
+        .print-only-remarks,
+        .print-only-article {
             display: none;
         }
 
@@ -950,14 +978,32 @@
 
             .receipt-table th {
                 background: #e9ecef !important;
-                color: #000 !important;
+                color: #000000 !important;
                 font-weight: bold !important;
                 text-transform: uppercase !important;
             }
 
             .receipt-table td {
-                background: #fff !important;
-                color: #000 !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                font-weight: 700 !important;
+            }
+
+            .receipt-table span,
+            .receipt-table div {
+                color: #000000 !important;
+            }
+
+            .badge,
+            span.badge {
+                background: transparent !important;
+                background-color: transparent !important;
+                color: #000000 !important;
+                border: 1px solid #000000 !important;
+                font-weight: bold !important;
+                font-size: 10px !important;
+                padding: 1px 4px !important;
+                box-shadow: none !important;
             }
 
             /* Show table inputs as text */
@@ -1081,6 +1127,14 @@
                 white-space: pre-wrap !important;
                 word-break: break-word !important;
                 min-height: 30px !important;
+            }
+
+            .print-only-article {
+                display: block !important;
+                font-size: 11px !important;
+                font-weight: bold !important;
+                color: #000 !important;
+                margin-top: 2px !important;
             }
 
             /* Signature section */

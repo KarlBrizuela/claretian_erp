@@ -310,23 +310,57 @@ class InventoryController extends Controller
         }
         $sites = $sitesQuery->paginate(10, ['*'], 'sites_page')->withQueryString();
 
-        // Fetch consignment inventory: 1. Area Consignment (grouped by area sales staff)
-        $areaOrders = \App\Models\SalesOrder::with(['areaSalesStaff', 'preparedBy', 'items.book', 'items.bookIndex', 'items.bookBundle'])
+        // Fetch consignment inventory: 1. Area Consignment (grouped BY CUSTOMER)
+        $areaOrders = \App\Models\SalesOrder::with(['customer', 'areaSalesStaff', 'preparedBy', 'items.book', 'items.bookIndex', 'items.bookBundle'])
             ->whereIn('type', ['area_consignment', 'area_sales_consignment'])
             ->whereNotIn('status', ['cancelled'])
             ->get();
 
-        $consignmentStaff = $areaOrders->groupBy(function($order) {
-            return $order->area_sales_staff_id ?: ($order->prepared_by ?: 0);
+        $consignmentStaffCollection = $areaOrders->groupBy(function($order) {
+            $rep = trim($order->customer_representative ?? '');
+            if (!empty($rep)) {
+                return 'rep_' . strtolower($rep);
+            }
+            return $order->customer_id ? 'cust_' . $order->customer_id : 'unassigned';
         })->map(function ($orders) {
             $first = $orders->first();
-            $staff = $first->areaSalesStaff ?: $first->preparedBy;
+            $rep = trim($first->customer_representative ?? '');
+            $cust = trim($first->customer->customer_name ?? ($first->customer->company_name ?? ''));
+
+            if (!empty($rep) && !empty($cust) && strtolower($rep) !== strtolower($cust)) {
+                $customerName = $rep;
+                $companyName = $cust;
+            } elseif (!empty($rep)) {
+                $customerName = $rep;
+                $companyName = null;
+            } else {
+                $customerName = $cust ?: 'Area Consignment Customer';
+                $companyName = null;
+            }
+            $staffName = $first->areaSalesStaff ? $first->areaSalesStaff->name : ($first->preparedBy ? $first->preparedBy->name : 'Area Sales Team');
+
+            $drNumbers = $orders->map(function($o) {
+                return 'DR-' . $o->so_number;
+            })->unique()->values()->toArray();
+
+            $drBreakdown = [];
             $bookMap = [];
             foreach ($orders as $order) {
+                $drNum = 'DR-' . $order->so_number;
+                $soDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('M d, Y') : null;
+                $drItems = [];
+
                 foreach ($order->items as $item) {
                     $name = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bookBundle ? $item->bookBundle->name : 'N/A'));
                     $sku = $item->bookIndex ? ($item->bookIndex->barcode ?: $item->bookIndex->article) : ($item->book ? ($item->book->sku ?: $item->book->item_code) : ($item->bookBundle ? $item->bookBundle->sku : ''));
                     $key = ($item->book_index_id ? 'idx_' . $item->book_index_id : ($item->book_id ? 'bk_' . $item->book_id : 'bdl_' . $item->book_bundle_id));
+                    $qty = (int) $item->quantity;
+
+                    $drItems[] = [
+                        'sku' => $sku,
+                        'name' => $name,
+                        'qty' => $qty,
+                    ];
 
                     if (!isset($bookMap[$key])) {
                         $bookMap[$key] = [
@@ -334,19 +368,49 @@ class InventoryController extends Controller
                             'sku' => $sku,
                             'total_qty' => 0,
                             'order_count' => 0,
+                            'drs' => [],
                         ];
                     }
-                    $bookMap[$key]['total_qty'] += (int) $item->quantity;
+                    $bookMap[$key]['total_qty'] += $qty;
                     $bookMap[$key]['order_count']++;
+                    if (!in_array($drNum, $bookMap[$key]['drs'])) {
+                        $bookMap[$key]['drs'][] = $drNum;
+                    }
                 }
+
+                $drBreakdown[] = [
+                    'dr_number' => $drNum,
+                    'so_number' => $order->so_number,
+                    'order_date' => $soDate,
+                    'items' => $drItems,
+                    'total_qty' => collect($drItems)->sum('qty'),
+                ];
             }
+
             return (object) [
-                'staff' => $staff,
+                'customer_name' => $customerName,
+                'company_name' => $companyName,
+                'staff_name' => $staffName,
+                'dr_numbers' => $drNumbers,
+                'dr_breakdown' => $drBreakdown,
                 'orders_count' => $orders->count(),
-                'books' => collect($bookMap)->sortBy(fn($b) => $b['name']),
+                'books' => collect($bookMap)->sortBy(fn($b) => $b['name'])->values(),
                 'total_items' => collect($bookMap)->sum('total_qty'),
             ];
-        })->sortBy(fn($s) => $s->staff->name ?? '');
+        })->sortBy(fn($c) => $c->customer_name)->values();
+
+        // Paginate Area Consignment
+        $currentPageArea = \Illuminate\Pagination\Paginator::resolveCurrentPage('area_consignment_page');
+        $perPageArea = 5;
+        $currentAreaItems = $consignmentStaffCollection->slice(($currentPageArea - 1) * $perPageArea, $perPageArea)->values();
+        $consignmentStaff = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentAreaItems,
+            $consignmentStaffCollection->count(),
+            $perPageArea,
+            $currentPageArea,
+            ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(), 'pageName' => 'area_consignment_page']
+        );
+        $consignmentStaff->withQueryString();
 
         // Fetch consignment inventory: 2. Direct Consignment (grouped by customer / NBS)
         $directOrders = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bookBundle'])
@@ -357,17 +421,50 @@ class InventoryController extends Controller
             ->whereNotIn('status', ['cancelled'])
             ->get();
 
-        $directConsignmentCustomers = $directOrders->groupBy(function($order) {
-            return $order->customer_id ?: ($order->customer_representative ?: 'NBS Consignment');
+        $directConsignmentCollection = $directOrders->groupBy(function($order) {
+            $rep = trim($order->customer_representative ?? '');
+            if (!empty($rep)) {
+                return 'rep_' . strtolower($rep);
+            }
+            return $order->customer_id ? 'cust_' . $order->customer_id : 'unassigned';
         })->map(function ($orders) {
             $first = $orders->first();
-            $customerName = $first->customer ? $first->customer->customer_name : ($first->customer_representative ?: 'Direct Consignment Customer');
+            $rep = trim($first->customer_representative ?? '');
+            $cust = trim($first->customer->customer_name ?? ($first->customer->company_name ?? ''));
+
+            if (!empty($rep) && !empty($cust) && strtolower($rep) !== strtolower($cust)) {
+                $customerName = $rep;
+                $companyName = $cust;
+            } elseif (!empty($rep)) {
+                $customerName = $rep;
+                $companyName = null;
+            } else {
+                $customerName = $cust ?: 'Direct Consignment Customer';
+                $companyName = null;
+            }
+
+            $drNumbers = $orders->map(function($o) {
+                return 'DR-' . $o->so_number;
+            })->unique()->values()->toArray();
+
+            $drBreakdown = [];
             $bookMap = [];
             foreach ($orders as $order) {
+                $drNum = 'DR-' . $order->so_number;
+                $soDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('M d, Y') : null;
+                $drItems = [];
+
                 foreach ($order->items as $item) {
                     $name = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bookBundle ? $item->bookBundle->name : 'N/A'));
                     $sku = $item->bookIndex ? ($item->bookIndex->barcode ?: $item->bookIndex->article) : ($item->book ? ($item->book->sku ?: $item->book->item_code) : ($item->bookBundle ? $item->bookBundle->sku : ''));
                     $key = ($item->book_index_id ? 'idx_' . $item->book_index_id : ($item->book_id ? 'bk_' . $item->book_id : 'bdl_' . $item->book_bundle_id));
+                    $qty = (int) $item->quantity;
+
+                    $drItems[] = [
+                        'sku' => $sku,
+                        'name' => $name,
+                        'qty' => $qty,
+                    ];
 
                     if (!isset($bookMap[$key])) {
                         $bookMap[$key] = [
@@ -375,19 +472,47 @@ class InventoryController extends Controller
                             'sku' => $sku,
                             'total_qty' => 0,
                             'order_count' => 0,
+                            'drs' => [],
                         ];
                     }
-                    $bookMap[$key]['total_qty'] += (int) $item->quantity;
+                    $bookMap[$key]['total_qty'] += $qty;
                     $bookMap[$key]['order_count']++;
+                    if (!in_array($drNum, $bookMap[$key]['drs'])) {
+                        $bookMap[$key]['drs'][] = $drNum;
+                    }
                 }
+
+                $drBreakdown[] = [
+                    'dr_number' => $drNum,
+                    'so_number' => $order->so_number,
+                    'order_date' => $soDate,
+                    'items' => $drItems,
+                    'total_qty' => collect($drItems)->sum('qty'),
+                ];
             }
             return (object) [
                 'customer_name' => $customerName,
+                'company_name' => $companyName,
+                'dr_numbers' => $drNumbers,
+                'dr_breakdown' => $drBreakdown,
                 'orders_count' => $orders->count(),
-                'books' => collect($bookMap)->sortBy(fn($b) => $b['name']),
+                'books' => collect($bookMap)->sortBy(fn($b) => $b['name'])->values(),
                 'total_items' => collect($bookMap)->sum('total_qty'),
             ];
-        })->sortBy(fn($c) => $c->customer_name);
+        })->sortBy(fn($c) => $c->customer_name)->values();
+
+        // Paginate Direct Consignment
+        $currentPageDirect = \Illuminate\Pagination\Paginator::resolveCurrentPage('direct_consignment_page');
+        $perPageDirect = 5;
+        $currentDirectItems = $directConsignmentCollection->slice(($currentPageDirect - 1) * $perPageDirect, $perPageDirect)->values();
+        $directConsignmentCustomers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentDirectItems,
+            $directConsignmentCollection->count(),
+            $perPageDirect,
+            $currentPageDirect,
+            ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(), 'pageName' => 'direct_consignment_page']
+        );
+        $directConsignmentCustomers->withQueryString();
 
         $sidebar = 'production';
         $role = 'Production Manager';
