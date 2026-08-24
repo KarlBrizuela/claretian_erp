@@ -590,6 +590,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Chart of Accounts
     Route::get('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'chartOfAccounts'])->name('admin-finance.accounting.chart-of-accounts');
+    Route::post('/chart-of-accounts/toggle', [App\Http\Controllers\AdminFinanceController::class, 'toggleAccountStatus'])->name('admin-finance.accounting.chart-of-accounts.toggle');
     Route::get('/sales-management', [App\Http\Controllers\AdminFinanceController::class, 'salesManagement'])->name('admin-finance.accounting.sales-management');
     Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');
     Route::get('/accounts-payable', [App\Http\Controllers\AdminFinanceController::class, 'accountsPayable'])->name('admin-finance.accounting.accounts-payable');

@@ -22,7 +22,9 @@
                                 <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: rgba(139, 92, 246, 0.08); color: #8b5cf6;">
                                     <i class="las la-piggy-bank fs-20"></i>
                                 </div>
-                                <span class="badge bg-soft-success text-success px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                                <span class="badge status-badge {{ ($accountDetails['3100']->is_active ?? 1) ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; cursor: pointer; {{ ($accountDetails['3100']->is_active ?? 1) ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}" data-type="coa" data-id="{{ $accountDetails['3100']->id ?? '' }}">
+                                    {{ ($accountDetails['3100']->is_active ?? 1) ? 'Active' : 'Inactive' }}
+                                </span>
                             </div>
                             <h6 class="mb-1 fw-bold fs-14" style="color: #000000; letter-spacing: -0.2px;">Capital</h6>
                             <p class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4; min-height: 38px;">Paid-in contributions and owner investment funds.</p>
@@ -44,7 +46,9 @@
                                 <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: rgba(139, 92, 246, 0.08); color: #8b5cf6;">
                                     <i class="las la-history fs-20"></i>
                                 </div>
-                                <span class="badge bg-soft-success text-success px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                                <span class="badge status-badge {{ ($accountDetails['3000']->is_active ?? 1) ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; cursor: pointer; {{ ($accountDetails['3000']->is_active ?? 1) ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}" data-type="coa" data-id="{{ $accountDetails['3000']->id ?? '' }}">
+                                    {{ ($accountDetails['3000']->is_active ?? 1) ? 'Active' : 'Inactive' }}
+                                </span>
                             </div>
                             <h6 class="mb-1 fw-bold fs-14" style="color: #000000; letter-spacing: -0.2px;">Retained Earnings</h6>
                             <p class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4; min-height: 38px;">Accumulated net earnings from previous fiscal periods, undistributed to owners.</p>
@@ -66,7 +70,9 @@
                                 <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: rgba(139, 92, 246, 0.08); color: #8b5cf6;">
                                     <i class="las la-chart-line fs-20"></i>
                                 </div>
-                                <span class="badge bg-soft-success text-success px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                                <span class="badge status-badge {{ ($accountDetails['3200']->is_active ?? 1) ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; cursor: pointer; {{ ($accountDetails['3200']->is_active ?? 1) ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}" data-type="coa" data-id="{{ $accountDetails['3200']->id ?? '' }}">
+                                    {{ ($accountDetails['3200']->is_active ?? 1) ? 'Active' : 'Inactive' }}
+                                </span>
                             </div>
                             <h6 class="mb-1 fw-bold fs-14" style="color: #000000; letter-spacing: -0.2px;">Current Year Income</h6>
                             <p class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4; min-height: 38px;">Net profit or loss generated in the current active fiscal year.</p>
