@@ -1,4 +1,12 @@
 <x-app-layout :title="'Make General Journal Entries'" :sidebar="'admin-finance'">
+@php
+    $assets = $accounts->where('type', 'Asset')->where('category', '!=', 'Cash & Bank');
+    $bankAccounts = $accounts->where('type', 'Asset')->where('category', 'Cash & Bank');
+    $liabilities = $accounts->where('type', 'Liability');
+    $income = $accounts->where('type', 'Income');
+    $expenses = $accounts->where('type', 'Expense');
+    $equity = $accounts->where('type', 'Equity');
+@endphp
     <div class="row">
         <div class="col-xl-12 col-lg-12">
             <div class="card shadow-sm border-0" style="border-radius: 6px; border: 1px solid #e2e8f0; background: #ffffff;">
@@ -65,9 +73,48 @@
                                         <td>
                                             <select name="items[{{ $i }}][account_id]" class="form-control select2-account">
                                                 <option value="">Select Account</option>
-                                                @foreach($accounts as $account)
-                                                <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
-                                                @endforeach
+                                                @if($assets->isNotEmpty())
+                                                    <optgroup label="ASSETS">
+                                                        @foreach($assets as $account)
+                                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @endif
+                                                @if($bankAccounts->isNotEmpty())
+                                                    <optgroup label="BANK ACCOUNTS">
+                                                        @foreach($bankAccounts as $account)
+                                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @endif
+                                                @if($liabilities->isNotEmpty())
+                                                    <optgroup label="LIABILITIES">
+                                                        @foreach($liabilities as $account)
+                                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @endif
+                                                @if($income->isNotEmpty())
+                                                    <optgroup label="INCOME">
+                                                        @foreach($income as $account)
+                                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @endif
+                                                @if($expenses->isNotEmpty())
+                                                    <optgroup label="EXPENSES">
+                                                        @foreach($expenses as $account)
+                                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @endif
+                                                @if($equity->isNotEmpty())
+                                                    <optgroup label="EQUITY">
+                                                        @foreach($equity as $account)
+                                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @endif
                                             </select>
                                         </td>
                                         <td>
@@ -311,9 +358,48 @@
                         <td>
                             <select name="items[${rowIdx}][account_id]" class="form-control select2-account">
                                 <option value="">Select Account</option>
-                                @foreach($accounts as $account)
-                                <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
-                                @endforeach
+                                @if($assets->isNotEmpty())
+                                    <optgroup label="ASSETS">
+                                        @foreach($assets as $account)
+                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($bankAccounts->isNotEmpty())
+                                    <optgroup label="BANK ACCOUNTS">
+                                        @foreach($bankAccounts as $account)
+                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($liabilities->isNotEmpty())
+                                    <optgroup label="LIABILITIES">
+                                        @foreach($liabilities as $account)
+                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($income->isNotEmpty())
+                                    <optgroup label="INCOME">
+                                        @foreach($income as $account)
+                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($expenses->isNotEmpty())
+                                    <optgroup label="EXPENSES">
+                                        @foreach($expenses as $account)
+                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($equity->isNotEmpty())
+                                    <optgroup label="EQUITY">
+                                        @foreach($equity as $account)
+                                            <option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
                             </select>
                         </td>
                         <td>
