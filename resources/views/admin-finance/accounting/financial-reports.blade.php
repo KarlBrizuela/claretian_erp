@@ -1,9 +1,17 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
     <style>
+        /* Viewport spacing & gutter override */
+        .content-body .container-fluid {
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+            max-width: 100% !important;
+            padding-bottom: 80px !important;
+        }
+
         .rpt-header-card {
             background: #fff;
-            border-radius: 8px;
+            border-radius: 10px;
             padding: 1.5rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             border: 1px solid #e2e8f0;
@@ -19,61 +27,191 @@
         }
 
         .rpt-sidebar-item {
-            font-size: 0.88rem;
+            font-size: 0.86rem;
             font-weight: 500;
             color: #475569 !important;
-            border-left: 3px solid transparent !important;
+            transition: all 0.15s ease-in-out;
+            padding: 10px 16px !important;
+            border-radius: 6px !important;
+            margin: 2px 10px !important;
+            display: flex;
+            align-items: center;
+            border: none !important;
+        }
+
+        .rpt-sidebar-item i {
+            font-size: 1.1rem;
+            color: #64748b;
             transition: all 0.15s ease-in-out;
         }
 
         .rpt-sidebar-item:hover {
-            background-color: #f1f5f9;
+            background-color: #f1f5f9 !important;
             color: #0f172a !important;
-            border-left-color: #cbd5e1 !important;
+        }
+
+        .rpt-sidebar-item:hover i {
+            color: #0f172a;
         }
 
         .rpt-sidebar-item.active {
-            background-color: #fef2f2 !important;
+            background-color: rgba(217, 37, 28, 0.08) !important;
             color: #D9251C !important;
             font-weight: 600;
-            border-left-color: #D9251C !important;
         }
 
-        .statement-table th {
-            background-color: #1e293b;
-            color: #fff;
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.5px;
-            padding: 10px 12px;
+        .rpt-sidebar-item.active i {
+            color: #D9251C;
         }
 
-        .statement-table td {
-            padding: 10px 12px;
-            font-size: 0.88rem;
+        .rpt-sidebar-header {
+            padding: 14px 20px 8px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            font-size: 0.68rem !important;
+            letter-spacing: 0.8px !important;
+            color: #64748b !important;
+            background-color: transparent !important;
+            border: none !important;
         }
 
+        /* Modern Table Designs & Enforced Sans-Serif Font */
         .table-responsive {
-            border-radius: 6px;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
         }
 
         .table-responsive .table {
             margin-bottom: 0;
+            border: none !important;
+        }
+
+        .table-responsive .table th,
+        .table-responsive .table td,
+        .statement-table th,
+        .statement-table td {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+        }
+
+        .table-responsive .table th {
+            background-color: #f8fafc !important;
+            color: #475569 !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            font-size: 0.72rem !important;
+            letter-spacing: 0.8px !important;
+            padding: 12px 16px !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-right: none !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+        }
+
+        .table-responsive .table td {
+            padding: 12px 16px !important;
+            font-size: 0.84rem !important;
+            color: #475569 !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-right: none !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            background-color: transparent !important;
+        }
+
+        .table-responsive .table td .highlight-text {
+            color: #0f172a !important;
+            font-weight: 600;
+        }
+
+        .table-responsive .table tbody tr {
+            transition: all 0.15s ease-in-out !important;
+        }
+
+        .table-responsive .table tbody tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        /* Input styling & Enforced Sans-Serif Font */
+        .form-control-custom {
+            height: 38px !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 6px !important;
+            color: #000000 !important;
+            font-size: 0.85rem !important;
+            outline: none !important;
+            box-shadow: none !important;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+        }
+
+        .form-control-custom:focus {
+            border-color: #D9251C !important;
+            box-shadow: 0 0 0 3px rgba(217, 37, 28, 0.1) !important;
+        }
+
+        /* Statement Card Layouts */
+        .statement-table th {
+            background-color: #f8fafc !important;
+            color: #475569 !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            font-size: 0.72rem !important;
+            letter-spacing: 0.8px !important;
+            padding: 10px 12px !important;
+            border: none !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+        }
+
+        .statement-table td {
+            padding: 12px 14px !important;
+            font-size: 0.86rem !important;
+            color: #475569 !important;
+            border: none !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+        }
+
+        .statement-table tr {
+            transition: all 0.15s ease-in-out !important;
+        }
+        
+        .statement-table tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        /* Custom Pagination Styling */
+        .pagination .page-item.active .page-link {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15) !important;
+        }
+
+        .pagination .page-link {
+            color: #475569 !important;
+            border-color: #cbd5e1 !important;
+            padding: 8px 14px !important;
+            font-size: 0.85rem !important;
+            transition: all 0.15s ease-in-out !important;
+            background-color: #ffffff !important;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
         }
     </style>
     @endpush
 
-    <div class="container-fluid">
+    <div class="container-fluid p-0">
         <!-- Master Title Header -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="rpt-header-card d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                     <div>
-                        <h4 class="fs-22 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Financial & Profitability Reports</h4>
-                        <p class="text-muted small mb-0">Automated financial statements & profitability analysis compiled from live ledger and sales transactions.</p>
+                        <h4 class="fs-22 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px; color: #0f172a !important;">Financial & Profitability Reports</h4>
+                        <p class="small mb-0" style="color: #475569 !important;">Automated financial statements & profitability analysis compiled from live ledger and sales transactions.</p>
                     </div>
                 </div>
             </div>
@@ -82,53 +220,53 @@
         <!-- Financial Overview Metric Cards -->
         <div class="row mb-4">
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 8px; border-left: 4px solid #3b82f6; background-color: #ffffff;">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem;">Total Corporate Assets</span>
-                            <h3 class="fw-bold text-dark mt-1 mb-0 font-monospace" style="letter-spacing: -0.5px;">₱{{ number_format($metrics['total_assets'], 2) }}</h3>
+                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background-color: rgba(59, 130, 246, 0.08); color: #3b82f6; flex-shrink: 0;">
+                            <i class="las la-wallet fs-24"></i>
                         </div>
-                        <div class="text-primary opacity-75">
-                            <i class="las la-wallet fs-32"></i>
+                        <div>
+                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.7rem; color: #475569 !important;">Total Corporate Assets</span>
+                            <h4 class="fw-bold mt-1 mb-0" style="letter-spacing: -0.5px; color: #0f172a !important; font-size: 1.2rem;">₱{{ number_format($metrics['total_assets'], 2) }}</h4>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 8px; border-left: 4px solid #10b981; background-color: #ffffff;">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem;">Total Revenue & Inflows</span>
-                            <h3 class="fw-bold text-dark mt-1 mb-0 font-monospace" style="letter-spacing: -0.5px;">₱{{ number_format($metrics['total_revenue'], 2) }}</h3>
+                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background-color: rgba(16, 185, 129, 0.08); color: #10b981; flex-shrink: 0;">
+                            <i class="las la-hand-holding-usd fs-24"></i>
                         </div>
-                        <div class="text-success opacity-75">
-                            <i class="las la-hand-holding-usd fs-32"></i>
+                        <div>
+                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.7rem; color: #475569 !important;">Total Revenue & Inflows</span>
+                            <h4 class="fw-bold mt-1 mb-0" style="letter-spacing: -0.5px; color: #0f172a !important; font-size: 1.2rem;">₱{{ number_format($metrics['total_revenue'], 2) }}</h4>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 8px; border-left: 4px solid #f59e0b; background-color: #ffffff;">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem;">Total Expenses & Outflows</span>
-                            <h3 class="fw-bold text-dark mt-1 mb-0 font-monospace" style="letter-spacing: -0.5px;">₱{{ number_format($metrics['total_expenses'], 2) }}</h3>
+                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background-color: rgba(245, 158, 11, 0.08); color: #f59e0b; flex-shrink: 0;">
+                            <i class="las la-file-invoice-dollar fs-24"></i>
                         </div>
-                        <div class="text-warning opacity-75">
-                            <i class="las la-file-invoice-dollar fs-32"></i>
+                        <div>
+                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.7rem; color: #475569 !important;">Total Expenses & Outflows</span>
+                            <h4 class="fw-bold mt-1 mb-0" style="letter-spacing: -0.5px; color: #0f172a !important; font-size: 1.2rem;">₱{{ number_format($metrics['total_expenses'], 2) }}</h4>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 8px; border-left: 4px solid #D9251C; background-color: #ffffff;">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.72rem;">Net Operating Profit</span>
-                            <h3 class="fw-bold mt-1 mb-0 font-monospace" style="color: #D9251C; letter-spacing: -0.5px;">₱{{ number_format($metrics['net_profit'], 2) }}</h3>
+                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background-color: rgba(217, 37, 28, 0.08); color: #D9251C; flex-shrink: 0;">
+                            <i class="las la-chart-pie fs-24"></i>
                         </div>
-                        <div style="color: #D9251C;" class="opacity-75">
-                            <i class="las la-chart-pie fs-32"></i>
+                        <div>
+                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.7rem; color: #475569 !important;">Net Operating Profit</span>
+                            <h4 class="fw-bold mt-1 mb-0" style="color: #D9251C; letter-spacing: -0.5px; font-size: 1.2rem;">₱{{ number_format($metrics['net_profit'], 2) }}</h4>
                         </div>
                     </div>
                 </div>
@@ -138,46 +276,46 @@
         <div class="row">
             <!-- Left Navigation Sidebar (col-md-3) -->
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm mb-4" style="border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
-                    <div class="card-body p-0">
-                        <div class="list-group list-group-flush">
-                            <div class="list-group-item bg-light border-0 py-2">
-                                <span class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Financial Statements</span>
+                <div class="card shadow-sm mb-4" style="border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff;">
+                    <div class="card-body p-0 py-3">
+                        <div class="list-group list-group-flush border-0">
+                            <div class="rpt-sidebar-header">
+                                Financial Statements
                             </div>
                             @php
                                 $finStatements = ['Balance Sheet', 'Income Statement', 'Cash Flow', 'General Ledger'];
                             @endphp
                             @foreach($finStatements as $rpt)
                                 @if(in_array($rpt, $reportsList))
-                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="list-group-item list-group-item-action rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }} border-0 py-2.5 ps-4">
+                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }}">
                                     <i class="las @if($rpt === 'Balance Sheet') la-balance-scale @elseif($rpt === 'Income Statement') la-file-invoice-dollar @elseif($rpt === 'Cash Flow') la-exchange-alt @else la-book @endif me-2"></i> {{ $rpt }}
                                 </a>
                                 @endif
                             @endforeach
 
-                            <div class="list-group-item bg-light border-0 py-2">
-                                <span class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Profitability Analysis</span>
+                            <div class="rpt-sidebar-header">
+                                Profitability Analysis
                             </div>
                             @php
                                 $profitability = ['Profit by Product', 'Profit by Customer', 'Profit by Sales Channel', 'Profit by Salesperson'];
                             @endphp
                             @foreach($profitability as $rpt)
                                 @if(in_array($rpt, $reportsList))
-                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="list-group-item list-group-item-action rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }} border-0 py-2.5 ps-4">
+                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }}">
                                     <i class="las @if($rpt === 'Profit by Product') la-box @elseif($rpt === 'Profit by Customer') la-user-tie @elseif($rpt === 'Profit by Sales Channel') la-network-wired @else la-user-tag @endif me-2"></i> {{ $rpt }}
                                 </a>
                                 @endif
                             @endforeach
 
-                            <div class="list-group-item bg-light border-0 py-2">
-                                <span class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Transaction Logs</span>
+                            <div class="rpt-sidebar-header">
+                                Transaction Logs
                             </div>
                             @php
                                 $transactions = ['Sales Reports', 'Expense Reports'];
                             @endphp
                             @foreach($transactions as $rpt)
                                 @if(in_array($rpt, $reportsList))
-                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="list-group-item list-group-item-action rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }} border-0 py-2.5 ps-4">
+                                <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }}">
                                     <i class="las @if($rpt === 'Sales Reports') la-chart-line @else la-receipt @endif me-2"></i> {{ $rpt }}
                                 </a>
                                 @endif
@@ -189,21 +327,25 @@
 
             <!-- Right Content Area (col-md-9) -->
             <div class="col-md-9">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div class="card shadow-sm mb-4" style="border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff;">
                     <div class="card-header bg-white border-0 pt-4 pb-2 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                         <div>
                             <h5 class="mb-0 fw-bold text-dark fs-18">
                                 <i class="las la-file-alt me-2" style="color: #D9251C;"></i>{{ $selectedReport }} Statement
                             </h5>
-                            <p class="text-muted small mb-0">Compiled from General Ledger & modules for the selected period.</p>
+                            <p class="small mb-0" style="color: #475569 !important;">Compiled from General Ledger & modules for the selected period.</p>
                         </div>
-                        <form action="{{ route('admin-finance.financial-reports.index') }}" method="GET" class="d-flex gap-2 align-items-center">
+                        <form action="{{ route('admin-finance.financial-reports.index') }}" method="GET" class="d-flex gap-3 align-items-center">
                             <input type="hidden" name="report" value="{{ $selectedReport }}">
-                            <span class="text-muted small me-1">Period:</span>
-                            <input type="date" name="start_date" class="form-control form-control-sm" value="{{ $startDate }}">
-                            <span class="text-muted small">to</span>
-                            <input type="date" name="end_date" class="form-control form-control-sm" value="{{ $endDate }}">
-                            <button type="submit" class="btn btn-sm text-white px-3" style="background-color: #D9251C; border-color: #D9251C;">Generate</button>
+                            <span class="small fw-bold text-uppercase" style="color: #475569 !important; letter-spacing: 0.5px; font-size: 0.72rem;">Period:</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="date" name="start_date" class="form-control-custom" value="{{ $startDate }}" style="width: 160px; padding: 0 12px;">
+                                <span class="small" style="color: #475569 !important;">to</span>
+                                <input type="date" name="end_date" class="form-control-custom" value="{{ $endDate }}" style="width: 160px; padding: 0 12px;">
+                            </div>
+                            <button type="submit" class="btn text-white px-3 fw-bold d-inline-flex align-items-center justify-content-center" style="background-color: #D9251C; border-color: #D9251C; height: 38px; border-radius: 6px; font-size: 0.85rem;">
+                                <i class="las la-sync me-1"></i> Generate
+                            </button>
                         </form>
                     </div>
 
@@ -213,7 +355,7 @@
                         <div class="row g-4">
                             <div class="col-md-6">
                                 <h6 class="fw-bold text-uppercase border-bottom pb-2" style="color: #D9251C;">Assets (Current & Non-Current)</h6>
-                                <table class="table table-bordered table-sm align-middle statement-table">
+                                <table class="table table-sm align-middle statement-table">
                                     <thead>
                                         <tr>
                                             <th>Current Assets Account</th>
@@ -224,13 +366,13 @@
                                         @foreach($reportData['current_assets'] as $ca)
                                         <tr>
                                             <td>{{ $ca['account'] }}</td>
-                                            <td class="text-end fw-bold">₱{{ number_format($ca['amount'], 2) }}</td>
+                                            <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($ca['amount'], 2) }}</td>
                                         </tr>
                                         @endforeach
                                     </tbody>
                                 </table>
 
-                                <table class="table table-bordered table-sm align-middle statement-table">
+                                <table class="table table-sm align-middle statement-table">
                                     <thead>
                                         <tr>
                                             <th>Non-Current Assets Account</th>
@@ -241,7 +383,7 @@
                                         @foreach($reportData['non_current_assets'] as $nca)
                                         <tr>
                                             <td>{{ $nca['account'] }}</td>
-                                            <td class="text-end fw-bold">₱{{ number_format($nca['amount'], 2) }}</td>
+                                            <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($nca['amount'], 2) }}</td>
                                         </tr>
                                         @endforeach
                                     </tbody>
@@ -250,7 +392,7 @@
 
                             <div class="col-md-6">
                                 <h6 class="fw-bold text-uppercase border-bottom pb-2 text-dark">Liabilities & Equity</h6>
-                                <table class="table table-bordered table-sm align-middle statement-table">
+                                <table class="table table-sm align-middle statement-table">
                                     <thead>
                                         <tr>
                                             <th>Liabilities Account</th>
@@ -267,7 +409,7 @@
                                     </tbody>
                                 </table>
 
-                                <table class="table table-bordered table-sm align-middle statement-table">
+                                <table class="table table-sm align-middle statement-table">
                                     <thead>
                                         <tr>
                                             <th>Equity Account</th>
@@ -289,20 +431,20 @@
                         <!-- CASH FLOW STATEMENT -->
                         <div class="row g-4">
                             <div class="col-md-8 mx-auto">
-                                <div class="bg-white p-4 border rounded shadow-sm">
-                                    <h5 class="fw-bold text-center text-uppercase mb-4 pb-2 border-bottom text-dark">
+                                <div class="bg-white p-4 border rounded shadow-sm" style="border-color: #e2e8f0 !important; border-radius: 10px !important;">
+                                    <h5 class="fw-bold text-center text-uppercase mb-4 pb-2 border-bottom text-dark" style="letter-spacing: 0.5px; color: #0f172a !important; border-bottom: 2px solid #f1f5f9 !important;">
                                         Statement of Cash Flows
                                     </h5>
                                     
                                     <!-- 1. OPERATING ACTIVITIES -->
-                                    <h6 class="fw-bold text-uppercase text-primary mb-2">Cash Flows from Operating Activities</h6>
+                                    <h6 class="fw-bold text-uppercase pb-1 mb-2 border-bottom" style="color: #0f172a; font-size: 0.8rem; letter-spacing: 0.5px;">1. Cash Flows from Operating Activities</h6>
                                     <table class="table table-sm statement-table align-middle mb-3">
                                         <tbody>
                                             @php $netOps = 0; @endphp
                                             @foreach($reportData['operating'] as $op)
                                             @php $netOps += $op['amount']; @endphp
                                             <tr>
-                                                <td class="ps-3 text-dark fs-14">{{ $op['category'] }}</td>
+                                                <td class="ps-3" style="color: #475569 !important; font-weight: 500; font-size: 0.86rem;">{{ $op['category'] }}</td>
                                                 <td class="text-end fw-bold fs-14 @if($op['amount'] < 0) text-danger @else text-dark @endif">
                                                     @if($op['amount'] < 0)
                                                     (₱{{ number_format(abs($op['amount']), 2) }})
@@ -312,9 +454,9 @@
                                                 </td>
                                             </tr>
                                             @endforeach
-                                            <tr class="table-light">
-                                                <td class="fw-bold text-uppercase text-dark fs-14">Net Cash from Operating Activities</td>
-                                                <td class="text-end fw-bold border-top text-primary fs-14">
+                                            <tr style="background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+                                                <td class="fw-bold text-uppercase fs-13" style="color: #475569 !important; padding: 10px 14px;">Net Cash from Operating Activities</td>
+                                                <td class="text-end fw-bold fs-14" style="color: #0f172a !important; padding: 10px 14px;">
                                                     @if($netOps < 0)
                                                     (₱{{ number_format(abs($netOps), 2) }})
                                                     @else
@@ -326,14 +468,14 @@
                                     </table>
 
                                     <!-- 2. INVESTING ACTIVITIES -->
-                                    <h6 class="fw-bold text-uppercase text-warning mb-2">Cash Flows from Investing Activities</h6>
+                                    <h6 class="fw-bold text-uppercase pb-1 mb-2 border-bottom" style="color: #0f172a; font-size: 0.8rem; letter-spacing: 0.5px;">2. Cash Flows from Investing Activities</h6>
                                     <table class="table table-sm statement-table align-middle mb-3">
                                         <tbody>
                                             @php $netInv = 0; @endphp
                                             @foreach($reportData['investing'] as $inv)
                                             @php $netInv += $inv['amount']; @endphp
                                             <tr>
-                                                <td class="ps-3 text-dark fs-14">{{ $inv['category'] }}</td>
+                                                <td class="ps-3" style="color: #475569 !important; font-weight: 500; font-size: 0.86rem;">{{ $inv['category'] }}</td>
                                                 <td class="text-end fw-bold fs-14 @if($inv['amount'] < 0) text-danger @else text-dark @endif">
                                                     @if($inv['amount'] < 0)
                                                     (₱{{ number_format(abs($inv['amount']), 2) }})
@@ -343,9 +485,9 @@
                                                 </td>
                                             </tr>
                                             @endforeach
-                                            <tr class="table-light">
-                                                <td class="fw-bold text-uppercase text-dark fs-14">Net Cash from Investing Activities</td>
-                                                <td class="text-end fw-bold border-top text-warning fs-14">
+                                            <tr style="background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+                                                <td class="fw-bold text-uppercase fs-13" style="color: #475569 !important; padding: 10px 14px;">Net Cash from Investing Activities</td>
+                                                <td class="text-end fw-bold fs-14" style="color: #0f172a !important; padding: 10px 14px;">
                                                     @if($netInv < 0)
                                                     (₱{{ number_format(abs($netInv), 2) }})
                                                     @else
@@ -357,30 +499,30 @@
                                     </table>
 
                                     <!-- 3. FINANCING ACTIVITIES -->
-                                    <h6 class="fw-bold text-uppercase text-info mb-2">Cash Flows from Financing Activities</h6>
+                                    <h6 class="fw-bold text-uppercase pb-1 mb-2 border-bottom" style="color: #0f172a; font-size: 0.8rem; letter-spacing: 0.5px;">3. Cash Flows from Financing Activities</h6>
                                     <table class="table table-sm statement-table align-middle mb-3">
                                         <tbody>
                                             @php $netFin = 0; @endphp
                                             @foreach($reportData['financing'] as $fin)
                                             @php $netFin += $fin['amount']; @endphp
                                             <tr>
-                                                <td class="ps-3 text-dark fs-14">{{ $fin['category'] }}</td>
-                                                <td class="text-end fw-bold text-dark fs-14">₱{{ number_format($fin['amount'], 2) }}</td>
+                                                <td class="ps-3" style="color: #475569 !important; font-weight: 500; font-size: 0.86rem;">{{ $fin['category'] }}</td>
+                                                <td class="text-end fw-bold fs-14 text-dark">₱{{ number_format($fin['amount'], 2) }}</td>
                                             </tr>
                                             @endforeach
-                                            <tr class="table-light">
-                                                <td class="fw-bold text-uppercase text-dark fs-14">Net Cash from Financing Activities</td>
-                                                <td class="text-end fw-bold border-top text-info fs-14">₱{{ number_format($netFin, 2) }}</td>
+                                            <tr style="background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+                                                <td class="fw-bold text-uppercase fs-13" style="color: #475569 !important; padding: 10px 14px;">Net Cash from Financing Activities</td>
+                                                <td class="text-end fw-bold fs-14" style="color: #0f172a !important; padding: 10px 14px;">₱{{ number_format($netFin, 2) }}</td>
                                             </tr>
                                         </tbody>
                                     </table>
 
                                     <!-- Summary / Cash Reconciliation -->
-                                    <h6 class="fw-bold text-uppercase text-dark mb-2 border-top pt-3">Cash Reconciliation Summary</h6>
-                                    <table class="table table-sm statement-table align-middle mb-2">
+                                    <h6 class="fw-bold text-uppercase pb-1 mb-2 border-bottom pt-2" style="color: #0f172a; font-size: 0.8rem; letter-spacing: 0.5px;">Cash Reconciliation Summary</h6>
+                                    <table class="table table-sm statement-table align-middle mb-4">
                                         <tbody>
                                             <tr>
-                                                <td class="fw-bold text-dark fs-14">Net Increase / (Decrease) in Cash</td>
+                                                <td style="color: #475569 !important; font-weight: 500; font-size: 0.86rem;">Net Increase / (Decrease) in Cash</td>
                                                 <td class="text-end fw-bold fs-14 @if($reportData['summary']['net_change'] < 0) text-danger @else text-success @endif">
                                                     @if($reportData['summary']['net_change'] < 0)
                                                     (₱{{ number_format(abs($reportData['summary']['net_change']), 2) }})
@@ -390,15 +532,17 @@
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td class="text-dark fs-14">Cash at Beginning of Period</td>
+                                                <td style="color: #475569 !important; font-weight: 500; font-size: 0.86rem;">Cash at Beginning of Period</td>
                                                 <td class="text-end fw-bold text-dark fs-14">₱{{ number_format($reportData['summary']['beginning'], 2) }}</td>
-                                            </tr>
-                                            <tr class="table-dark text-white">
-                                                <td class="fw-bold text-uppercase fs-14">Cash at End of Period</td>
-                                                <td class="text-end fw-bold fs-14 text-success">₱{{ number_format($reportData['summary']['ending'], 2) }}</td>
                                             </tr>
                                         </tbody>
                                     </table>
+
+                                    <!-- Cash at End of Period Callout -->
+                                    <div class="d-flex justify-content-between align-items-center p-3 rounded" style="background-color: #D9251C; box-shadow: 0 4px 6px -1px rgba(217, 37, 28, 0.15);">
+                                         <span class="fw-bold text-uppercase fs-14 text-white" style="letter-spacing: 0.5px;">Cash at End of Period</span>
+                                         <span class="fw-bold fs-18 text-white">₱{{ number_format($reportData['summary']['ending'], 2) }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -406,80 +550,80 @@
                         <!-- INCOME STATEMENT -->
                         <div class="row g-4">
                             <div class="col-md-8 mx-auto">
-                                <div class="bg-white p-4 border rounded shadow-sm">
-                                    <h5 class="fw-bold text-center text-uppercase mb-4 pb-2 border-bottom text-dark">
+                                <div class="bg-white p-4 border rounded shadow-sm" style="border-color: #e2e8f0 !important; border-radius: 10px !important;">
+                                    <h5 class="fw-bold text-center text-uppercase mb-4 pb-2 border-bottom text-dark" style="letter-spacing: 0.5px; color: #0f172a !important; border-bottom: 2px solid #f1f5f9 !important;">
                                         Income Statement
                                     </h5>
                                     
                                     <!-- 1. REVENUE -->
-                                    <h6 class="fw-bold text-uppercase text-primary mb-2">Revenue</h6>
+                                    <h6 class="fw-bold text-uppercase pb-1 mb-2 border-bottom" style="color: #0f172a; font-size: 0.8rem; letter-spacing: 0.5px;">1. Revenue</h6>
                                     <table class="table table-sm statement-table align-middle mb-4">
                                         <tbody>
                                             @php $totalRev = 0; @endphp
                                             @foreach($reportData['revenue'] as $rev)
                                             @php $totalRev += $rev['amount']; @endphp
                                             <tr>
-                                                <td class="ps-3 text-dark fs-14">{{ $rev['category'] }}</td>
-                                                <td class="text-end fw-bold text-dark fs-14">₱{{ number_format($rev['amount'], 2) }}</td>
+                                                <td class="ps-3" style="color: #475569 !important; font-weight: 500; font-size: 0.86rem;">{{ $rev['category'] }}</td>
+                                                <td class="text-end fw-bold" style="color: #0f172a !important; font-size: 0.86rem;">₱{{ number_format($rev['amount'], 2) }}</td>
                                             </tr>
                                             @endforeach
-                                            <tr class="table-light">
-                                                <td class="fw-bold text-uppercase text-dark fs-14">Total Revenue</td>
-                                                <td class="text-end fw-bold border-top text-primary fs-14">₱{{ number_format($totalRev, 2) }}</td>
+                                            <tr style="background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+                                                <td class="fw-bold text-uppercase fs-13" style="color: #475569 !important; padding: 10px 14px;">Total Revenue</td>
+                                                <td class="text-end fw-bold fs-14" style="color: #0f172a !important; padding: 10px 14px;">₱{{ number_format($totalRev, 2) }}</td>
                                             </tr>
                                         </tbody>
                                     </table>
 
                                     <!-- 2. COGS -->
-                                    <h6 class="fw-bold text-uppercase text-warning mb-2">Cost of Goods Sold (COGS)</h6>
+                                    <h6 class="fw-bold text-uppercase pb-1 mb-2 border-bottom" style="color: #0f172a; font-size: 0.8rem; letter-spacing: 0.5px;">2. Cost of Goods Sold (COGS)</h6>
                                     <table class="table table-sm statement-table align-middle mb-4">
                                         <tbody>
                                             @php $totalCogs = 0; @endphp
                                             @foreach($reportData['cogs'] as $cogs)
                                             @php $totalCogs += $cogs['amount']; @endphp
                                             <tr>
-                                                <td class="ps-3 text-dark fs-14">{{ $cogs['category'] }}</td>
-                                                <td class="text-end fw-bold text-danger fs-14">₱{{ number_format($cogs['amount'], 2) }}</td>
+                                                <td class="ps-3" style="color: #475569 !important; font-weight: 500; font-size: 0.86rem;">{{ $cogs['category'] }}</td>
+                                                <td class="text-end fw-bold text-danger" style="font-size: 0.86rem;">₱{{ number_format($cogs['amount'], 2) }}</td>
                                             </tr>
                                             @endforeach
-                                            <tr class="table-light">
-                                                <td class="fw-bold text-uppercase text-dark fs-14">Total Cost of Goods Sold</td>
-                                                <td class="text-end fw-bold border-top text-danger fs-14">₱{{ number_format($totalCogs, 2) }}</td>
+                                            <tr style="background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+                                                <td class="fw-bold text-uppercase fs-13" style="color: #475569 !important; padding: 10px 14px;">Total Cost of Goods Sold</td>
+                                                <td class="text-end fw-bold fs-14 text-danger" style="padding: 10px 14px;">₱{{ number_format($totalCogs, 2) }}</td>
                                             </tr>
                                         </tbody>
                                     </table>
 
-                                    <!-- Gross Profit -->
+                                    <!-- Gross Profit Callout -->
                                     @php $grossProfit = $totalRev - $totalCogs; @endphp
-                                    <div class="d-flex justify-content-between align-items-center p-2 mb-4 bg-light border rounded">
-                                        <span class="fw-bold text-uppercase fs-15 text-dark">Gross Profit</span>
-                                        <span class="fw-bold fs-15 text-success">₱{{ number_format($grossProfit, 2) }}</span>
+                                    <div class="d-flex justify-content-between align-items-center p-3 mb-4 rounded" style="background-color: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15);">
+                                         <span class="fw-bold text-uppercase fs-13" style="color: #10b981; letter-spacing: 0.5px;">Gross Profit</span>
+                                         <span class="fw-bold fs-16" style="color: #10b981;">₱{{ number_format($grossProfit, 2) }}</span>
                                     </div>
 
                                     <!-- 3. OPERATING EXPENSES -->
-                                    <h6 class="fw-bold text-uppercase text-danger mb-2">Operating Expenses</h6>
+                                    <h6 class="fw-bold text-uppercase pb-1 mb-2 border-bottom" style="color: #0f172a; font-size: 0.8rem; letter-spacing: 0.5px;">3. Operating Expenses</h6>
                                     <table class="table table-sm statement-table align-middle mb-4">
                                         <tbody>
                                             @php $totalOpex = 0; @endphp
                                             @foreach($reportData['operating_expenses'] as $opex)
                                             @php $totalOpex += $opex['amount']; @endphp
                                             <tr>
-                                                <td class="ps-3 text-dark fs-14">{{ $opex['category'] }}</td>
-                                                <td class="text-end fw-bold text-danger fs-14">₱{{ number_format($opex['amount'], 2) }}</td>
+                                                <td class="ps-3" style="color: #475569 !important; font-weight: 500; font-size: 0.86rem;">{{ $opex['category'] }}</td>
+                                                <td class="text-end fw-bold text-danger" style="font-size: 0.86rem;">₱{{ number_format($opex['amount'], 2) }}</td>
                                             </tr>
                                             @endforeach
-                                            <tr class="table-light">
-                                                <td class="fw-bold text-uppercase text-dark fs-14">Total Operating Expenses</td>
-                                                <td class="text-end fw-bold border-top text-danger fs-14">₱{{ number_format($totalOpex, 2) }}</td>
+                                            <tr style="background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+                                                <td class="fw-bold text-uppercase fs-13" style="color: #475569 !important; padding: 10px 14px;">Total Operating Expenses</td>
+                                                <td class="text-end fw-bold fs-14 text-danger" style="padding: 10px 14px;">₱{{ number_format($totalOpex, 2) }}</td>
                                             </tr>
                                         </tbody>
                                     </table>
 
-                                    <!-- Net Income -->
+                                    <!-- Net Income Callout -->
                                     @php $netIncome = $grossProfit - $totalOpex; @endphp
-                                    <div class="d-flex justify-content-between align-items-center p-3 mb-2 bg-dark text-white rounded">
-                                        <span class="fw-bold text-uppercase fs-16">Net Income / (Loss)</span>
-                                        <span class="fw-bold fs-16 text-success">₱{{ number_format($netIncome, 2) }}</span>
+                                    <div class="d-flex justify-content-between align-items-center p-3 rounded" style="background-color: #D9251C; box-shadow: 0 4px 6px -1px rgba(217, 37, 28, 0.15);">
+                                         <span class="fw-bold text-uppercase fs-14 text-white" style="letter-spacing: 0.5px;">Net Income / (Loss)</span>
+                                         <span class="fw-bold fs-18 text-white">₱{{ number_format($netIncome, 2) }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -488,27 +632,27 @@
                         @elseif($selectedReport === 'Profit by Product')
                         <!-- 2. PROFIT BY PRODUCT -->
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-dark text-white small text-uppercase">
+                            <table class="table table-hover align-middle">
+                                <thead>
                                     <tr>
                                         <th>SKU</th>
                                         <th>Product / Book Title</th>
                                         <th class="text-center">Units Sold</th>
                                         <th class="text-end">Gross Revenue</th>
                                         <th class="text-end">COGS</th>
-                                        <th class="text-end" style="background-color: #D9251C;">Net Profit</th>
+                                        <th class="text-end">Net Profit</th>
                                         <th class="text-center">Profit Margin %</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($reportData as $row)
                                     <tr class="hover-row">
-                                        <td><span class="fw-bold text-dark font-monospace">{{ $row['sku'] }}</span></td>
+                                        <td><span class="fw-bold text-dark">{{ $row['sku'] }}</span></td>
                                         <td><span class="fw-bold text-dark fs-14">{{ $row['name'] }}</span></td>
                                         <td class="text-center fw-bold text-dark">{{ number_format($row['sales_qty']) }}</td>
                                         <td class="text-end fw-bold text-success">₱{{ number_format($row['revenue'], 2) }}</td>
                                         <td class="text-end text-muted">₱{{ number_format($row['cogs'], 2) }}</td>
-                                        <td class="text-end fw-bold text-white" style="background-color: #D9251C;">
+                                        <td class="text-end fw-bold" style="color: #D9251C;">
                                             ₱{{ number_format($row['profit'], 2) }}
                                         </td>
                                         <td class="text-center fw-bold text-dark">{{ $row['margin_pct'] }}%</td>
@@ -518,16 +662,22 @@
                             </table>
                         </div>
 
+                        @if($reportData instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $reportData->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
+                        @endif
+
                         @elseif($selectedReport === 'Profit by Sales Channel')
                         <!-- 3. PROFIT BY SALES CHANNEL -->
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-dark text-white small text-uppercase">
+                            <table class="table table-hover align-middle">
+                                <thead>
                                     <tr>
                                         <th>Sales Channel</th>
                                         <th class="text-end">Revenue</th>
                                         <th class="text-end">Expenses</th>
-                                        <th class="text-end" style="background-color: #D9251C;">Net Profit</th>
+                                        <th class="text-end">Net Profit</th>
                                         <th class="text-center">Operating Margin</th>
                                     </tr>
                                 </thead>
@@ -537,7 +687,7 @@
                                         <td><span class="fw-bold text-dark fs-14">{{ $ch['channel'] }}</span></td>
                                         <td class="text-end fw-bold text-success">₱{{ number_format($ch['revenue'], 2) }}</td>
                                         <td class="text-end text-muted">₱{{ number_format($ch['expenses'], 2) }}</td>
-                                        <td class="text-end fw-bold text-white" style="background-color: #D9251C;">
+                                        <td class="text-end fw-bold" style="color: #D9251C;">
                                             ₱{{ number_format($ch['profit'], 2) }}
                                         </td>
                                         <td class="text-center fw-bold text-dark">{{ $ch['margin'] }}%</td>
@@ -550,14 +700,14 @@
                         @elseif($selectedReport === 'Profit by Customer')
                         <!-- 4. PROFIT BY CUSTOMER -->
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-dark text-white small text-uppercase">
+                            <table class="table table-hover align-middle">
+                                <thead>
                                     <tr>
                                         <th>Customer / Account Name</th>
                                         <th>Customer Type</th>
                                         <th class="text-end">Customer Sales Revenue</th>
                                         <th class="text-end">Direct Cost</th>
-                                        <th class="text-end" style="background-color: #D9251C;">Net Profit Contribution</th>
+                                        <th class="text-end">Net Profit Contribution</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -567,7 +717,7 @@
                                         <td><span class="badge bg-light text-dark border">{{ $cust['type'] }}</span></td>
                                         <td class="text-end fw-bold text-success">₱{{ number_format($cust['revenue'], 2) }}</td>
                                         <td class="text-end text-muted">₱{{ number_format($cust['cost'], 2) }}</td>
-                                        <td class="text-end fw-bold text-white" style="background-color: #D9251C;">
+                                        <td class="text-end fw-bold" style="color: #D9251C;">
                                             ₱{{ number_format($cust['net_profit'], 2) }}
                                         </td>
                                     </tr>
@@ -575,18 +725,24 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        @if($reportData instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $reportData->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
+                        @endif
                         @elseif($selectedReport === 'Sales Reports')
                         <!-- SALES REPORTS TABLE -->
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-dark text-white small text-uppercase">
+                            <table class="table table-hover align-middle">
+                                <thead>
                                     <tr>
                                         <th>Date</th>
                                         <th>Order Number</th>
                                         <th>Customer / Payee</th>
                                         <th>Sales Channel</th>
                                         <th>Status</th>
-                                        <th class="text-end" style="background-color: #D9251C;">Amount</th>
+                                        <th class="text-end">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -608,11 +764,11 @@
                                         </td>
                                         <td>
                                             @php
-                                                $statusClass = 'bg-warning text-dark';
-                                                if ($sale->status === 'completed') $statusClass = 'bg-success text-white';
-                                                elseif ($sale->status === 'cancelled') $statusClass = 'bg-danger text-white';
+                                                $statusClass = 'bg-light text-secondary border';
+                                                if ($sale->status === 'completed') $statusClass = 'bg-soft-success text-success';
+                                                elseif ($sale->status === 'cancelled') $statusClass = 'bg-soft-danger text-danger';
                                             @endphp
-                                            <span class="badge {{ $statusClass }}">{{ strtoupper(str_replace('_', ' ', $sale->status)) }}</span>
+                                            <span class="badge {{ $statusClass }}" @if($sale->status === 'completed') style="background-color: rgba(16, 185, 129, 0.1); color: #10b981;" @elseif($sale->status === 'cancelled') style="background-color: rgba(217, 37, 28, 0.1); color: #D9251C;" @endif>{{ strtoupper(str_replace('_', ' ', $sale->status)) }}</span>
                                         </td>
                                         <td class="text-end fw-bold text-dark">₱{{ number_format($sale->effective_amount, 2) }}</td>
                                     </tr>
@@ -624,26 +780,32 @@
                                 </tbody>
                                 @if($reportData->isNotEmpty())
                                 <tfoot>
-                                    <tr class="table-dark text-white fw-bold">
-                                        <td colspan="5" class="text-uppercase text-end">Total Sales</td>
-                                        <td class="text-end" style="background-color: #D9251C;">₱{{ number_format($grandTotal, 2) }}</td>
+                                    <tr class="fw-bold" style="background-color: #f8fafc; border-top: 2px solid #e2e8f0;">
+                                        <td colspan="5" class="text-uppercase text-end" style="padding: 12px 16px; font-size: 0.84rem; color: #475569;">Total Sales (Period Total)</td>
+                                        <td class="text-end" style="padding: 12px 16px; font-size: 0.84rem; color: #D9251C;">₱{{ number_format($totalSalesSum ?? $grandTotal, 2) }}</td>
                                     </tr>
                                 </tfoot>
                                 @endif
                             </table>
                         </div>
 
+                        @if($reportData instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $reportData->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
+                        @endif
+
                         @elseif($selectedReport === 'Expense Reports')
                         <!-- EXPENSE REPORTS TABLE -->
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-dark text-white small text-uppercase">
+                            <table class="table table-hover align-middle">
+                                <thead>
                                     <tr>
                                         <th>Date</th>
                                         <th>Expense Title / Description</th>
                                         <th>Charged Department</th>
                                         <th>Added By</th>
-                                        <th class="text-end" style="background-color: #D9251C;">Amount</th>
+                                        <th class="text-end">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -672,20 +834,26 @@
                                 </tbody>
                                 @if($reportData->isNotEmpty())
                                 <tfoot>
-                                    <tr class="table-dark text-white fw-bold">
-                                        <td colspan="4" class="text-uppercase text-end">Total Expenses</td>
-                                        <td class="text-end" style="background-color: #D9251C;">₱{{ number_format($grandExpenseTotal, 2) }}</td>
+                                    <tr class="fw-bold" style="background-color: #f8fafc; border-top: 2px solid #e2e8f0;">
+                                        <td colspan="4" class="text-uppercase text-end" style="padding: 12px 16px; font-size: 0.84rem; color: #475569;">Total Expenses (Period Total)</td>
+                                        <td class="text-end text-danger" style="padding: 12px 16px; font-size: 0.84rem;">₱{{ number_format($totalExpenseSum ?? $grandExpenseTotal, 2) }}</td>
                                     </tr>
                                 </tfoot>
                                 @endif
                             </table>
                         </div>
 
+                        @if($reportData instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $reportData->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
+                        @endif
+
                         @elseif($selectedReport === 'Profit by Salesperson')
                         <!-- 5. PROFIT BY SALESPERSON -->
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-dark text-white small text-uppercase">
+                            <table class="table table-hover align-middle">
+                                <thead>
                                     <tr>
                                         <th>Sales Executive Name</th>
                                         <th>Assigned Sales Territory</th>
@@ -704,13 +872,19 @@
                             </table>
                         </div>
 
+                        @if($reportData instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $reportData->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
+                        @endif
+
                         @else
                         <!-- GENERIC FINANCIAL STATEMENT VIEW (P&L, Cash Flow, Trial Balance, GL, Subsidiary, Sales, Expenses, Department) -->
                         <div class="p-4 bg-light rounded border text-center my-3">
                             <i class="las la-check-circle fs-40 text-success mb-2"></i>
                             <h5 class="fw-bold text-dark">Automated {{ $selectedReport }} Statement</h5>
                             <p class="text-muted small mb-3">Live statement compiled from General Ledger & Chart of Accounts for {{ $startDate }} to {{ $endDate }}.</p>
-                            <button class="btn btn-danger btn-sm text-white px-4 fw-bold" style="background-color: #D9251C;" onclick="window.print()">
+                            <button class="btn btn-danger btn-sm text-white px-4 fw-bold" style="background-color: #D9251C; border-radius: 6px; height: 38px; border: none;" onclick="window.print()">
                                 Print Full {{ $selectedReport }} Document
                             </button>
                         </div>

@@ -5318,6 +5318,8 @@ public function checkVoucher()
 
         // Dynamic report data containers
         $reportData = [];
+        $totalSalesSum = 0.00;
+        $totalExpenseSum = 0.00;
 
         if ($selectedReport === 'Balance Sheet') {
             $liabilitiesTotal = $liveAp + $liveExpenses + $liveWht;
@@ -5462,6 +5464,12 @@ public function checkVoucher()
                 });
             };
 
+            $query = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->where($salesFilter)
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+
+            $totalSalesSum = (float) (clone $query)->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+
             $reportData = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
                 ->select(
                     'sales_orders.id',
@@ -5476,19 +5484,23 @@ public function checkVoucher()
                 ->where($salesFilter)
                 ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->orderBy('effective_date', 'desc')
-                ->get();
+                ->paginate(10)
+                ->withQueryString();
         } elseif ($selectedReport === 'Expense Reports') {
-            $reportData = \Illuminate\Support\Facades\Schema::hasTable('expenses')
-                ? \App\Models\Expense::whereBetween('expense_date', [$startDate, $endDate])
-                    ->with('department')
+            if (\Illuminate\Support\Facades\Schema::hasTable('expenses')) {
+                $query = \App\Models\Expense::whereBetween('expense_date', [$startDate, $endDate]);
+                $totalExpenseSum = (float) (clone $query)->sum('amount') ?: 0.00;
+                $reportData = $query->with('department')
                     ->orderBy('expense_date', 'desc')
-                    ->get()
-                : collect();
+                    ->paginate(10)
+                    ->withQueryString();
+            } else {
+                $reportData = collect();
+            }
         } elseif ($selectedReport === 'Profit by Product') {
             $reportData = \App\Models\Book::select('id', 'name', 'sku', 'price', 'cost')
-                ->take(20)
-                ->get()
-                ->map(function($bk) use ($startDate, $endDate) {
+                ->paginate(10)
+                ->through(function($bk) use ($startDate, $endDate) {
                     $salesItems = \App\Models\SalesOrderItem::where('book_id', $bk->id)
                         ->whereHas('order', function($q) use ($startDate, $endDate) {
                             $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
@@ -5510,7 +5522,8 @@ public function checkVoucher()
                         'profit' => $profit,
                         'margin_pct' => $margin,
                     ];
-                });
+                })
+                ->withQueryString();
         } elseif ($selectedReport === 'Profit by Sales Channel') {
             $salesFilter = function($q) {
                 $q->where(function($sub) {
@@ -5538,9 +5551,8 @@ public function checkVoucher()
             ];
         } elseif ($selectedReport === 'Profit by Customer') {
             $reportData = \App\Models\Customer::orderBy('customer_name')
-                ->take(15)
-                ->get()
-                ->map(function($cust) {
+                ->paginate(10)
+                ->through(function($cust) {
                     $orders = \App\Models\SalesOrder::where('customer_id', $cust->customer_id)
                         ->where('status', '!=', 'cancelled')
                         ->get();
@@ -5552,7 +5564,8 @@ public function checkVoucher()
                         'cost' => 0.00,
                         'net_profit' => $rev,
                     ];
-                });
+                })
+                ->withQueryString();
         } elseif ($selectedReport === 'Profit by Salesperson') {
             $salesFilter = function($q) {
                 $q->where(function($sub) {
@@ -5591,7 +5604,7 @@ public function checkVoucher()
             $userIds = array_keys($userSales);
             $users = \App\Models\User::whereIn('id', $userIds)->get()->keyBy('id');
 
-            $reportData = collect($userSales)->map(function($salesAmount, $userId) use ($users) {
+            $salespersonCollection = collect($userSales)->map(function($salesAmount, $userId) use ($users) {
                 $user = $users->get($userId);
                 $name = $user ? $user->name : 'System / Guest';
                 $territory = $user ? ($user->department ?: 'Direct Sales') : 'Direct Sales';
@@ -5604,6 +5617,19 @@ public function checkVoucher()
                     'net_margin' => $salesAmount,
                 ];
             })->sortByDesc('achieved')->values();
+
+            $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+            $perPage = 10;
+            $currentPageItems = $salespersonCollection->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
+            $reportData = new \Illuminate\Pagination\LengthAwarePaginator(
+                $currentPageItems,
+                $salespersonCollection->count(),
+                $perPage,
+                $currentPage,
+                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+            );
+            $reportData->withQueryString();
         }
 
         return view('admin-finance.accounting.financial-reports', [
@@ -5615,6 +5641,8 @@ public function checkVoucher()
             'startDate' => $startDate,
             'endDate' => $endDate,
             'reportData' => $reportData,
+            'totalSalesSum' => $totalSalesSum,
+            'totalExpenseSum' => $totalExpenseSum,
             'metrics' => [
                 'total_assets' => $totalAssets,
                 'total_revenue' => $totalRevenue,
