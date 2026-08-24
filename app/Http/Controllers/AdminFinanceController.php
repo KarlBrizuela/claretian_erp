@@ -3887,8 +3887,31 @@ public function checkVoucher()
             return !is_null($ord->ar_prepared_at);
         });
 
+        // 5. MIBF POS Data
+        $mibfQuery = \App\Models\SalesOrder::where('status', 'completed')
+            ->where(function($q) {
+                $q->where('ecom_platform', 'MIBF')
+                  ->orWhere('platform', 'MIBF');
+            });
+
+        $mibfDailySales = (clone $mibfQuery)->whereDate('created_at', today())->sum('total_amount') ?: 0.00;
+        $mibfCashSales = (clone $mibfQuery)->where('payment_method', 'cash')->sum('total_amount') ?: 0.00;
+        $mibfGcashSales = (clone $mibfQuery)->whereIn('payment_method', ['gcash', 'GCash'])->sum('total_amount') ?: 0.00;
+        $mibfMayaSales = (clone $mibfQuery)->whereIn('payment_method', ['maya', 'paymaya', 'PayMaya'])->sum('total_amount') ?: 0.00;
+        $mibfCardSales = (clone $mibfQuery)->whereIn('payment_method', ['card', 'credit_card'])->sum('total_amount') ?: 0.00;
+        $mibfCheckSales = (clone $mibfQuery)->where('payment_method', 'check')->sum('total_amount') ?: 0.00;
+        $mibfBankSales = (clone $mibfQuery)->whereIn('payment_method', ['bank', 'bank_transfer'])->sum('total_amount') ?: 0.00;
+
+        $mibfDailyOrders = (clone $mibfQuery)->whereDate('created_at', today())->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfCashOrders = (clone $mibfQuery)->where('payment_method', 'cash')->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfGcashOrders = (clone $mibfQuery)->whereIn('payment_method', ['gcash', 'GCash'])->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfMayaOrders = (clone $mibfQuery)->whereIn('payment_method', ['maya', 'paymaya', 'PayMaya'])->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfCardOrders = (clone $mibfQuery)->whereIn('payment_method', ['card', 'credit_card'])->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfCheckOrders = (clone $mibfQuery)->where('payment_method', 'check')->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfBankOrders = (clone $mibfQuery)->whereIn('payment_method', ['bank', 'bank_transfer'])->with(['customer', 'preparedBy'])->latest()->get();
+
         return view('admin-finance.accounting.sales-management', [
-            'title' => 'Sales Management - ' . ucfirst($tab),
+            'title' => 'Sales Management - ' . ($tab === 'mibf' ? 'MIBF POS' : ucfirst($tab)),
             'role' => $user ? $user->position : 'Staff',
             'sidebar' => 'admin-finance',
             'tab' => $tab,
@@ -3932,6 +3955,24 @@ public function checkVoucher()
             'complimentaryTotalValuation' => $complimentaryTotalValuation,
             'pendingComplimentaryOrders' => $pendingComplimentaryOrders,
             'issuedComplimentaryOrders' => $issuedComplimentaryOrders,
+
+            // MIBF POS metrics
+            'mibfDailySales' => $mibfDailySales,
+            'mibfCashSales' => $mibfCashSales,
+            'mibfGcashSales' => $mibfGcashSales,
+            'mibfMayaSales' => $mibfMayaSales,
+            'mibfCardSales' => $mibfCardSales,
+            'mibfCheckSales' => $mibfCheckSales,
+            'mibfBankSales' => $mibfBankSales,
+
+            // MIBF POS lists
+            'mibfDailyOrders' => $mibfDailyOrders,
+            'mibfCashOrders' => $mibfCashOrders,
+            'mibfGcashOrders' => $mibfGcashOrders,
+            'mibfMayaOrders' => $mibfMayaOrders,
+            'mibfCardOrders' => $mibfCardOrders,
+            'mibfCheckOrders' => $mibfCheckOrders,
+            'mibfBankOrders' => $mibfBankOrders,
         ]);
     }
 

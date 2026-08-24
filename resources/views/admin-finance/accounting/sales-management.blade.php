@@ -160,10 +160,11 @@
                             @elseif($tab === 'areasales') Area Sales 
                             @elseif($tab === 'ecom') E-Commerce 
                             @elseif($tab === 'wholesale') Wholesale 
+                            @elseif($tab === 'mibf') MIBF POS
                             @elseif($tab === 'complimentary') Complimentary Receipt 
-                            @else {{ ucfirst($tab) }} @endif
+                            @else {{ strtoupper($tab) }} @endif
                         </h4>
-                        <p class="text-muted small mb-0">CCFI Sales Management ledger containing {{ ucfirst($tab) }} accounts, receipts tracking, and performance logs.</p>
+                        <p class="text-muted small mb-0">CCFI Sales Management ledger containing {{ $tab === 'mibf' ? 'MIBF POS' : ucfirst($tab) }} accounts, receipts tracking, and performance logs.</p>
                     </div>
                 </div>
             </div>
@@ -196,6 +197,11 @@
                                     <i class="las la-boxes me-1"></i> Wholesale
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $tab === 'mibf' ? 'active' : '' }}" href="{{ route('admin-finance.accounting.sales-management', ['tab' => 'mibf']) }}">
+                                    <i class="las la-tags me-1"></i> MIBF
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -214,6 +220,8 @@
                     @include('admin-finance.accounting.sales-management.ecom')
                 @elseif($tab === 'wholesale')
                     @include('admin-finance.accounting.sales-management.wholesale')
+                @elseif($tab === 'mibf')
+                    @include('admin-finance.accounting.sales-management.mibf')
                 @elseif($tab === 'complimentary')
                     @include('admin-finance.accounting.sales-management.complimentary')
                 @endif
