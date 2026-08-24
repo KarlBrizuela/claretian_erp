@@ -312,7 +312,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Department Name *</label>
-                            <input type="text" name="department" class="form-control" placeholder="e.g., Printing & Editorial Dept" required>
+                            <select name="department" class="form-select" required></select>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
@@ -342,6 +342,29 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const divisionSelect = document.querySelector('select[name="division"]');
+            const departmentSelect = document.querySelector('select[name="department"]');
+            const divisionsData = @json($divisions);
+
+            function updateDepartments() {
+                if (!divisionSelect || !departmentSelect) return;
+                const selectedDivision = divisionSelect.value.replace(" Division", "");
+                const departments = divisionsData[selectedDivision] || [];
+                
+                departmentSelect.innerHTML = '';
+                departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept;
+                    option.textContent = dept;
+                    departmentSelect.appendChild(option);
+                });
+            }
+
+            if (divisionSelect && departmentSelect) {
+                divisionSelect.addEventListener('change', updateDepartments);
+                updateDepartments();
+            }
+
             document.addEventListener('click', function(e) {
                 const btn = e.target.closest('.btn-delete-confirm');
                 if (btn) {

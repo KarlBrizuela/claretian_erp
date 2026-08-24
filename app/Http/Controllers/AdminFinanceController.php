@@ -3462,22 +3462,19 @@ public function checkVoucher()
 
         $balances = [
             // Assets
-            'cash_on_hand' => $this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds) ?: (\App\Models\SalesInvoice::sum('total_amount') + \App\Models\Payment::sum('amount') + \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where(function($q) { $q->where('payment_status', 'paid')->orWhere(function($sub) { $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', ''); })->orWhere('type', 'calculator_pos'); })->sum('total_amount')),
-            'petty_cash' => $this->getAccountBalanceAndTrack('%Petty Cash%', 'Asset', $trackedIds) ?: \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
-            'bank_accounts' => max(
-                $this->getAccountBalanceAndTrack('%Bank%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash in Bank%', 'Asset', $trackedIds),
-                (float) \App\Models\CompanyBankAccount::sum('current_balance')
-            ),
-            'receivables' => \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where('payment_status', '!=', 'paid')->where(function($q) { $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', ''); })->whereNotIn('type', ['calculator_pos', 'ecom_direct'])->sum('total_amount') + \App\Models\StatementOfAccount::where('status', '!=', 'paid')->sum('total_amount'),
+            'cash_on_hand' => ($this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds)) + (\App\Models\SalesInvoice::sum('total_amount') + \App\Models\Payment::sum('amount') + \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where(function($q) { $q->where('payment_status', 'paid')->orWhere(function($sub) { $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', ''); })->orWhere('type', 'calculator_pos'); })->sum('total_amount')),
+            'petty_cash' => $this->getAccountBalanceAndTrack('%Petty Cash%', 'Asset', $trackedIds) + \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
+            'bank_accounts' => ($this->getAccountBalanceAndTrack('%Bank%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash in Bank%', 'Asset', $trackedIds)) + (float) \App\Models\CompanyBankAccount::sum('current_balance'),
+            'receivables' => ($this->getAccountBalanceAndTrack('%Receivable%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Accounts Receivable%', 'Asset', $trackedIds)) + (\App\Models\SalesOrder::where('status', '!=', 'cancelled')->where('payment_status', '!=', 'paid')->where(function($q) { $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', ''); })->whereNotIn('type', ['calculator_pos', 'ecom_direct'])->sum('total_amount') + \App\Models\StatementOfAccount::where('status', '!=', 'paid')->sum('total_amount')),
             'inventory_raw_materials' => max(0, $this->getAccountBalanceAndTrack('%Raw Materials%', 'Asset', $trackedIds)),
             'inventory_work_in_progress' => max(0, $this->getAccountBalanceAndTrack('%Work in Progress%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%WIP%', 'Asset', $trackedIds)),
-            'inventory_finished_goods' => (($fgCoa = $this->getAccountBalanceAndTrack('%Finished Goods%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Books%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Consignment%', 'Asset', $trackedIds)) > 0) ? $fgCoa : \App\Models\Book::sum(\DB::raw('stock * cost')),
+            'inventory_finished_goods' => ($this->getAccountBalanceAndTrack('%Finished Goods%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Books%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Consignment%', 'Asset', $trackedIds)) + \App\Models\Book::sum(\DB::raw('stock * cost')),
             'fixed_assets' => $this->getAccountBalanceAndTrack('%Fixed Assets%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Equipment%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Property%', 'Asset', $trackedIds),
             'investments' => $this->getAccountBalanceAndTrack('%Investment%', 'Asset', $trackedIds),
             'deposits' => $this->getAccountBalanceAndTrack('%Deposit%', 'Asset', $trackedIds),
 
             // Liabilities
-            'suppliers' => $this->getAccountBalanceAndTrack('%Supplier%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Accounts Payable%', 'Liability', $trackedIds) ?: \App\Models\PurchaseOrder::sum('total_amount'),
+            'suppliers' => ($this->getAccountBalanceAndTrack('%Supplier%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Accounts Payable%', 'Liability', $trackedIds)) + \App\Models\PurchaseOrder::sum('total_amount'),
             'payables' => $this->getAccountBalanceAndTrack('%Payable%', 'Liability', $trackedIds),
             'loans' => $this->getAccountBalanceAndTrack('%Loan%', 'Liability', $trackedIds),
             'taxes' => $this->getAccountBalanceAndTrack('%Tax%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Withholding Tax Payable%', 'Liability', $trackedIds),
@@ -3488,7 +3485,7 @@ public function checkVoucher()
             // Equity
             'capital' => $this->getAccountBalanceAndTrack('%Capital%', 'Equity', $trackedIds),
             'retained_earnings' => $this->getAccountBalanceAndTrack('%Retained Earnings%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%RE%', 'Equity', $trackedIds),
-            'current_year_income' => $this->getAccountBalanceAndTrack('%Current Year%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%Net Income%', 'Equity', $trackedIds) + $unpostedBookSales ?: (\App\Models\SalesInvoice::sum('total_amount') + $unpostedBookSales),
+            'current_year_income' => ($this->getAccountBalanceAndTrack('%Current Year%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%Net Income%', 'Equity', $trackedIds) + $unpostedBookSales) + (\App\Models\SalesInvoice::sum('total_amount') + $unpostedBookSales),
 
             // Income (Publishing)
             'pub_book_sales' => $this->getAccountBalanceAndTrack('%Book Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Sales - Books%', 'Income', $trackedIds) + $unpostedBookSales,
@@ -3531,9 +3528,9 @@ public function checkVoucher()
             'oth_rental_income' => $this->getAccountBalanceAndTrack('%Rental%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Rent%', 'Income', $trackedIds),
 
             // Expenses
-            'exp_fixed_assets' => max($this->getAccountBalanceAndTrack('%Fixed Asset%', 'Expense', $trackedIds), (float) \App\Models\ProductionFixedAsset::sum('purchase_price')),
-            'exp_supplies' => max($this->getAccountBalanceAndTrack('%Supplies%', 'Expense', $trackedIds), (float) \App\Models\OfficeSupply::sum(\DB::raw('item_price * items_stock'))),
-            'exp_operational' => $this->getAccountBalanceAndTrack('%Operational%', 'Expense', $trackedIds) ?: \App\Models\Expense::sum('amount'),
+            'exp_fixed_assets' => $this->getAccountBalanceAndTrack('%Fixed Asset%', 'Expense', $trackedIds) + (float) \App\Models\ProductionFixedAsset::sum('purchase_price'),
+            'exp_supplies' => $this->getAccountBalanceAndTrack('%Supplies%', 'Expense', $trackedIds) + (float) \App\Models\OfficeSupply::sum(\DB::raw('item_price * items_stock')),
+            'exp_operational' => $this->getAccountBalanceAndTrack('%Operational%', 'Expense', $trackedIds) + \App\Models\Expense::sum('amount'),
             'exp_cogs' => $this->getAccountBalanceAndTrack('%Cost of Goods%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%COGS%', 'Expense', $trackedIds),
             'exp_payroll' => $this->getAccountBalanceAndTrack('%Payroll%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Salaries%', 'Expense', $trackedIds),
             'exp_utilities' => $this->getAccountBalanceAndTrack('%Utilities%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Electricity%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Water%', 'Expense', $trackedIds),
