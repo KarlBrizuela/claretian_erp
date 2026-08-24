@@ -401,14 +401,20 @@ class InventoryController extends Controller
         }
 
         // Lost Inventory Query
-        $lostQuery = \App\Models\LostInventory::with(['book', 'bookIndex', 'bookBundle', 'site', 'user'])->latest();
+        $lostQuery = \App\Models\LostInventory::with(['book', 'bookIndex.book', 'bookBundle', 'site', 'user'])->latest();
         if (!empty($search)) {
             $lostQuery->where(function($q) use ($search) {
                 $q->where('reason', 'like', '%' . $search . '%')
                   ->orWhere('team_name', 'like', '%' . $search . '%')
                   ->orWhereHas('book', fn($b) => $b->where('name', 'like', '%' . $search . '%')->orWhere('sku', 'like', '%' . $search . '%'))
-                  ->orWhereHas('bookIndex', fn($idx) => $idx->where('title', 'like', '%' . $search . '%')->orWhere('article_number', 'like', '%' . $search . '%'))
-                  ->orWhereHas('bookBundle', fn($bdl) => $bdl->where('bundle_name', 'like', '%' . $search . '%')->orWhere('bundle_code', 'like', '%' . $search . '%'))
+                  ->orWhereHas('bookIndex', function($idx) use ($search) {
+                      $idx->where('index_value', 'like', '%' . $search . '%')
+                          ->orWhere('custom_name', 'like', '%' . $search . '%')
+                          ->orWhere('article', 'like', '%' . $search . '%')
+                          ->orWhere('barcode', 'like', '%' . $search . '%')
+                          ->orWhereHas('book', fn($bq) => $bq->where('name', 'like', '%' . $search . '%')->orWhere('sku', 'like', '%' . $search . '%'));
+                  })
+                  ->orWhereHas('bookBundle', fn($bdl) => $bdl->where('name', 'like', '%' . $search . '%')->orWhere('sku', 'like', '%' . $search . '%'))
                   ->orWhereHas('site', fn($st) => $st->where('name', 'like', '%' . $search . '%'));
             });
         }
