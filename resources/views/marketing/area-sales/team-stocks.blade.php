@@ -109,22 +109,72 @@
                 $teamItemsCount = $teamStocks->where('team_name', $team)->where('quantity', '>', 0)->count();
                 $staffCount = $teamUsers->where('sales_team', $team)->count();
                 $teamBadgeClass = 'bg-danger text-white';
+
+                $teamLostCount = $transfers->filter(function($t) use ($team) {
+                    $tName = strtolower(trim($t->team_name));
+                    $targetName = strtolower(trim($team));
+                    $cleanTarget = strtolower(trim(preg_replace('/^(site\s+|team\s+)+/i', '', $team)));
+                    return $tName === $targetName || str_replace('site team ', '', $tName) === $cleanTarget || str_replace('team ', '', $tName) === $cleanTarget;
+                })->flatMap->items->sum('lost_quantity');
             @endphp
-            <div class="col-md-6 col-lg-4 col-xl-2-4 mb-3">
-                <div class="card shadow-sm border-0" style="border-radius: 10px; background: #fff;">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge {{ $teamBadgeClass }} px-3 py-2 fw-bold" style="font-size: 0.85rem;">{{ $team }}</span>
-                            <span class="text-muted small fw-bold">{{ $staffCount }} Staff</span>
+            <div class="col-md-6 col-lg-4 col-xl-2 mb-3">
+                <div class="card shadow-sm border-0 h-100" style="border-radius: 10px; background: #fff;">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge {{ $teamBadgeClass }} px-3 py-2 fw-bold" style="font-size: 0.85rem;">{{ $team }}</span>
+                                <span class="text-muted small fw-bold">{{ $staffCount }} Staff</span>
+                            </div>
+                            <div class="mt-2">
+                                <h3 class="fw-bold mb-0 text-dark" style="font-size: 1.4rem;">{{ number_format($teamCount) }} <span class="fs-14 text-muted fw-normal">pcs in stock</span></h3>
+                                <small class="text-muted d-block">{{ $teamItemsCount }} distinct item title(s)</small>
+                            </div>
                         </div>
-                        <div class="mt-3">
-                            <h3 class="fw-bold mb-0 text-dark">{{ number_format($teamCount) }} <span class="fs-14 text-muted fw-normal">pcs in stock</span></h3>
-                            <small class="text-muted">{{ $teamItemsCount }} distinct item title(s)</small>
+                        <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
+                            <span class="text-muted small fw-semibold">Lost Stock:</span>
+                            @if($teamLostCount > 0)
+                                <span class="badge bg-danger text-white fw-bold px-2 py-1" style="font-size: 0.78rem;" title="Total lost inventory recorded during returns">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>{{ number_format($teamLostCount) }} pcs lost
+                                </span>
+                            @else
+                                <span class="badge bg-light text-muted border fw-normal px-2 py-1" style="font-size: 0.78rem;">
+                                    0 lost
+                                </span>
+                            @endif
                         </div>
                     </div>
                 </div>
             </div>
             @endforeach
+
+            @php
+                $grandTotalLost = $transfers->flatMap->items->sum('lost_quantity');
+                $totalLostItemsRecorded = $transfers->flatMap->items->where('lost_quantity', '>', 0)->count();
+            @endphp
+            <div class="col-md-6 col-lg-4 col-xl-2 mb-3">
+                <div class="card shadow-sm border-0 h-100" style="border-radius: 10px; background: #fff; border-top: 3px solid #dc3545 !important;">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-danger text-white px-3 py-2 fw-bold" style="font-size: 0.85rem; background-color: #dc3545 !important;">
+                                    <i class="fas fa-exclamation-circle me-1"></i>TOTAL LOST
+                                </span>
+                                <span class="text-muted small fw-bold">All Teams</span>
+                            </div>
+                            <div class="mt-2">
+                                <h3 class="fw-bold mb-0 text-danger" style="font-size: 1.4rem;">{{ number_format($grandTotalLost) }} <span class="fs-14 text-muted fw-normal">pcs lost</span></h3>
+                                <small class="text-muted d-block">{{ $totalLostItemsRecorded }} recorded return item(s)</small>
+                            </div>
+                        </div>
+                        <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
+                            <span class="text-muted small fw-semibold">Lost Overview:</span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-bold px-2 py-1" style="font-size: 0.78rem; background-color: #fee2e2;">
+                                All Recorded Returns
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Main Card with Header & Tabs -->
@@ -139,6 +189,11 @@
                             style="height: 36px; font-size: 0.85rem; background-color: #D9251C; border: none; font-weight: 600;" 
                             data-bs-toggle="modal" data-bs-target="#newTransferModal">
                         <i class="fas fa-exchange-alt me-1"></i> Transfer Stock to Team
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm px-3 shadow-sm d-inline-flex align-items-center justify-content-center gap-1" 
+                            style="height: 36px; font-size: 0.85rem; font-weight: 600;" 
+                            data-bs-toggle="modal" data-bs-target="#returnStockModal">
+                        <i class="fas fa-undo me-1"></i> Return Stock to Main Warehouse
                     </button>
                 </div>
             </div>
@@ -240,7 +295,8 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>TRANSFER #</th>
-                                        <th>TARGET TEAM</th>
+                                        <th>TYPE</th>
+                                        <th>TEAM</th>
                                         <th>TRANSFERRED BY</th>
                                         <th class="text-center">ITEMS COUNT</th>
                                         <th>DATE & TIME</th>
@@ -253,9 +309,17 @@
                                     @forelse($transfers as $tr)
                                     @php
                                         $tBadgeClass = 'bg-danger text-white';
+                                        $isReturn = ($tr->transfer_type ?? '') === 'return' || str_starts_with($tr->transfer_number, 'TSR-');
                                     @endphp
                                     <tr>
                                         <td class="fw-bold text-dark">{{ $tr->transfer_number }}</td>
+                                        <td>
+                                            @if($isReturn)
+                                                <span class="badge bg-warning text-dark"><i class="fas fa-undo me-1"></i>Return to Warehouse</span>
+                                            @else
+                                                <span class="badge bg-primary"><i class="fas fa-exchange-alt me-1"></i>Warehouse to Team</span>
+                                            @endif
+                                        </td>
                                         <td><span class="badge {{ $tBadgeClass }}">{{ $tr->team_name }}</span></td>
                                         <td>{{ $tr->transferredByUser->name ?? 'System' }}</td>
                                         <td class="text-center">{{ $tr->items->count() }} item(s)</td>
@@ -403,31 +467,277 @@
     @foreach($transfers as $tr)
     <div class="modal fade" id="transferDetailModal{{ $tr->id }}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold text-dark">Transfer Details: {{ $tr->transfer_number }}</h5>
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-bottom py-3 px-4" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.05rem;">
+                            <i class="fas fa-file-alt me-2 text-secondary"></i>Transfer Details
+                        </h5>
+                        <small class="text-muted fw-semibold">{{ $tr->transfer_number }}</small>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <p class="mb-1"><strong>Target Team:</strong> <span class="badge bg-secondary">{{ $tr->team_name }}</span></p>
-                    <p class="mb-1"><strong>Transferred By:</strong> {{ $tr->transferredByUser->name ?? 'System' }}</p>
-                    <p class="mb-1"><strong>Date:</strong> {{ $tr->created_at->format('M d, Y h:i A') }}</p>
-                    <p class="mb-3"><strong>Notes:</strong> {{ $tr->notes ?: 'None' }}</p>
-                    
-                    <h6 class="fw-bold border-bottom pb-2">Items Transferred</h6>
-                    <ul class="list-group list-group-flush">
-                        @foreach($tr->items as $tItem)
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span class="fw-bold text-dark">{{ $tItem->product_name }}</span>
-                            <span class="badge bg-success rounded-pill px-3 py-2">+{{ number_format($tItem->quantity) }} pcs</span>
-                        </li>
-                        @endforeach
-                    </ul>
+                    <!-- Transfer Info Grid -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 bg-light border h-100">
+                                <small class="text-muted fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Transfer Type</small>
+                                @if(($tr->transfer_type ?? 'transfer') === 'return')
+                                    <span class="badge px-3 py-2 fw-bold" style="background-color: #0d6efd; font-size: 0.82rem;">
+                                        <i class="fas fa-undo-alt me-1"></i>Return to Warehouse
+                                    </span>
+                                @else
+                                    <span class="badge px-3 py-2 fw-bold" style="background-color: #198754; font-size: 0.82rem;">
+                                        <i class="fas fa-truck me-1"></i>Transfer to Team
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 bg-light border h-100">
+                                <small class="text-muted fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Status</small>
+                                @if($tr->status === 'completed' || $tr->status === 'approved')
+                                    <span class="badge bg-success px-3 py-2 fw-bold" style="font-size: 0.82rem;"><i class="fas fa-check-circle me-1"></i>Completed</span>
+                                @elseif($tr->status === 'pending' || $tr->status === 'pending_prod_approval')
+                                    <span class="badge bg-warning text-dark px-3 py-2 fw-bold" style="font-size: 0.82rem;"><i class="fas fa-clock me-1"></i>{{ ucwords(str_replace('_', ' ', $tr->status)) }}</span>
+                                @elseif($tr->status === 'rejected')
+                                    <span class="badge bg-danger px-3 py-2 fw-bold" style="font-size: 0.82rem;"><i class="fas fa-times-circle me-1"></i>Rejected</span>
+                                @else
+                                    <span class="badge bg-secondary px-3 py-2 fw-bold" style="font-size: 0.82rem;">{{ ucwords(str_replace('_', ' ', $tr->status)) }}</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 bg-light border h-100">
+                                <small class="text-muted fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Target Team</small>
+                                <span class="badge bg-danger text-white px-3 py-2 fw-bold" style="font-size: 0.82rem;">{{ $tr->team_name }}</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 bg-light border h-100">
+                                <small class="text-muted fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Transferred By</small>
+                                <span class="fw-bold text-dark"><i class="fas fa-user me-1 text-secondary"></i>{{ $tr->transferredByUser->name ?? 'System' }}</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 bg-light border h-100">
+                                <small class="text-muted fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Date & Time</small>
+                                <span class="fw-semibold text-dark"><i class="fas fa-calendar-alt me-1 text-secondary"></i>{{ $tr->created_at->format('M d, Y — h:i A') }}</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 bg-light border h-100">
+                                <small class="text-muted fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Notes / Remarks</small>
+                                <span class="fw-medium text-dark">{{ $tr->notes ?: ($tr->remarks ?: '—') }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items Table -->
+                    <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">
+                        <i class="fas fa-boxes me-1 text-secondary"></i>Items
+                        <span class="badge bg-secondary ms-1 rounded-pill">{{ $tr->items->count() }}</span>
+                    </h6>
+                    <div class="table-responsive rounded-2 border">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                <tr>
+                                    <th class="py-2 px-3 text-secondary small fw-bold" style="font-size: 0.75rem;">PRODUCT</th>
+                                    <th class="py-2 px-3 text-center text-secondary small fw-bold" style="font-size: 0.75rem; width: 80px;">TYPE</th>
+                                    @if(($tr->transfer_type ?? 'transfer') === 'return')
+                                        <th class="py-2 px-3 text-center text-secondary small fw-bold" style="font-size: 0.75rem; width: 100px;">RETURNED</th>
+                                        <th class="py-2 px-3 text-center text-secondary small fw-bold" style="font-size: 0.75rem; width: 100px;">LOST</th>
+                                    @else
+                                        <th class="py-2 px-3 text-center text-secondary small fw-bold" style="font-size: 0.75rem; width: 120px;">QTY</th>
+                                    @endif
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($tr->items as $tItem)
+                                <tr>
+                                    <td class="px-3">
+                                        <div class="fw-bold text-dark">{{ $tItem->product_name }}</div>
+                                        <small class="text-muted">
+                                            @if($tItem->book_index_id && $tItem->bookIndex)
+                                                <i class="fas fa-barcode me-1"></i>{{ $tItem->bookIndex->article_number ?: ($tItem->bookIndex->isbn ?: 'N/A') }}
+                                            @elseif($tItem->book_id && $tItem->book)
+                                                <i class="fas fa-barcode me-1"></i>{{ $tItem->book->isbn ?: ($tItem->book->item_code ?: 'N/A') }}
+                                            @elseif($tItem->book_bundle_id && $tItem->bookBundle)
+                                                <i class="fas fa-barcode me-1"></i>{{ $tItem->bookBundle->bundle_code ?: 'N/A' }}
+                                            @endif
+                                        </small>
+                                    </td>
+                                    <td class="text-center">
+                                        @if($tItem->book_bundle_id)
+                                            <span class="badge bg-warning text-white px-2 py-1" style="font-size: 0.72rem;">Bundle</span>
+                                        @elseif($tItem->book_index_id)
+                                            <span class="badge bg-info text-white px-2 py-1" style="font-size: 0.72rem;">Index</span>
+                                        @else
+                                            <span class="badge bg-primary text-white px-2 py-1" style="font-size: 0.72rem;">Book</span>
+                                        @endif
+                                    </td>
+                                    @if(($tr->transfer_type ?? 'transfer') === 'return')
+                                        <td class="text-center">
+                                            @if((int)$tItem->quantity > 0)
+                                                <span class="badge bg-success rounded-pill px-3 py-2 fw-bold">+{{ number_format($tItem->quantity) }} pcs</span>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-center">
+                                            @if((int)($tItem->lost_quantity ?? 0) > 0)
+                                                <span class="badge bg-danger rounded-pill px-3 py-2 fw-bold">{{ number_format($tItem->lost_quantity) }} pcs</span>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                    @else
+                                        <td class="text-center">
+                                            <span class="badge bg-success rounded-pill px-3 py-2 fw-bold">+{{ number_format($tItem->quantity) }} pcs</span>
+                                        </td>
+                                    @endif
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Summary Footer -->
+                    @php
+                        $totalTransferred = $tr->items->sum('quantity');
+                        $totalLost = $tr->items->sum('lost_quantity');
+                    @endphp
+                    <div class="d-flex justify-content-end gap-4 mt-3 p-3 bg-light rounded-3 border">
+                        @if(($tr->transfer_type ?? 'transfer') === 'return')
+                            <div>
+                                <span class="text-muted small fw-bold me-1">Total Returned:</span>
+                                <span class="fw-bold text-success">{{ number_format($totalTransferred) }} pcs</span>
+                            </div>
+                            @if($totalLost > 0)
+                            <div>
+                                <span class="text-muted small fw-bold me-1">Total Lost:</span>
+                                <span class="fw-bold text-danger">{{ number_format($totalLost) }} pcs</span>
+                            </div>
+                            @endif
+                        @else
+                            <div>
+                                <span class="text-muted small fw-bold me-1">Total Items:</span>
+                                <span class="fw-bold text-dark">{{ $tr->items->count() }}</span>
+                            </div>
+                            <div>
+                                <span class="text-muted small fw-bold me-1">Total Qty:</span>
+                                <span class="fw-bold text-success">{{ number_format($totalTransferred) }} pcs</span>
+                            </div>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     @endforeach
+
+    <!-- Return Stock Modal -->
+    <div class="modal fade" id="returnStockModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 1050px;">
+            <div class="modal-content border-0 shadow">
+                <form action="{{ route('marketing.area-sales.team-stocks.return') }}" method="POST" id="returnStockForm">
+                    @csrf
+                    <div class="modal-header border-bottom bg-white py-3 px-4">
+                        <h5 class="modal-title text-dark fw-bold" style="font-size: 1.1rem; color: #0f172a;">
+                            Return Stock to Main Warehouse
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4 bg-white">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold text-secondary mb-1">SELECT TEAM <span class="text-danger">*</span></label>
+                                <select name="team_name" id="returnTeamSelect" class="form-select border-slate" required>
+                                    <option value="" disabled selected>Select Sales Team...</option>
+                                    <option value="Team A">Team A</option>
+                                    <option value="Team B">Team B</option>
+                                    <option value="Team C">Team C</option>
+                                    <option value="Book Sales">Book Sales</option>
+                                    <option value="MIBF">MIBF</option>
+                                </select>
+                            </div>
+                            <div class="col-md-7">
+                                <label class="form-label small fw-bold text-secondary mb-1">REMARKS / NOTES</label>
+                                <input type="text" name="notes" class="form-control border-slate" placeholder="Optional return remarks...">
+                            </div>
+                        </div>
+
+                        <!-- Barcode Scanner Input Section -->
+                        <div class="p-3 bg-light rounded-3 border mb-3">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-9">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white text-secondary border-end-0"><i class="fas fa-barcode"></i></span>
+                                        <input type="text" id="returnBarcodeInput" class="form-control border-start-0" placeholder="Scan or type ISBN/barcode and press Enter..." disabled autocomplete="off">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" class="btn btn-outline-danger w-100 fw-semibold" id="btnScanReturnBarcode" disabled style="border-color: #D9251C; color: #D9251C;">
+                                        <i class="fas fa-barcode me-1"></i>Scan / Add
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="returnScanFeedback" class="mt-2 text-secondary small fw-medium">Select a team above to start barcode scanning...</div>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="table-responsive rounded-2 border" style="max-height: 360px; overflow-y: auto;">
+                            <table class="table table-hover align-middle mb-0" id="returnItemsTable">
+                                <thead style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                    <tr>
+                                        <th class="py-2 px-3 text-secondary uppercase small fw-bold">PRODUCT DESCRIPTION</th>
+                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 130px;">AVAIL. QTY</th>
+                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 140px;">RETURN QTY</th>
+                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 140px;">LOST QTY</th>
+                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 150px;">STATUS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="returnItemsBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted small">Please select a team above to view available stock for return.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Return Summary Bar -->
+                        <div class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light rounded-3 border flex-wrap gap-2">
+                            <div>
+                                <span class="text-secondary small fw-bold uppercase">SELECTED TEAM:</span>
+                                <span id="summaryReturnTeamName" class="badge bg-danger ms-1 fw-semibold">None</span>
+                            </div>
+                            <div class="d-flex gap-4">
+                                <div>
+                                    <span class="text-secondary small fw-medium me-1">Total Items:</span>
+                                    <span id="summaryTotalItems" class="fw-bold text-dark">0</span>
+                                </div>
+                                <div>
+                                    <span class="text-secondary small fw-medium me-1">Returned:</span>
+                                    <span id="summaryTotalReturned" class="fw-bold text-success">0 pcs</span>
+                                </div>
+                                <div>
+                                    <span class="text-secondary small fw-medium me-1">Lost:</span>
+                                    <span id="summaryTotalLost" class="fw-bold text-danger">0 pcs</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-top py-3 px-4">
+                        <button type="button" class="btn btn-light border px-4 fw-semibold text-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4 fw-semibold" id="btnConfirmReturn" style="background-color: #D9251C; border: none;" disabled>
+                            Confirm & Return Stock
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     @push('scripts')
     <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
@@ -675,14 +985,400 @@
             initProductSelect2(selectEl);
         }
 
-        // Filter functionality for Team Inventory Table
+        const allTeamStockData = @json($teamStockJsonData ?? []);
+
+        function initProductSelect2(selectElement) {
+            if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
+                jQuery(selectElement).select2({
+                    dropdownParent: jQuery('#newTransferModal'),
+                    width: '100%'
+                });
+            }
+        }
+
+        function updateRemoveButtons() {
+            const rows = document.querySelectorAll('.transfer-item-row');
+            rows.forEach(row => {
+                const btn = row.querySelector('.remove-row-btn');
+                if (btn) btn.disabled = (rows.length <= 1);
+            });
+        }
+
+        function addTransferRow() {
+            const container = document.getElementById('transferItemsContainer');
+            const firstRow = container.querySelector('.transfer-item-row');
+            if (!firstRow) return;
+
+            const newRow = firstRow.cloneNode(true);
+            
+            const selectEl = newRow.querySelector('.product-select');
+            if (selectEl) {
+                selectEl.name = `items[${transferRowIndex}][product_id]`;
+                selectEl.selectedIndex = 0;
+                if (window.jQuery && jQuery(selectEl).data('select2')) {
+                    jQuery(selectEl).select2('destroy');
+                    selectEl.removeAttribute('data-select2-id');
+                    selectEl.querySelectorAll('option').forEach(opt => opt.removeAttribute('data-select2-id'));
+                }
+            }
+
+            const qtyInput = newRow.querySelector('.qty-input');
+            if (qtyInput) {
+                qtyInput.name = `items[${transferRowIndex}][quantity]`;
+                qtyInput.value = 1;
+            }
+
+            container.appendChild(newRow);
+            transferRowIndex++;
+            updateRemoveButtons();
+
+            if (selectEl) {
+                initProductSelect2(selectEl);
+            }
+        }
+
+        function removeTransferRow(btn) {
+            const rows = document.querySelectorAll('.transfer-item-row');
+            if (rows.length > 1) {
+                const row = btn.closest('.transfer-item-row');
+                const selectEl = row.querySelector('.product-select');
+                if (window.jQuery && selectEl && jQuery(selectEl).data('select2')) {
+                    jQuery(selectEl).select2('destroy');
+                }
+                row.remove();
+                updateRemoveButtons();
+            }
+        }
+
+        function triggerExcelImport() {
+            document.getElementById('excelTransferInput').click();
+        }
+
+        function handleExcelImport(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('excel_file', file);
+            formData.append('_token', '{{ csrf_token() }}');
+
+            const container = document.getElementById('transferItemsContainer');
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted" id="excelLoadingState">
+                    <div class="spinner-border text-danger spinner-border-sm me-2" role="status"></div>
+                    Parsing Excel file and matching products...
+                </div>
+            `;
+
+            fetch("{{ route('marketing.area-sales.team-stocks.parse-excel') }}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                input.value = '';
+                if (data.status === 'success' && data.items && data.items.length > 0) {
+                    container.innerHTML = '';
+                    transferRowIndex = 0;
+
+                    data.items.forEach(item => {
+                        createAndPopulateTransferRow(item.product_id, item.quantity, item.stock);
+                    });
+
+                    let msg = `Successfully imported ${data.count} item(s) from Excel!`;
+                    if (data.skipped > 0) {
+                        msg += ` (${data.skipped} row(s) skipped/unmatched)`;
+                    }
+                    alert(msg);
+                } else {
+                    alert('Excel Import Error: ' + (data.message || 'No valid products found.'));
+                    location.reload();
+                }
+            })
+            .catch(err => {
+                input.value = '';
+                alert('Failed to import Excel file: ' + err.message);
+                location.reload();
+            });
+        }
+
+        function createAndPopulateTransferRow(productId, quantity, maxStock) {
+            const container = document.getElementById('transferItemsContainer');
+            
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'transfer-item-row row g-2 mb-2 align-items-end';
+            
+            let optionsHtml = '<option value="" disabled>Select product...</option>';
+            @foreach($mainProducts as $prod)
+            @php
+                $pId = is_object($prod) ? $prod->id : ($prod['id'] ?? '');
+                $pName = is_object($prod) ? $prod->name : ($prod['name'] ?? '');
+                $pStock = is_object($prod) ? ($prod->stock ?? $prod->main_stock ?? 0) : ($prod['stock'] ?? $prod['main_stock'] ?? 0);
+            @endphp
+            optionsHtml += `<option value="{{ $pId }}" data-stock="{{ $pStock }}" ${productId === '{{ $pId }}' ? 'selected' : ''}>{{ e($pName) }} (Main Stock: {{ number_format($pStock) }} pcs)</option>`;
+            @endforeach
+
+            rowDiv.innerHTML = `
+                <div class="col-md-7">
+                    <label class="form-label small fw-bold mb-1">Product Title / Code (Main Warehouse Stock)</label>
+                    <select name="items[${transferRowIndex}][product_id]" class="form-select product-select" required>
+                        ${optionsHtml}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold mb-1">Quantity to Transfer</label>
+                    <input type="number" name="items[${transferRowIndex}][quantity]" class="form-control qty-input" min="1" max="${maxStock}" value="${quantity}" placeholder="Max: ${maxStock}" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-danger w-100 remove-row-btn" onclick="removeTransferRow(this)">
+                        Remove
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(rowDiv);
+            transferRowIndex++;
+            updateRemoveButtons();
+
+            const selectEl = rowDiv.querySelector('.product-select');
+            initProductSelect2(selectEl);
+        }
+
+        // Return Stock Feature Logic
+        function normalizeBarcode(bc) {
+            return (bc || '').toString().toLowerCase().replace(/[\s\-\_\.]/g, '');
+        }
+
+        let currentReturnItems = [];
+
+        function renderReturnTable(teamName) {
+            const tbody = document.getElementById('returnItemsBody');
+            const summaryTeam = document.getElementById('summaryReturnTeamName');
+            const barcodeInput = document.getElementById('returnBarcodeInput');
+            const scanBtn = document.getElementById('btnScanReturnBarcode') || document.getElementById('btnFocusReturnBarcode');
+            const confirmBtn = document.getElementById('btnConfirmReturn');
+            const feedbackEl = document.getElementById('returnScanFeedback');
+
+            if (summaryTeam) summaryTeam.textContent = teamName || 'None';
+
+            if (!teamName) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Please select a team above to view available stock for return.</td></tr>';
+                if (barcodeInput) barcodeInput.disabled = true;
+                if (scanBtn) scanBtn.disabled = true;
+                if (confirmBtn) confirmBtn.disabled = true;
+                if (feedbackEl) feedbackEl.textContent = 'Select a team above to start barcode scanning...';
+                return;
+            }
+
+            // Filter items for the selected team
+            const rawTeam = teamName.trim();
+            const cleanName = rawTeam.replace(/^(site\s+|team\s+)+/i, '').trim().toLowerCase();
+
+            currentReturnItems = allTeamStockData.filter(item => {
+                const itemTeam = (item.team_name || '').trim().toLowerCase();
+                const itemClean = itemTeam.replace(/^(site\s+|team\s+)+/i, '').trim();
+                return (itemTeam === rawTeam.toLowerCase() || itemClean === cleanName) && (item.available_qty > 0);
+            });
+
+            if (currentReturnItems.length === 0) {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted small">No items with positive stock found under <strong>${teamName}</strong>.</td></tr>`;
+                if (barcodeInput) barcodeInput.disabled = true;
+                if (scanBtn) scanBtn.disabled = true;
+                if (confirmBtn) confirmBtn.disabled = true;
+                if (feedbackEl) feedbackEl.textContent = `No available stock under ${teamName}.`;
+                updateReturnTotals();
+                return;
+            }
+
+            if (barcodeInput) {
+                barcodeInput.disabled = false;
+                barcodeInput.value = '';
+                barcodeInput.focus();
+            }
+            if (scanBtn) scanBtn.disabled = false;
+            if (feedbackEl) feedbackEl.innerHTML = `<span class="text-success small fw-medium"><i class="fas fa-check-circle me-1"></i>Ready! ${currentReturnItems.length} product(s) loaded for ${teamName}. Scan barcode now.</span>`;
+
+            let html = '';
+            currentReturnItems.forEach((item, idx) => {
+                const barcodesStr = (item.barcodes && item.barcodes.length > 0) ? item.barcodes.join(', ') : 'N/A';
+                html += `
+                    <tr id="return_row_${idx}" class="return-item-row" data-index="${idx}" data-product-id="${item.product_id}" data-max-qty="${item.available_qty}" style="transition: all 0.2s ease;">
+                        <td class="py-2 px-3">
+                            <div class="fw-semibold text-dark" style="font-size: 0.88rem;">${item.product_name}</div>
+                            <small class="text-muted" style="font-size: 0.76rem;"><i class="fas fa-barcode me-1"></i>${barcodesStr}</small>
+                            <input type="hidden" name="items[${idx}][product_id]" value="${item.product_id}">
+                        </td>
+                        <td class="text-center py-2 px-3 fw-bold text-secondary" style="font-size: 0.88rem;">
+                            ${item.available_qty} pcs
+                        </td>
+                        <td class="text-center py-2 px-3">
+                            <input type="number" name="items[${idx}][returned_qty]" class="form-control form-control-sm text-center fw-bold input-returned-qty border-slate" value="0" min="0" max="${item.available_qty}" oninput="onReturnQtyChanged(${idx})">
+                        </td>
+                        <td class="text-center py-2 px-3">
+                            <input type="number" name="items[${idx}][lost_qty]" class="form-control form-control-sm text-center fw-bold text-danger input-lost-qty border-slate" value="0" min="0" max="${item.available_qty}" oninput="onReturnQtyChanged(${idx})">
+                        </td>
+                        <td class="text-center py-2 px-3 row-status-cell">
+                            <span class="badge bg-light text-secondary border fw-medium">Pending</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            updateReturnTotals();
+        }
+
+        function onReturnQtyChanged(idx) {
+            const row = document.getElementById(`return_row_${idx}`);
+            if (!row) return;
+
+            const maxQty = parseInt(row.getAttribute('data-max-qty')) || 0;
+            const retInput = row.querySelector('.input-returned-qty');
+            const lostInput = row.querySelector('.input-lost-qty');
+            const statusCell = row.querySelector('.row-status-cell');
+
+            let retVal = parseInt(retInput.value) || 0;
+            let lostVal = parseInt(lostInput.value) || 0;
+
+            if (retVal < 0) retVal = 0;
+            if (lostVal < 0) lostVal = 0;
+
+            if (retVal + lostVal > maxQty) {
+                alert(`Total returned (${retVal}) + lost (${lostVal}) exceeds available stock (${maxQty} pcs)!`);
+                retVal = Math.min(retVal, maxQty);
+                lostVal = Math.min(lostVal, maxQty - retVal);
+                retInput.value = retVal;
+                lostInput.value = lostVal;
+            }
+
+            if (retVal > 0 || lostVal > 0) {
+                row.style.backgroundColor = '#f0fdf4';
+                row.style.borderLeft = '3px solid #22c55e';
+                let statusHtml = '';
+                if (retVal > 0 && lostVal > 0) {
+                    statusHtml = `<span class="badge bg-success text-white fw-medium"><i class="fas fa-check me-1"></i>Ret: ${retVal} | Lost: ${lostVal}</span>`;
+                } else if (retVal > 0) {
+                    statusHtml = `<span class="badge bg-success text-white fw-medium"><i class="fas fa-check me-1"></i>Returned (${retVal})</span>`;
+                } else {
+                    statusHtml = `<span class="badge bg-danger text-white fw-medium"><i class="fas fa-exclamation-circle me-1"></i>Lost (${lostVal})</span>`;
+                }
+                statusCell.innerHTML = statusHtml;
+            } else {
+                row.style.backgroundColor = '';
+                row.style.borderLeft = '';
+                statusCell.innerHTML = '<span class="badge bg-light text-secondary border fw-medium">Pending</span>';
+            }
+
+            updateReturnTotals();
+        }
+
+        function addReturnQty(idx, qty) {
+            const row = document.getElementById(`return_row_${idx}`);
+            if (!row) return;
+            const retInput = row.querySelector('.input-returned-qty');
+            retInput.value = (parseInt(retInput.value) || 0) + qty;
+            onReturnQtyChanged(idx);
+        }
+
+        function addLostQty(idx, qty) {
+            const row = document.getElementById(`return_row_${idx}`);
+            if (!row) return;
+            const lostInput = row.querySelector('.input-lost-qty');
+            lostInput.value = (parseInt(lostInput.value) || 0) + qty;
+            onReturnQtyChanged(idx);
+        }
+
+        function resetReturnRow(idx) {
+            const row = document.getElementById(`return_row_${idx}`);
+            if (!row) return;
+            row.querySelector('.input-returned-qty').value = 0;
+            row.querySelector('.input-lost-qty').value = 0;
+            onReturnQtyChanged(idx);
+        }
+
+        function updateReturnTotals() {
+            let totalReturned = 0;
+            let totalLost = 0;
+            const rows = document.querySelectorAll('#returnItemsBody .return-item-row');
+
+            rows.forEach(row => {
+                const retVal = parseInt(row.querySelector('.input-returned-qty')?.value) || 0;
+                const lostVal = parseInt(row.querySelector('.input-lost-qty')?.value) || 0;
+                totalReturned += retVal;
+                totalLost += lostVal;
+            });
+
+            document.getElementById('summaryTotalItems').textContent = rows.length;
+            document.getElementById('summaryTotalReturned').textContent = `${totalReturned} pcs`;
+            document.getElementById('summaryTotalLost').textContent = `${totalLost} pcs`;
+
+            const confirmBtn = document.getElementById('btnConfirmReturn');
+            confirmBtn.disabled = (totalReturned === 0 && totalLost === 0);
+        }
+
+        function processReturnBarcodeScan(rawBarcode) {
+            const input = (rawBarcode || '').trim();
+            if (!input) {
+                const bcInput = document.getElementById('returnBarcodeInput');
+                if (bcInput) bcInput.focus();
+                return;
+            }
+
+            const normalized = normalizeBarcode(input);
+            const feedbackEl = document.getElementById('returnScanFeedback');
+            let matchedIdx = -1;
+
+            currentReturnItems.forEach((item, idx) => {
+                if (matchedIdx !== -1) return;
+                const normBarcodes = (item.barcodes || []).map(normalizeBarcode);
+                const normName = normalizeBarcode(item.product_name);
+
+                const isExactBarcode = normBarcodes.includes(normalized);
+                const isPartialBarcode = normBarcodes.some(b => b.length > 3 && (b.includes(normalized) || normalized.includes(b)));
+                const isNameMatch = normName.includes(normalized) || input.toLowerCase() === (item.product_name || '').toLowerCase();
+
+                if (isExactBarcode || isPartialBarcode || isNameMatch) {
+                    matchedIdx = idx;
+                }
+            });
+
+            if (matchedIdx !== -1) {
+                const row = document.getElementById(`return_row_${matchedIdx}`);
+                const maxQty = parseInt(row.getAttribute('data-max-qty')) || 0;
+                const retInput = row.querySelector('.input-returned-qty');
+                const lostInput = row.querySelector('.input-lost-qty');
+                const currentRet = parseInt(retInput.value) || 0;
+                const currentLost = parseInt(lostInput.value) || 0;
+
+                if (currentRet + currentLost < maxQty) {
+                    retInput.value = currentRet + 1;
+                    onReturnQtyChanged(matchedIdx);
+
+                    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    feedbackEl.innerHTML = `<span class="text-success small fw-medium"><i class="fas fa-check-circle me-1"></i>Scanned! "${currentReturnItems[matchedIdx].product_name}" (Returned Qty: ${currentRet + 1})</span>`;
+                } else {
+                    feedbackEl.innerHTML = `<span class="text-warning small fw-medium"><i class="fas fa-exclamation-triangle me-1"></i>Stock limit reached for "${currentReturnItems[matchedIdx].product_name}" (Max: ${maxQty} pcs).</span>`;
+                }
+            } else {
+                feedbackEl.innerHTML = `<span class="text-danger small fw-medium"><i class="fas fa-times-circle me-1"></i>Barcode / Title "${input}" not found in available stock for this team!</span>`;
+            }
+
+            const barcodeInput = document.getElementById('returnBarcodeInput');
+            if (barcodeInput) {
+                barcodeInput.value = '';
+                barcodeInput.focus();
+            }
+        }
+
+        // Filter functionality for Team Inventory Table & Modal Listeners
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Select2 on initial product select fields
             document.querySelectorAll('.product-select').forEach(function(select) {
                 initProductSelect2(select);
             });
 
-            // Re-adjust select2 width when modal opens
             if (window.jQuery) {
                 jQuery('#newTransferModal').on('shown.bs.modal', function () {
                     jQuery('.product-select').each(function() {
@@ -692,7 +1388,54 @@
                         initProductSelect2(this);
                     });
                 });
+
+                jQuery('#returnStockModal').on('shown.bs.modal', function () {
+                    const teamSelect = document.getElementById('returnTeamSelect');
+                    if (teamSelect.value) {
+                        renderReturnTable(teamSelect.value);
+                    }
+                    const barcodeInput = document.getElementById('returnBarcodeInput');
+                    if (barcodeInput && !barcodeInput.disabled) {
+                        setTimeout(() => barcodeInput.focus(), 150);
+                    }
+                });
             }
+
+            document.getElementById('returnTeamSelect')?.addEventListener('change', function() {
+                renderReturnTable(this.value);
+            });
+
+            const barcodeInput = document.getElementById('returnBarcodeInput');
+            const scanBtn = document.getElementById('btnScanReturnBarcode');
+
+            const handleBarcodeEvent = function(e) {
+                if (e.key === 'Enter' || e.keyCode === 13 || e.key === 'Tab' || e.keyCode === 9) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    processReturnBarcodeScan(barcodeInput ? barcodeInput.value : '');
+                    return false;
+                }
+            };
+
+            if (barcodeInput) {
+                barcodeInput.addEventListener('keydown', handleBarcodeEvent);
+                barcodeInput.addEventListener('keypress', handleBarcodeEvent);
+            }
+
+            if (scanBtn) {
+                scanBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    processReturnBarcodeScan(barcodeInput ? barcodeInput.value : '');
+                });
+            }
+
+            document.getElementById('returnStockForm')?.addEventListener('submit', function(e) {
+                if (document.activeElement === barcodeInput && barcodeInput.value.trim() !== '') {
+                    e.preventDefault();
+                    processReturnBarcodeScan(barcodeInput.value);
+                    return false;
+                }
+            });
 
             const filterBtns = document.querySelectorAll('#teamFilterGroup button');
             const rows = document.querySelectorAll('#teamStockTable .stock-row');

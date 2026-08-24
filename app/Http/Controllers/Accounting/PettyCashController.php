@@ -69,8 +69,12 @@ class PettyCashController extends Controller
 
     public function create()
     {
-        $expenseAccounts = ChartOfAccount::where('type', 'Expense')
-            ->orWhereIn('code', ['6000', '6010', '6020', '6030'])
+        $expenseAccounts = ChartOfAccount::where('is_active', 1)
+            ->where('is_postable', 1)
+            ->where(function($query) {
+                $query->where('type', 'Expense')
+                      ->orWhereIn('code', ['6000', '6010', '6020', '6030']);
+            })
             ->orderBy('code')
             ->get();
 

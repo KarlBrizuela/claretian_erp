@@ -978,23 +978,13 @@
         function renderPaymentMethods() {
             const grid = document.getElementById('paymentMethodGrid');
             let methods = [
-                { id: 'cash', icon: 'la-money-bill-wave', label: 'Cash', available: true }
+                { id: 'cash', icon: 'la-money-bill-wave', label: 'Cash', available: true },
+                { id: 'gcash', icon: 'la-mobile', label: 'GCash', available: true },
+                { id: 'paymaya', icon: 'la-wallet', label: 'Maya', available: true },
+                { id: 'card', icon: 'la-credit-card', label: 'Card', available: true },
+                { id: 'check', icon: 'la-money-check', label: 'Check', available: true },
+                { id: 'bank', icon: 'la-university', label: 'Bank Transfer', available: true }
             ];
-            
-            // Add digital payment methods if configured
-            if (paymentSettings.gcash?.number || paymentSettings.gcash?.qr) {
-                methods.push({ id: 'gcash', icon: 'la-mobile-alt', label: 'GCash', available: true });
-            }
-            if (paymentSettings.paymaya?.number || paymentSettings.paymaya?.qr) {
-                methods.push({ id: 'paymaya', icon: 'la-mobile-alt', label: 'PayMaya', available: true });
-            }
-            if (paymentSettings.bank?.name) {
-                methods.push({ id: 'bank', icon: 'la-university', label: 'Bank Transfer', available: true });
-            }
-            
-            // Always show card and check options
-            methods.push({ id: 'card', icon: 'la-credit-card', label: 'Card', available: true });
-            methods.push({ id: 'check', icon: 'la-money-check', label: 'Check', available: true });
             
             grid.innerHTML = methods.map((method, index) => `
                 <div class="payment-method-card ${index === 0 ? 'active' : ''}" onclick="selectMethod(this, '${method.id}')">

@@ -1412,6 +1412,13 @@ class MarketingController extends Controller
         if ($typeFilter && $typeFilter !== 'all') {
             if ($typeFilter === 'area_sales_consignment') {
                 $query->whereIn('type', ['area_sales_consignment', 'area_consignment']);
+            } elseif ($typeFilter === 'mibf') {
+                $query->where(function($q) {
+                    $q->where('platform', 'MIBF')
+                      ->orWhere('ecom_platform', 'MIBF')
+                      ->orWhere('type', 'mibf')
+                      ->orWhere('so_number', 'like', 'MIBF-%');
+                });
             } else {
                 $query->where('type', $typeFilter);
             }
@@ -1702,90 +1709,58 @@ class MarketingController extends Controller
 
     public function getUnifiedProducts($teamName = null)
     {
+        $teamStocksMap = [];
         if (!empty($teamName)) {
-            $teamStocks = \App\Models\TeamStock::with(['book', 'bookIndex.book', 'bookBundle'])
-                ->where('team_name', $teamName)
-                ->where('quantity', '>', 0)
-                ->get();
+            $rawTeam = trim($teamName);
+            $cleanName = trim(preg_replace('/^(site\s+|team\s+)+/i', '', $rawTeam));
+            $variations = array_unique([
+                $rawTeam,
+                'Team ' . $cleanName,
+                'SITE TEAM ' . strtoupper($cleanName),
+                'SITE TEAM ' . $cleanName,
+                'SITE ' . strtoupper($cleanName),
+                'SITE ' . $cleanName,
+                $cleanName,
+                strtoupper($rawTeam),
+                strtolower($rawTeam),
+            ]);
 
-            return $teamStocks->map(function($ts) {
-                if ($ts->book_index_id && $ts->bookIndex) {
-                    $idx = $ts->bookIndex;
-                    $fullName = $idx->display_name;
-                    $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
-                    $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
-                    $stock = (int) $ts->quantity;
-                    return (object)[
-                        'id' => 'index_' . $idx->id,
-                        'type' => 'index',
-                        'real_id' => $idx->id,
-                        'book_id' => $idx->book_id,
-                        'name' => $fullName,
-                        'category' => 'Book Indices',
-                        'display_name' => '[Index] ' . $fullName . ' (Stock: ' . $stock . ')',
-                        'price' => $price,
-                        'isbn' => $idx->book?->isbn ?? '',
-                        'stock' => $stock,
-                        'main_stock' => $stock,
-                        'image' => $img,
-                    ];
-                } elseif ($ts->book_bundle_id && $ts->bookBundle) {
-                    $bun = $ts->bookBundle;
-                    $fullName = $bun->name . ' (bundle)';
-                    $stock = (int) $ts->quantity;
-                    return (object)[
-                        'id' => 'bundle_' . $bun->id,
-                        'type' => 'bundle',
-                        'real_id' => $bun->id,
-                        'book_id' => null,
-                        'name' => $fullName,
-                        'category' => 'Book Bundles',
-                        'display_name' => '[Bundle] ' . $bun->name . ' (Stock: ' . $stock . ')',
-                        'price' => (float) $bun->price,
-                        'isbn' => $bun->sku ?? '',
-                        'stock' => $stock,
-                        'main_stock' => $stock,
-                        'image' => asset('images/no-book-cover.svg'),
-                    ];
-                } elseif ($ts->book_id && $ts->book) {
-                    $b = $ts->book;
-                    $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
-                                 (isset($b->category) && strtolower($b->category) === 'non-book') ||
-                                 (isset($b->book_type) && strtolower($b->book_type) === 'non-book');
-                    $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
-                    $fullName = $b->name . $typeSuffix;
-                    $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
-                    $stock = (int) $ts->quantity;
-                    return (object)[
-                        'id' => 'book_' . $b->id,
-                        'type' => 'book',
-                        'real_id' => $b->id,
-                        'book_id' => $b->id,
-                        'name' => $fullName,
-                        'category' => $isNonBook ? 'Non-Books' : 'Books',
-                        'display_name' => $prefix . $b->name . ' (Stock: ' . $stock . ')',
-                        'price' => (float) $b->price,
-                        'isbn' => $b->isbn ?? $b->barcode ?? $b->sku ?? '',
-                        'stock' => $stock,
-                        'main_stock' => $stock,
-                        'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg'),
-                    ];
+            $tsList = \App\Models\TeamStock::where(function($q) use ($variations) {
+                foreach ($variations as $var) {
+                    $q->orWhere('team_name', $var)
+                      ->orWhereRaw('LOWER(team_name) = ?', [strtolower($var)]);
                 }
-                return null;
-            })->filter()->values();
+            })->get();
+
+            foreach ($tsList as $ts) {
+                if ($ts->book_index_id) {
+                    $teamStocksMap['index_' . $ts->book_index_id] = (int)$ts->quantity;
+                } elseif ($ts->book_bundle_id) {
+                    $teamStocksMap['bundle_' . $ts->book_bundle_id] = (int)$ts->quantity;
+                } elseif ($ts->book_id) {
+                    $teamStocksMap['book_' . $ts->book_id] = (int)$ts->quantity;
+                }
+            }
         }
 
-        $books = \App\Models\Book::where('is_active', true)
-            ->orderBy('name')
+        $booksQuery = \App\Models\Book::where('is_active', true);
+        if (!empty($teamName)) {
+            $allowedBookIds = array_map(fn($k) => (int)str_replace('book_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'book_') && $v > 0, ARRAY_FILTER_USE_BOTH)));
+            $booksQuery->whereIn('id', $allowedBookIds ?? [0]);
+        }
+        $books = $booksQuery->orderBy('name')
             ->get()
-            ->map(function($b) {
+            ->map(function($b) use ($teamName, $teamStocksMap) {
                 $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
                              (isset($b->category) && strtolower($b->category) === 'non-book') ||
                              (isset($b->book_type) && strtolower($b->book_type) === 'non-book');
                 $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
                 $fullName = $b->name . $typeSuffix;
                 $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
-                $mainStock = (int) ($b->main_stock ?? $b->stock ?? 0);
+
+                $stock = !empty($teamName) 
+                    ? (int)($teamStocksMap['book_' . $b->id] ?? 0)
+                    : (int)($b->main_stock ?? $b->stock ?? 0);
 
                 return (object)[
                     'id' => 'book_' . $b->id,
@@ -1794,22 +1769,29 @@ class MarketingController extends Controller
                     'book_id' => $b->id,
                     'name' => $fullName,
                     'category' => $isNonBook ? 'Non-Books' : 'Books',
-                    'display_name' => $prefix . $b->name . ' (Stock: ' . $mainStock . ')',
+                    'display_name' => $prefix . $b->name . ' (Stock: ' . $stock . ')',
                     'price' => (float) $b->price,
                     'isbn' => $b->isbn ?? $b->barcode ?? $b->sku ?? '',
-                    'stock' => $mainStock,
-                    'main_stock' => $mainStock,
+                    'stock' => $stock,
+                    'main_stock' => $stock,
                     'image' => $b->image ? asset('storage/' . $b->image) : asset('images/no-book-cover.svg'),
                 ];
             });
 
-        $indices = \App\Models\BookIndex::with('book')
-            ->get()
-            ->map(function($idx) {
+        $indicesQuery = \App\Models\BookIndex::with('book');
+        if (!empty($teamName)) {
+            $allowedIndexIds = array_map(fn($k) => (int)str_replace('index_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'index_') && $v > 0, ARRAY_FILTER_USE_BOTH)));
+            $indicesQuery->whereIn('id', $allowedIndexIds ?? [0]);
+        }
+        $indices = $indicesQuery->get()
+            ->map(function($idx) use ($teamName, $teamStocksMap) {
                 $fullName = $idx->display_name;
                 $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
                 $img = $idx->book?->image ? asset('storage/' . $idx->book->image) : asset('images/no-book-cover.svg');
-                $mainStock = (int) ($idx->main_stock ?? $idx->stock ?? 0);
+                $stock = !empty($teamName) 
+                    ? (int)($teamStocksMap['index_' . $idx->id] ?? 0)
+                    : (int)($idx->main_stock ?? $idx->stock ?? 0);
+
                 return (object)[
                     'id' => 'index_' . $idx->id,
                     'type' => 'index',
@@ -1817,21 +1799,28 @@ class MarketingController extends Controller
                     'book_id' => $idx->book_id,
                     'name' => $fullName,
                     'category' => 'Book Indices',
-                    'display_name' => '[Index] ' . $fullName . ' (Stock: ' . $mainStock . ')',
+                    'display_name' => '[Index] ' . $fullName . ' (Stock: ' . $stock . ')',
                     'price' => $price,
                     'isbn' => $idx->book?->isbn ?? '',
-                    'stock' => $mainStock,
-                    'main_stock' => $mainStock,
+                    'stock' => $stock,
+                    'main_stock' => $stock,
                     'image' => $img,
                 ];
             });
 
-        $bundles = \App\Models\BookBundle::where('is_active', true)
-            ->orderBy('name')
+        $bundlesQuery = \App\Models\BookBundle::where('is_active', true);
+        if (!empty($teamName)) {
+            $allowedBundleIds = array_map(fn($k) => (int)str_replace('bundle_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'bundle_') && $v > 0, ARRAY_FILTER_USE_BOTH)));
+            $bundlesQuery->whereIn('id', $allowedBundleIds ?? [0]);
+        }
+        $bundles = $bundlesQuery->orderBy('name')
             ->get()
-            ->map(function($bun) {
+            ->map(function($bun) use ($teamName, $teamStocksMap) {
                 $fullName = $bun->name . ' (bundle)';
-                $mainStock = (int) ($bun->main_stock ?? $bun->stock ?? 0);
+                $stock = !empty($teamName) 
+                    ? (int)($teamStocksMap['bundle_' . $bun->id] ?? 0)
+                    : (int)($bun->main_stock ?? $bun->stock ?? 0);
+
                 return (object)[
                     'id' => 'bundle_' . $bun->id,
                     'type' => 'bundle',
@@ -1839,16 +1828,20 @@ class MarketingController extends Controller
                     'book_id' => null,
                     'name' => $fullName,
                     'category' => 'Book Bundles',
-                    'display_name' => '[Bundle] ' . $bun->name . ' (Stock: ' . $mainStock . ')',
+                    'display_name' => '[Bundle] ' . $bun->name . ' (Stock: ' . $stock . ')',
                     'price' => (float) $bun->price,
                     'isbn' => $bun->sku ?? '',
-                    'stock' => $mainStock,
-                    'main_stock' => $mainStock,
+                    'stock' => $stock,
+                    'main_stock' => $stock,
                     'image' => asset('images/no-book-cover.svg'),
                 ];
             });
 
-        return $books->concat($indices)->concat($bundles);
+        $unified = $books->concat($indices)->concat($bundles);
+        if (empty($teamName)) {
+            $unified = $unified->filter(fn($p) => $p->stock > 0)->values();
+        }
+        return $unified;
     }
 
     public function resolveItemTarget($pid)
@@ -1996,7 +1989,26 @@ class MarketingController extends Controller
             }
 
             if (!empty($userTeam)) {
-                $ts = \App\Models\TeamStock::where('team_name', $userTeam)
+                $rawTeam = trim($userTeam);
+                $cleanName = trim(preg_replace('/^(site\s+|team\s+)+/i', '', $rawTeam));
+                $variations = array_unique([
+                    $rawTeam,
+                    'Team ' . $cleanName,
+                    'SITE TEAM ' . strtoupper($cleanName),
+                    'SITE TEAM ' . $cleanName,
+                    'SITE ' . strtoupper($cleanName),
+                    'SITE ' . $cleanName,
+                    $cleanName,
+                    strtoupper($rawTeam),
+                    strtolower($rawTeam),
+                ]);
+
+                $ts = \App\Models\TeamStock::where(function($q) use ($variations) {
+                        foreach ($variations as $var) {
+                            $q->orWhere('team_name', $var)
+                              ->orWhereRaw('LOWER(team_name) = ?', [strtolower($var)]);
+                        }
+                    })
                     ->where(function($q) use ($target) {
                         if (!empty($target['book_index_id'])) $q->where('book_index_id', $target['book_index_id']);
                         elseif (!empty($target['book_id'])) $q->where('book_id', $target['book_id']);
@@ -4003,14 +4015,48 @@ class MarketingController extends Controller
      */
     public function teamStocksIndex()
     {
-        $teamStocks = \App\Models\TeamStock::with(['book', 'bookIndex', 'bookBundle'])->get();
+        $teamStocks = \App\Models\TeamStock::with(['book', 'bookIndex.book', 'bookBundle'])->get();
         $transfers = \App\Models\TeamStockTransfer::with(['transferredByUser', 'items.book', 'items.bookIndex', 'items.bookBundle'])
             ->latest()
             ->get();
         $teamUsers = \App\Models\User::whereNotNull('sales_team')->get();
         $mainProducts = $this->getUnifiedProducts();
 
-        return view('marketing.area-sales.team-stocks', compact('teamStocks', 'transfers', 'teamUsers', 'mainProducts'));
+        $teamStockJsonData = $teamStocks->where('quantity', '>', 0)->map(function($ts) {
+            $barcodes = [];
+            if ($ts->book) {
+                foreach (['barcode', 'sku', 'item_code', 'nbs_barcode'] as $f) {
+                    if (!empty($ts->book->$f)) $barcodes[] = (string)$ts->book->$f;
+                }
+            }
+            if ($ts->bookIndex) {
+                foreach (['barcode', 'nbs_barcode', 'article'] as $f) {
+                    if (!empty($ts->bookIndex->$f)) $barcodes[] = (string)$ts->bookIndex->$f;
+                }
+                if ($ts->bookIndex->book) {
+                    foreach (['barcode', 'sku', 'item_code', 'nbs_barcode'] as $f) {
+                        if (!empty($ts->bookIndex->book->$f)) $barcodes[] = (string)$ts->bookIndex->book->$f;
+                    }
+                }
+            }
+            if ($ts->bookBundle) {
+                if (!empty($ts->bookBundle->sku)) $barcodes[] = (string)$ts->bookBundle->sku;
+            }
+            $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
+
+            $productId = $ts->book_index_id ? ('index_' . $ts->book_index_id) : ($ts->book_bundle_id ? ('bundle_' . $ts->book_bundle_id) : ('book_' . $ts->book_id));
+
+            return [
+                'id' => $ts->id,
+                'team_name' => $ts->team_name,
+                'product_id' => $productId,
+                'product_name' => $ts->product_name,
+                'available_qty' => (int)$ts->quantity,
+                'barcodes' => $uniqueBarcodes,
+            ];
+        })->values();
+
+        return view('marketing.area-sales.team-stocks', compact('teamStocks', 'transfers', 'teamUsers', 'mainProducts', 'teamStockJsonData'));
     }
 
     /**
@@ -4376,6 +4422,187 @@ class MarketingController extends Controller
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Failed to execute stock transfer: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Area Sales - Execute Stock Return from Team to Main Warehouse
+     */
+    public function storeTeamStockReturn(Request $request)
+    {
+        $request->validate([
+            'team_name' => 'required|string',
+            'notes' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|string',
+            'items.*.returned_qty' => 'required|integer|min:0',
+            'items.*.lost_qty' => 'required|integer|min:0',
+        ]);
+
+        $teamName = trim($request->team_name);
+
+        \DB::beginTransaction();
+        try {
+            $transferNumber = 'TSR-' . date('Ymd') . '-' . strtoupper(\Str::random(4));
+            $transfer = \App\Models\TeamStockTransfer::create([
+                'transfer_number' => $transferNumber,
+                'transfer_type' => 'return',
+                'team_name' => $teamName,
+                'transferred_by' => auth()->id(),
+                'notes' => $request->notes,
+                'remarks' => 'Stock return from ' . $teamName . ' to Main Warehouse',
+                'status' => 'completed',
+            ]);
+
+            $cleanName = trim(preg_replace('/^(site\s+|team\s+)+/i', '', $teamName));
+            $variations = array_unique([
+                $teamName,
+                'Team ' . $cleanName,
+                'SITE TEAM ' . strtoupper($cleanName),
+                'SITE TEAM ' . $cleanName,
+                'SITE ' . strtoupper($cleanName),
+                'SITE ' . $cleanName,
+                $cleanName,
+                strtoupper($teamName),
+                strtolower($teamName),
+            ]);
+
+            $totalReturned = 0;
+            $totalLost = 0;
+
+            foreach ($request->items as $itemData) {
+                $returnedQty = (int) ($itemData['returned_qty'] ?? 0);
+                $lostQty = (int) ($itemData['lost_qty'] ?? 0);
+                $totalItemQty = $returnedQty + $lostQty;
+
+                if ($totalItemQty <= 0) continue;
+
+                $target = $this->resolveItemTarget($itemData['product_id']);
+
+                // Find TeamStock record
+                $ts = \App\Models\TeamStock::where(function($q) use ($variations) {
+                    foreach ($variations as $var) {
+                        $q->orWhere('team_name', $var)
+                          ->orWhereRaw('LOWER(team_name) = ?', [strtolower($var)]);
+                    }
+                })->where(function($q) use ($target) {
+                    if (!empty($target['book_index_id'])) $q->where('book_index_id', $target['book_index_id']);
+                    elseif (!empty($target['book_id'])) $q->where('book_id', $target['book_id']);
+                    elseif (!empty($target['bundle_id'])) $q->where('book_bundle_id', $target['bundle_id']);
+                })->first();
+
+                $currentTeamStock = $ts ? (int)$ts->quantity : 0;
+                if ($totalItemQty > $currentTeamStock) {
+                    throw new \Exception("Cannot return/mark lost {$totalItemQty} pcs for " . $target['name'] . ". Team stock only has {$currentTeamStock} pcs available.");
+                }
+
+                // 1. Deduct (returned + lost) from TeamStock
+                if ($ts) {
+                    $ts->quantity = max(0, $ts->quantity - $totalItemQty);
+                    $ts->save();
+                }
+
+                // 2. Add ONLY returned_qty back to Main Warehouse stock
+                if ($returnedQty > 0) {
+                    $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
+                    $mainSiteId = $mainWarehouse ? $mainWarehouse->id : 1;
+
+                    if (!empty($target['book_index_id'])) {
+                        $index = \App\Models\BookIndex::find($target['book_index_id']);
+                        if ($index) {
+                            $index->stock = ($index->stock ?? 0) + $returnedQty;
+                            $index->save();
+
+                            \App\Models\SiteInventory::updateOrCreate(
+                                ['site_id' => $mainSiteId, 'book_index_id' => $index->id],
+                                ['quantity' => $index->stock]
+                            );
+                        }
+                    } elseif (!empty($target['book_id'])) {
+                        $book = \App\Models\Book::find($target['book_id']);
+                        if ($book) {
+                            $book->stock = ($book->stock ?? 0) + $returnedQty;
+                            $book->save(); // BookObserver automatically syncs Main Warehouse SiteInventory to $book->stock
+                        }
+                    } elseif (!empty($target['bundle_id'])) {
+                        $bundle = \App\Models\BookBundle::find($target['bundle_id']);
+                        if ($bundle) {
+                            $bundle->stock = ($bundle->stock ?? 0) + $returnedQty;
+                            $bundle->save();
+
+                            \App\Models\SiteInventory::updateOrCreate(
+                                ['site_id' => $mainSiteId, 'book_bundle_id' => $bundle->id],
+                                ['quantity' => $bundle->stock]
+                            );
+                        }
+                    }
+                }
+
+                // 3. Create TeamStockTransferItem record
+                \App\Models\TeamStockTransferItem::create([
+                    'team_stock_transfer_id' => $transfer->id,
+                    'book_id' => $target['book_id'],
+                    'book_index_id' => $target['book_index_id'],
+                    'book_bundle_id' => $target['bundle_id'],
+                    'quantity' => $returnedQty,
+                    'lost_quantity' => $lostQty,
+                    'status' => 'completed',
+                ]);
+
+                // 4. Create LostInventory record if lostQty > 0
+                if ($lostQty > 0) {
+                    \App\Models\LostInventory::create([
+                        'product_type'   => $target['type'],
+                        'book_id'        => $target['book_id'],
+                        'book_index_id'  => $target['book_index_id'],
+                        'book_bundle_id' => $target['bundle_id'],
+                        'quantity'       => $lostQty,
+                        'site_id'        => null,
+                        'team_name'      => $teamName,
+                        'reason'         => 'Team Stock Return lost stock' . ($request->notes ? ' (' . $request->notes . ')' : ''),
+                        'user_id'        => auth()->id(),
+                        'lost_date'      => now(),
+                    ]);
+
+                    if (!empty($target['book_id'])) {
+                        \App\Models\InventoryTransaction::create([
+                            'book_id'          => $target['book_id'],
+                            'type'             => 'LOST',
+                            'quantity'         => -$lostQty,
+                            'location'         => $teamName,
+                            'source'           => 'Team Stock Return',
+                            'reference_number' => $transferNumber,
+                            'notes'            => 'Lost stock recorded during team stock return' . ($request->notes ? ' - ' . $request->notes : ''),
+                            'status'           => 'completed',
+                            'transaction_date' => now(),
+                            'user_id'          => auth()->id(),
+                        ]);
+                    }
+                }
+
+                $totalReturned += $returnedQty;
+                $totalLost += $lostQty;
+            }
+
+            if ($totalReturned == 0 && $totalLost == 0) {
+                throw new \Exception("No items with positive returned or lost quantities were submitted.");
+            }
+
+            \DB::commit();
+
+            $msg = "Stock return #{$transferNumber} successfully processed! Returned {$totalReturned} pcs to Main Warehouse";
+            if ($totalLost > 0) {
+                $msg .= " and recorded {$totalLost} pcs as Lost.";
+            }
+
+            return redirect()->route('marketing.area-sales.team-stocks.index')
+                ->with('success', $msg);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to execute stock return: ' . $e->getMessage());
         }
     }
 

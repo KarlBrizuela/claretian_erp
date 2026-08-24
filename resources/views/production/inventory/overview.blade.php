@@ -274,10 +274,18 @@
                                             </button>
                                         </li>
                                         <li class="nav-item" role="presentation">
-                                            <button class="nav-link font-w600" id="registry-bundles-tab" data-bs-toggle="tab" data-bs-target="#registry-bundles-content" type="button" role="tab" aria-controls="registry-bundles-content" aria-selected="false">
-                                                <i class="las la-boxes me-1"></i>Bundles
-                                            </button>
-                                        </li>
+                                             <button class="nav-link font-w600" id="registry-bundles-tab" data-bs-toggle="tab" data-bs-target="#registry-bundles-content" type="button" role="tab" aria-controls="registry-bundles-content" aria-selected="false">
+                                                 <i class="las la-boxes me-1"></i>Bundles
+                                             </button>
+                                         </li>
+                                         <li class="nav-item" role="presentation">
+                                             <button class="nav-link font-w600" id="registry-lost-tab" data-bs-toggle="tab" data-bs-target="#registry-lost-content" type="button" role="tab" aria-controls="registry-lost-content" aria-selected="false">
+                                                 <i class="las la-exclamation-triangle me-1"></i>Lost Inventory
+                                                 @if(isset($totalLostQty) && $totalLostQty > 0)
+                                                     <span class="badge bg-danger text-white ms-1" style="font-size: 0.72rem; padding: 2px 6px; border-radius: 10px;">{{ number_format($totalLostQty) }}</span>
+                                                 @endif
+                                             </button>
+                                         </li>
                                     </ul>
                                 </div>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-sm-0">
@@ -399,34 +407,63 @@
                                                     <table class="table table-bordered table-responsive-md text-black align-middle">
                                                         <thead class="bg-light">
                                                             <tr>
-                                                                <th style="width: 60px;" class="text-center"><strong>#</strong></th>
-                                                                <th style="width: 200px;"><strong>AREA SALES STAFF / TEAM</strong></th>
-                                                                <th style="width: 150px;"><strong>BOOK ID / SKU</strong></th>
+                                                                <th style="width: 50px;" class="text-center"><strong>#</strong></th>
+                                                                <th style="width: 250px;"><strong>CUSTOMER / ACCOUNT</strong></th>
+                                                                <th style="width: 140px;"><strong>BOOK ID / SKU</strong></th>
                                                                 <th><strong>BOOK TITLE</strong></th>
-                                                                <th class="text-center" style="width: 130px;"><strong>QTY</strong></th>
+                                                                <th class="text-center" style="width: 120px;"><strong>QTY</strong></th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            @forelse($consignmentStaff as $staffId => $data)
-                                                                @php $bookCount = count($data->books); $rowIdx = 0; @endphp
-                                                                @foreach($data->books as $bookData)
+                                                            @forelse($consignmentStaff as $custId => $cData)
+                                                                @php $bookCount = count($cData->books); $rowIdx = 0; @endphp
+                                                                @foreach($cData->books as $bookData)
                                                                 @php $rowIdx++; @endphp
                                                                 <tr>
                                                                     @if($rowIdx === 1)
                                                                     <td class="text-center text-muted align-middle" rowspan="{{ $bookCount + 1 }}">
                                                                         <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #1a5276;">
-                                                                            <i class="las la-user fs-16"></i>
+                                                                            <i class="las la-store fs-16"></i>
                                                                         </div>
                                                                     </td>
                                                                     <td class="fw-bold text-black align-middle" rowspan="{{ $bookCount + 1 }}">
-                                                                        {{ $data->staff->name ?? 'Area Sales Team' }}
-                                                                        <div class="mt-1">
-                                                                            <span class="badge bg-primary px-2 py-1 fs-11">{{ $data->orders_count }} {{ Str::plural('Order', $data->orders_count) }}</span>
+                                                                        <div class="fs-14 text-primary fw-bold mb-1">{{ $cData->customer_name }}</div>
+                                                                        @if(!empty($cData->company_name))
+                                                                            <div class="fs-12 text-muted fw-normal mb-1"><i class="las la-building text-secondary me-1"></i>Company: {{ $cData->company_name }}</div>
+                                                                        @endif
+                                                                        <div class="d-flex flex-wrap gap-1 mb-2">
+                                                                            <span class="badge bg-secondary px-2 py-1 fs-11"><i class="las la-user me-1"></i>Staff: {{ $cData->staff_name }}</span>
+                                                                            <span class="badge bg-primary px-2 py-1 fs-11">{{ $cData->orders_count }} {{ Str::plural('Order', $cData->orders_count) }}</span>
+                                                                        </div>
+                                                                        @if(!empty($cData->dr_numbers))
+                                                                        <div class="mt-2 text-muted fs-11 fw-normal">
+                                                                            <strong><i class="las la-file-alt text-primary me-1"></i>DR Numbers:</strong>
+                                                                            <div class="mt-1 d-flex flex-wrap gap-1">
+                                                                                @foreach($cData->dr_numbers as $drNum)
+                                                                                    <span class="badge bg-light text-dark border font-monospace px-1 py-1 fs-11">{{ $drNum }}</span>
+                                                                                @endforeach
+                                                                            </div>
+                                                                        </div>
+                                                                        @endif
+                                                                        <div class="mt-3">
+                                                                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-2 py-1 fs-11 btn-print-cust-sheet"
+                                                                                    data-cust-data="{{ base64_encode(json_encode($cData)) }}">
+                                                                                <i class="las la-print me-1"></i>Print Inventory Sheet
+                                                                            </button>
                                                                         </div>
                                                                     </td>
                                                                     @endif
                                                                     <td><strong>#{{ $bookData['sku'] ?? 'N/A' }}</strong></td>
-                                                                    <td class="fw-bold text-black">{{ $bookData['name'] }}</td>
+                                                                    <td class="fw-bold text-black">
+                                                                        {{ $bookData['name'] }}
+                                                                        @if(!empty($bookData['drs']))
+                                                                            <div class="mt-1">
+                                                                                <small class="text-muted fw-normal d-inline-block me-2">
+                                                                                    <i class="las la-file-alt text-secondary me-1"></i>DRs: {{ implode(', ', $bookData['drs']) }}
+                                                                                </small>
+                                                                            </div>
+                                                                        @endif
+                                                                    </td>
                                                                     <td class="text-center">
                                                                         <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
                                                                             {{ number_format($bookData['total_qty']) }}
@@ -439,7 +476,7 @@
                                                                     <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
                                                                     <td class="text-center">
                                                                         <span class="badge bg-success fs-14 fw-bold px-3 py-2">
-                                                                            {{ number_format($data->total_items) }}
+                                                                            {{ number_format($cData->total_items) }}
                                                                         </span>
                                                                     </td>
                                                                 </tr>
@@ -451,6 +488,14 @@
                                                         </tbody>
                                                     </table>
                                                 </div>
+                                                <div class="d-flex justify-content-between align-items-center mt-3 px-2">
+                                                    <div class="text-muted fs-13">
+                                                        Showing {{ $consignmentStaff->firstItem() ?? 0 }} to {{ $consignmentStaff->lastItem() ?? 0 }} of {{ $consignmentStaff->total() }} entries
+                                                    </div>
+                                                    <div>
+                                                        {{ $consignmentStaff->appends(request()->except('area_consignment_page'))->links() }}
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <!-- 2. Direct Consignment Sub-Pane -->
@@ -459,11 +504,11 @@
                                                     <table class="table table-bordered table-responsive-md text-black align-middle">
                                                         <thead class="bg-light">
                                                             <tr>
-                                                                <th style="width: 60px;" class="text-center"><strong>#</strong></th>
-                                                                <th style="width: 220px;"><strong>CUSTOMER / ACCOUNT</strong></th>
-                                                                <th style="width: 150px;"><strong>BOOK ID / SKU</strong></th>
+                                                                <th style="width: 50px;" class="text-center"><strong>#</strong></th>
+                                                                <th style="width: 250px;"><strong>CUSTOMER / ACCOUNT</strong></th>
+                                                                <th style="width: 140px;"><strong>BOOK ID / SKU</strong></th>
                                                                 <th><strong>BOOK TITLE</strong></th>
-                                                                <th class="text-center" style="width: 130px;"><strong>QTY</strong></th>
+                                                                <th class="text-center" style="width: 120px;"><strong>QTY</strong></th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -479,14 +524,42 @@
                                                                         </div>
                                                                     </td>
                                                                     <td class="fw-bold text-black align-middle" rowspan="{{ $bCount + 1 }}">
-                                                                        {{ $cData->customer_name }}
-                                                                        <div class="mt-1">
+                                                                        <div class="fs-14 text-danger fw-bold mb-1">{{ $cData->customer_name }}</div>
+                                                                        @if(!empty($cData->company_name))
+                                                                            <div class="fs-12 text-muted fw-normal mb-1"><i class="las la-building text-secondary me-1"></i>Company: {{ $cData->company_name }}</div>
+                                                                        @endif
+                                                                        <div class="d-flex flex-wrap gap-1 mb-2">
                                                                             <span class="badge bg-danger px-2 py-1 fs-11">{{ $cData->orders_count }} {{ Str::plural('Order', $cData->orders_count) }}</span>
+                                                                        </div>
+                                                                        @if(!empty($cData->dr_numbers))
+                                                                        <div class="mt-2 text-muted fs-11 fw-normal">
+                                                                            <strong><i class="las la-file-alt text-danger me-1"></i>DR Numbers:</strong>
+                                                                            <div class="mt-1 d-flex flex-wrap gap-1">
+                                                                                @foreach($cData->dr_numbers as $drNum)
+                                                                                    <span class="badge bg-light text-dark border font-monospace px-1 py-1 fs-11">{{ $drNum }}</span>
+                                                                                @endforeach
+                                                                            </div>
+                                                                        </div>
+                                                                        @endif
+                                                                        <div class="mt-3">
+                                                                            <button type="button" class="btn btn-sm btn-outline-danger fw-bold px-2 py-1 fs-11 btn-print-cust-sheet"
+                                                                                    data-cust-data="{{ base64_encode(json_encode($cData)) }}">
+                                                                                <i class="las la-print me-1"></i>Print Inventory Sheet
+                                                                            </button>
                                                                         </div>
                                                                     </td>
                                                                     @endif
                                                                     <td><strong>#{{ $bData['sku'] ?? 'N/A' }}</strong></td>
-                                                                    <td class="fw-bold text-black">{{ $bData['name'] }}</td>
+                                                                    <td class="fw-bold text-black">
+                                                                        {{ $bData['name'] }}
+                                                                        @if(!empty($bData['drs']))
+                                                                            <div class="mt-1">
+                                                                                <small class="text-muted fw-normal d-inline-block me-2">
+                                                                                    <i class="las la-file-alt text-secondary me-1"></i>DRs: {{ implode(', ', $bData['drs']) }}
+                                                                                </small>
+                                                                            </div>
+                                                                        @endif
+                                                                    </td>
                                                                     <td class="text-center">
                                                                         <span class="badge bg-light text-danger border border-danger fw-bold px-2 py-1 fs-13">
                                                                             {{ number_format($bData['total_qty']) }}
@@ -510,6 +583,14 @@
                                                             @endforelse
                                                         </tbody>
                                                     </table>
+                                                </div>
+                                                <div class="d-flex justify-content-between align-items-center mt-3 px-2">
+                                                    <div class="text-muted fs-13">
+                                                        Showing {{ $directConsignmentCustomers->firstItem() ?? 0 }} to {{ $directConsignmentCustomers->lastItem() ?? 0 }} of {{ $directConsignmentCustomers->total() }} entries
+                                                    </div>
+                                                    <div>
+                                                        {{ $directConsignmentCustomers->appends(request()->except('direct_consignment_page'))->links() }}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -859,6 +940,90 @@
                                                 {{ $bundles->appends(['search' => request('search')])->links() }}
                                             </nav>
                                         </div>
+                                    </div>
+
+                                    <!-- Lost Inventory Registry Tab Pane -->
+                                    <div class="tab-pane fade" id="registry-lost-content" role="tabpanel" aria-labelledby="registry-lost-tab">
+                                        <div class="table-responsive">
+                                            <table class="table table-responsive-md align-middle table-hover mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th><strong>ITEM DESCRIPTION</strong></th>
+                                                        <th class="text-center"><strong>TYPE</strong></th>
+                                                        <th class="text-center"><strong>LOST QTY</strong></th>
+                                                        <th><strong>SITE / WAREHOUSE</strong></th>
+                                                        <th><strong>TEAM</strong></th>
+                                                        <th><strong>DATE LOST</strong></th>
+                                                        <th><strong>REASON / REMARKS</strong></th>
+                                                        <th><strong>RECORDED BY</strong></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($lostInventories ?? [] as $lost)
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-bold text-dark">{{ $lost->product_name }}</div>
+                                                            <small class="text-muted"><i class="las la-barcode me-1"></i>{{ $lost->sku_isbn }}</small>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            @if($lost->product_type === 'book')
+                                                                <span class="badge bg-primary text-white px-2 py-1" style="font-size: 0.78rem;">Book</span>
+                                                            @elseif($lost->product_type === 'index')
+                                                                <span class="badge bg-info text-white px-2 py-1" style="font-size: 0.78rem;">Index</span>
+                                                            @elseif($lost->product_type === 'bundle')
+                                                                <span class="badge bg-warning text-white px-2 py-1" style="font-size: 0.78rem;">Bundle</span>
+                                                            @else
+                                                                <span class="badge bg-secondary text-white px-2 py-1" style="font-size: 0.78rem;">Non-Book</span>
+                                                            @endif
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="fw-bold text-danger fs-14">{{ number_format($lost->quantity) }} pcs</span>
+                                                        </td>
+                                                        <td>
+                                                            @if($lost->site)
+                                                                <span class="fw-semibold text-dark"><i class="las la-warehouse me-1 text-primary"></i>{{ $lost->site->name }}</span>
+                                                            @else
+                                                                <span class="text-muted small">N/A</span>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            @if($lost->team_name)
+                                                                <span class="badge bg-danger text-white px-2 py-1" style="font-size: 0.78rem;">{{ $lost->team_name }}</span>
+                                                            @else
+                                                                <span class="text-muted small">N/A</span>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            <small class="text-dark fw-medium">{{ optional($lost->lost_date ?: $lost->created_at)->format('M d, Y h:i A') }}</small>
+                                                        </td>
+                                                        <td>
+                                                            <small class="text-secondary fw-medium">{{ $lost->reason ?: 'No remarks provided' }}</small>
+                                                        </td>
+                                                        <td>
+                                                            <small class="fw-semibold text-dark">{{ $lost->user->name ?? 'System' }}</small>
+                                                        </td>
+                                                    </tr>
+                                                    @empty
+                                                    <tr>
+                                                        <td colspan="8" class="text-center py-4 text-muted">
+                                                            <i class="las la-check-circle fs-24 text-success d-block mb-1"></i>
+                                                            No lost inventory records found.
+                                                        </td>
+                                                    </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        @if(isset($lostInventories) && method_exists($lostInventories, 'links'))
+                                        <div class="d-flex justify-content-between align-items-center mt-4">
+                                            <div class="pagination-info">
+                                                Showing {{ $lostInventories->firstItem() ?? 0 }} to {{ $lostInventories->lastItem() ?? 0 }} of {{ $lostInventories->total() }} entries
+                                            </div>
+                                            <nav>
+                                                {{ $lostInventories->appends(['search' => request('search')])->links() }}
+                                            </nav>
+                                        </div>
+                                        @endif
                                     </div>
 
                                 </div>
@@ -3844,6 +4009,364 @@
                 alert('Error: ' + err.message);
             });
         };
+    </script>
+
+    <!-- Mark Item as Lost Modal -->
+    <div class="modal fade" id="markAsLostModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger text-white py-3">
+                    <h5 class="modal-title text-white fw-bold"><i class="las la-exclamation-triangle me-2"></i>Mark Inventory as Lost</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ route('production.inventory.mark-as-lost') }}" method="POST">
+                    @csrf
+                    <div class="modal-body p-4">
+                        <div class="alert alert-warning mb-4 py-2 px-3 small d-flex align-items-center gap-2">
+                            <i class="las la-info-circle fs-18"></i>
+                            <span>Marking stock as lost will deduct the specified quantity from available stock and log a permanent audit record. The product record will NOT be deleted.</span>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-dark">Product Type <span class="text-danger">*</span></label>
+                                <select name="product_type" id="lostProductType" class="form-select" required onchange="onLostProductTypeChange()">
+                                    <option value="book">Book</option>
+                                    <option value="non_book">Non-Book</option>
+                                    <option value="index">Index</option>
+                                    <option value="bundle">Bundle</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-dark">Select Item / Product <span class="text-danger">*</span></label>
+                                <select name="product_id" id="lostProductId" class="form-select" required>
+                                    <option value="">Select product...</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-dark">Location Type <span class="text-danger">*</span></label>
+                                <select name="location_type" id="lostLocationType" class="form-select" required onchange="onLostLocationTypeChange()">
+                                    <option value="site">Site / Warehouse</option>
+                                    <option value="team">Sales Team</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6" id="lostSiteGroup">
+                                <label class="form-label fw-semibold text-dark">Select Site / Warehouse <span class="text-danger">*</span></label>
+                                <select name="site_id" id="lostSiteId" class="form-select">
+                                    @foreach($allSites ?? $sites ?? [] as $site)
+                                        <option value="{{ $site->id }}" {{ $site->name === 'Main Warehouse' ? 'selected' : '' }}>{{ $site->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 d-none" id="lostTeamGroup">
+                                <label class="form-label fw-semibold text-dark">Select Sales Team <span class="text-danger">*</span></label>
+                                <select name="team_name" id="lostTeamName" class="form-select">
+                                    <option value="Team A">Team A</option>
+                                    <option value="Team B">Team B</option>
+                                    <option value="Team C">Team C</option>
+                                    <option value="Book Sales">Book Sales</option>
+                                    <option value="MIBF">MIBF</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-dark">Lost Quantity <span class="text-danger">*</span></label>
+                                <input type="number" name="quantity" class="form-control" min="1" required placeholder="Enter lost quantity (e.g. 1)">
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold text-dark">Reason / Remarks</label>
+                                <textarea name="reason" class="form-control" rows="3" placeholder="Reason for marking as lost (e.g. Damaged during transfer, missing during audit)..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light py-3">
+                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4 fw-bold" style="background-color: #D9251C; border-color: #D9251C;">
+                            <i class="las la-exclamation-triangle me-1"></i>Confirm & Mark as Lost
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Printable Customer Consignment Inventory Sheet Container -->
+    <div id="printConsignmentSheetArea" style="display: none;">
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #000;">
+            <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                <h2 style="margin: 0; font-size: 18px; font-weight: bold; text-transform: uppercase;">CLARETIAN COMMUNICATIONS FOUNDATION INC.</h2>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: #333;">8 Mayumi St., UP Village, Diliman, Quezon City | Tel: 921-3984</p>
+                <h3 style="margin: 10px 0 0 0; font-size: 15px; font-weight: bold; letter-spacing: 1px; color: #1a5276;">CUSTOMER CONSIGNMENT INVENTORY SHEET</h3>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 12px; line-height: 1.6;">
+                <div>
+                    <strong>Customer Name:</strong> <span id="pcsCustName"></span><br>
+                    <strong>Area Sales Staff:</strong> <span id="pcsStaffName"></span>
+                </div>
+                <div style="text-align: right;">
+                    <strong>Date Generated:</strong> <span id="pcsDate"></span><br>
+                    <strong>Total Orders:</strong> <span id="pcsOrderCount"></span>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px; font-size: 11px; background: #f8f9fa; border: 1px solid #ddd; padding: 8px; border-radius: 4px;">
+                <strong>Consigned DR Numbers:</strong> <span id="pcsDrList"></span>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
+                <thead>
+                    <tr style="background: #e9ecef; border: 1px solid #000;">
+                        <th style="padding: 6px; text-align: center; border: 1px solid #000; width: 40px;">#</th>
+                        <th style="padding: 6px; text-align: left; border: 1px solid #000; width: 140px;">SKU / BARCODE</th>
+                        <th style="padding: 6px; text-align: left; border: 1px solid #000;">BOOK DESCRIPTION</th>
+                        <th style="padding: 6px; text-align: center; border: 1px solid #000; width: 120px;">CONSIGNED QTY</th>
+                    </tr>
+                </thead>
+                <tbody id="pcsItemsBody">
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight: bold; background: #f8f9fa; border: 1px solid #000;">
+                        <td colspan="3" style="padding: 8px; text-align: right; border: 1px solid #000;">TOTAL CONSIGNED BOOKS:</td>
+                        <td id="pcsTotalQty" style="padding: 8px; text-align: center; border: 1px solid #000; font-size: 14px; color: #1a5276;">0</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div style="margin-top: 50px; display: flex; justify-content: space-between; font-size: 12px;">
+                <div style="width: 45%; text-align: center;">
+                    <div style="border-top: 1px solid #000; padding-top: 5px; font-weight: bold;">
+                        Prepared By (Claretian Staff)
+                    </div>
+                </div>
+                <div style="width: 45%; text-align: center;">
+                    <div style="border-top: 1px solid #000; padding-top: 5px; font-weight: bold;">
+                        Received & Verified By (Customer Signature & Date)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @php
+        $getLostProductList = function($items) {
+            $list = [];
+            $collection = is_object($items) && method_exists($items, 'items') ? $items->items() : (is_array($items) ? $items : (is_object($items) && method_exists($items, 'all') ? $items->all() : []));
+            foreach ($collection as $item) {
+                if (is_object($item)) {
+                    $id = $item->id ?? null;
+                    $name = $item->name ?? ($item->title ?? ($item->bundle_name ?? ''));
+                    if (isset($item->index_value) && $item->index_value) {
+                        $name = ($item->book->name ?? 'Index') . ' - ' . $item->index_value;
+                    }
+                    $stock = $item->stock ?? 0;
+                    if ($id) {
+                        $list[] = ['id' => $id, 'name' => $name . ' (Stock: ' . $stock . ')'];
+                    }
+                }
+            }
+            return $list;
+        };
+    @endphp
+
+    <script>
+        const lostBooksData = @json($getLostProductList($allBooks ?? []));
+        const lostNonBooksData = @json($getLostProductList($nonBooks ?? []));
+        const lostIndicesData = @json($getLostProductList($allIndices ?? []));
+        const lostBundlesData = @json($getLostProductList($allBundles ?? []));
+
+        window.onLostProductTypeChange = function() {
+            const type = document.getElementById('lostProductType').value;
+            const selectEl = document.getElementById('lostProductId');
+            let data = [];
+
+            if (type === 'book') data = lostBooksData;
+            else if (type === 'non_book') data = lostNonBooksData;
+            else if (type === 'index') data = lostIndicesData;
+            else if (type === 'bundle') data = lostBundlesData;
+
+            let html = '<option value="">Select product...</option>';
+            data.forEach(item => {
+                html += `<option value="${item.id}">${item.name}</option>`;
+            });
+            selectEl.innerHTML = html;
+        };
+
+        window.onLostLocationTypeChange = function() {
+            const locType = document.getElementById('lostLocationType').value;
+            const siteGroup = document.getElementById('lostSiteGroup');
+            const teamGroup = document.getElementById('lostTeamGroup');
+            const siteSelect = document.getElementById('lostSiteId');
+            const teamSelect = document.getElementById('lostTeamName');
+
+            if (locType === 'site') {
+                siteGroup.classList.remove('d-none');
+                teamGroup.classList.add('d-none');
+                if (siteSelect) siteSelect.required = true;
+                if (teamSelect) teamSelect.required = false;
+            } else {
+                siteGroup.classList.add('d-none');
+                teamGroup.classList.remove('d-none');
+                if (siteSelect) siteSelect.required = false;
+                if (teamSelect) teamSelect.required = true;
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            onLostProductTypeChange();
+            onLostLocationTypeChange();
+        });
+
+        window.printCustomerInventorySheet = function(cData) {
+            if (!cData) return;
+            const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const logoUrl = @json(asset('images/claeritian_logo.png'));
+            
+            let drTablesHtml = '';
+            const drList = cData.dr_breakdown || [];
+            
+            if (drList.length > 0) {
+                drList.forEach((dr, drIdx) => {
+                    let rowsHtml = '';
+                    let itemIdx = 0;
+                    (dr.items || []).forEach(b => {
+                        itemIdx++;
+                        rowsHtml += `
+                            <tr style="border: 1px solid #000;">
+                                <td style="padding: 6px; text-align: center; border: 1px solid #000;">${itemIdx}</td>
+                                <td style="padding: 6px; border: 1px solid #000; font-weight: bold;">#${b.sku || 'N/A'}</td>
+                                <td style="padding: 6px; border: 1px solid #000; font-weight: 600;">${b.name || 'N/A'}</td>
+                                <td style="padding: 6px; text-align: center; border: 1px solid #000; font-weight: bold;">${(b.qty || 0).toLocaleString()}</td>
+                            </tr>
+                        `;
+                    });
+
+                    drTablesHtml += `
+                        <div style="margin-top: 15px; margin-bottom: 5px; background: #e7f3ff; border-left: 4px solid #1a5276; padding: 6px 10px; font-weight: bold; font-size: 13px; color: #1a5276; display: flex; justify-content: space-between;">
+                            <span>DELIVERY RECEIPT NO: ${dr.dr_number}</span>
+                            <span>Date: ${dr.order_date || 'N/A'}</span>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px;">
+                            <thead>
+                                <tr style="background: #f1f3f5; border: 1px solid #000;">
+                                    <th style="padding: 6px; text-align: center; border: 1px solid #000; width: 40px;">#</th>
+                                    <th style="padding: 6px; text-align: left; border: 1px solid #000; width: 140px;">SKU / BARCODE</th>
+                                    <th style="padding: 6px; text-align: left; border: 1px solid #000;">BOOK DESCRIPTION</th>
+                                    <th style="padding: 6px; text-align: center; border: 1px solid #000; width: 120px;">CONSIGNED QTY</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                            <tfoot>
+                                <tr style="font-weight: bold; background: #f8f9fa; border: 1px solid #000;">
+                                    <td colspan="3" style="padding: 6px; text-align: right; border: 1px solid #000;">DR TOTAL QTY:</td>
+                                    <td style="padding: 6px; text-align: center; border: 1px solid #000; font-size: 13px; color: #1a5276;">${(dr.total_qty || 0).toLocaleString()}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    `;
+                });
+            } else {
+                drTablesHtml = `
+                    <div style="padding: 15px; text-align: center; color: #777; border: 1px solid #ddd;">No DR details found.</div>
+                `;
+            }
+
+            const printWindow = window.open('', '_blank', 'width=850,height=900');
+            if (!printWindow) {
+                alert('Please allow popups for this website to print the inventory sheet.');
+                return;
+            }
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Customer Consignment Inventory Sheet - ${cData.customer_name}</title>
+                    <style>
+                        @page { size: letter portrait; margin: 0.4in; }
+                        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                    </style>
+                </head>
+                <body>
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #000;">
+                        <div style="border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 5px;">
+                                <img src="${logoUrl}" alt="Claretian Logo" style="height: 52px; width: auto;" onerror="this.style.display='none'">
+                                <div style="text-align: left;">
+                                    <h2 style="margin: 0; font-size: 17px; font-weight: bold; color: #000; text-transform: uppercase;">CLARETIAN COMMUNICATIONS FOUNDATION INC.</h2>
+                                    <p style="margin: 2px 0 0 0; font-size: 12px; color: #333;">8 Mayumi St., UP Village, Diliman, Quezon City</p>
+                                    <p style="margin: 1px 0 0 0; font-size: 12px; color: #333;">Tel. No.: 921-3984</p>
+                                </div>
+                            </div>
+                            <h3 style="margin: 8px 0 0 0; text-align: center; font-size: 15px; font-weight: bold; letter-spacing: 1px; color: #1a5276;">CUSTOMER CONSIGNMENT INVENTORY SHEET</h3>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 12px; line-height: 1.6;">
+                            <div>
+                                <strong>Customer Name:</strong> ${cData.company_name ? `${cData.customer_name} (${cData.company_name})` : (cData.customer_name || 'N/A')}<br>
+                                <strong>Area Sales Staff:</strong> ${cData.staff_name || 'Direct / Area Sales Team'}
+                            </div>
+                            <div style="text-align: right;">
+                                <strong>Date Generated:</strong> ${today}<br>
+                                <strong>Total Orders / DRs:</strong> ${(cData.orders_count || 0)} Order(s)
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 15px; font-size: 11px; background: #f8f9fa; border: 1px solid #ddd; padding: 8px; border-radius: 4px;">
+                            <strong>Consigned DR Numbers:</strong> ${(cData.dr_numbers || []).join(', ') || 'N/A'}
+                        </div>
+
+                        ${drTablesHtml}
+
+                        <div style="margin-top: 20px; background: #f8f9fa; border: 2px solid #1a5276; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 13px; font-weight: bold; color: #000;">OVERALL CONSIGNED BOOKS (${(cData.orders_count || 1)} DRs COMBINED):</span>
+                            <span style="font-size: 15px; font-weight: bold; color: #1a5276;">${(cData.total_items || 0).toLocaleString()} pcs</span>
+                        </div>
+
+                        <div style="margin-top: 50px; display: flex; justify-content: space-between; font-size: 12px;">
+                            <div style="width: 45%; text-align: center;">
+                                <div style="border-top: 1px solid #000; padding-top: 5px; font-weight: bold;">
+                                    Prepared By (Claretian Staff)
+                                </div>
+                            </div>
+                            <div style="width: 45%; text-align: center;">
+                                <div style="border-top: 1px solid #000; padding-top: 5px; font-weight: bold;">
+                                    Received & Verified By (Customer Signature & Date)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 300);
+        };
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-print-cust-sheet');
+            if (!btn) return;
+            e.preventDefault();
+            const raw = btn.getAttribute('data-cust-data');
+            if (!raw) return;
+            try {
+                const jsonStr = atob(raw);
+                const cData = JSON.parse(jsonStr);
+                printCustomerInventorySheet(cData);
+            } catch (err) {
+                console.error('Error opening print window:', err);
+            }
+        });
     </script>
 @endpush
 </x-app-layout>

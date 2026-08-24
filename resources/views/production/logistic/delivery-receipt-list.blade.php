@@ -328,7 +328,7 @@
                                                     </form>
                                                 @endif
 
-                                                @if($order->status === 'pending_dr_approval' && $canApprove)
+                                                @if(in_array($order->status, ['pending_dr_prep', 'pending_dr_approval']) && $canApprove)
                                                     <form action="{{ route('production.logistic.approve-dr', $order->id) }}" method="POST" style="display:inline;">
                                                         @csrf
                                                         <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Approve & Sign DR">

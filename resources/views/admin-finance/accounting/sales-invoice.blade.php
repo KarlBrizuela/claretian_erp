@@ -2011,7 +2011,7 @@
                             <div class="d-flex justify-content-end gap-2 pt-3 border-top">
                                 <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
                                 <button type="submit" class="btn text-white fw-bold px-4" style="background: #ff0000; border-color: #ff0000;">
-                                    <i class="las la-check me-1"></i> Create Sales Order
+                                    <i class="las la-check me-1"></i> Create Sales Invoice
                                 </button>
                             </div>
                         </form>

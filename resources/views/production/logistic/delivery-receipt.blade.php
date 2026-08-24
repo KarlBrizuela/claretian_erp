@@ -170,6 +170,28 @@
                                                 @php
                                                     $dItemName = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bundle ? $item->bundle->name : ($item->product ? $item->product->name : ($item->item_name ?? ($item->product_name ?? 'Unknown Item')))));
                                                     $dType = $item->item_type ?? ($item->bookIndex || !empty($item->book_index_id) ? 'Index' : (!empty($item->bundle_id) || !empty($item->bundle) ? 'Bundle' : 'Book'));
+
+                                                    $soNum = strtolower($order->so_number ?? '');
+                                                    $drNum = strtolower($deliveryReceipt->dr_number ?? '');
+                                                    $cName = strtolower($order->customer?->customer_name ?? '');
+                                                    $cRep = strtolower($order->customer_representative ?? '');
+                                                    $isNBS = str_contains($soNum, 'nbs') || 
+                                                             str_contains($drNum, 'nbs') || 
+                                                             str_contains($cName, 'national book store') || 
+                                                             str_contains($cName, 'nbs') || 
+                                                             str_contains($cRep, 'national book store') || 
+                                                             str_contains($cRep, 'nbs');
+
+                                                    $articleNo = $item->article_number 
+                                                        ?? ($item->article 
+                                                        ?? ($item->bookIndex->article_number 
+                                                        ?? ($item->bookIndex->article 
+                                                        ?? ($item->book->article_number 
+                                                        ?? ($item->book->article 
+                                                        ?? ($item->bookIndex->barcode 
+                                                        ?? ($item->bookIndex->item_code 
+                                                        ?? ($item->book->sku 
+                                                        ?? ($item->book->item_code ?? null)))))))));
                                                 @endphp
                                                 <div class="d-flex align-items-center flex-wrap gap-1">
                                                     <span class="fw-semibold text-dark">{{ $dItemName }}</span>
@@ -181,6 +203,11 @@
                                                         <span class="badge bg-primary ms-1" style="font-size: 11px; padding: 3px 7px;">Book</span>
                                                     @endif
                                                 </div>
+                                                @if($isNBS && !empty($articleNo))
+                                                    <div class="print-only-article" style="font-size: 11px; font-weight: bold; color: #000; margin-top: 2px;">
+                                                        Article #: {{ $articleNo }}
+                                                    </div>
+                                                @endif
                                             </td>
                                             @php
                                                 $drSym = (($order->currency ?? ($dr->salesOrder->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
@@ -460,25 +487,45 @@
                     @else
                         @php
                             $drListRoute = ($sidebar ?? (request()->is('admin-finance*') ? 'admin-finance' : 'production')) === 'admin-finance' ? 'admin-finance.accounting.delivery-receipt-list' : 'production.logistic.delivery-receipt-list';
+                            $user = auth()->user();
+                            $canApproveDR = $user && ($user->isSuperAdmin() || 
+                                str_contains($user->position ?? '', 'Manager') || 
+                                str_contains($user->position ?? '', 'Supervisor') || 
+                                str_contains($user->position ?? '', 'Head') || 
+                                str_contains($user->position ?? '', 'Senior Logistics Staff') ||
+                                str_contains($user->position ?? '', 'Accounting') ||
+                                str_contains($user->position ?? '', 'Finance') ||
+                                str_contains($user->division ?? '', 'Admin') ||
+                                str_contains($user->division ?? '', 'Finance') ||
+                                str_contains($user->department ?? '', 'Accounting') ||
+                                $user->hasPermission('admin_finance.accounting'));
                         @endphp
                         <a href="{{ route($drListRoute) }}" class="btn btn-secondary">
                             <i class="las la-arrow-left"></i> Back to List
                         </a>
-                        @if($order->status === 'pending_dr_approval')
+                        @if(!empty($order->dr_approved_at) || !empty($order->dr_approved_by))
                             <div class="d-inline-block ms-2">
-                                <span class="badge bg-warning text-dark me-2 fs-13 py-2 px-3"><i class="las la-clock me-1"></i> Pending DR Approval</span>
+                                <span class="badge bg-success text-white me-2 fs-13 py-2 px-3">
+                                    <i class="las la-check-circle me-1"></i> DR Signed & Approved
+                                </span>
+                            </div>
+                        @elseif(in_array($order->status, ['pending_dr_prep', 'pending_dr_approval']) && $canApproveDR)
+                            <div class="d-inline-block ms-2">
+                                @if($order->status === 'pending_dr_approval')
+                                    <span class="badge bg-warning text-dark me-2 fs-13 py-2 px-3"><i class="las la-clock me-1"></i> Pending DR Approval</span>
+                                @endif
                                 <form action="{{ route('production.logistic.approve-dr', $order->id) }}" method="POST" style="display:inline-block;">
                                     @csrf
                                     <button type="submit" class="btn btn-success shadow-sm">
-                                        <i class="las la-check-double me-1"></i> Approve DR
+                                        <i class="las la-check-double me-1"></i> Approve & Sign DR
                                     </button>
                                 </form>
                             </div>
-                        @else
+                        @elseif(in_array($order->status, ['pending_dr_prep']))
                             <form action="{{ route('production.logistic.complete-dr', $order->id) }}" method="POST" style="display:inline-block; margin-left: 0.5rem;">
                                 @csrf
                                 <button type="submit" class="btn btn-success">
-                                    <i class="las la-check-circle me-1"></i> Complete DR
+                                    <i class="las la-check-circle me-1"></i> Submit for DR Approval
                                 </button>
                             </form>
                         @endif
@@ -823,7 +870,8 @@
             min-height: 80px;
         }
 
-        .print-only-remarks {
+        .print-only-remarks,
+        .print-only-article {
             display: none;
         }
 
@@ -881,7 +929,7 @@
                 background: transparent !important;
                 outline: none !important;
                 box-shadow: none !important;
-                color: #000 !important;
+                color: #000000 !important;
                 font-size: 10.5px !important;
                 resize: none !important;
                 min-height: auto !important;
@@ -923,21 +971,39 @@
             .receipt-table th,
             .receipt-table td {
                 display: table-cell !important;
-                border: 1px solid #000 !important;
+                border: 1px solid #000000 !important;
                 padding: 3px 5px !important;
                 font-size: 10.5px !important;
             }
 
             .receipt-table th {
                 background: #e9ecef !important;
-                color: #000 !important;
+                color: #000000 !important;
                 font-weight: bold !important;
                 text-transform: uppercase !important;
             }
 
             .receipt-table td {
-                background: #fff !important;
-                color: #000 !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                font-weight: 700 !important;
+            }
+
+            .receipt-table span,
+            .receipt-table div {
+                color: #000000 !important;
+            }
+
+            .badge,
+            span.badge {
+                background: transparent !important;
+                background-color: transparent !important;
+                color: #000000 !important;
+                border: 1px solid #000000 !important;
+                font-weight: bold !important;
+                font-size: 10px !important;
+                padding: 1px 4px !important;
+                box-shadow: none !important;
             }
 
             /* Show table inputs as text */
@@ -947,7 +1013,7 @@
                 padding: 0 !important;
                 background: transparent !important;
                 outline: none !important;
-                color: #000 !important;
+                color: #000000 !important;
                 font-family: inherit;
                 width: auto;
                 font-size: 10.5px !important;
@@ -974,7 +1040,7 @@
             .form-header {
                 margin-bottom: 0.5rem !important;
                 padding-bottom: 0.35rem !important;
-                border-bottom: 2px solid #000 !important;
+                border-bottom: 2px solid #000000 !important;
                 text-align: center !important;
             }
 
@@ -1002,14 +1068,20 @@
                 font-size: 1rem !important;
                 font-weight: bold !important;
                 margin-bottom: 2px !important;
-                color: #000 !important;
+                color: #000000 !important;
             }
 
             .form-header .company-address,
             .form-header .company-contact {
                 font-size: 0.75rem !important;
                 margin: 0 !important;
-                color: #333 !important;
+                color: #000000 !important;
+            }
+
+            .form-header div.text-muted,
+            .form-header .extra-small {
+                color: #000000 !important;
+                font-weight: 700 !important;
             }
 
             .document-title {
@@ -1018,7 +1090,7 @@
                 margin-top: 0.25rem !important;
                 margin-bottom: 0.15rem !important;
                 letter-spacing: 1px !important;
-                color: #000 !important;
+                color: #000000 !important;
             }
 
             .form-info-row {
@@ -1037,6 +1109,7 @@
                 font-weight: bold !important;
                 margin-bottom: 0px !important;
                 display: block !important;
+                color: #000000 !important;
             }
 
             .form-group {
@@ -1056,11 +1129,19 @@
                 padding: 0.35rem 0.5rem !important;
                 font-size: 0.75rem !important;
                 font-weight: 600 !important;
-                background: #fff !important;
-                color: #000 !important;
+                background: #ffffff !important;
+                color: #000000 !important;
                 white-space: pre-wrap !important;
                 word-break: break-word !important;
                 min-height: 30px !important;
+            }
+
+            .print-only-article {
+                display: block !important;
+                font-size: 11px !important;
+                font-weight: bold !important;
+                color: #000000 !important;
+                margin-top: 2px !important;
             }
 
             /* Signature section */
@@ -1088,6 +1169,7 @@
                 display: block !important;
                 font-size: 0.75rem !important;
                 margin-bottom: 0.15rem !important;
+                color: #000000 !important;
             }
 
             .signature-box input {
@@ -1102,17 +1184,19 @@
 
             .signature-value-display {
                 display: block !important;
-                color: #000 !important;
+                color: #000000 !important;
                 font-weight: bold !important;
                 font-size: 0.85rem !important;
             }
 
+            .signature-line-box,
             .signature-box div[style*="border-top"] {
-                border-top: 1px solid #000 !important;
+                border-top: 1px solid #000000 !important;
                 text-align: center !important;
                 padding-top: 0.15rem !important;
                 font-size: 0.75rem !important;
                 font-weight: bold !important;
+                color: #000000 !important;
             }
 
             body,

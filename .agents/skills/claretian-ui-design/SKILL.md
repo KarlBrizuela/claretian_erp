@@ -270,3 +270,45 @@ Always override native browser confirmations with SweetAlert2 warnings for destr
        });
    });
    ```
+
+---
+
+## ⚡ 13. Server-Side AJAX Table Search & Pagination (Reload-Free Pattern)
+
+For high-performance data listings, tables, or ledgers, always replace pure client-side filter scripts with server-side query filters refreshed dynamically via AJAX:
+1. **Controller Query Mapping**:
+   * Eager load parameters, paginate the primary model listing (`paginate(10)->withQueryString()`), and accept search query inputs.
+2. **HTML Layout Wrappers**:
+   * Wrap the primary table section in `<div id="cashTableContainer">` (or similar ID).
+   * Wrap standard paginator links in `<div id="paginationContainer">`:
+     ```html
+     <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+         {{ $items->onEachSide(0)->links('pagination::bootstrap-4') }}
+     </div>
+     ```
+3. **Vanilla Fetch AJAX Swapper**:
+   * Intercept clicks on links inside `#paginationContainer` and form submits.
+   * Fetch the updated page via `fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })`.
+   * Parse the HTML response string using `DOMParser`, isolate `#cashTableContainer` and `#paginationContainer` elements from the parsed document, and swap their inner content into the active DOM.
+   * Leverage `history.pushState(null, '', url)` to update browser address URLs and handle `popstate` events to support native browser Back/Forward navigation.
+   * Auto-synchronize search inputs and toggle search action button text (Search ↔ Clear) and color backgrounds depending on query strings.
+
+---
+
+## 📊 14. Dashboard Metric Card Layouts & Flex Headers
+
+To prevent metric grids and action buttons from wrapping or displaying visual misalignments on dashboard views:
+1. **Top-Down Metric Layout**:
+   * Layout summaries vertically: display the small gray uppercase label at the top, and place the large highlighted currency values below.
+   * Use standard Bootstrap `.row` wrappers to structure metric grids rather than override classes like `g-3` that cause overflow layout issues.
+2. **Flex-Shrink Header Controls**:
+   * To prevent header titles and action buttons from stacking vertically on standard desktop viewports, apply `flex-shrink: 0;` and `flex: 1 1 auto;` to container headers, forcing items to remain aligned side-by-side.
+
+---
+
+## 🗄️ 15. Cascading Audit Logs Preservation
+
+When designing models where records must be preserved for accounting history audits even if parent relationships are hard-deleted:
+1. **Fallback Data Tracking**:
+   * Add redundant string columns to the target migration (e.g. `supplier_invoice_no` in the `purchase_returns` schema).
+   * Populated these columns during creation so transaction histories are preserved even if parent items are removed.

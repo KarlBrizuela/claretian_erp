@@ -272,7 +272,7 @@
                                                 <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: {{ $bgSoft }}; color: {{ $themeColor }};">
                                                     <i class="las la-file-invoice-dollar fs-20"></i>
                                                 </div>
-                                                <span class="badge {{ $acc->is_active ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; {{ $acc->is_active ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}">
+                                                <span class="badge status-badge {{ $acc->is_active ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; cursor: pointer; {{ $acc->is_active ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}" data-type="coa" data-id="{{ $acc->id }}">
                                                     {{ $acc->is_active ? 'Active' : 'Inactive' }}
                                                 </span>
                                             </div>
@@ -834,6 +834,55 @@
             modalTables.forEach(table => {
                 if (table.closest('#genericCoaModal')) return;
                 initTablePagination(table, 10);
+            });
+
+            // AJAX status toggle handler
+            $(document).on('click', '.status-badge', function(e) {
+                e.stopPropagation(); // Prevent opening the card modal or triggering row clicks
+                const $badge = $(this);
+                const type = $badge.data('type');
+                const id = $badge.data('id');
+
+                if (!id) return;
+
+                $badge.css('opacity', '0.5');
+
+                $.ajax({
+                    url: "{{ route('admin-finance.accounting.chart-of-accounts.toggle') }}",
+                    method: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        type: type,
+                        id: id
+                    },
+                    success: function(response) {
+                        $badge.css('opacity', '1');
+                        if (response.success) {
+                            const isActive = response.is_active;
+                            if (isActive) {
+                                $badge.removeClass('bg-light text-secondary')
+                                      .addClass('bg-soft-success text-success')
+                                      .css({'background-color': 'rgba(16, 185, 129, 0.1)', 'color': '#10b981'})
+                                      .text('Active');
+                            } else {
+                                $badge.removeClass('bg-soft-success text-success')
+                                      .addClass('bg-light text-secondary')
+                                      .css({'background-color': '', 'color': ''})
+                                      .text('Inactive');
+                            }
+                            if (typeof showNotification === 'function') {
+                                showNotification(response.message, 'success');
+                            }
+                        }
+                    },
+                    error: function(xhr) {
+                        $badge.css('opacity', '1');
+                        const err = xhr.responseJSON ? xhr.responseJSON.error : 'Failed to update status.';
+                        if (typeof showNotification === 'function') {
+                            showNotification(err, 'error');
+                        }
+                    }
+                });
             });
         });
     </script>

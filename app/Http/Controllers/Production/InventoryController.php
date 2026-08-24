@@ -310,23 +310,57 @@ class InventoryController extends Controller
         }
         $sites = $sitesQuery->paginate(10, ['*'], 'sites_page')->withQueryString();
 
-        // Fetch consignment inventory: 1. Area Consignment (grouped by area sales staff)
-        $areaOrders = \App\Models\SalesOrder::with(['areaSalesStaff', 'preparedBy', 'items.book', 'items.bookIndex', 'items.bookBundle'])
+        // Fetch consignment inventory: 1. Area Consignment (grouped BY CUSTOMER)
+        $areaOrders = \App\Models\SalesOrder::with(['customer', 'areaSalesStaff', 'preparedBy', 'items.book', 'items.bookIndex', 'items.bookBundle'])
             ->whereIn('type', ['area_consignment', 'area_sales_consignment'])
             ->whereNotIn('status', ['cancelled'])
             ->get();
 
-        $consignmentStaff = $areaOrders->groupBy(function($order) {
-            return $order->area_sales_staff_id ?: ($order->prepared_by ?: 0);
+        $consignmentStaffCollection = $areaOrders->groupBy(function($order) {
+            $rep = trim($order->customer_representative ?? '');
+            if (!empty($rep)) {
+                return 'rep_' . strtolower($rep);
+            }
+            return $order->customer_id ? 'cust_' . $order->customer_id : 'unassigned';
         })->map(function ($orders) {
             $first = $orders->first();
-            $staff = $first->areaSalesStaff ?: $first->preparedBy;
+            $rep = trim($first->customer_representative ?? '');
+            $cust = trim($first->customer->customer_name ?? ($first->customer->company_name ?? ''));
+
+            if (!empty($rep) && !empty($cust) && strtolower($rep) !== strtolower($cust)) {
+                $customerName = $rep;
+                $companyName = $cust;
+            } elseif (!empty($rep)) {
+                $customerName = $rep;
+                $companyName = null;
+            } else {
+                $customerName = $cust ?: 'Area Consignment Customer';
+                $companyName = null;
+            }
+            $staffName = $first->areaSalesStaff ? $first->areaSalesStaff->name : ($first->preparedBy ? $first->preparedBy->name : 'Area Sales Team');
+
+            $drNumbers = $orders->map(function($o) {
+                return 'DR-' . $o->so_number;
+            })->unique()->values()->toArray();
+
+            $drBreakdown = [];
             $bookMap = [];
             foreach ($orders as $order) {
+                $drNum = 'DR-' . $order->so_number;
+                $soDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('M d, Y') : null;
+                $drItems = [];
+
                 foreach ($order->items as $item) {
                     $name = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bookBundle ? $item->bookBundle->name : 'N/A'));
                     $sku = $item->bookIndex ? ($item->bookIndex->barcode ?: $item->bookIndex->article) : ($item->book ? ($item->book->sku ?: $item->book->item_code) : ($item->bookBundle ? $item->bookBundle->sku : ''));
                     $key = ($item->book_index_id ? 'idx_' . $item->book_index_id : ($item->book_id ? 'bk_' . $item->book_id : 'bdl_' . $item->book_bundle_id));
+                    $qty = (int) $item->quantity;
+
+                    $drItems[] = [
+                        'sku' => $sku,
+                        'name' => $name,
+                        'qty' => $qty,
+                    ];
 
                     if (!isset($bookMap[$key])) {
                         $bookMap[$key] = [
@@ -334,19 +368,49 @@ class InventoryController extends Controller
                             'sku' => $sku,
                             'total_qty' => 0,
                             'order_count' => 0,
+                            'drs' => [],
                         ];
                     }
-                    $bookMap[$key]['total_qty'] += (int) $item->quantity;
+                    $bookMap[$key]['total_qty'] += $qty;
                     $bookMap[$key]['order_count']++;
+                    if (!in_array($drNum, $bookMap[$key]['drs'])) {
+                        $bookMap[$key]['drs'][] = $drNum;
+                    }
                 }
+
+                $drBreakdown[] = [
+                    'dr_number' => $drNum,
+                    'so_number' => $order->so_number,
+                    'order_date' => $soDate,
+                    'items' => $drItems,
+                    'total_qty' => collect($drItems)->sum('qty'),
+                ];
             }
+
             return (object) [
-                'staff' => $staff,
+                'customer_name' => $customerName,
+                'company_name' => $companyName,
+                'staff_name' => $staffName,
+                'dr_numbers' => $drNumbers,
+                'dr_breakdown' => $drBreakdown,
                 'orders_count' => $orders->count(),
-                'books' => collect($bookMap)->sortBy(fn($b) => $b['name']),
+                'books' => collect($bookMap)->sortBy(fn($b) => $b['name'])->values(),
                 'total_items' => collect($bookMap)->sum('total_qty'),
             ];
-        })->sortBy(fn($s) => $s->staff->name ?? '');
+        })->sortBy(fn($c) => $c->customer_name)->values();
+
+        // Paginate Area Consignment
+        $currentPageArea = \Illuminate\Pagination\Paginator::resolveCurrentPage('area_consignment_page');
+        $perPageArea = 5;
+        $currentAreaItems = $consignmentStaffCollection->slice(($currentPageArea - 1) * $perPageArea, $perPageArea)->values();
+        $consignmentStaff = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentAreaItems,
+            $consignmentStaffCollection->count(),
+            $perPageArea,
+            $currentPageArea,
+            ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(), 'pageName' => 'area_consignment_page']
+        );
+        $consignmentStaff->withQueryString();
 
         // Fetch consignment inventory: 2. Direct Consignment (grouped by customer / NBS)
         $directOrders = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bookBundle'])
@@ -357,17 +421,50 @@ class InventoryController extends Controller
             ->whereNotIn('status', ['cancelled'])
             ->get();
 
-        $directConsignmentCustomers = $directOrders->groupBy(function($order) {
-            return $order->customer_id ?: ($order->customer_representative ?: 'NBS Consignment');
+        $directConsignmentCollection = $directOrders->groupBy(function($order) {
+            $rep = trim($order->customer_representative ?? '');
+            if (!empty($rep)) {
+                return 'rep_' . strtolower($rep);
+            }
+            return $order->customer_id ? 'cust_' . $order->customer_id : 'unassigned';
         })->map(function ($orders) {
             $first = $orders->first();
-            $customerName = $first->customer ? $first->customer->customer_name : ($first->customer_representative ?: 'Direct Consignment Customer');
+            $rep = trim($first->customer_representative ?? '');
+            $cust = trim($first->customer->customer_name ?? ($first->customer->company_name ?? ''));
+
+            if (!empty($rep) && !empty($cust) && strtolower($rep) !== strtolower($cust)) {
+                $customerName = $rep;
+                $companyName = $cust;
+            } elseif (!empty($rep)) {
+                $customerName = $rep;
+                $companyName = null;
+            } else {
+                $customerName = $cust ?: 'Direct Consignment Customer';
+                $companyName = null;
+            }
+
+            $drNumbers = $orders->map(function($o) {
+                return 'DR-' . $o->so_number;
+            })->unique()->values()->toArray();
+
+            $drBreakdown = [];
             $bookMap = [];
             foreach ($orders as $order) {
+                $drNum = 'DR-' . $order->so_number;
+                $soDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('M d, Y') : null;
+                $drItems = [];
+
                 foreach ($order->items as $item) {
                     $name = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bookBundle ? $item->bookBundle->name : 'N/A'));
                     $sku = $item->bookIndex ? ($item->bookIndex->barcode ?: $item->bookIndex->article) : ($item->book ? ($item->book->sku ?: $item->book->item_code) : ($item->bookBundle ? $item->bookBundle->sku : ''));
                     $key = ($item->book_index_id ? 'idx_' . $item->book_index_id : ($item->book_id ? 'bk_' . $item->book_id : 'bdl_' . $item->book_bundle_id));
+                    $qty = (int) $item->quantity;
+
+                    $drItems[] = [
+                        'sku' => $sku,
+                        'name' => $name,
+                        'qty' => $qty,
+                    ];
 
                     if (!isset($bookMap[$key])) {
                         $bookMap[$key] = [
@@ -375,19 +472,47 @@ class InventoryController extends Controller
                             'sku' => $sku,
                             'total_qty' => 0,
                             'order_count' => 0,
+                            'drs' => [],
                         ];
                     }
-                    $bookMap[$key]['total_qty'] += (int) $item->quantity;
+                    $bookMap[$key]['total_qty'] += $qty;
                     $bookMap[$key]['order_count']++;
+                    if (!in_array($drNum, $bookMap[$key]['drs'])) {
+                        $bookMap[$key]['drs'][] = $drNum;
+                    }
                 }
+
+                $drBreakdown[] = [
+                    'dr_number' => $drNum,
+                    'so_number' => $order->so_number,
+                    'order_date' => $soDate,
+                    'items' => $drItems,
+                    'total_qty' => collect($drItems)->sum('qty'),
+                ];
             }
             return (object) [
                 'customer_name' => $customerName,
+                'company_name' => $companyName,
+                'dr_numbers' => $drNumbers,
+                'dr_breakdown' => $drBreakdown,
                 'orders_count' => $orders->count(),
-                'books' => collect($bookMap)->sortBy(fn($b) => $b['name']),
+                'books' => collect($bookMap)->sortBy(fn($b) => $b['name'])->values(),
                 'total_items' => collect($bookMap)->sum('total_qty'),
             ];
-        })->sortBy(fn($c) => $c->customer_name);
+        })->sortBy(fn($c) => $c->customer_name)->values();
+
+        // Paginate Direct Consignment
+        $currentPageDirect = \Illuminate\Pagination\Paginator::resolveCurrentPage('direct_consignment_page');
+        $perPageDirect = 5;
+        $currentDirectItems = $directConsignmentCollection->slice(($currentPageDirect - 1) * $perPageDirect, $perPageDirect)->values();
+        $directConsignmentCustomers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentDirectItems,
+            $directConsignmentCollection->count(),
+            $perPageDirect,
+            $currentPageDirect,
+            ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(), 'pageName' => 'direct_consignment_page']
+        );
+        $directConsignmentCustomers->withQueryString();
 
         $sidebar = 'production';
         $role = 'Production Manager';
@@ -399,6 +524,27 @@ class InventoryController extends Controller
                 $role = 'Finance Manager';
             }
         }
+
+        // Lost Inventory Query
+        $lostQuery = \App\Models\LostInventory::with(['book', 'bookIndex.book', 'bookBundle', 'site', 'user'])->latest();
+        if (!empty($search)) {
+            $lostQuery->where(function($q) use ($search) {
+                $q->where('reason', 'like', '%' . $search . '%')
+                  ->orWhere('team_name', 'like', '%' . $search . '%')
+                  ->orWhereHas('book', fn($b) => $b->where('name', 'like', '%' . $search . '%')->orWhere('sku', 'like', '%' . $search . '%'))
+                  ->orWhereHas('bookIndex', function($idx) use ($search) {
+                      $idx->where('index_value', 'like', '%' . $search . '%')
+                          ->orWhere('custom_name', 'like', '%' . $search . '%')
+                          ->orWhere('article', 'like', '%' . $search . '%')
+                          ->orWhere('barcode', 'like', '%' . $search . '%')
+                          ->orWhereHas('book', fn($bq) => $bq->where('name', 'like', '%' . $search . '%')->orWhere('sku', 'like', '%' . $search . '%'));
+                  })
+                  ->orWhereHas('bookBundle', fn($bdl) => $bdl->where('name', 'like', '%' . $search . '%')->orWhere('sku', 'like', '%' . $search . '%'))
+                  ->orWhereHas('site', fn($st) => $st->where('name', 'like', '%' . $search . '%'));
+            });
+        }
+        $lostInventories = $lostQuery->paginate(15, ['*'], 'lost_page')->withQueryString();
+        $totalLostQty = \App\Models\LostInventory::sum('quantity');
 
         return view('production.inventory.overview', compact(
             'totalBooks', 
@@ -426,8 +572,160 @@ class InventoryController extends Controller
             'directConsignmentCustomers',
             'batchData',
             'sidebar',
-            'role'
+            'role',
+            'lostInventories',
+            'totalLostQty'
         ));
+    }
+
+    public function markAsLost(Request $request)
+    {
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'product_type'  => 'required|in:book,index,bundle,non_book',
+            'product_id'    => 'required|integer',
+            'quantity'      => 'required|integer|min:1',
+            'location_type' => 'required|in:site,team',
+            'site_id'       => 'nullable|required_if:location_type,site|integer|exists:sites,id',
+            'team_name'     => 'nullable|required_if:location_type,team|string',
+            'reason'        => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput()->with('error', 'Failed to mark item as lost: ' . $validator->errors()->first());
+        }
+
+        $productType = $request->input('product_type');
+        $productId = (int) $request->input('product_id');
+        $lostQty = (int) $request->input('quantity');
+        $locationType = $request->input('location_type');
+        $siteId = $request->input('site_id');
+        $teamName = $request->input('team_name');
+        $reason = $request->input('reason');
+        $userId = auth()->id();
+
+        try {
+            \DB::transaction(function() use ($productType, $productId, $lostQty, $locationType, $siteId, $teamName, $reason, $userId) {
+                $bookId = null;
+                $bookIndexId = null;
+                $bookBundleId = null;
+                $productName = '';
+
+                if ($productType === 'book' || $productType === 'non_book') {
+                    $book = \App\Models\Book::findOrFail($productId);
+                    $bookId = $book->id;
+                    $productName = $book->name;
+
+                    if ($locationType === 'site') {
+                        $siteInv = \App\Models\SiteInventory::where('site_id', $siteId)->where('book_id', $bookId)->first();
+                        $availQty = $siteInv ? (int) $siteInv->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock at selected site is only {$availQty} pcs.");
+                        }
+                        $siteInv->decrement('quantity', $lostQty);
+                        if ($book->stock >= $lostQty) {
+                            $book->decrement('stock', $lostQty);
+                        }
+                    } else {
+                        $teamStock = \App\Models\TeamStock::where('team_name', $teamName)->where('book_id', $bookId)->first();
+                        $availQty = $teamStock ? (int) $teamStock->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock for {$teamName} is only {$availQty} pcs.");
+                        }
+                        $teamStock->decrement('quantity', $lostQty);
+                        if ($book->stock >= $lostQty) {
+                            $book->decrement('stock', $lostQty);
+                        }
+                    }
+                } elseif ($productType === 'index') {
+                    $index = \App\Models\BookIndex::findOrFail($productId);
+                    $bookIndexId = $index->id;
+                    $productName = $index->title;
+
+                    if ($locationType === 'site') {
+                        $siteInv = \App\Models\SiteInventory::where('site_id', $siteId)->where('book_index_id', $bookIndexId)->first();
+                        $availQty = $siteInv ? (int) $siteInv->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock at selected site is only {$availQty} pcs.");
+                        }
+                        $siteInv->decrement('quantity', $lostQty);
+                        if ($index->stock >= $lostQty) {
+                            $index->decrement('stock', $lostQty);
+                        }
+                    } else {
+                        $teamStock = \App\Models\TeamStock::where('team_name', $teamName)->where('book_index_id', $bookIndexId)->first();
+                        $availQty = $teamStock ? (int) $teamStock->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock for {$teamName} is only {$availQty} pcs.");
+                        }
+                        $teamStock->decrement('quantity', $lostQty);
+                        if ($index->stock >= $lostQty) {
+                            $index->decrement('stock', $lostQty);
+                        }
+                    }
+                } elseif ($productType === 'bundle') {
+                    $bundle = \App\Models\BookBundle::findOrFail($productId);
+                    $bookBundleId = $bundle->id;
+                    $productName = $bundle->bundle_name;
+
+                    if ($locationType === 'site') {
+                        $siteInv = \App\Models\SiteInventory::where('site_id', $siteId)->where('book_bundle_id', $bookBundleId)->first();
+                        $availQty = $siteInv ? (int) $siteInv->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock at selected site is only {$availQty} pcs.");
+                        }
+                        $siteInv->decrement('quantity', $lostQty);
+                        if ($bundle->stock >= $lostQty) {
+                            $bundle->decrement('stock', $lostQty);
+                        }
+                    } else {
+                        $teamStock = \App\Models\TeamStock::where('team_name', $teamName)->where('book_bundle_id', $bookBundleId)->first();
+                        $availQty = $teamStock ? (int) $teamStock->quantity : 0;
+                        if ($lostQty > $availQty) {
+                            throw new \Exception("Cannot mark {$lostQty} pcs as lost. Available stock for {$teamName} is only {$availQty} pcs.");
+                        }
+                        $teamStock->decrement('quantity', $lostQty);
+                        if ($bundle->stock >= $lostQty) {
+                            $bundle->decrement('stock', $lostQty);
+                        }
+                    }
+                }
+
+                // Record entry in lost_inventories
+                \App\Models\LostInventory::create([
+                    'product_type'   => $productType,
+                    'book_id'        => $bookId,
+                    'book_index_id'  => $bookIndexId,
+                    'book_bundle_id' => $bookBundleId,
+                    'quantity'       => $lostQty,
+                    'site_id'        => $locationType === 'site' ? $siteId : null,
+                    'team_name'      => $locationType === 'team' ? $teamName : null,
+                    'reason'         => $reason,
+                    'user_id'        => $userId,
+                    'lost_date'      => now(),
+                ]);
+
+                // Audit trail in InventoryTransaction if book_id is present
+                if ($bookId) {
+                    $siteObj = $siteId ? \App\Models\Site::find($siteId) : null;
+                    \App\Models\InventoryTransaction::create([
+                        'book_id'          => $bookId,
+                        'type'             => 'LOST',
+                        'quantity'         => -$lostQty,
+                        'location'         => $locationType === 'site' ? ($siteObj->name ?? 'Main Warehouse') : $teamName,
+                        'source'           => 'Lost Inventory Adjustment',
+                        'reference_number' => 'LOST-' . date('YmdHis'),
+                        'notes'            => $reason ?: 'Marked as lost in Inventory Overview',
+                        'status'           => 'completed',
+                        'transaction_date' => now(),
+                        'user_id'          => $userId,
+                    ]);
+                }
+            });
+
+            return redirect()->back()->with('success', "Successfully recorded lost inventory and deducted stock.");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error marking inventory as lost: ' . $e->getMessage());
+        }
     }
 
     private function isAccountingReviewer($user): bool

@@ -188,9 +188,18 @@
         }
 
         @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color: #000000 !important;
+            }
             body {
-                background: #fff !important;
+                background: #ffffff !important;
+                color: #000000 !important;
                 padding: 0 !important;
+                font-size: 11px !important;
+                font-family: Arial, Helvetica, sans-serif !important;
             }
             .dr-box {
                 border: none !important;
@@ -202,6 +211,79 @@
             }
             .actions-bar {
                 display: none !important;
+            }
+            .receipt-table,
+            .receipt-table td,
+            .receipt-table th,
+            .receipt-table tfoot td,
+            .receipt-table span,
+            .receipt-table div {
+                color: #000000 !important;
+                font-weight: 700 !important;
+                background: #ffffff !important;
+                background-color: #ffffff !important;
+                border-color: #000000 !important;
+            }
+            .receipt-table th {
+                font-weight: 900 !important;
+                background: #ffffff !important;
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                border: 1px solid #000000 !important;
+            }
+            .receipt-table td {
+                font-weight: 700 !important;
+                font-size: 11px !important;
+                line-height: 1.3 !important;
+                border: 1px solid #000000 !important;
+            }
+            .form-info-grid td,
+            .form-info-grid .label-col,
+            .form-info-grid .val-col,
+            .form-header .company-name,
+            .form-header .company-address,
+            .form-header .company-contact,
+            .form-header .document-title,
+            .form-header div,
+            .signature-box label,
+            .signature-name,
+            .signature-line-box {
+                color: #000000 !important;
+                opacity: 1 !important;
+                font-weight: 700 !important;
+            }
+            .form-header .company-name {
+                font-size: 1.1rem !important;
+                font-weight: 900 !important;
+            }
+            .form-header .company-address,
+            .form-header .company-contact {
+                font-size: 11px !important;
+                font-weight: 700 !important;
+            }
+            .form-header div.text-muted,
+            .form-header .extra-small {
+                color: #000000 !important;
+                font-weight: 800 !important;
+                font-size: 10px !important;
+            }
+            .signature-line-box {
+                border-top: 1.5px solid #000000 !important;
+                font-weight: 800 !important;
+                font-size: 10px !important;
+            }
+            .badge,
+            span.badge,
+            span[style*="background"] {
+                background: transparent !important;
+                background-color: transparent !important;
+                color: #000000 !important;
+                border: 1px solid #000000 !important;
+                font-weight: 800 !important;
+                font-size: 10px !important;
+                padding: 1px 5px !important;
+                box-shadow: none !important;
+                display: inline-block !important;
             }
             @page {
                 size: letter portrait;
@@ -359,9 +441,39 @@
                         $totalItemDiscounts += $itemDiscountAmt;
                         $rowAmount = max(0, $itemSubtotal - $itemDiscountAmt);
                     @endphp
+                    @php
+                        $soNum = strtolower($order->so_number ?? '');
+                        $drNum = strtolower($deliveryReceipt->dr_number ?? '');
+                        $cName = strtolower($order->customer?->customer_name ?? '');
+                        $cRep = strtolower($order->customer_representative ?? '');
+                        $isNBS = str_contains($soNum, 'nbs') || 
+                                 str_contains($drNum, 'nbs') || 
+                                 str_contains($cName, 'national book store') || 
+                                 str_contains($cName, 'nbs') || 
+                                 str_contains($cRep, 'national book store') || 
+                                 str_contains($cRep, 'nbs');
+
+                        $articleNo = $item->article_number 
+                            ?? ($item->article 
+                            ?? ($item->bookIndex->article_number 
+                            ?? ($item->bookIndex->article 
+                            ?? ($item->book->article_number 
+                            ?? ($item->book->article 
+                            ?? ($item->bookIndex->barcode 
+                            ?? ($item->bookIndex->item_code 
+                            ?? ($item->book->sku 
+                            ?? ($item->book->item_code ?? null)))))))));
+                    @endphp
                     <tr>
                         <td style="text-align: center; font-weight: bold;">{{ $displayQty }}</td>
-                        <td style="font-weight: 600;">{{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}</td>
+                        <td style="font-weight: 600;">
+                            {{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}
+                            @if($isNBS && !empty($articleNo))
+                                <div style="font-size: 11px; font-weight: bold; color: #000; margin-top: 2px;">
+                                    Article #: {{ $articleNo }}
+                                </div>
+                            @endif
+                        </td>
                         <td style="text-align: right;">₱{{ number_format($unitPrice, 2) }}</td>
                         <td style="text-align: center;">
                             @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)

@@ -12,6 +12,10 @@ class ChartOfAccount extends Model
         'type',
         'category',
         'is_active',
+        'parent_id',
+        'is_postable',
+        'normal_balance',
+        'display_order',
     ];
 
     public function journalEntryItems()

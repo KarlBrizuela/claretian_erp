@@ -73,19 +73,40 @@ class JournalEntryController extends Controller
             $code = $bank->account_code ?: ('BANK-' . $bank->id);
             $name = 'Bank: ' . $bank->bank_name . ' (' . $bank->account_number . ' - ' . $bank->account_name . ')';
             
-            ChartOfAccount::firstOrCreate(
+            ChartOfAccount::updateOrCreate(
                 ['code' => $code],
                 [
                     'name' => $name,
                     'type' => 'Asset',
                     'category' => 'Cash & Bank',
                     'is_active' => 1,
+                    'is_postable' => 1,
                 ]
             );
         }
 
-        // Fetch all active accounts from Chart of Accounts
-        $accounts = ChartOfAccount::orderBy('code')
+        // Ensure broad/general bank account parents are not postable directly
+        ChartOfAccount::whereIn('code', ['1000', '1020'])->update(['is_postable' => 0]);
+
+        // Fetch all active, postable accounts from Chart of Accounts sorted hierarchically
+        $accounts = ChartOfAccount::select('chart_of_accounts.*')
+            ->leftJoin('chart_of_accounts as p', 'chart_of_accounts.parent_id', '=', 'p.id')
+            ->where('chart_of_accounts.is_active', 1)
+            ->where('chart_of_accounts.is_postable', 1)
+            ->orderByRaw("
+                CASE chart_of_accounts.type
+                    WHEN 'Asset' THEN 1
+                    WHEN 'Liability' THEN 2
+                    WHEN 'Equity' THEN 3
+                    WHEN 'Income' THEN 4
+                    WHEN 'Expense' THEN 5
+                    ELSE 6
+                END,
+                COALESCE(p.display_order, chart_of_accounts.display_order),
+                COALESCE(p.code, chart_of_accounts.code),
+                chart_of_accounts.display_order,
+                chart_of_accounts.code
+            ")
             ->get();
         
         // Generate next Entry No (JV-YEAR-SEQ)

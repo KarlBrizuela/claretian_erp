@@ -1,7 +1,7 @@
-<div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
-    <div class="card-header bg-white border-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
+<div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+    <div class="card-header bg-white border-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-3">
-            <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-info text-info" style="width: 45px; height: 45px;">
+            <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-primary text-primary" style="width: 45px; height: 45px;">
                 <i class="las la-map-marked-alt fs-24"></i>
             </div>
             <div>
@@ -11,96 +11,159 @@
         </div>
         <span class="badge bg-light text-dark border px-3 py-2 rounded-pill fw-bold">7 Accounts</span>
     </div>
-    <div class="card-body pt-2">
-        <div class="row g-3 mb-4">
+    <div class="card-body px-4 pt-1 pb-4">
+        <div class="row g-3">
             
-            <!-- Sales Representative -->
-            <div class="col-md-6 col-xl-4">
-                <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #17a2b8 !important; cursor: pointer;" onclick="showSalesLedgerModal('Sales Representative Performance', document.getElementById('salesRepsTemplate').innerHTML)">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+            <!-- Sales Representative Card -->
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <div class="card h-100 shadow-sm hover-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer;" onclick="showSalesLedgerModal('Sales Representative Performance', document.getElementById('salesRepsTemplate').innerHTML)">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
-                            <h6 class="mb-0 fw-bold text-dark fs-14">Sales Representative</h6>
-                            <span class="text-muted small">Field reps sales ledger</span>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-primary text-primary" style="width: 36px; height: 36px;">
+                                    <i class="las la-user-tie fs-20"></i>
+                                </div>
+                                <span class="badge bg-soft-success text-success px-2 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                            </div>
+                            <h6 class="mb-1 fw-bold fs-14" style="letter-spacing: -0.2px; font-weight: 700 !important; color: #0f172a !important;">Sales Representative</h6>
+                            <p class="mb-3" style="font-size: 0.78rem; line-height: 1.4; min-height: 38px; color: #475569 !important;">Field reps regional sales ledger.</p>
                         </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱{{ number_format($areaRepSales, 2) }}</h5>
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                            <span class="small" style="font-size: 0.72rem; color: #475569 !important; font-weight: 600;">Revenue</span>
+                            <span class="fw-bold fs-15" style="color: #0f172a !important; font-weight: 800 !important;">₱{{ number_format($areaRepSales, 2) }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Province -->
-            <div class="col-md-6 col-xl-4">
-                <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #17a2b8 !important; cursor: pointer;" onclick="showSalesLedgerModal('Provincial Sales Ledger', document.getElementById('provincesTemplate').innerHTML)">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+            <!-- Province Card -->
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <div class="card h-100 shadow-sm hover-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer;" onclick="showSalesLedgerModal('Provincial Sales Ledger', document.getElementById('provincesTemplate').innerHTML)">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
-                            <h6 class="mb-0 fw-bold text-dark fs-14">Province</h6>
-                            <span class="text-muted small">Sales value by geographic province</span>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-primary text-primary" style="width: 36px; height: 36px;">
+                                    <i class="las la-map fs-20"></i>
+                                </div>
+                                <span class="badge bg-soft-success text-success px-2 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                            </div>
+                            <h6 class="mb-1 fw-bold fs-14" style="letter-spacing: -0.2px; font-weight: 700 !important; color: #0f172a !important;">Province</h6>
+                            <p class="mb-3" style="font-size: 0.78rem; line-height: 1.4; min-height: 38px; color: #475569 !important;">Geographic regional sales ledger.</p>
                         </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱0.00</h5>
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                            <span class="small" style="font-size: 0.72rem; color: #475569 !important; font-weight: 600;">Balance</span>
+                            <span class="fw-bold fs-15" style="color: #0f172a !important; font-weight: 800 !important;">₱0.00</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Customer -->
-            <div class="col-md-6 col-xl-4">
-                <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #17a2b8 !important; cursor: pointer;" onclick="showSalesLedgerModal('Area Sales Customers', document.getElementById('areaCustomersTemplate').innerHTML)">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+            <!-- Customer Card -->
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <div class="card h-100 shadow-sm hover-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer;" onclick="showSalesLedgerModal('Area Sales Customers', document.getElementById('areaCustomersTemplate').innerHTML)">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
-                            <h6 class="mb-0 fw-bold text-dark fs-14">Customer</h6>
-                            <span class="text-muted small">Active regional school & parish clients</span>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-primary text-primary" style="width: 36px; height: 36px;">
+                                    <i class="las la-university fs-20"></i>
+                                </div>
+                                <span class="badge bg-soft-success text-success px-2 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                            </div>
+                            <h6 class="mb-1 fw-bold fs-14" style="letter-spacing: -0.2px; font-weight: 700 !important; color: #0f172a !important;">Customer</h6>
+                            <p class="mb-3" style="font-size: 0.78rem; line-height: 1.4; min-height: 38px; color: #475569 !important;">Active regional school & parish clients.</p>
                         </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱0.00</h5>
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                            <span class="small" style="font-size: 0.72rem; color: #475569 !important; font-weight: 600;">Balance</span>
+                            <span class="fw-bold fs-15" style="color: #0f172a !important; font-weight: 800 !important;">₱0.00</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Collection Status -->
-            <div class="col-md-6 col-xl-4">
-                <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #17a2b8 !important; cursor: pointer;" onclick="showSalesLedgerModal('Collection Status Tracker', document.getElementById('collectionStatusTemplate').innerHTML)">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+            <!-- Collection Status Card -->
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <div class="card h-100 shadow-sm hover-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer;" onclick="showSalesLedgerModal('Collection Status Tracker', document.getElementById('collectionStatusTemplate').innerHTML)">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
-                            <h6 class="mb-0 fw-bold text-dark fs-14">Collection Status</h6>
-                            <span class="text-muted small">Consignment settlement collections</span>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-primary text-primary" style="width: 36px; height: 36px;">
+                                    <i class="las la-file-invoice-dollar fs-20"></i>
+                                </div>
+                                <span class="badge bg-soft-success text-success px-2 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                            </div>
+                            <h6 class="mb-1 fw-bold fs-14" style="letter-spacing: -0.2px; font-weight: 700 !important; color: #0f172a !important;">Collection Status</h6>
+                            <p class="mb-3" style="font-size: 0.78rem; line-height: 1.4; min-height: 38px; color: #475569 !important;">Consignment settlement collection ledger.</p>
                         </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱0.00</h5>
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                            <span class="small" style="font-size: 0.72rem; color: #475569 !important; font-weight: 600;">Balance</span>
+                            <span class="fw-bold fs-15" style="color: #0f172a !important; font-weight: 800 !important;">₱0.00</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Returned Books -->
-            <div class="col-md-6 col-xl-4">
-                <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #17a2b8 !important; cursor: pointer;" onclick="showSalesLedgerModal('Returned Books Ledger', document.getElementById('areaReturnsTemplate').innerHTML)">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+            <!-- Returned Books Card -->
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <div class="card h-100 shadow-sm hover-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer;" onclick="showSalesLedgerModal('Returned Books Ledger', document.getElementById('areaReturnsTemplate').innerHTML)">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
-                            <h6 class="mb-0 fw-bold text-dark fs-14">Returned Books</h6>
-                            <span class="text-muted small">Accrued field consignment returns</span>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-primary text-primary" style="width: 36px; height: 36px;">
+                                    <i class="las la-undo-alt fs-20"></i>
+                                </div>
+                                <span class="badge bg-soft-success text-success px-2 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                            </div>
+                            <h6 class="mb-1 fw-bold fs-14" style="letter-spacing: -0.2px; font-weight: 700 !important; color: #0f172a !important;">Returned Books</h6>
+                            <p class="mb-3" style="font-size: 0.78rem; line-height: 1.4; min-height: 38px; color: #475569 !important;">Accrued regional consignment returns ledger.</p>
                         </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱0.00</h5>
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                            <span class="small" style="font-size: 0.72rem; color: #475569 !important; font-weight: 600;">Balance</span>
+                            <span class="fw-bold fs-15" style="color: #0f172a !important; font-weight: 800 !important;">₱0.00</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Unsold Inventory -->
-            <div class="col-md-6 col-xl-4">
-                <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #17a2b8 !important; cursor: pointer;" onclick="showSalesLedgerModal('Unsold Consignment Inventory Valuation', document.getElementById('unsoldConsignmentTemplate').innerHTML)">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+            <!-- Unsold Inventory Card -->
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <div class="card h-100 shadow-sm hover-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer;" onclick="showSalesLedgerModal('Unsold Consignment Inventory Valuation', document.getElementById('unsoldConsignmentTemplate').innerHTML)">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
-                            <h6 class="mb-0 fw-bold text-dark fs-14">Unsold Inventory</h6>
-                            <span class="text-muted small">Valuation of inventory on field consignment</span>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-primary text-primary" style="width: 36px; height: 36px;">
+                                    <i class="las la-boxes fs-20"></i>
+                                </div>
+                                <span class="badge bg-soft-success text-success px-2 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                            </div>
+                            <h6 class="mb-1 fw-bold fs-14" style="letter-spacing: -0.2px; font-weight: 700 !important; color: #0f172a !important;">Unsold Inventory</h6>
+                            <p class="mb-3" style="font-size: 0.78rem; line-height: 1.4; min-height: 38px; color: #475569 !important;">Accrued inventory valuation on field consignment.</p>
                         </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱0.00</h5>
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                            <span class="small" style="font-size: 0.72rem; color: #475569 !important; font-weight: 600;">Balance</span>
+                            <span class="fw-bold fs-15" style="color: #0f172a !important; font-weight: 800 !important;">₱0.00</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Commission -->
-            <div class="col-md-6 col-xl-4">
-                <div class="card border-0 shadow-sm hover-row" style="background-color: #fafafa; border-radius: 10px; border-left: 4px solid #17a2b8 !important; cursor: pointer;" onclick="showSalesLedgerModal('Sales Commissions Accrued', document.getElementById('commissionsTemplate').innerHTML)">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+            <!-- Commission Card -->
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <div class="card h-100 shadow-sm hover-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer;" onclick="showSalesLedgerModal('Sales Commissions Accrued', document.getElementById('commissionsTemplate').innerHTML)">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
-                            <h6 class="mb-0 fw-bold text-dark fs-14">Commission</h6>
-                            <span class="text-muted small">Accrued field representative commissions</span>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-soft-primary text-primary" style="width: 36px; height: 36px;">
+                                    <i class="las la-percentage fs-20"></i>
+                                </div>
+                                <span class="badge bg-soft-success text-success px-2 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981;">Active</span>
+                            </div>
+                            <h6 class="mb-1 fw-bold fs-14" style="letter-spacing: -0.2px; font-weight: 700 !important; color: #0f172a !important;">Commission</h6>
+                            <p class="mb-3" style="font-size: 0.78rem; line-height: 1.4; min-height: 38px; color: #475569 !important;">Accrued field representative payouts.</p>
                         </div>
-                        <h5 class="mb-0 fw-bold text-dark fs-15">₱0.00</h5>
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                            <span class="small" style="font-size: 0.72rem; color: #475569 !important; font-weight: 600;">Balance</span>
+                            <span class="fw-bold fs-15" style="color: #0f172a !important; font-weight: 800 !important;">₱0.00</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -112,12 +175,12 @@
 <!-- TEMPLATE CONTAINER - SALES REPRESENTATIVES -->
 <div id="salesRepsTemplate" style="display: none;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light text-muted small text-uppercase">
+        <table class="table table-modern align-middle mb-0">
+            <thead>
                 <tr>
                     <th>Rep Name</th>
                     <th>Region Assigned</th>
-                    <th class="text-end">Sales Target</th>
+                    <th class="text-end">Sales Type</th>
                     <th class="text-end">Actual Sales</th>
                     <th class="text-end">Accrued Commission</th>
                 </tr>
@@ -144,8 +207,8 @@
 <!-- TEMPLATE CONTAINER - PROVINCES -->
 <div id="provincesTemplate" style="display: none;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light text-muted small text-uppercase">
+        <table class="table table-modern align-middle mb-0">
+            <thead>
                 <tr>
                     <th>Province</th>
                     <th>Region</th>
@@ -165,8 +228,8 @@
 <!-- TEMPLATE CONTAINER - CUSTOMERS -->
 <div id="areaCustomersTemplate" style="display: none;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light text-muted small text-uppercase">
+        <table class="table table-modern align-middle mb-0">
+            <thead>
                 <tr>
                     <th>Customer Name</th>
                     <th>Province</th>
@@ -187,8 +250,8 @@
 <!-- TEMPLATE CONTAINER - COLLECTION STATUS -->
 <div id="collectionStatusTemplate" style="display: none;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light text-muted small text-uppercase">
+        <table class="table table-modern align-middle mb-0">
+            <thead>
                 <tr>
                     <th>Consignment Reference</th>
                     <th>Customer</th>
@@ -210,8 +273,8 @@
 <!-- TEMPLATE CONTAINER - RETURNED BOOKS -->
 <div id="areaReturnsTemplate" style="display: none;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light text-muted small text-uppercase">
+        <table class="table table-modern align-middle mb-0">
+            <thead>
                 <tr>
                     <th>Ref No</th>
                     <th>Consignment Account</th>
@@ -233,8 +296,8 @@
 <!-- TEMPLATE CONTAINER - UNSOLD INVENTORY -->
 <div id="unsoldConsignmentTemplate" style="display: none;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light text-muted small text-uppercase">
+        <table class="table table-modern align-middle mb-0">
+            <thead>
                 <tr>
                     <th>Book Title</th>
                     <th>Consigned To</th>
@@ -255,8 +318,8 @@
 <!-- TEMPLATE CONTAINER - COMMISSION -->
 <div id="commissionsTemplate" style="display: none;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light text-muted small text-uppercase">
+        <table class="table table-modern align-middle mb-0">
+            <thead>
                 <tr>
                     <th>Rep Name</th>
                     <th>Evaluation Period</th>

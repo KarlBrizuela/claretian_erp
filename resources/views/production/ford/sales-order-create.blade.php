@@ -1,6 +1,7 @@
 <x-app-layout :title="'Create Foreign Sales Order'" :sidebar="'production'">
     @push('styles')
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-select/dist/css/bootstrap-select.min.css') }}">
+    <link href="{{ asset('vendor/select2/css/select2.min.css') }}" rel="stylesheet">
     <style>
         .order-form { background: #fff; border-radius: 8px; padding: 2rem; box-shadow: 0 0 20px rgba(0, 0, 0, 0.05); }
         .form-header { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #e0e0e0; }
@@ -25,6 +26,10 @@
         .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; padding-top: 1rem; border-top: 2px solid #e0e0e0; }
         .bootstrap-select .dropdown-toggle { border: 1px solid #ced4da !important; background-color: #fff !important; padding: 0.375rem 0.75rem !important; }
         .bootstrap-select .dropdown-toggle:focus { outline: none !important; box-shadow: 0 0 0 0.2rem rgba(255, 0, 0, 0.25) !important; }
+        .select2-container .select2-selection--single { height: 31px !important; line-height: 31px !important; font-size: 0.8rem; border: 1px solid #ced4da; }
+        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 31px !important; font-size: 0.8rem; }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 30px !important; }
+        .select2-dropdown { font-size: 0.8rem; z-index: 1060; }
     </style>
     @endpush
 
@@ -253,9 +258,8 @@
 
     @push('scripts')
     <script src="{{ asset('vendor/bootstrap-select/dist/js/bootstrap-select.min.js') }}"></script>
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script>
-        const productsList = @json($products ?? []);
-        const booksList = @json($books ?? []);
         let rowIndex = 0;
 
         function getCurrencySymbol() {
@@ -366,6 +370,61 @@
             addProductRow();
         });
 
+        function initProductSelect2(selectEl, rowIdx) {
+            if (!window.jQuery || typeof jQuery.fn.select2 !== 'function') return;
+
+            $(selectEl).select2({
+                placeholder: 'Search Book / Product...',
+                allowClear: true,
+                width: '100%',
+                ajax: {
+                    url: "{{ route('production.ford.sales-order.products-search') }}",
+                    dataType: 'json',
+                    delay: 300,
+                    data: function(params) {
+                        return {
+                            q: params.term || ''
+                        };
+                    },
+                    processResults: function(data) {
+                        return {
+                            results: data.results || []
+                        };
+                    },
+                    cache: true
+                }
+            }).on('select2:select', function(e) {
+                const item = e.params.data;
+                const row = document.getElementById(`row-${rowIdx}`);
+                if (row && item) {
+                    const basePrice = parseFloat(item.price) || 0;
+                    const isbn = item.isbn || '';
+                    row.dataset.basePrice = basePrice;
+
+                    const curr = document.getElementById('formCurrency').value;
+                    const finalPrice = (curr === 'USD') ? convertPesoToDollar(basePrice) : basePrice;
+
+                    const priceInput = row.querySelector('.item-price');
+                    const isbnInput = row.querySelector('.item-isbn');
+                    if (priceInput) priceInput.value = finalPrice.toFixed(2);
+                    if (isbnInput) isbnInput.value = isbn;
+
+                    calculateRow(rowIdx);
+                }
+            }).on('select2:clear', function(e) {
+                const row = document.getElementById(`row-${rowIdx}`);
+                if (row) {
+                    row.dataset.basePrice = 0;
+                    const priceInput = row.querySelector('.item-price');
+                    const isbnInput = row.querySelector('.item-isbn');
+                    if (priceInput) priceInput.value = '0.00';
+                    if (isbnInput) isbnInput.value = '';
+
+                    calculateRow(rowIdx);
+                }
+            });
+        }
+
         function addProductRow() {
             rowIndex++;
             const tbody = document.getElementById('itemsBody');
@@ -373,25 +432,12 @@
             tr.setAttribute('id', `row-${rowIndex}`);
             const sym = getCurrencySymbol();
 
-            let productOptions = '<option value="" selected disabled>Select Book / Product...</option>';
-            const listToUse = (productsList && productsList.length > 0) ? productsList : booksList;
-
-            if (listToUse && listToUse.length > 0) {
-                listToUse.forEach(p => {
-                    const isbns = p.isbn || p.sku || p.barcode || '';
-                    const pName = p.name || p.display_name || 'Book Item';
-                    const pPrice = parseFloat(p.price || 0).toFixed(2);
-                    const pId = p.id || p.book_id;
-                    productOptions += `<option value="${pId}" data-price="${p.price || 0}" data-isbn="${isbns}">${pName} - ₱${pPrice}</option>`;
-                });
-            }
-
             tr.innerHTML = `
                 <td><input type="number" min="1" class="form-control form-control-sm text-center item-qty" name="items[${rowIndex}][quantity]" value="1" oninput="calculateRow(${rowIndex})" style="padding: 2px 4px; font-size: 0.8rem;"></td>
                 <td><input type="text" class="form-control form-control-sm text-center" name="items[${rowIndex}][unit]" value="pcs" style="padding: 2px 4px; font-size: 0.8rem;"></td>
-                <td style="max-width: 200px; overflow: hidden;">
-                    <select class="form-control form-control-sm item-product-select" name="items[${rowIndex}][product_id]" onchange="onProductSelect(${rowIndex}, this)" required style="width: 100%; display: block; visibility: visible;">
-                        ${productOptions}
+                <td style="min-width: 220px;">
+                    <select class="form-control form-control-sm item-product-select" name="items[${rowIndex}][product_id]" required style="width: 100%;">
+                        <option value="" selected disabled>Search Book / Product...</option>
                     </select>
                 </td>
                 <td><input type="text" class="form-control form-control-sm item-isbn" name="items[${rowIndex}][isbn]" placeholder="ISBN" readonly style="padding: 2px 4px; font-size: 0.8rem;"></td>
@@ -413,6 +459,9 @@
             `;
 
             tbody.appendChild(tr);
+
+            const selectEl = tr.querySelector('.item-product-select');
+            initProductSelect2(selectEl, rowIndex);
         }
 
         function removeProductRow(idx) {

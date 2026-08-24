@@ -3372,11 +3372,9 @@ public function checkVoucher()
         return response()->download($path, basename($path));
     }
 
-    private function getAccountBalanceAndTrack($namePattern, $type, &$trackedIds)
+    private function getAccountBalanceAndTrack($code, $type, &$trackedIds)
     {
-        $account = \App\Models\ChartOfAccount::where('type', $type)
-            ->where('name', 'like', $namePattern)
-            ->first();
+        $account = \App\Models\ChartOfAccount::where('code', $code)->first();
 
         if (!$account) {
             return 0.00;
@@ -3387,7 +3385,7 @@ public function checkVoucher()
         $debitSum = $account->journalEntryItems()->sum('debit');
         $creditSum = $account->journalEntryItems()->sum('credit');
 
-        if ($type === 'Asset' || $type === 'Expense') {
+        if ($account->type === 'Asset' || $account->type === 'Expense') {
             return $debitSum - $creditSum;
         } else {
             return $creditSum - $debitSum;
@@ -3460,84 +3458,138 @@ public function checkVoucher()
 
         $trackedIds = [];
 
+        $companyBankAccounts = \App\Models\CompanyBankAccount::latest()->get();
+        if ($companyBankAccounts->isEmpty()) {
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => '1000',
+                'bank_name' => 'BDO Unibank',
+                'account_name' => 'Claretian Communications Foundation Inc.',
+                'account_number' => '0012-3456-7890',
+                'account_type' => 'Checking',
+                'currency' => 'PHP',
+                'opening_balance' => 250000.00,
+                'current_balance' => 250000.00,
+                'status' => 'Active',
+                'notes' => 'Primary operational & clearing account'
+            ]);
+
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => '1006',
+                'bank_name' => 'BPI (Bank of the Philippine Islands)',
+                'account_name' => 'CCFI Operating Account',
+                'account_number' => '0987-6543-2100',
+                'account_type' => 'Savings',
+                'currency' => 'PHP',
+                'opening_balance' => 150000.00,
+                'current_balance' => 150000.00,
+                'status' => 'Active',
+                'notes' => 'Secondary operational account'
+            ]);
+
+            \App\Models\CompanyBankAccount::create([
+                'account_code' => '1020',
+                'bank_name' => 'GCash / Merchant E-Wallet',
+                'account_name' => 'Claretian Digital Collections',
+                'account_number' => '0917-888-9999',
+                'account_type' => 'E-Wallet',
+                'currency' => 'PHP',
+                'opening_balance' => 50000.00,
+                'current_balance' => 50000.00,
+                'status' => 'Active',
+                'notes' => 'Merchant collections & mobile QR'
+            ]);
+            $companyBankAccounts = \App\Models\CompanyBankAccount::latest()->get();
+        }
+
+        $bankBalances = [];
+        foreach ($companyBankAccounts as $acct) {
+            $bankBalances[$acct->account_code] = $this->getAccountBalanceAndTrack($acct->account_code, 'Asset', $trackedIds);
+        }
+
+        // Also track standard codes in case they are selected but not in company bank accounts table yet
+        $this->getAccountBalanceAndTrack('1000', 'Asset', $trackedIds);
+        $this->getAccountBalanceAndTrack('1006', 'Asset', $trackedIds);
+        $this->getAccountBalanceAndTrack('1020', 'Asset', $trackedIds);
+        $this->getAccountBalanceAndTrack('1025', 'Asset', $trackedIds);
+
+        $accountDetails = \App\Models\ChartOfAccount::all()->keyBy('code');
+
         $balances = [
             // Assets
-            'cash_on_hand' => $this->getAccountBalanceAndTrack('%Cash on Hand%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Undeposited Funds%', 'Asset', $trackedIds) ?: (\App\Models\SalesInvoice::sum('total_amount') + \App\Models\Payment::sum('amount') + \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where(function($q) { $q->where('payment_status', 'paid')->orWhere(function($sub) { $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', ''); })->orWhere('type', 'calculator_pos'); })->sum('total_amount')),
-            'petty_cash' => $this->getAccountBalanceAndTrack('%Petty Cash%', 'Asset', $trackedIds) ?: \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
-            'bank_accounts' => max(
-                $this->getAccountBalanceAndTrack('%Bank%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash in Bank%', 'Asset', $trackedIds),
-                (float) \App\Models\CompanyBankAccount::sum('current_balance')
-            ),
-            'receivables' => \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where('payment_status', '!=', 'paid')->where(function($q) { $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', ''); })->whereNotIn('type', ['calculator_pos', 'ecom_direct'])->sum('total_amount') + \App\Models\StatementOfAccount::where('status', '!=', 'paid')->sum('total_amount'),
-            'inventory_raw_materials' => max(0, $this->getAccountBalanceAndTrack('%Raw Materials%', 'Asset', $trackedIds)),
-            'inventory_work_in_progress' => max(0, $this->getAccountBalanceAndTrack('%Work in Progress%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%WIP%', 'Asset', $trackedIds)),
-            'inventory_finished_goods' => (($fgCoa = $this->getAccountBalanceAndTrack('%Finished Goods%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Books%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Inventory - Consignment%', 'Asset', $trackedIds)) > 0) ? $fgCoa : \App\Models\Book::sum(\DB::raw('stock * cost')),
-            'fixed_assets' => $this->getAccountBalanceAndTrack('%Fixed Assets%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Equipment%', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('%Property%', 'Asset', $trackedIds),
-            'investments' => $this->getAccountBalanceAndTrack('%Investment%', 'Asset', $trackedIds),
-            'deposits' => $this->getAccountBalanceAndTrack('%Deposit%', 'Asset', $trackedIds),
+            'cash_on_hand' => ($this->getAccountBalanceAndTrack('1010', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('1040', 'Asset', $trackedIds)) + (\App\Models\SalesInvoice::sum('total_amount') + \App\Models\Payment::sum('amount') + \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where(function($q) { $q->where('payment_status', 'paid')->orWhere(function($sub) { $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', ''); })->orWhere('type', 'calculator_pos'); })->sum('total_amount')),
+            'petty_cash' => $this->getAccountBalanceAndTrack('1015', 'Asset', $trackedIds) + \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
+            'bank_accounts' => 0.00,
+            'bank_balances' => $bankBalances,
+            'receivables' => $this->getAccountBalanceAndTrack('1200', 'Asset', $trackedIds) + (\App\Models\SalesOrder::where('status', '!=', 'cancelled')->where('payment_status', '!=', 'paid')->where(function($q) { $q->whereNull('proof_of_payment')->orWhere('proof_of_payment', ''); })->whereNotIn('type', ['calculator_pos', 'ecom_direct'])->sum('total_amount') + \App\Models\StatementOfAccount::where('status', '!=', 'paid')->sum('total_amount')),
+            'inventory_raw_materials' => max(0, $this->getAccountBalanceAndTrack('1320', 'Asset', $trackedIds)),
+            'inventory_work_in_progress' => max(0, $this->getAccountBalanceAndTrack('1330', 'Asset', $trackedIds)),
+            'inventory_finished_goods' => $this->getAccountBalanceAndTrack('1300', 'Asset', $trackedIds) + \App\Models\Book::sum(\DB::raw('stock * cost')),
+            'fixed_assets' => ($this->getAccountBalanceAndTrack('1600', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('1050', 'Asset', $trackedIds)),
+            'investments' => $this->getAccountBalanceAndTrack('1700', 'Asset', $trackedIds),
+            'deposits' => ($this->getAccountBalanceAndTrack('1800', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('1070', 'Asset', $trackedIds)),
 
             // Liabilities
-            'suppliers' => $this->getAccountBalanceAndTrack('%Supplier%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Accounts Payable%', 'Liability', $trackedIds) ?: \App\Models\PurchaseOrder::sum('total_amount'),
-            'payables' => $this->getAccountBalanceAndTrack('%Payable%', 'Liability', $trackedIds),
-            'loans' => $this->getAccountBalanceAndTrack('%Loan%', 'Liability', $trackedIds),
-            'taxes' => $this->getAccountBalanceAndTrack('%Tax%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Withholding Tax Payable%', 'Liability', $trackedIds),
-            'government_contributions' => $this->getAccountBalanceAndTrack('%Government%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Contribution%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%SSS%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%PhilHealth%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Pag-IBIG%', 'Liability', $trackedIds),
-            'customer_deposits' => $this->getAccountBalanceAndTrack('%Customer Deposit%', 'Liability', $trackedIds),
-            'unearned_revenue' => $this->getAccountBalanceAndTrack('%Unearned%', 'Liability', $trackedIds) + $this->getAccountBalanceAndTrack('%Deferred%', 'Liability', $trackedIds),
+            'suppliers' => $this->getAccountBalanceAndTrack('2000', 'Liability', $trackedIds) + \App\Models\PurchaseOrder::sum('total_amount'),
+            'payables' => $this->getAccountBalanceAndTrack('2200', 'Liability', $trackedIds),
+            'loans' => $this->getAccountBalanceAndTrack('2300', 'Liability', $trackedIds),
+            'taxes' => $this->getAccountBalanceAndTrack('2100', 'Liability', $trackedIds),
+            'government_contributions' => $this->getAccountBalanceAndTrack('2400', 'Liability', $trackedIds),
+            'customer_deposits' => $this->getAccountBalanceAndTrack('2500', 'Liability', $trackedIds),
+            'unearned_revenue' => $this->getAccountBalanceAndTrack('2600', 'Liability', $trackedIds),
 
             // Equity
-            'capital' => $this->getAccountBalanceAndTrack('%Capital%', 'Equity', $trackedIds),
-            'retained_earnings' => $this->getAccountBalanceAndTrack('%Retained Earnings%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%RE%', 'Equity', $trackedIds),
-            'current_year_income' => $this->getAccountBalanceAndTrack('%Current Year%', 'Equity', $trackedIds) + $this->getAccountBalanceAndTrack('%Net Income%', 'Equity', $trackedIds) + $unpostedBookSales ?: (\App\Models\SalesInvoice::sum('total_amount') + $unpostedBookSales),
+            'capital' => $this->getAccountBalanceAndTrack('3100', 'Equity', $trackedIds),
+            'retained_earnings' => $this->getAccountBalanceAndTrack('3000', 'Equity', $trackedIds),
+            'current_year_income' => $this->getAccountBalanceAndTrack('3200', 'Equity', $trackedIds) + (\App\Models\SalesInvoice::sum('total_amount') + $unpostedBookSales),
 
             // Income (Publishing)
-            'pub_book_sales' => $this->getAccountBalanceAndTrack('%Book Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Sales - Books%', 'Income', $trackedIds) + $unpostedBookSales,
-            'pub_royalties' => $this->getAccountBalanceAndTrack('%Royalties%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Royalty%', 'Income', $trackedIds),
-            'pub_rights_income' => $this->getAccountBalanceAndTrack('%Rights Income%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Rights%', 'Income', $trackedIds),
-            'pub_licensing' => $this->getAccountBalanceAndTrack('%Licensing%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%License%', 'Income', $trackedIds),
-            'pub_ebooks' => $this->getAccountBalanceAndTrack('%E-book%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Ebook%', 'Income', $trackedIds),
+            'pub_book_sales' => $this->getAccountBalanceAndTrack('4000', 'Income', $trackedIds) + $unpostedBookSales,
+            'pub_royalties' => $this->getAccountBalanceAndTrack('4020', 'Income', $trackedIds),
+            'pub_rights_income' => $this->getAccountBalanceAndTrack('4030', 'Income', $trackedIds),
+            'pub_licensing' => $this->getAccountBalanceAndTrack('4040', 'Income', $trackedIds),
+            'pub_ebooks' => $this->getAccountBalanceAndTrack('4060', 'Income', $trackedIds),
 
             // Income (Printing)
-            'print_income' => $this->getAccountBalanceAndTrack('%Printing Income%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Printing%', 'Income', $trackedIds),
-            'print_layout' => $this->getAccountBalanceAndTrack('%Layout%', 'Income', $trackedIds),
-            'print_design' => $this->getAccountBalanceAndTrack('%Design%', 'Income', $trackedIds),
-            'print_binding' => $this->getAccountBalanceAndTrack('%Binding%', 'Income', $trackedIds),
-            'print_lamination' => $this->getAccountBalanceAndTrack('%Lamination%', 'Income', $trackedIds),
+            'print_income' => $this->getAccountBalanceAndTrack('4300', 'Income', $trackedIds),
+            'print_layout' => $this->getAccountBalanceAndTrack('4310', 'Income', $trackedIds),
+            'print_design' => $this->getAccountBalanceAndTrack('4320', 'Income', $trackedIds),
+            'print_binding' => $this->getAccountBalanceAndTrack('4330', 'Income', $trackedIds),
+            'print_lamination' => $this->getAccountBalanceAndTrack('4340', 'Income', $trackedIds),
 
             // Income (Marketing)
-            'mkt_pos_sales' => $this->getAccountBalanceAndTrack('%POS%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Point of Sale%', 'Income', $trackedIds) + $unpostedPos,
-            'mkt_so_sales' => $this->getAccountBalanceAndTrack('%Sales Order%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%SO Sales%', 'Income', $trackedIds) + $unpostedSo,
-            'mkt_ecom_direct' => $this->getAccountBalanceAndTrack('%E-Commerce%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Ecom%', 'Income', $trackedIds) + $unpostedEcomDirect,
-            'mkt_pay_cash' => $this->getAccountBalanceAndTrack('%Cash Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Cash Income%', 'Income', $trackedIds) + $unpostedCash,
-            'mkt_pay_ewallet' => $this->getAccountBalanceAndTrack('%E-Wallet%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%GCash%', 'Income', $trackedIds) + $unpostedEwallet,
-            'mkt_pay_bank' => $this->getAccountBalanceAndTrack('%Bank Transfer%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Check Income%', 'Income', $trackedIds) + $unpostedBank,
-            'mkt_pay_card' => $this->getAccountBalanceAndTrack('%Card Sales%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Credit Card%', 'Income', $trackedIds) + $unpostedCard,
-            'mkt_direct_sales' => $this->getAccountBalanceAndTrack('%Direct Sales%', 'Income', $trackedIds) + $unpostedDirect,
-            'mkt_area_sales' => $this->getAccountBalanceAndTrack('%Area Sales%', 'Income', $trackedIds) + $unpostedArea,
-            'mkt_cob_sales' => $this->getAccountBalanceAndTrack('%COB%', 'Income', $trackedIds) + $unpostedCob,
-            'mkt_lazada' => $this->getAccountBalanceAndTrack('%Lazada%', 'Income', $trackedIds) + $unpostedLazada,
-            'mkt_shopee' => $this->getAccountBalanceAndTrack('%Shopee%', 'Income', $trackedIds) + $unpostedShopee,
-            'mkt_tiktok' => $this->getAccountBalanceAndTrack('%Tiktok%', 'Income', $trackedIds) + $unpostedTiktok,
-            'mkt_facebook' => $this->getAccountBalanceAndTrack('%Facebook%', 'Income', $trackedIds) + $unpostedFacebook,
-            'mkt_wholesale' => $this->getAccountBalanceAndTrack('%Wholesale%', 'Income', $trackedIds),
-            'mkt_export' => $this->getAccountBalanceAndTrack('%Export%', 'Income', $trackedIds) + $unpostedExport,
-            'mkt_claret_media' => $this->getAccountBalanceAndTrack('%Claret Media%', 'Income', $trackedIds),
+            'mkt_pos_sales' => $unpostedPos,
+            'mkt_so_sales' => $unpostedSo,
+            'mkt_ecom_direct' => $unpostedEcomDirect,
+            'mkt_pay_cash' => $unpostedCash,
+            'mkt_pay_ewallet' => $unpostedEwallet,
+            'mkt_pay_bank' => $unpostedBank,
+            'mkt_pay_card' => $unpostedCard,
+            'mkt_direct_sales' => $this->getAccountBalanceAndTrack('4430', 'Income', $trackedIds) + $unpostedDirect,
+            'mkt_area_sales' => $this->getAccountBalanceAndTrack('4440', 'Income', $trackedIds) + $unpostedArea,
+            'mkt_cob_sales' => $this->getAccountBalanceAndTrack('4450', 'Income', $trackedIds) + $unpostedCob,
+            'mkt_lazada' => $this->getAccountBalanceAndTrack('4460', 'Income', $trackedIds) + $unpostedLazada,
+            'mkt_shopee' => $this->getAccountBalanceAndTrack('4470', 'Income', $trackedIds) + $unpostedShopee,
+            'mkt_tiktok' => $this->getAccountBalanceAndTrack('4480', 'Income', $trackedIds) + $unpostedTiktok,
+            'mkt_facebook' => $this->getAccountBalanceAndTrack('4490', 'Income', $trackedIds) + $unpostedFacebook,
+            'mkt_wholesale' => $this->getAccountBalanceAndTrack('4500', 'Income', $trackedIds),
+            'mkt_export' => $this->getAccountBalanceAndTrack('4510', 'Income', $trackedIds) + $unpostedExport,
+            'mkt_claret_media' => $this->getAccountBalanceAndTrack('4520', 'Income', $trackedIds),
 
             // Income (Other)
-            'oth_donations' => $this->getAccountBalanceAndTrack('%Donation%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Donations%', 'Income', $trackedIds),
-            'oth_grants' => $this->getAccountBalanceAndTrack('%Grant%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Grants%', 'Income', $trackedIds),
-            'oth_investments' => $this->getAccountBalanceAndTrack('%Other Investment%', 'Income', $trackedIds),
-            'oth_interest_income' => $this->getAccountBalanceAndTrack('%Interest%', 'Income', $trackedIds),
-            'oth_rental_income' => $this->getAccountBalanceAndTrack('%Rental%', 'Income', $trackedIds) + $this->getAccountBalanceAndTrack('%Rent%', 'Income', $trackedIds),
+            'oth_donations' => $this->getAccountBalanceAndTrack('4700', 'Income', $trackedIds),
+            'oth_grants' => $this->getAccountBalanceAndTrack('4710', 'Income', $trackedIds),
+            'oth_investments' => $this->getAccountBalanceAndTrack('4720', 'Income', $trackedIds),
+            'oth_interest_income' => $this->getAccountBalanceAndTrack('4730', 'Income', $trackedIds),
+            'oth_rental_income' => $this->getAccountBalanceAndTrack('4740', 'Income', $trackedIds),
 
             // Expenses
-            'exp_fixed_assets' => max($this->getAccountBalanceAndTrack('%Fixed Asset%', 'Expense', $trackedIds), (float) \App\Models\ProductionFixedAsset::sum('purchase_price')),
-            'exp_supplies' => max($this->getAccountBalanceAndTrack('%Supplies%', 'Expense', $trackedIds), (float) \App\Models\OfficeSupply::sum(\DB::raw('item_price * items_stock'))),
-            'exp_operational' => $this->getAccountBalanceAndTrack('%Operational%', 'Expense', $trackedIds) ?: \App\Models\Expense::sum('amount'),
-            'exp_cogs' => $this->getAccountBalanceAndTrack('%Cost of Goods%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%COGS%', 'Expense', $trackedIds),
-            'exp_payroll' => $this->getAccountBalanceAndTrack('%Payroll%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Salaries%', 'Expense', $trackedIds),
-            'exp_utilities' => $this->getAccountBalanceAndTrack('%Utilities%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Electricity%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Water%', 'Expense', $trackedIds),
-            'exp_marketing' => $this->getAccountBalanceAndTrack('%Marketing%', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('%Advertising%', 'Expense', $trackedIds),
+            'exp_fixed_assets' => $this->getAccountBalanceAndTrack('5510', 'Expense', $trackedIds) + (float) \App\Models\ProductionFixedAsset::sum('purchase_price'),
+            'exp_supplies' => $this->getAccountBalanceAndTrack('5140', 'Expense', $trackedIds) + (float) \App\Models\OfficeSupply::sum(\DB::raw('item_price * items_stock')),
+            'exp_operational' => $this->getAccountBalanceAndTrack('5105', 'Expense', $trackedIds) + \App\Models\Expense::sum('amount'),
+            'exp_cogs' => $this->getAccountBalanceAndTrack('5010', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5020', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5030', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5040', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5050', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5060', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5070', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5080', 'Expense', $trackedIds),
+            'exp_payroll' => $this->getAccountBalanceAndTrack('5110', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5120', 'Expense', $trackedIds),
+            'exp_utilities' => $this->getAccountBalanceAndTrack('5130', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5520', 'Expense', $trackedIds),
+            'exp_marketing' => $this->getAccountBalanceAndTrack('5210', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5220', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5230', 'Expense', $trackedIds) + $this->getAccountBalanceAndTrack('5240', 'Expense', $trackedIds),
             'exp_petty_cash' => \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
         ];
 
@@ -3633,48 +3685,7 @@ public function checkVoucher()
         $statementOfAccounts = $unpaidReceivables->concat($soaList);
         $books = \App\Models\Book::select('name', 'stock', 'cost')->where('stock', '>', 0)->get();
         $purchaseOrders = \Illuminate\Support\Facades\Schema::hasTable('purchase_orders') ? \App\Models\PurchaseOrder::select('po_number', 'total_amount', 'status', 'created_at')->latest()->get() : collect();
-        $companyBankAccounts = \App\Models\CompanyBankAccount::latest()->get();
-        if ($companyBankAccounts->isEmpty()) {
-            \App\Models\CompanyBankAccount::create([
-                'account_code' => 'BANK-BDO-101',
-                'bank_name' => 'BDO Unibank',
-                'account_name' => 'Claretian Communications Foundation Inc.',
-                'account_number' => '0012-3456-7890',
-                'account_type' => 'Checking',
-                'currency' => 'PHP',
-                'opening_balance' => 250000.00,
-                'current_balance' => 250000.00,
-                'status' => 'Active',
-                'notes' => 'Primary operational & clearing account'
-            ]);
-
-            \App\Models\CompanyBankAccount::create([
-                'account_code' => 'BANK-BPI-102',
-                'bank_name' => 'BPI (Bank of the Philippine Islands)',
-                'account_name' => 'CCFI Operating Account',
-                'account_number' => '0987-6543-2100',
-                'account_type' => 'Savings',
-                'currency' => 'PHP',
-                'opening_balance' => 150000.00,
-                'current_balance' => 150000.00,
-                'status' => 'Active',
-                'notes' => 'Secondary operational account'
-            ]);
-
-            \App\Models\CompanyBankAccount::create([
-                'account_code' => 'BANK-GCASH-103',
-                'bank_name' => 'GCash / Merchant E-Wallet',
-                'account_name' => 'Claretian Digital Collections',
-                'account_number' => '0917-888-9999',
-                'account_type' => 'E-Wallet',
-                'currency' => 'PHP',
-                'opening_balance' => 50000.00,
-                'current_balance' => 50000.00,
-                'status' => 'Active',
-                'notes' => 'Merchant collections & mobile QR'
-            ]);
-            $companyBankAccounts = \App\Models\CompanyBankAccount::latest()->get();
-        }
+        // $companyBankAccounts is loaded at the top of the method
 
         $officeSuppliesList = \App\Models\OfficeSupply::latest()->get();
         $expensesRecordsList = \App\Models\Expense::with(['department', 'addedBy'])->latest()->get();
@@ -3696,7 +3707,63 @@ public function checkVoucher()
             'officeSuppliesList' => $officeSuppliesList,
             'expensesRecordsList' => $expensesRecordsList,
             'fixedAssetsRecordsList' => $fixedAssetsRecordsList,
+            'accountDetails' => $accountDetails,
         ]);
+    }
+
+    public function toggleAccountStatus(\Illuminate\Http\Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            return response()->json(['error' => 'Unauthorized action.'], 403);
+        }
+
+        $type = $request->input('type', 'coa');
+        $id = $request->input('id');
+
+        if ($type === 'bank') {
+            $bank = \App\Models\CompanyBankAccount::find($id);
+            if (!$bank) {
+                return response()->json(['error' => 'Bank account not found.'], 404);
+            }
+            $bank->status = ($bank->status === 'Active') ? 'Inactive' : 'Active';
+            $bank->save();
+
+            // Also find and toggle the corresponding Chart of Account if it exists by account_code
+            $coa = \App\Models\ChartOfAccount::where('code', $bank->account_code)->first();
+            if ($coa) {
+                $coa->is_active = ($bank->status === 'Active') ? 1 : 0;
+                $coa->save();
+            }
+
+            return response()->json([
+                'success' => true,
+                'is_active' => ($bank->status === 'Active'),
+                'message' => 'Bank account status updated to ' . $bank->status . '.'
+            ]);
+        } else {
+            $account = \App\Models\ChartOfAccount::find($id);
+            if (!$account) {
+                return response()->json(['error' => 'Account not found.'], 404);
+            }
+            $account->is_active = $account->is_active ? 0 : 1;
+            $account->save();
+
+            // Also find and toggle the corresponding Company Bank Account status if it's a bank
+            if ($account->category === 'Cash & Bank') {
+                $bank = \App\Models\CompanyBankAccount::where('account_code', $account->code)->first();
+                if ($bank) {
+                    $bank->status = $account->is_active ? 'Active' : 'Inactive';
+                    $bank->save();
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'is_active' => $account->is_active,
+                'message' => 'Account "' . $account->name . '" status updated to ' . ($account->is_active ? 'Active' : 'Inactive') . '.'
+            ]);
+        }
     }
 
     public function salesManagement(Request $request)
@@ -4852,7 +4919,7 @@ public function checkVoucher()
         // 0. Ensure default institutional bank accounts exist
         if (\App\Models\CompanyBankAccount::count() === 0) {
             \App\Models\CompanyBankAccount::create([
-                'account_code' => 'BANK-BDO-101',
+                'account_code' => '1000',
                 'bank_name' => 'BDO Unibank',
                 'account_name' => 'Claretian Communications Foundation Inc.',
                 'account_number' => '0012-3456-7890',
@@ -4865,7 +4932,7 @@ public function checkVoucher()
             ]);
 
             \App\Models\CompanyBankAccount::create([
-                'account_code' => 'BANK-BPI-102',
+                'account_code' => '1006',
                 'bank_name' => 'BPI (Bank of the Philippine Islands)',
                 'account_name' => 'CCFI Operating Account',
                 'account_number' => '0987-6543-2100',
@@ -4878,7 +4945,7 @@ public function checkVoucher()
             ]);
 
             \App\Models\CompanyBankAccount::create([
-                'account_code' => 'BANK-GCASH-103',
+                'account_code' => '1020',
                 'bank_name' => 'GCash / Merchant E-Wallet',
                 'account_name' => 'Claretian Digital Collections',
                 'account_number' => '0917-888-9999',
@@ -4998,12 +5065,23 @@ public function checkVoucher()
         $selectedTab = $request->query('tab', 'Cash Position');
         $search = $request->query('search');
 
-        $bankAccounts = \App\Models\CompanyBankAccount::with('transactions')->get();
+        $allBankAccounts = \App\Models\CompanyBankAccount::with('transactions')->get();
 
-        foreach ($bankAccounts as $acct) {
+        foreach ($allBankAccounts as $acct) {
             $acct->recalculateBalance();
             $acct->save();
         }
+
+        $bankAccountsQuery = \App\Models\CompanyBankAccount::with('transactions');
+        if ($search) {
+            $bankAccountsQuery->where(function($q) use ($search) {
+                $q->where('bank_name', 'like', "%{$search}%")
+                  ->orWhere('account_name', 'like', "%{$search}%")
+                  ->orWhere('account_number', 'like', "%{$search}%")
+                  ->orWhere('account_code', 'like', "%{$search}%");
+            });
+        }
+        $bankAccounts = $bankAccountsQuery->paginate(10)->withQueryString();
 
         $query = \App\Models\CashTransaction::with(['bankAccount', 'destinationBankAccount']);
 
@@ -5027,9 +5105,9 @@ public function checkVoucher()
             });
         }
 
-        $transactions = $query->latest('transaction_date')->get();
+        $transactions = $query->latest('transaction_date')->paginate(10)->withQueryString();
 
-        $totalCashPosition = $bankAccounts->sum('current_balance');
+        $totalCashPosition = $allBankAccounts->sum('current_balance');
         $totalInflows = \App\Models\CashTransaction::where('category', 'Inflow')->where('status', '!=', 'Cancelled')->sum('amount');
         $totalOutflows = \App\Models\CashTransaction::where('category', 'Outflow')->where('status', '!=', 'Cancelled')->sum('amount');
         $netCashFlow = $totalInflows - $totalOutflows;
@@ -5045,6 +5123,7 @@ public function checkVoucher()
             'selectedTab' => $selectedTab,
             'search' => $search,
             'bankAccounts' => $bankAccounts,
+            'allBankAccounts' => $allBankAccounts,
             'transactions' => $transactions,
             'metrics' => [
                 'total_cash_position' => $totalCashPosition,
@@ -5052,22 +5131,38 @@ public function checkVoucher()
                 'total_outflows' => $totalOutflows,
                 'net_cash_flow' => $netCashFlow,
                 'projected_30_days' => $projected30Days,
-                'active_accounts_count' => $bankAccounts->where('status', 'Active')->count(),
+                'active_accounts_count' => $allBankAccounts->where('status', 'Active')->count(),
             ],
         ]);
     }
 
-    public function showCashManagementAccount($id)
+    public function showCashManagementAccount(Request $request, $id)
     {
         $account = \App\Models\CompanyBankAccount::with('transactions')->findOrFail($id);
         $account->recalculateBalance();
         $account->save();
+
+        $query = \App\Models\CashTransaction::where('bank_account_id', $id);
+
+        $search = $request->query('search');
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('transaction_no', 'like', "%{$search}%")
+                  ->orWhere('reference_no', 'like', "%{$search}%")
+                  ->orWhere('payee_or_payer', 'like', "%{$search}%")
+                  ->orWhere('transaction_type', 'like', "%{$search}%");
+            });
+        }
+
+        $transactions = $query->latest('transaction_date')->paginate(10)->withQueryString();
 
         return view('admin-finance.accounting.cash-management-detail', [
             'title' => 'Bank Account Statement: ' . $account->bank_name,
             'role' => 'Finance Manager',
             'sidebar' => 'admin-finance',
             'account' => $account,
+            'transactions' => $transactions,
+            'search' => $search,
         ]);
     }
 
@@ -5223,6 +5318,8 @@ public function checkVoucher()
 
         // Dynamic report data containers
         $reportData = [];
+        $totalSalesSum = 0.00;
+        $totalExpenseSum = 0.00;
 
         if ($selectedReport === 'Balance Sheet') {
             $liabilitiesTotal = $liveAp + $liveExpenses + $liveWht;
@@ -5367,6 +5464,12 @@ public function checkVoucher()
                 });
             };
 
+            $query = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
+                ->where($salesFilter)
+                ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+
+            $totalSalesSum = (float) (clone $query)->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
+
             $reportData = \App\Models\SalesOrder::leftJoin('sales_invoices', 'sales_orders.id', '=', 'sales_invoices.so_id')
                 ->select(
                     'sales_orders.id',
@@ -5381,19 +5484,23 @@ public function checkVoucher()
                 ->where($salesFilter)
                 ->whereBetween(\DB::raw('COALESCE(sales_invoices.created_at, sales_orders.created_at)'), [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->orderBy('effective_date', 'desc')
-                ->get();
+                ->paginate(10)
+                ->withQueryString();
         } elseif ($selectedReport === 'Expense Reports') {
-            $reportData = \Illuminate\Support\Facades\Schema::hasTable('expenses')
-                ? \App\Models\Expense::whereBetween('expense_date', [$startDate, $endDate])
-                    ->with('department')
+            if (\Illuminate\Support\Facades\Schema::hasTable('expenses')) {
+                $query = \App\Models\Expense::whereBetween('expense_date', [$startDate, $endDate]);
+                $totalExpenseSum = (float) (clone $query)->sum('amount') ?: 0.00;
+                $reportData = $query->with('department')
                     ->orderBy('expense_date', 'desc')
-                    ->get()
-                : collect();
+                    ->paginate(10)
+                    ->withQueryString();
+            } else {
+                $reportData = collect();
+            }
         } elseif ($selectedReport === 'Profit by Product') {
             $reportData = \App\Models\Book::select('id', 'name', 'sku', 'price', 'cost')
-                ->take(20)
-                ->get()
-                ->map(function($bk) use ($startDate, $endDate) {
+                ->paginate(10)
+                ->through(function($bk) use ($startDate, $endDate) {
                     $salesItems = \App\Models\SalesOrderItem::where('book_id', $bk->id)
                         ->whereHas('order', function($q) use ($startDate, $endDate) {
                             $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
@@ -5415,7 +5522,8 @@ public function checkVoucher()
                         'profit' => $profit,
                         'margin_pct' => $margin,
                     ];
-                });
+                })
+                ->withQueryString();
         } elseif ($selectedReport === 'Profit by Sales Channel') {
             $salesFilter = function($q) {
                 $q->where(function($sub) {
@@ -5443,9 +5551,8 @@ public function checkVoucher()
             ];
         } elseif ($selectedReport === 'Profit by Customer') {
             $reportData = \App\Models\Customer::orderBy('customer_name')
-                ->take(15)
-                ->get()
-                ->map(function($cust) {
+                ->paginate(10)
+                ->through(function($cust) {
                     $orders = \App\Models\SalesOrder::where('customer_id', $cust->customer_id)
                         ->where('status', '!=', 'cancelled')
                         ->get();
@@ -5457,7 +5564,8 @@ public function checkVoucher()
                         'cost' => 0.00,
                         'net_profit' => $rev,
                     ];
-                });
+                })
+                ->withQueryString();
         } elseif ($selectedReport === 'Profit by Salesperson') {
             $salesFilter = function($q) {
                 $q->where(function($sub) {
@@ -5496,7 +5604,7 @@ public function checkVoucher()
             $userIds = array_keys($userSales);
             $users = \App\Models\User::whereIn('id', $userIds)->get()->keyBy('id');
 
-            $reportData = collect($userSales)->map(function($salesAmount, $userId) use ($users) {
+            $salespersonCollection = collect($userSales)->map(function($salesAmount, $userId) use ($users) {
                 $user = $users->get($userId);
                 $name = $user ? $user->name : 'System / Guest';
                 $territory = $user ? ($user->department ?: 'Direct Sales') : 'Direct Sales';
@@ -5509,6 +5617,19 @@ public function checkVoucher()
                     'net_margin' => $salesAmount,
                 ];
             })->sortByDesc('achieved')->values();
+
+            $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+            $perPage = 10;
+            $currentPageItems = $salespersonCollection->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
+            $reportData = new \Illuminate\Pagination\LengthAwarePaginator(
+                $currentPageItems,
+                $salespersonCollection->count(),
+                $perPage,
+                $currentPage,
+                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+            );
+            $reportData->withQueryString();
         }
 
         return view('admin-finance.accounting.financial-reports', [
@@ -5520,6 +5641,8 @@ public function checkVoucher()
             'startDate' => $startDate,
             'endDate' => $endDate,
             'reportData' => $reportData,
+            'totalSalesSum' => $totalSalesSum,
+            'totalExpenseSum' => $totalExpenseSum,
             'metrics' => [
                 'total_assets' => $totalAssets,
                 'total_revenue' => $totalRevenue,

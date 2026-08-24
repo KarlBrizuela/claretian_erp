@@ -77,6 +77,7 @@ class InventoryTransaction extends Model
             'out_evaluation' => 'Sent for Evaluation',
             'in_return_evaluation' => 'Returned from Evaluation',
             'out_sold_evaluation' => 'Sold from Evaluation',
+            'LOST' => 'Lost Inventory',
         ];
 
         return $labels[$this->type] ?? $this->type;

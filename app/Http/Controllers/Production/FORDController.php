@@ -288,8 +288,8 @@ class FORDController extends Controller
     public function salesOrderCreate()
     {
         $customers = \App\Models\Customer::orderBy('customer_name')->get();
-        $books = \App\Models\Book::orderBy('name', 'asc')->get();
-        $products = (new \App\Http\Controllers\MarketingController)->getUnifiedProducts();
+        $books = [];
+        $products = [];
         $areaSalesStaff = \App\Models\User::where(function($q) {
             $q->where('position', 'like', '%Sales%')
               ->orWhere('position', 'like', '%Area%');
@@ -304,6 +304,152 @@ class FORDController extends Controller
             'products' => $products,
             'areaSalesStaff' => $areaSalesStaff,
         ]);
+    }
+
+    public function searchProducts(Request $request)
+    {
+        $term = trim($request->input('q', ''));
+        $userTeam = auth()->user()->sales_team ?? null;
+        $limit = 30;
+
+        $teamStocksMap = [];
+        $allowedBookIds = null;
+        $allowedIndexIds = null;
+        $allowedBundleIds = null;
+
+        if (!empty($userTeam)) {
+            $rawTeam = trim($userTeam);
+            $cleanName = trim(preg_replace('/^(site\s+|team\s+)+/i', '', $rawTeam));
+            $variations = array_unique([
+                $rawTeam,
+                'Team ' . $cleanName,
+                'SITE TEAM ' . strtoupper($cleanName),
+                'SITE TEAM ' . $cleanName,
+                'SITE ' . strtoupper($cleanName),
+                'SITE ' . $cleanName,
+                $cleanName,
+                strtoupper($rawTeam),
+                strtolower($rawTeam),
+            ]);
+
+            $tsList = \App\Models\TeamStock::where(function($q) use ($variations) {
+                foreach ($variations as $var) {
+                    $q->orWhere('team_name', $var)
+                      ->orWhereRaw('LOWER(team_name) = ?', [strtolower($var)]);
+                }
+            })->where('quantity', '>', 0)->get();
+
+            foreach ($tsList as $ts) {
+                if ($ts->book_index_id) {
+                    $teamStocksMap['index_' . $ts->book_index_id] = (int)$ts->quantity;
+                } elseif ($ts->book_bundle_id) {
+                    $teamStocksMap['bundle_' . $ts->book_bundle_id] = (int)$ts->quantity;
+                } elseif ($ts->book_id) {
+                    $teamStocksMap['book_' . $ts->book_id] = (int)$ts->quantity;
+                }
+            }
+
+            $allowedBookIds = array_map(fn($k) => (int)str_replace('book_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'book_'), ARRAY_FILTER_USE_BOTH)));
+            $allowedIndexIds = array_map(fn($k) => (int)str_replace('index_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'index_'), ARRAY_FILTER_USE_BOTH)));
+            $allowedBundleIds = array_map(fn($k) => (int)str_replace('bundle_', '', $k), array_keys(array_filter($teamStocksMap, fn($v, $k) => str_starts_with($k, 'bundle_'), ARRAY_FILTER_USE_BOTH)));
+        }
+
+        $booksQuery = \App\Models\Book::where('is_active', true);
+        if (!empty($userTeam)) {
+            $booksQuery->whereIn('id', $allowedBookIds ?? [0]);
+        }
+        if ($term !== '') {
+            $booksQuery->where(function($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                  ->orWhere('sku', 'like', "%{$term}%")
+                  ->orWhere('barcode', 'like', "%{$term}%")
+                  ->orWhere('item_code', 'like', "%{$term}%");
+            });
+        }
+        $books = $booksQuery->select(['id', 'name', 'price', 'sku', 'barcode', 'item_code', 'is_book', 'category', 'book_type', 'image', 'stock'])
+            ->limit($limit)
+            ->get()
+            ->map(function($b) use ($userTeam, $teamStocksMap) {
+                $isNonBook = (isset($b->is_book) && $b->is_book === false) || 
+                             (isset($b->category) && strtolower($b->category) === 'non-book') ||
+                             (isset($b->book_type) && strtolower($b->book_type) === 'non-book');
+                $typeSuffix = $isNonBook ? ' (non-book)' : ' (book)';
+                $prefix = $isNonBook ? '[Non-Book] ' : '[Book] ';
+                $code = $b->barcode ?: ($b->sku ?: ($b->item_code ?: ''));
+                $price = (float)$b->price;
+                $stock = !empty($userTeam) ? (int)($teamStocksMap['book_' . $b->id] ?? 0) : (int)($b->stock ?? 0);
+                return [
+                    'id' => 'book_' . $b->id,
+                    'text' => $prefix . $b->name . $typeSuffix . ' - ₱' . number_format($price, 2) . ($code ? " ({$code})" : '') . " (Stock: {$stock})",
+                    'name' => $b->name . $typeSuffix,
+                    'price' => $price,
+                    'isbn' => $code,
+                    'stock' => $stock
+                ];
+            });
+
+        $remainingLimit = max(0, $limit - $books->count());
+        $indices = collect();
+        if ($remainingLimit > 0) {
+            $idxQuery = \App\Models\BookIndex::with('book');
+            if (!empty($userTeam)) {
+                $idxQuery->whereIn('id', $allowedIndexIds ?? [0]);
+            }
+            if ($term !== '') {
+                $idxQuery->where(function($q) use ($term) {
+                    $q->whereHas('book', function($bq) use ($term) {
+                        $bq->where('name', 'like', "%{$term}%");
+                    })
+                    ->orWhere('index_value', 'like', "%{$term}%")
+                    ->orWhere('custom_name', 'like', "%{$term}%")
+                    ->orWhere('barcode', 'like', "%{$term}%");
+                });
+            }
+            $indices = $idxQuery->limit($remainingLimit)->get()->map(function($idx) use ($userTeam, $teamStocksMap) {
+                $code = $idx->barcode ?: ($idx->book?->barcode ?: ($idx->book?->sku ?: ''));
+                $price = (float) (($idx->price && $idx->price > 0) ? $idx->price : ($idx->book?->price ?? 0));
+                $dispName = $idx->display_name ?? ($idx->custom_name ?: ($idx->book?->name . ' - ' . $idx->index_value));
+                $stock = !empty($userTeam) ? (int)($teamStocksMap['index_' . $idx->id] ?? 0) : (int)($idx->stock ?? 0);
+                return [
+                    'id' => 'index_' . $idx->id,
+                    'text' => '[Index] ' . $dispName . ' - ₱' . number_format($price, 2) . ($code ? " ({$code})" : '') . " (Stock: {$stock})",
+                    'name' => $dispName,
+                    'price' => $price,
+                    'isbn' => $code,
+                    'stock' => $stock
+                ];
+            });
+        }
+
+        $remainingLimit2 = max(0, $limit - $books->count() - $indices->count());
+        $bundles = collect();
+        if ($remainingLimit2 > 0) {
+            $bunQuery = \App\Models\BookBundle::where('is_active', true);
+            if (!empty($userTeam)) {
+                $bunQuery->whereIn('id', $allowedBundleIds ?? [0]);
+            }
+            if ($term !== '') {
+                $bunQuery->where(function($q) use ($term) {
+                    $q->where('name', 'like', "%{$term}%")
+                      ->orWhere('sku', 'like', "%{$term}%");
+                });
+            }
+            $bundles = $bunQuery->limit($remainingLimit2)->get()->map(function($bun) use ($userTeam, $teamStocksMap) {
+                $price = (float)$bun->price;
+                $stock = !empty($userTeam) ? (int)($teamStocksMap['bundle_' . $bun->id] ?? 0) : (int)($bun->stock ?? 0);
+                return [
+                    'id' => 'bundle_' . $bun->id,
+                    'text' => '[Bundle] ' . $bun->name . ' (bundle) - ₱' . number_format($price, 2) . " (Stock: {$stock})",
+                    'name' => $bun->name . ' (bundle)',
+                    'price' => $price,
+                    'isbn' => $bun->sku ?? '',
+                    'stock' => $stock
+                ];
+            });
+        }
+
+        $results = $books->concat($indices)->concat($bundles)->values();
+        return response()->json(['results' => $results]);
     }
 
     public function reviewSalesOrder($id)

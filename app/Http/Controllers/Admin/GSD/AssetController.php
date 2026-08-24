@@ -13,15 +13,29 @@ class AssetController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $assets = Asset::orderBy('created_at', 'desc')->get();
+        $query = Asset::query();
+
+        $search = $request->query('search');
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('property_code', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('department', 'like', "%{$search}%")
+                  ->orWhere('checked_by', 'like', "%{$search}%");
+            });
+        }
+
+        $assets = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
 
         return view('admin-finance.gsd.asset-management', [
             'title' => 'Asset Management',
             'role' => 'Finance Manager',
             'sidebar' => 'admin-finance',
-            'assets' => $assets
+            'assets' => $assets,
+            'search' => $search
         ]);
     }
 

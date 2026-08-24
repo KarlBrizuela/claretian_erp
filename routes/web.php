@@ -72,6 +72,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/update-index-stock/{indexId}', [InventoryController::class, 'updateIndexStockDirectly'])->name('update-index-stock');
       Route::post('/update-bundle-stock/{bundleId}', [InventoryController::class, 'updateBundleStockDirectly'])->name('update-bundle-stock');
       Route::post('/reconcile-stock', [InventoryController::class, 'reconcileStock'])->name('reconcile-stock');
+      Route::post('/mark-as-lost', [InventoryController::class, 'markAsLost'])->name('mark-as-lost');
     });
 
     // Production Costing
@@ -143,6 +144,8 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/delivery-scheduling/{id}/picked-up', [App\Http\Controllers\Production\LogisticController::class, 'markAsPickedUp'])->name('mark-as-picked-up');
       Route::post('/delivery-scheduling/{id}/move-back-to-delivery', [App\Http\Controllers\Production\LogisticController::class, 'moveBackToDelivery'])->name('move-back-to-delivery');
       Route::post('/delivery-scheduling/{id}/assign-driver', [App\Http\Controllers\Production\LogisticController::class, 'assignDriver'])->name('assign-driver');
+      Route::post('/delivery-scheduling/{id}/approve-driver', [App\Http\Controllers\Production\LogisticController::class, 'approveDriverAssignment'])->name('approve-driver');
+      Route::post('/delivery-scheduling/{id}/reject-driver', [App\Http\Controllers\Production\LogisticController::class, 'rejectDriverAssignment'])->name('reject-driver');
       Route::get('/delivery-scheduling/{id}/transmittal', [App\Http\Controllers\Production\LogisticController::class, 'printTransmittal'])->name('print-transmittal');
       Route::get('/driver-dashboard', [App\Http\Controllers\Production\LogisticController::class, 'driverDashboard'])->name('driver-dashboard');
       Route::get('/delivery-tracking', [App\Http\Controllers\Production\LogisticController::class, 'deliveryTracking'])->name('delivery-tracking');
@@ -239,6 +242,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/freight-quotation/{id}', [App\Http\Controllers\Production\FORDController::class, 'freightQuotationShow'])->name('freight-quotation.show');
       Route::get('/sales-order', [App\Http\Controllers\Production\FORDController::class, 'salesOrder'])->name('sales-order');
       Route::get('/sales-order/create', [App\Http\Controllers\Production\FORDController::class, 'salesOrderCreate'])->name('sales-order.create');
+      Route::get('/sales-order/products/search', [App\Http\Controllers\Production\FORDController::class, 'searchProducts'])->name('sales-order.products-search');
       Route::post('/sales-order/store', [App\Http\Controllers\Production\FORDController::class, 'storeSalesOrder'])->name('sales-order.store');
       Route::get('/sales-order/{id}/review', [App\Http\Controllers\Production\FORDController::class, 'reviewSalesOrder'])->name('sales-order.review');
       Route::post('/sales-order/{id}/approve', [App\Http\Controllers\Production\FORDController::class, 'approveSalesOrder'])->name('sales-order.approve');
@@ -424,6 +428,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/area-sales/team-stocks/template', [MarketingController::class, 'downloadTeamStockTransferTemplate'])->name('marketing.area-sales.team-stocks.template');
     Route::post('/marketing/area-sales/team-stocks/parse-excel', [MarketingController::class, 'parseTeamStockTransferExcel'])->name('marketing.area-sales.team-stocks.parse-excel');
     Route::post('/marketing/area-sales/team-stocks/transfer', [MarketingController::class, 'storeTeamStockTransfer'])->name('marketing.area-sales.team-stocks.transfer');
+    Route::post('/marketing/area-sales/team-stocks/return', [MarketingController::class, 'storeTeamStockReturn'])->name('marketing.area-sales.team-stocks.return');
     Route::post('/marketing/area-sales/team-stocks/{id}/approve', [MarketingController::class, 'approveTeamStockTransferByMarketing'])->name('marketing.area-sales.team-stocks.approve');
     Route::post('/marketing/area-sales/team-stocks/{id}/reject', [MarketingController::class, 'rejectTeamStockTransferByMarketing'])->name('marketing.area-sales.team-stocks.reject');
     Route::get('/marketing/sales-invoice', [MarketingController::class, 'salesInvoice'])->name('marketing.sales-invoice');
@@ -585,6 +590,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Chart of Accounts
     Route::get('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'chartOfAccounts'])->name('admin-finance.accounting.chart-of-accounts');
+    Route::post('/chart-of-accounts/toggle', [App\Http\Controllers\AdminFinanceController::class, 'toggleAccountStatus'])->name('admin-finance.accounting.chart-of-accounts.toggle');
     Route::get('/sales-management', [App\Http\Controllers\AdminFinanceController::class, 'salesManagement'])->name('admin-finance.accounting.sales-management');
     Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');
     Route::get('/accounts-payable', [App\Http\Controllers\AdminFinanceController::class, 'accountsPayable'])->name('admin-finance.accounting.accounts-payable');

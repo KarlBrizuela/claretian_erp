@@ -318,10 +318,7 @@
             <a href="{{ route('admin-finance.accounting.accounts-receivable') }}" class="modern-nav-subitem {{ request()->is('admin-finance/accounts-receivable*') ? 'active' : '' }}">Accounts Receivable</a>
             @endif
             @if($hasChartOfAccounts)
-            <a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-subitem {{ request()->is('admin-finance/accounts-payable*') ? 'active' : '' }}">Accounts Payable</a>
-            @endif
-            @if($hasChartOfAccounts)
-            <a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-subitem">Supplier Management</a>
+            <a href="{{ route('admin-finance.accounting.accounts-payable') }}" class="modern-nav-subitem {{ request()->is('admin-finance/accounts-payable*') ? 'active' : '' }}">Payables & Supplier</a>
             @endif
             @if($user->hasPermission('admin_finance.accounting.cash_advance_liquidation'))
             <a href="{{ route('admin-finance.accounting.expenses.index') }}" class="modern-nav-subitem {{ request()->routeIs('admin-finance.accounting.expenses.*') ? 'active' : '' }}">Expense Management</a>
@@ -370,7 +367,6 @@
             @endif
         </div>
     </div>
-    @endif
     @endif
 
     @if($hasCC)
