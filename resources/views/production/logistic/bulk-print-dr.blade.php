@@ -188,10 +188,18 @@
         }
 
         @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color: #000000 !important;
+            }
             body {
-                background: #fff !important;
+                background: #ffffff !important;
                 color: #000000 !important;
                 padding: 0 !important;
+                font-size: 11px !important;
+                font-family: Arial, Helvetica, sans-serif !important;
             }
             .dr-box {
                 border: none !important;
@@ -207,23 +215,75 @@
             .receipt-table,
             .receipt-table td,
             .receipt-table th,
+            .receipt-table tfoot td,
             .receipt-table span,
             .receipt-table div {
                 color: #000000 !important;
                 font-weight: 700 !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+                background: #ffffff !important;
+                background-color: #ffffff !important;
+                border-color: #000000 !important;
+            }
+            .receipt-table th {
+                font-weight: 900 !important;
+                background: #ffffff !important;
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                border: 1px solid #000000 !important;
+            }
+            .receipt-table td {
+                font-weight: 700 !important;
+                font-size: 11px !important;
+                line-height: 1.3 !important;
+                border: 1px solid #000000 !important;
+            }
+            .form-info-grid td,
+            .form-info-grid .label-col,
+            .form-info-grid .val-col,
+            .form-header .company-name,
+            .form-header .company-address,
+            .form-header .company-contact,
+            .form-header .document-title,
+            .form-header div,
+            .signature-box label,
+            .signature-name,
+            .signature-line-box {
+                color: #000000 !important;
+                opacity: 1 !important;
+                font-weight: 700 !important;
+            }
+            .form-header .company-name {
+                font-size: 1.1rem !important;
+                font-weight: 900 !important;
+            }
+            .form-header .company-address,
+            .form-header .company-contact {
+                font-size: 11px !important;
+                font-weight: 700 !important;
+            }
+            .form-header div.text-muted,
+            .form-header .extra-small {
+                color: #000000 !important;
+                font-weight: 800 !important;
+                font-size: 10px !important;
+            }
+            .signature-line-box {
+                border-top: 1.5px solid #000000 !important;
+                font-weight: 800 !important;
+                font-size: 10px !important;
             }
             .badge,
-            span.badge {
+            span.badge,
+            span[style*="background"] {
                 background: transparent !important;
                 background-color: transparent !important;
                 color: #000000 !important;
                 border: 1px solid #000000 !important;
-                font-weight: bold !important;
+                font-weight: 800 !important;
                 font-size: 10px !important;
-                padding: 1px 4px !important;
+                padding: 1px 5px !important;
                 box-shadow: none !important;
+                display: inline-block !important;
             }
             @page {
                 size: letter portrait;

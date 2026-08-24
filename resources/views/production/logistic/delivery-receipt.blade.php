@@ -929,7 +929,7 @@
                 background: transparent !important;
                 outline: none !important;
                 box-shadow: none !important;
-                color: #000 !important;
+                color: #000000 !important;
                 font-size: 10.5px !important;
                 resize: none !important;
                 min-height: auto !important;
@@ -971,7 +971,7 @@
             .receipt-table th,
             .receipt-table td {
                 display: table-cell !important;
-                border: 1px solid #000 !important;
+                border: 1px solid #000000 !important;
                 padding: 3px 5px !important;
                 font-size: 10.5px !important;
             }
@@ -1013,7 +1013,7 @@
                 padding: 0 !important;
                 background: transparent !important;
                 outline: none !important;
-                color: #000 !important;
+                color: #000000 !important;
                 font-family: inherit;
                 width: auto;
                 font-size: 10.5px !important;
@@ -1040,7 +1040,7 @@
             .form-header {
                 margin-bottom: 0.5rem !important;
                 padding-bottom: 0.35rem !important;
-                border-bottom: 2px solid #000 !important;
+                border-bottom: 2px solid #000000 !important;
                 text-align: center !important;
             }
 
@@ -1068,14 +1068,20 @@
                 font-size: 1rem !important;
                 font-weight: bold !important;
                 margin-bottom: 2px !important;
-                color: #000 !important;
+                color: #000000 !important;
             }
 
             .form-header .company-address,
             .form-header .company-contact {
                 font-size: 0.75rem !important;
                 margin: 0 !important;
-                color: #333 !important;
+                color: #000000 !important;
+            }
+
+            .form-header div.text-muted,
+            .form-header .extra-small {
+                color: #000000 !important;
+                font-weight: 700 !important;
             }
 
             .document-title {
@@ -1084,7 +1090,7 @@
                 margin-top: 0.25rem !important;
                 margin-bottom: 0.15rem !important;
                 letter-spacing: 1px !important;
-                color: #000 !important;
+                color: #000000 !important;
             }
 
             .form-info-row {
@@ -1103,6 +1109,7 @@
                 font-weight: bold !important;
                 margin-bottom: 0px !important;
                 display: block !important;
+                color: #000000 !important;
             }
 
             .form-group {
@@ -1122,8 +1129,8 @@
                 padding: 0.35rem 0.5rem !important;
                 font-size: 0.75rem !important;
                 font-weight: 600 !important;
-                background: #fff !important;
-                color: #000 !important;
+                background: #ffffff !important;
+                color: #000000 !important;
                 white-space: pre-wrap !important;
                 word-break: break-word !important;
                 min-height: 30px !important;
@@ -1133,7 +1140,7 @@
                 display: block !important;
                 font-size: 11px !important;
                 font-weight: bold !important;
-                color: #000 !important;
+                color: #000000 !important;
                 margin-top: 2px !important;
             }
 
@@ -1162,6 +1169,7 @@
                 display: block !important;
                 font-size: 0.75rem !important;
                 margin-bottom: 0.15rem !important;
+                color: #000000 !important;
             }
 
             .signature-box input {
@@ -1176,17 +1184,19 @@
 
             .signature-value-display {
                 display: block !important;
-                color: #000 !important;
+                color: #000000 !important;
                 font-weight: bold !important;
                 font-size: 0.85rem !important;
             }
 
+            .signature-line-box,
             .signature-box div[style*="border-top"] {
-                border-top: 1px solid #000 !important;
+                border-top: 1px solid #000000 !important;
                 text-align: center !important;
                 padding-top: 0.15rem !important;
                 font-size: 0.75rem !important;
                 font-weight: bold !important;
+                color: #000000 !important;
             }
 
             body,
