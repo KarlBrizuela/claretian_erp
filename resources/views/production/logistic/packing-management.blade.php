@@ -1475,8 +1475,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     $itemSubtotal = $unitPrice * $tItem->quantity;
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = json_encode($uniqueBarcodes);
-                                    $isItemPacked = ($tItem->status === 'Packed' || $tt->status === 'completed' || $tItem->packed_qty >= $tItem->quantity);
-                                    $itemPackedQty = isset($tItem->packed_qty) && $tItem->packed_qty > 0 ? $tItem->packed_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
+                                    $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && $tItem->packed_qty >= $tItem->quantity && $tItem->quantity > 0));
+                                    $itemPackedQty = !is_null($tItem->packed_qty) ? $tItem->packed_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
                                     $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                     $tSym = (($tt->currency ?? ($order->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
                                 @endphp

@@ -2557,7 +2557,7 @@ class LogisticController extends Controller
         }
 
         $teamStockPackingTransfers = \App\Models\TeamStockTransfer::with(['transferredByUser', 'items.book', 'items.bookIndex.book', 'items.bookBundle'])
-            ->whereIn('status', ['packing', 'completed'])
+            ->whereIn('status', ['packing', 'in_progress', 'not_started', 'completed'])
             ->latest()
             ->get();
 
@@ -3875,8 +3875,12 @@ class LogisticController extends Controller
             if ($request->has('notes')) {
                 $transfer->notes = $request->notes;
             }
-            if ($request->has('status')) {
-                $transfer->status = $request->status;
+            if ($request->has('status') && $transfer->status !== 'completed') {
+                if (in_array($request->status, ['packing', 'in_progress', 'not_started'])) {
+                    $transfer->status = 'packing';
+                } elseif ($request->status === 'completed') {
+                    $transfer->status = 'completed';
+                }
             }
             $transfer->save();
 
