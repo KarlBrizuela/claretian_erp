@@ -3399,10 +3399,33 @@ public function checkVoucher()
             abort(403, 'Unauthorized action.');
         }
 
+        $mainTab = $request->query('main_tab', 'crud');
+        if (!in_array($mainTab, ['crud', 'cards'])) {
+            $mainTab = 'crud';
+        }
+
         $tab = $request->query('tab', 'assets');
         if (!in_array($tab, ['assets', 'liabilities', 'equity', 'income', 'expenses'])) {
             $tab = 'assets';
         }
+
+        // --- Fetch all accounts for CRUD Data Table ---
+        $searchQuery = trim($request->query('search', ''));
+        $categoryFilter = $request->query('category', '');
+
+        $accountsQuery = \App\Models\ChartOfAccount::query();
+        if (!empty($searchQuery)) {
+            $accountsQuery->where(function($q) use ($searchQuery) {
+                $q->where('code', 'like', "%{$searchQuery}%")
+                  ->orWhere('name', 'like', "%{$searchQuery}%")
+                  ->orWhere('category', 'like', "%{$searchQuery}%")
+                  ->orWhere('type', 'like', "%{$searchQuery}%");
+            });
+        }
+        if (!empty($categoryFilter)) {
+            $accountsQuery->where('type', $categoryFilter);
+        }
+        $allAccounts = $accountsQuery->orderBy('code', 'asc')->paginate(10)->withQueryString();
 
         // --- Fetch unposted sales orders (POS, SO, E-Com, Area Sales, etc.) ---
         $postedOrderNumbers = \App\Models\JournalEntry::pluck('reference')->filter()->toArray();
@@ -3716,10 +3739,12 @@ public function checkVoucher()
         $fixedAssetsRecordsList = \App\Models\ProductionFixedAsset::latest()->get();
 
         return view('admin-finance.accounting.chart-of-accounts', [
-            'title' => 'Chart of Accounts - ' . ucfirst($tab),
+            'title' => 'Chart of Accounts - ' . ($mainTab === 'crud' ? 'Management' : ucfirst($tab)),
             'role' => $user->position,
             'sidebar' => 'admin-finance',
+            'mainTab' => $mainTab,
             'tab' => $tab,
+            'allAccounts' => $allAccounts,
             'balances' => $balances,
             'uncategorizedAccounts' => $uncategorizedAccounts,
             'salesInvoices' => $salesInvoices,
@@ -3733,6 +3758,94 @@ public function checkVoucher()
             'fixedAssetsRecordsList' => $fixedAssetsRecordsList,
             'accountDetails' => $accountDetails,
         ]);
+    }
+
+    public function storeChartOfAccount(\Illuminate\Http\Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'code' => 'required|string|max:50|unique:chart_of_accounts,code',
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
+            'category' => 'nullable|string|max:255',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $validated['is_active'] = $request->has('is_active') ? 1 : 0;
+
+        $account = \App\Models\ChartOfAccount::create($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Chart of Account created successfully.', 'account' => $account]);
+        }
+
+        return redirect()->back()->with('success', 'Chart of Account created successfully.');
+    }
+
+    public function updateChartOfAccount(\Illuminate\Http\Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $account = \App\Models\ChartOfAccount::findOrFail($id);
+
+        $validated = $request->validate([
+            'code' => 'required|string|max:50|unique:chart_of_accounts,code,' . $id,
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
+            'category' => 'nullable|string|max:255',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $validated['is_active'] = $request->has('is_active') ? 1 : 0;
+
+        $account->update($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Chart of Account updated successfully.', 'account' => $account]);
+        }
+
+        return redirect()->back()->with('success', 'Chart of Account updated successfully.');
+    }
+
+    public function destroyChartOfAccount(\Illuminate\Http\Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $account = \App\Models\ChartOfAccount::findOrFail($id);
+
+        if ($account->journalEntryItems()->exists()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Cannot delete account because it has recorded journal entries.'], 422);
+            }
+            return redirect()->back()->with('error', 'Cannot delete account because it has recorded journal entries.');
+        }
+
+        $account->delete();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Chart of Account deleted successfully.']);
+        }
+
+        return redirect()->back()->with('success', 'Chart of Account deleted successfully.');
     }
 
     public function toggleAccountStatus(\Illuminate\Http\Request $request)

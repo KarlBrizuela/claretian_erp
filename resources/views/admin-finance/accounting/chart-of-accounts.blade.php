@@ -1,5 +1,6 @@
 <x-app-layout :title="$title" :role="$role" :sidebar="$sidebar">
     @push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
         .hover-row {
             transition: background-color 0.2s ease;
@@ -184,28 +185,42 @@
     @endpush
 
     <div class="container-fluid p-0">
-        <!-- Top Title & Sleek Segmented Tab Switcher -->
+        <!-- Top Title & Sleek Segmented Main Tab Switcher -->
         <div class="row mb-3">
             <div class="col-12">
                 <div class="card border-0 shadow-sm p-2" style="border-radius: 8px; background-color: #ffffff; border: 1px solid #e2e8f0;">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                        <div class="d-flex flex-wrap gap-1">
-                            <a href="?tab=assets" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'assets' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
-                                <i class="las la-wallet fs-16"></i> Assets
+                        <!-- Main Tabs: CRUD vs Cards -->
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <a href="?main_tab=crud" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $mainTab === 'crud' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid #cbd5e1;' }}">
+                                <i class="las la-list-alt fs-16"></i> Account Management (CRUD)
                             </a>
-                            <a href="?tab=liabilities" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'liabilities' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
-                                <i class="las la-credit-card fs-16"></i> Liabilities
-                            </a>
-                            <a href="?tab=equity" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'equity' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
-                                <i class="las la-coins fs-16"></i> Equity
-                            </a>
-                            <a href="?tab=income" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'income' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
-                                <i class="las la-chart-line fs-16"></i> Income
-                            </a>
-                            <a href="?tab=expenses" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $tab === 'expenses' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid transparent;' }}">
-                                <i class="las la-file-invoice-dollar fs-16"></i> Expenses
+                            <a href="?main_tab=cards&tab=assets" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $mainTab === 'cards' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid #cbd5e1;' }}">
+                                <i class="las la-th-large fs-16"></i> Accounts Cards Overview
                             </a>
                         </div>
+
+                        <!-- Sub-Tabs for Category Cards (Visible only when Cards tab is active) -->
+                        @if($mainTab === 'cards')
+                        <div class="d-flex flex-wrap gap-1">
+                            <a href="?main_tab=cards&tab=assets" class="btn btn-xs fw-bold px-2.5 py-1.5 d-flex align-items-center gap-1" style="border-radius: 4px; transition: all 0.2s; {{ $tab === 'assets' ? 'background-color: #3b82f6; color: #ffffff;' : 'background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1;' }}">
+                                <i class="las la-wallet"></i> Assets
+                            </a>
+                            <a href="?main_tab=cards&tab=liabilities" class="btn btn-xs fw-bold px-2.5 py-1.5 d-flex align-items-center gap-1" style="border-radius: 4px; transition: all 0.2s; {{ $tab === 'liabilities' ? 'background-color: #f59e0b; color: #ffffff;' : 'background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1;' }}">
+                                <i class="las la-credit-card"></i> Liabilities
+                            </a>
+                            <a href="?main_tab=cards&tab=equity" class="btn btn-xs fw-bold px-2.5 py-1.5 d-flex align-items-center gap-1" style="border-radius: 4px; transition: all 0.2s; {{ $tab === 'equity' ? 'background-color: #8b5cf6; color: #ffffff;' : 'background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1;' }}">
+                                <i class="las la-coins"></i> Equity
+                            </a>
+                            <a href="?main_tab=cards&tab=income" class="btn btn-xs fw-bold px-2.5 py-1.5 d-flex align-items-center gap-1" style="border-radius: 4px; transition: all 0.2s; {{ $tab === 'income' ? 'background-color: #10b981; color: #ffffff;' : 'background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1;' }}">
+                                <i class="las la-chart-line"></i> Income
+                            </a>
+                            <a href="?main_tab=cards&tab=expenses" class="btn btn-xs fw-bold px-2.5 py-1.5 d-flex align-items-center gap-1" style="border-radius: 4px; transition: all 0.2s; {{ $tab === 'expenses' ? 'background-color: #ef4444; color: #ffffff;' : 'background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1;' }}">
+                                <i class="las la-file-invoice-dollar"></i> Expenses
+                            </a>
+                        </div>
+                        @endif
+
                         <div>
                             <button class="btn btn-sm px-3 d-flex align-items-center gap-2 fw-bold" style="background-color: #ffffff; border: 1px solid #cbd5e1; color: #475569; height: 36px; border-radius: 6px;" onclick="window.print()">
                                 <i class="las la-print fs-16"></i> Print Chart
@@ -216,82 +231,87 @@
             </div>
         </div>
 
-        <!-- Render the selected component only -->
-        <div class="row">
-            <div class="col-12">
-                @if($tab === 'assets')
-                    @include('admin-finance.accounting.chart-of-accounts.assets')
-                @elseif($tab === 'liabilities')
-                    @include('admin-finance.accounting.chart-of-accounts.liabilities')
-                @elseif($tab === 'equity')
-                    @include('admin-finance.accounting.chart-of-accounts.equity')
-                @elseif($tab === 'income')
-                    @include('admin-finance.accounting.chart-of-accounts.income')
-                @elseif($tab === 'expenses')
-                    @include('admin-finance.accounting.chart-of-accounts.expenses')
-                @endif
+        <!-- Tab 1: Account Management (CRUD Datatable) -->
+        @if($mainTab === 'crud')
+            @include('admin-finance.accounting.chart-of-accounts.crud-table')
+        @else
+            <!-- Tab 2: Accounts Cards Overview -->
+            <div class="row">
+                <div class="col-12">
+                    @if($tab === 'assets')
+                        @include('admin-finance.accounting.chart-of-accounts.assets')
+                    @elseif($tab === 'liabilities')
+                        @include('admin-finance.accounting.chart-of-accounts.liabilities')
+                    @elseif($tab === 'equity')
+                        @include('admin-finance.accounting.chart-of-accounts.equity')
+                    @elseif($tab === 'income')
+                        @include('admin-finance.accounting.chart-of-accounts.income')
+                    @elseif($tab === 'expenses')
+                        @include('admin-finance.accounting.chart-of-accounts.expenses')
+                    @endif
+                </div>
             </div>
-        </div>
 
-        @if(isset($uncategorizedAccounts) && count($uncategorizedAccounts) > 0)
-        @php
-            $themeColor = '#3b82f6';
-            $bgSoft = 'rgba(59, 130, 246, 0.08)';
-            if ($tab === 'liabilities') {
-                $themeColor = '#f59e0b';
-                $bgSoft = 'rgba(245, 158, 11, 0.08)';
-            } elseif ($tab === 'equity') {
-                $themeColor = '#8b5cf6';
-                $bgSoft = 'rgba(139, 92, 246, 0.08)';
-            } elseif ($tab === 'income') {
-                $themeColor = '#10b981';
-                $bgSoft = 'rgba(16, 185, 129, 0.08)';
-            } elseif ($tab === 'expenses') {
-                $themeColor = '#ef4444';
-                $bgSoft = 'rgba(239, 68, 68, 0.08)';
-            }
-        @endphp
-        <!-- Uncategorized Database Accounts -->
-        <div class="row mt-3">
-            <div class="col-12">
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff;">
-                    <div class="card-header bg-white border-0 pt-3 pb-2 px-3 d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="mb-0 fw-bold fs-16" style="color: #000000;">Additional {{ ucfirst($tab) }} Accounts</h5>
-                            <p class="text-muted small mb-0">Other accounts registered in the database system.</p>
+            @if(isset($uncategorizedAccounts) && count($uncategorizedAccounts) > 0)
+            @php
+                $themeColor = '#3b82f6';
+                $bgSoft = 'rgba(59, 130, 246, 0.08)';
+                if ($tab === 'liabilities') {
+                    $themeColor = '#f59e0b';
+                    $bgSoft = 'rgba(245, 158, 11, 0.08)';
+                } elseif ($tab === 'equity') {
+                    $themeColor = '#8b5cf6';
+                    $bgSoft = 'rgba(139, 92, 246, 0.08)';
+                } elseif ($tab === 'income') {
+                    $themeColor = '#10b981';
+                    $bgSoft = 'rgba(16, 185, 129, 0.08)';
+                } elseif ($tab === 'expenses') {
+                    $themeColor = '#ef4444';
+                    $bgSoft = 'rgba(239, 68, 68, 0.08)';
+                }
+            @endphp
+            <!-- Uncategorized Database Accounts -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff;">
+                        <div class="card-header bg-white border-0 pt-3 pb-2 px-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-0 fw-bold fs-16" style="color: #000000;">Additional {{ ucfirst($tab) }} Accounts</h5>
+                                <p class="text-muted small mb-0">Other accounts registered in the database system.</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="card-body p-3 pt-1">
-                        <div class="row g-2">
-                            @foreach($uncategorizedAccounts as $acc)
-                            <div class="col-xl-3 col-md-4 col-sm-6">
-                                <div class="card h-100 shadow-sm hover-card {{ $tab }}-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; transition: all 0.2s ease;">
-                                    <div class="card-body p-3 d-flex flex-column justify-content-between">
-                                        <div>
-                                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: {{ $bgSoft }}; color: {{ $themeColor }};">
-                                                    <i class="las la-file-invoice-dollar fs-20"></i>
+                        <div class="card-body p-3 pt-1">
+                            <div class="row g-2">
+                                @foreach($uncategorizedAccounts as $acc)
+                                <div class="col-xl-3 col-md-4 col-sm-6">
+                                    <div class="card h-100 shadow-sm hover-card {{ $tab }}-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; transition: all 0.2s ease;">
+                                        <div class="card-body p-3 d-flex flex-column justify-content-between">
+                                            <div>
+                                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                                    <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: {{ $bgSoft }}; color: {{ $themeColor }};">
+                                                        <i class="las la-file-invoice-dollar fs-20"></i>
+                                                    </div>
+                                                    <span class="badge status-badge {{ $acc->is_active ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; cursor: pointer; {{ $acc->is_active ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}" data-type="coa" data-id="{{ $acc->id }}">
+                                                        {{ $acc->is_active ? 'Active' : 'Inactive' }}
+                                                    </span>
                                                 </div>
-                                                <span class="badge status-badge {{ $acc->is_active ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; cursor: pointer; {{ $acc->is_active ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}" data-type="coa" data-id="{{ $acc->id }}">
-                                                    {{ $acc->is_active ? 'Active' : 'Inactive' }}
-                                                </span>
+                                                <h6 class="mb-1 fw-bold fs-14" style="color: #000000; letter-spacing: -0.2px;">{{ $acc->name }}</h6>
+                                                <p class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4; min-height: 38px;">Code: {{ $acc->code }}</p>
                                             </div>
-                                            <h6 class="mb-1 fw-bold fs-14" style="color: #000000; letter-spacing: -0.2px;">{{ $acc->name }}</h6>
-                                            <p class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4; min-height: 38px;">Code: {{ $acc->code }}</p>
-                                        </div>
-                                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
-                                            <span class="text-muted small" style="font-size: 0.72rem;">Balance</span>
-                                            <span class="fw-bold fs-14" style="color: #0f172a;">₱{{ number_format($acc->balance, 2) }}</span>
+                                            <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                                                <span class="text-muted small" style="font-size: 0.72rem;">Balance</span>
+                                                <span class="fw-bold fs-14" style="color: #0f172a;">₱{{ number_format($acc->balance, 2) }}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                                @endforeach
                             </div>
-                            @endforeach
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+            @endif
         @endif
     </div>
 
@@ -708,7 +728,141 @@
         </div>
     </div>
 
+    <!-- Add Account Modal -->
+    <div class="modal fade" id="addAccountModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-white border-bottom pb-3">
+                    <h5 class="modal-title fw-bold" style="color: #000000; font-size: 0.95rem;">
+                        <i class="las la-plus-circle me-1" style="color: #D9251C;"></i> Add New Chart of Account
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ route('admin-finance.accounting.chart-of-accounts.store') }}" method="POST" id="addAccountForm">
+                    @csrf
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Account Code <span class="text-danger">*</span></label>
+                            <input type="text" name="code" class="form-control" placeholder="e.g. 1090" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Account Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. Special Operations Fund" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Category / Type <span class="text-danger">*</span></label>
+                            <select name="type" class="form-select" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                                <option value="">Select Category</option>
+                                <option value="Asset">Asset</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Equity">Equity</option>
+                                <option value="Income">Income</option>
+                                <option value="Expense">Expense</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Sub-Category / Classification</label>
+                            <input type="text" name="category" class="form-control" placeholder="e.g. Current Asset, Operating Expense" style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_active" value="1" id="addIsActive" checked style="border-color: #cbd5e1;">
+                            <label class="form-check-label small fw-bold" for="addIsActive" style="color: #475569;">
+                                Active Account Status
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-top px-4 py-3">
+                        <button type="button" class="btn btn-light border btn-sm px-3 fw-bold" data-bs-dismiss="modal" style="color: #475569;">Cancel</button>
+                        <button type="submit" class="btn btn-sm text-white px-4 fw-bold" style="background-color: #D9251C; border: none; box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15);">Save Account</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Account Modal -->
+    <div class="modal fade" id="editAccountModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-white border-bottom pb-3">
+                    <h5 class="modal-title fw-bold" style="color: #000000; font-size: 0.95rem;">
+                        <i class="las la-pen me-1" style="color: #f59e0b;"></i> Edit Chart of Account
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" id="editAccountForm">
+                    @csrf
+                    @method('PUT')
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Account Code <span class="text-danger">*</span></label>
+                            <input type="text" name="code" id="editCode" class="form-control" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Account Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" id="editName" class="form-control" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Category / Type <span class="text-danger">*</span></label>
+                            <select name="type" id="editType" class="form-select" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                                <option value="Asset">Asset</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Equity">Equity</option>
+                                <option value="Income">Income</option>
+                                <option value="Expense">Expense</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Sub-Category / Classification</label>
+                            <input type="text" name="category" id="editCategory" class="form-control" style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_active" value="1" id="editIsActive" style="border-color: #cbd5e1;">
+                            <label class="form-check-label small fw-bold" for="editIsActive" style="color: #475569;">
+                                Active Account Status
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-top px-4 py-3">
+                        <button type="button" class="btn btn-light border btn-sm px-3 fw-bold" data-bs-dismiss="modal" style="color: #475569;">Cancel</button>
+                        <button type="submit" class="btn btn-sm text-white px-4 fw-bold" style="background-color: #D9251C; border: none; box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15);">Update Account</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account Confirmation Modal -->
+    <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-white border-bottom pb-3">
+                    <h5 class="modal-title fw-bold" style="color: #000000; font-size: 0.95rem;">
+                        <i class="las la-trash me-1 text-danger"></i> Delete Chart of Account
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" id="deleteAccountForm">
+                    @csrf
+                    @method('DELETE')
+                    <div class="modal-body p-4 text-center">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 54px; height: 54px; background-color: rgba(217, 37, 28, 0.1); color: #D9251C;">
+                            <i class="las la-exclamation-triangle fs-30"></i>
+                        </div>
+                        <h6 class="fw-bold mb-2" style="color: #000000;" id="deleteAccountTargetName">Delete Account</h6>
+                        <p class="text-muted small mb-0">Are you sure you want to delete this account? It will be soft-deleted and can be restored if needed.</p>
+                    </div>
+                    <div class="modal-footer bg-light border-top px-4 py-3 justify-content-center">
+                        <button type="button" class="btn btn-light border btn-sm px-3 fw-bold" data-bs-dismiss="modal" style="color: #475569;">Cancel</button>
+                        <button type="submit" class="btn btn-sm text-white px-4 fw-bold" style="background-color: #D9251C; border: none; box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15);">Yes, Delete Account</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         function showGenericModal(title, description, balance = 0) {
             document.getElementById('genericModalTitle').innerText = title + ' Ledger';
@@ -739,7 +893,6 @@
             if (!tbody) return;
             
             const rows = Array.from(tbody.querySelectorAll('tr'));
-            // Check if there are no items or only an empty row
             if (rows.length === 1 && rows[0].querySelector('td[colspan]')) return;
             if (rows.length <= itemsPerPage) return;
             
@@ -747,7 +900,6 @@
             const totalPages = Math.ceil(totalItems / itemsPerPage);
             let currentPage = 1;
             
-            // Create pagination container
             const nav = document.createElement('nav');
             nav.className = 'd-flex justify-content-between align-items-center mt-3';
             
@@ -760,7 +912,6 @@
             nav.appendChild(info);
             nav.appendChild(ul);
             
-            // Insert after table wrapper
             const wrapper = tableElement.closest('.table-responsive') || tableElement;
             wrapper.parentNode.appendChild(nav);
             
@@ -836,9 +987,86 @@
                 initTablePagination(table, 10);
             });
 
+            // Edit Account Modal Populator
+            $(document).on('click', '.btn-edit-account', function() {
+                const id = $(this).data('id');
+                const code = $(this).data('code');
+                const name = $(this).data('name');
+                const type = $(this).data('type');
+                const category = $(this).data('category');
+                const active = $(this).data('active');
+
+                $('#editCode').val(code);
+                $('#editName').val(name);
+                $('#editType').val(type);
+                $('#editCategory').val(category);
+                $('#editIsActive').prop('checked', active == 1);
+
+                const updateUrl = "{{ route('admin-finance.accounting.chart-of-accounts.update', ':id') }}".replace(':id', id);
+                $('#editAccountForm').attr('action', updateUrl);
+
+                $('#editAccountModal').modal('show');
+            });
+
+            // Delete Account confirmation modal trigger
+            $(document).on('click', '.btn-delete-account', function(e) {
+                e.preventDefault();
+                const id = $(this).data('id');
+                const name = $(this).data('name');
+                const deleteUrl = "{{ route('admin-finance.accounting.chart-of-accounts.destroy', ':id') }}".replace(':id', id);
+
+                $('#deleteAccountTargetName').text(`Delete "${name}"?`);
+                $('#deleteAccountForm').attr('action', deleteUrl);
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Are you sure?',
+                        text: `Soft delete account "${name}"? It will be safely archived and can be restored if needed.`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#D9251C',
+                        cancelButtonColor: '#475569',
+                        confirmButtonText: 'Yes, delete account!'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            $.ajax({
+                                url: deleteUrl,
+                                type: 'POST',
+                                data: {
+                                    _token: "{{ csrf_token() }}",
+                                    _method: 'DELETE'
+                                },
+                                success: function(res) {
+                                    Swal.fire({
+                                        title: 'Deleted!',
+                                        text: res.message || 'Account soft-deleted successfully.',
+                                        icon: 'success',
+                                        confirmButtonColor: '#D9251C'
+                                    }).then(() => {
+                                        window.location.reload();
+                                    });
+                                },
+                                error: function(xhr) {
+                                    const err = xhr.responseJSON ? xhr.responseJSON.error : 'Failed to delete account.';
+                                    Swal.fire({
+                                        title: 'Cannot Delete Account',
+                                        text: err,
+                                        icon: 'error',
+                                        confirmButtonColor: '#D9251C'
+                                    });
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    const deleteModal = new bootstrap.Modal(document.getElementById('deleteAccountModal'));
+                    deleteModal.show();
+                }
+            });
+
             // AJAX status toggle handler
             $(document).on('click', '.status-badge', function(e) {
-                e.stopPropagation(); // Prevent opening the card modal or triggering row clicks
+                e.stopPropagation();
                 const $badge = $(this);
                 const type = $badge.data('type');
                 const id = $badge.data('id');

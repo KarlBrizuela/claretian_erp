@@ -590,6 +590,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Chart of Accounts
     Route::get('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'chartOfAccounts'])->name('admin-finance.accounting.chart-of-accounts');
+    Route::post('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'storeChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.store');
+    Route::put('/chart-of-accounts/{id}', [App\Http\Controllers\AdminFinanceController::class, 'updateChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.update');
+    Route::delete('/chart-of-accounts/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.destroy');
     Route::post('/chart-of-accounts/toggle', [App\Http\Controllers\AdminFinanceController::class, 'toggleAccountStatus'])->name('admin-finance.accounting.chart-of-accounts.toggle');
     Route::get('/sales-management', [App\Http\Controllers\AdminFinanceController::class, 'salesManagement'])->name('admin-finance.accounting.sales-management');
     Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');

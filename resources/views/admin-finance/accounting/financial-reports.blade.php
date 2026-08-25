@@ -351,11 +351,20 @@
 
                     <div class="card-body pt-3">
                         @if($selectedReport === 'Balance Sheet')
+                        @php
+                            $totalCurrentAssets = collect($reportData['current_assets'])->sum('amount');
+                            $totalNonCurrentAssets = collect($reportData['non_current_assets'])->sum('amount');
+                            $totalAssetsSum = $totalCurrentAssets + $totalNonCurrentAssets;
+
+                            $totalLiabilitiesSum = collect($reportData['liabilities'])->sum('amount');
+                            $totalEquitySum = collect($reportData['equity'])->sum('amount');
+                            $totalLiabEquitySum = $totalLiabilitiesSum + $totalEquitySum;
+                        @endphp
                         <!-- 1. BALANCE SHEET -->
                         <div class="row g-4">
                             <div class="col-md-6">
                                 <h6 class="fw-bold text-uppercase border-bottom pb-2" style="color: #D9251C;">Assets (Current & Non-Current)</h6>
-                                <table class="table table-sm align-middle statement-table">
+                                <table class="table table-sm align-middle statement-table mb-3">
                                     <thead>
                                         <tr>
                                             <th>Current Assets Account</th>
@@ -370,9 +379,15 @@
                                         </tr>
                                         @endforeach
                                     </tbody>
+                                    <tfoot>
+                                        <tr class="table-light border-top">
+                                            <td class="fw-bold text-uppercase small" style="color: #475569;">Subtotal Current Assets</td>
+                                            <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($totalCurrentAssets, 2) }}</td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
 
-                                <table class="table table-sm align-middle statement-table">
+                                <table class="table table-sm align-middle statement-table mb-3">
                                     <thead>
                                         <tr>
                                             <th>Non-Current Assets Account</th>
@@ -387,12 +402,27 @@
                                         </tr>
                                         @endforeach
                                     </tbody>
+                                    <tfoot>
+                                        <tr class="table-light border-top">
+                                            <td class="fw-bold text-uppercase small" style="color: #475569;">Subtotal Non-Current Assets</td>
+                                            <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($totalNonCurrentAssets, 2) }}</td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
+
+                                <!-- Total Assets Summary Card -->
+                                <div class="p-3 rounded d-flex justify-content-between align-items-center" style="background-color: rgba(217, 37, 28, 0.08); border: 1.5px solid rgba(217, 37, 28, 0.25); border-radius: 8px;">
+                                    <div>
+                                        <span class="fw-bold text-uppercase d-block" style="color: #D9251C; font-size: 0.88rem; letter-spacing: 0.5px;">TOTAL ASSETS</span>
+                                        <span class="text-muted small">Current + Non-Current Assets</span>
+                                    </div>
+                                    <span class="fw-bold fs-16" style="color: #D9251C;">₱{{ number_format($totalAssetsSum, 2) }}</span>
+                                </div>
                             </div>
 
                             <div class="col-md-6">
                                 <h6 class="fw-bold text-uppercase border-bottom pb-2 text-dark">Liabilities & Equity</h6>
-                                <table class="table table-sm align-middle statement-table">
+                                <table class="table table-sm align-middle statement-table mb-3">
                                     <thead>
                                         <tr>
                                             <th>Liabilities Account</th>
@@ -407,9 +437,15 @@
                                         </tr>
                                         @endforeach
                                     </tbody>
+                                    <tfoot>
+                                        <tr class="table-light border-top">
+                                            <td class="fw-bold text-uppercase small" style="color: #475569;">Total Liabilities</td>
+                                            <td class="text-end fw-bold text-danger">₱{{ number_format($totalLiabilitiesSum, 2) }}</td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
 
-                                <table class="table table-sm align-middle statement-table">
+                                <table class="table table-sm align-middle statement-table mb-3">
                                     <thead>
                                         <tr>
                                             <th>Equity Account</th>
@@ -424,7 +460,22 @@
                                         </tr>
                                         @endforeach
                                     </tbody>
+                                    <tfoot>
+                                        <tr class="table-light border-top">
+                                            <td class="fw-bold text-uppercase small" style="color: #475569;">Total Equity</td>
+                                            <td class="text-end fw-bold text-success">₱{{ number_format($totalEquitySum, 2) }}</td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
+
+                                <!-- Total Liabilities & Equity Summary Card -->
+                                <div class="p-3 rounded d-flex justify-content-between align-items-center" style="background-color: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                                    <div>
+                                        <span class="fw-bold text-uppercase d-block" style="color: #0f172a; font-size: 0.88rem; letter-spacing: 0.5px;">TOTAL LIABILITIES & EQUITY</span>
+                                        <span class="text-muted small">Total Obligations + Retained Equity</span>
+                                    </div>
+                                    <span class="fw-bold fs-16" style="color: #0f172a;">₱{{ number_format($totalLiabEquitySum, 2) }}</span>
+                                </div>
                             </div>
                         </div>
                         @elseif($selectedReport === 'Cash Flow')
