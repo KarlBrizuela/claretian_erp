@@ -366,7 +366,7 @@
                                                             @endif
                                                         </td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-danger" onclick="openStockManagementModal({{ $book->id }}, '{{ addslashes($book->name) }}', {{ $book->stock }}, {{ $book->max_stock ?? 0 }})">
+                                                            <button type="button" class="btn btn-sm btn-danger btn-open-stock-mgmt" data-book-id="{{ $book->id }}" data-book-name="{{ $book->name }}" data-stock="{{ $mainWarehouseQuantity }}" data-max="{{ $book->max_stock ?? 0 }}">
                                                                 <i class="las la-pen"></i>
                                                             </button>
                                                         </td>
@@ -645,7 +645,7 @@
                                                               </span>
                                                           </td>
                                                           <td class="text-center">
-                                                              <button class="btn btn-sm btn-danger shadow-sm px-2 py-1 fw-semibold" title="Edit Stock" onclick="openStockManagementModal({{ $book->id }}, '{{ addslashes($book->name) }}', {{ $totalSiteStock }}, {{ $book->max_stock ?? 0 }})">
+                                                              <button type="button" class="btn btn-sm btn-danger shadow-sm px-2 py-1 fw-semibold btn-open-stock-mgmt" title="Edit Stock" data-book-id="{{ $book->id }}" data-book-name="{{ $book->name }}" data-stock="{{ $totalSiteStock }}" data-max="{{ $book->max_stock ?? 0 }}">
                                                                   <i class="las la-pen me-1"></i>Edit
                                                               </button>
                                                           </td>
@@ -685,7 +685,7 @@
                                                               </span>
                                                           </td>
                                                           <td class="text-center">
-                                                              <button class="btn btn-sm btn-info text-white shadow-sm px-2 py-1 fw-semibold" title="Edit Index Stock" onclick="openIndexStockModal({{ $index->id }}, '{{ addslashes($bookTitle ?: $displayTitle) }}', '{{ addslashes($idxVal) }}', {{ $totalIndexStock }})">
+                                                              <button type="button" class="btn btn-sm btn-info text-white shadow-sm px-2 py-1 fw-semibold btn-open-index-mgmt" title="Edit Index Stock" data-index-id="{{ $index->id }}" data-book-title="{{ $bookTitle ?: $displayTitle }}" data-index-val="{{ $idxVal }}" data-stock="{{ $totalIndexStock }}">
                                                                   <i class="las la-pen me-1"></i>Edit
                                                               </button>
                                                           </td>
@@ -722,7 +722,7 @@
                                                               </span>
                                                           </td>
                                                           <td class="text-center">
-                                                              <button class="btn btn-sm btn-warning text-dark shadow-sm px-2 py-1 fw-semibold" title="Edit Bundle Stock" onclick="openBundleStockModal({{ $bundle->id }}, '{{ addslashes($bundle->name) }}', {{ $totalBundleStock }})">
+                                                              <button type="button" class="btn btn-sm btn-warning text-dark shadow-sm px-2 py-1 fw-semibold btn-open-bundle-mgmt" title="Edit Bundle Stock" data-bundle-id="{{ $bundle->id }}" data-bundle-name="{{ $bundle->name }}" data-stock="{{ $totalBundleStock }}">
                                                                   <i class="las la-pen me-1"></i>Edit
                                                               </button>
                                                           </td>
@@ -2417,7 +2417,7 @@
         })->values()->toArray() : [];
     }
 @endphp
-        var sitesInventoryData = @json($sitesInventoryMap);
+        window.sitesInventoryData = window.sitesInventoryData || @json($sitesInventoryMap);
 
         let currentBookName = null;
         let currentStock = 0;
@@ -2434,7 +2434,7 @@
             const siteId = parseInt(siteSelect.value);
             if (!siteId) return;
 
-            const inventory = (typeof sitesInventoryData !== 'undefined' && sitesInventoryData[siteId]) ? sitesInventoryData[siteId] : [];
+            const inventory = (typeof window.sitesInventoryData !== 'undefined' && window.sitesInventoryData[siteId]) ? window.sitesInventoryData[siteId] : [];
             const item = inventory.find(i => i.book_id === currentBookId);
             
             const stockVal = item ? item.quantity : 0;
@@ -2460,12 +2460,36 @@
             }
         }
 
+        function showModalSafely(modalId) {
+            const modalEl = document.getElementById(modalId);
+            if (!modalEl) return;
+            try {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                    if (inst) {
+                        inst.show();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('Bootstrap modal error, falling back to jQuery/DOM:', e);
+            }
+            if (window.jQuery && typeof jQuery.fn.modal === 'function') {
+                $(modalEl).modal('show');
+            } else {
+                modalEl.classList.add('show');
+                modalEl.style.display = 'block';
+                document.body.classList.add('modal-open');
+            }
+        }
+
         function openStockManagementModal(bookId, bookName, stock, max) {
             currentBookId = bookId;
             currentBookName = bookName;
             globalBookMaxStock = max;
 
-            document.getElementById('mgmtBookName').value = bookName;
+            const nameEl = document.getElementById('mgmtBookName');
+            if (nameEl) nameEl.value = bookName;
             
             // Default select site to "Main Warehouse" if it exists
             const siteSelect = document.getElementById('mgmtSiteSelect');
@@ -2481,12 +2505,19 @@
             // Sync values for selected site
             onStockMgmtSiteChange();
             
-            document.getElementById('mgmtAddQuantity').value = '';
-            document.getElementById('mgmtAddWarning').innerHTML = '';
-            document.getElementById('mgmtAddPreview').style.display = 'none';
-            document.getElementById('mgmtEditQuantity').value = '';
-            document.getElementById('mgmtEditWarning').innerHTML = '';
-            document.getElementById('mgmtEditPreview').style.display = 'none';
+            const addQtyInput = document.getElementById('mgmtAddQuantity');
+            if (addQtyInput) addQtyInput.value = '';
+            const addWarningEl = document.getElementById('mgmtAddWarning');
+            if (addWarningEl) addWarningEl.innerHTML = '';
+            const addPreviewEl = document.getElementById('mgmtAddPreview');
+            if (addPreviewEl) addPreviewEl.style.display = 'none';
+
+            const editQtyInput = document.getElementById('mgmtEditQuantity');
+            if (editQtyInput) editQtyInput.value = '';
+            const editWarningEl = document.getElementById('mgmtEditWarning');
+            if (editWarningEl) editWarningEl.innerHTML = '';
+            const editPreviewEl = document.getElementById('mgmtEditPreview');
+            if (editPreviewEl) editPreviewEl.style.display = 'none';
 
             const saveBtn = document.getElementById('mgmtSaveBtn');
             if (saveBtn) {
@@ -2510,11 +2541,11 @@
                 editTabPane.classList.remove('show', 'active');
             }
 
-            if (stockMgmtAddHandler) {
-                document.getElementById('mgmtAddQuantity').removeEventListener('input', stockMgmtAddHandler);
+            if (stockMgmtAddHandler && addQtyInput) {
+                addQtyInput.removeEventListener('input', stockMgmtAddHandler);
             }
-            if (stockMgmtEditHandler) {
-                document.getElementById('mgmtEditQuantity').removeEventListener('input', stockMgmtEditHandler);
+            if (stockMgmtEditHandler && editQtyInput) {
+                editQtyInput.removeEventListener('input', stockMgmtEditHandler);
             }
 
             stockMgmtAddHandler = function() {
@@ -2524,18 +2555,21 @@
                 const preview = document.getElementById('mgmtAddPreview');
 
                 if (quantity > 0) {
-                    preview.style.display = 'block';
-                    document.getElementById('mgmtAddNewStock').textContent = newStock;
+                    if (preview) preview.style.display = 'block';
+                    const newStockEl = document.getElementById('mgmtAddNewStock');
+                    if (newStockEl) newStockEl.textContent = newStock;
 
-                    if (maxStock && newStock > maxStock) {
-                        warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
-                    } else {
-                        warning.innerHTML = '';
+                    if (warning) {
+                        if (maxStock && newStock > maxStock) {
+                            warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
+                        } else {
+                            warning.innerHTML = '';
+                        }
                     }
                     if (saveBtn) saveBtn.disabled = false;
                 } else {
-                    preview.style.display = 'none';
-                    warning.innerHTML = '';
+                    if (preview) preview.style.display = 'none';
+                    if (warning) warning.innerHTML = '';
                     if (saveBtn) saveBtn.disabled = false;
                 }
             };
@@ -2546,28 +2580,31 @@
                 const preview = document.getElementById('mgmtEditPreview');
 
                 if (!isNaN(newStock) && newStock >= 0) {
-                    preview.style.display = 'block';
-                    document.getElementById('mgmtEditOldStock').textContent = currentStock;
-                    document.getElementById('mgmtEditNewStock').textContent = newStock;
+                    if (preview) preview.style.display = 'block';
+                    const oldStockEl = document.getElementById('mgmtEditOldStock');
+                    if (oldStockEl) oldStockEl.textContent = currentStock;
+                    const editNewStockEl = document.getElementById('mgmtEditNewStock');
+                    if (editNewStockEl) editNewStockEl.textContent = newStock;
 
-                    if (maxStock && newStock > maxStock) {
-                        warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
-                    } else {
-                        warning.innerHTML = '';
+                    if (warning) {
+                        if (maxStock && newStock > maxStock) {
+                            warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
+                        } else {
+                            warning.innerHTML = '';
+                        }
                     }
                     if (saveBtn) saveBtn.disabled = false;
                 } else {
-                    preview.style.display = 'none';
-                    warning.innerHTML = '';
+                    if (preview) preview.style.display = 'none';
+                    if (warning) warning.innerHTML = '';
                     if (saveBtn) saveBtn.disabled = false;
                 }
             };
 
-            document.getElementById('mgmtAddQuantity').addEventListener('input', stockMgmtAddHandler);
-            document.getElementById('mgmtEditQuantity').addEventListener('input', stockMgmtEditHandler);
+            if (addQtyInput) addQtyInput.addEventListener('input', stockMgmtAddHandler);
+            if (editQtyInput) editQtyInput.addEventListener('input', stockMgmtEditHandler);
 
-            const modal = new bootstrap.Modal(document.getElementById('stockManagementModal'));
-            modal.show();
+            showModalSafely('stockManagementModal');
         }
 
         function saveStockManagement() {
@@ -4391,17 +4428,51 @@
         };
 
         document.addEventListener('click', function(e) {
-            const btn = e.target.closest('.btn-print-cust-sheet');
-            if (!btn) return;
-            e.preventDefault();
-            const raw = btn.getAttribute('data-cust-data');
-            if (!raw) return;
-            try {
-                const jsonStr = atob(raw);
-                const cData = JSON.parse(jsonStr);
-                printCustomerInventorySheet(cData);
-            } catch (err) {
-                console.error('Error opening print window:', err);
+            const btnStock = e.target.closest('.btn-open-stock-mgmt');
+            if (btnStock) {
+                e.preventDefault();
+                const bookId = parseInt(btnStock.getAttribute('data-book-id'));
+                const bookName = btnStock.getAttribute('data-book-name') || '';
+                const stock = parseFloat(btnStock.getAttribute('data-stock') || 0);
+                const maxAttr = btnStock.getAttribute('data-max');
+                const max = (maxAttr && maxAttr !== 'N/A') ? parseFloat(maxAttr) : 0;
+                openStockManagementModal(bookId, bookName, stock, max);
+                return;
+            }
+
+            const btnIndex = e.target.closest('.btn-open-index-mgmt');
+            if (btnIndex) {
+                e.preventDefault();
+                const id = parseInt(btnIndex.getAttribute('data-index-id'));
+                const title = btnIndex.getAttribute('data-book-title') || '';
+                const val = btnIndex.getAttribute('data-index-val') || '';
+                const stock = parseFloat(btnIndex.getAttribute('data-stock') || 0);
+                openIndexStockModal(id, title, val, stock);
+                return;
+            }
+
+            const btnBundle = e.target.closest('.btn-open-bundle-mgmt');
+            if (btnBundle) {
+                e.preventDefault();
+                const id = parseInt(btnBundle.getAttribute('data-bundle-id'));
+                const name = btnBundle.getAttribute('data-bundle-name') || '';
+                const stock = parseFloat(btnBundle.getAttribute('data-stock') || 0);
+                openBundleStockModal(id, name, stock);
+                return;
+            }
+
+            const btnPrintSheet = e.target.closest('.btn-print-cust-sheet');
+            if (btnPrintSheet) {
+                e.preventDefault();
+                const raw = btnPrintSheet.getAttribute('data-cust-data');
+                if (!raw) return;
+                try {
+                    const jsonStr = atob(raw);
+                    const cData = JSON.parse(jsonStr);
+                    printCustomerInventorySheet(cData);
+                } catch (err) {
+                    console.error('Error opening print window:', err);
+                }
             }
         });
     </script>
