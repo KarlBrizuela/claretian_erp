@@ -14,6 +14,9 @@
     <div class="card-body p-3 pt-1">
         <div class="row g-2">
             <!-- Cash on Hand Card -->
+            @php
+                $cashOnHandAccount = $accountDetails['1010'] ?? $accountDetails['1040'] ?? null;
+            @endphp
             <div class="col-xl-3 col-md-4 col-sm-6">
                 <div class="card h-100 shadow-sm hover-card assets-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; transition: all 0.2s ease; cursor: pointer;" data-bs-toggle="modal" data-bs-target="#cashOnHandModal">
                     <div class="card-body p-3 d-flex flex-column justify-content-between">
@@ -22,11 +25,11 @@
                                 <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: rgba(59, 130, 246, 0.08); color: #3b82f6;">
                                     <i class="las la-coins fs-20"></i>
                                 </div>
-                                <span class="badge status-badge {{ ($accountDetails['1010']->is_active ?? 1) ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; cursor: pointer; {{ ($accountDetails['1010']->is_active ?? 1) ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}" data-type="coa" data-id="{{ $accountDetails['1010']->id ?? '' }}">
-                                    {{ ($accountDetails['1010']->is_active ?? 1) ? 'Active' : 'Inactive' }}
+                                <span class="badge status-badge {{ ($cashOnHandAccount->is_active ?? 1) ? 'bg-soft-success text-success' : 'bg-light text-secondary' }} px-2.5 py-1 rounded-pill small fw-bold" style="font-size: 0.7rem; cursor: pointer; {{ ($cashOnHandAccount->is_active ?? 1) ? 'background-color: rgba(16, 185, 129, 0.1); color: #10b981;' : '' }}" data-type="coa" data-id="{{ $cashOnHandAccount->id ?? '' }}">
+                                    {{ ($cashOnHandAccount->is_active ?? 1) ? 'Active' : 'Inactive' }}
                                 </span>
                             </div>
-                            <h6 class="mb-1 fw-bold fs-14" style="color: #000000; letter-spacing: -0.2px;">Cash on Hand</h6>
+                            <h6 class="mb-1 fw-bold fs-14" style="color: #000000; letter-spacing: -0.2px;">Cash on Hand <span class="text-muted fw-normal" style="font-size: 0.75rem;">(1010)</span></h6>
                             <p class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4; min-height: 38px;">Current cash physically present in office registers and vaults.</p>
                         </div>
                         <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">

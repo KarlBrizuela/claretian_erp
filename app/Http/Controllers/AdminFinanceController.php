@@ -3647,6 +3647,30 @@ public function checkVoucher()
                     'created_at' => $so->created_at,
                 ];
             });
+
+        // Fetch General Journal items hitting the Cash on Hand accounts (1010 / 1040)
+        $cashOnHandAccountIds = \App\Models\ChartOfAccount::whereIn('code', ['1010', '1040'])->pluck('id');
+        $journalItems = \App\Models\JournalEntryItem::with(['journalEntry'])
+            ->whereIn('chart_of_account_id', $cashOnHandAccountIds)
+            ->whereHas('journalEntry', function($q) {
+                $q->where('status', 'posted');
+            })
+            ->get()
+            ->map(function($item) {
+                // Asset account: Debit increases it (+), Credit decreases it (-)
+                $amount = (float)$item->debit - (float)$item->credit;
+                
+                return (object)[
+                    'si_number' => $item->journalEntry->entry_no,
+                    'customer_name' => $item->memo ?? $item->journalEntry->reference ?? 'General Journal Entry',
+                    'total_amount' => $amount,
+                    'status' => 'Posted',
+                    'created_at' => \Carbon\Carbon::parse($item->journalEntry->date),
+                ];
+            });
+
+        // Merge and sort by date descending
+        $salesInvoices = $salesInvoices->concat($journalItems)->sortByDesc('created_at');
         $pettyCashVouchers = \App\Models\PettyCashVoucher::withSum('items', 'amount')->latest()->get();
         $unpaidReceivables = \App\Models\SalesOrder::with('customer')
             ->where('status', '!=', 'cancelled')
