@@ -773,8 +773,8 @@ $isAdmin = auth()->check() && (
                                     $itemSubtotal = $unitPrice * $tItem->quantity;
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = json_encode($uniqueBarcodes);
-                                    $isItemPicked = ($tItem->status === 'Picked' || $tt->status === 'completed' || $tItem->picked_qty >= $tItem->quantity);
-                                    $itemPickedQty = isset($tItem->picked_qty) && $tItem->picked_qty > 0 ? $tItem->picked_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
+                                    $isItemPicked = ($tItem->status === 'Picked' || ($tItem->picked_qty !== null && $tItem->picked_qty >= $tItem->quantity && $tItem->quantity > 0));
+                                    $itemPickedQty = !is_null($tItem->picked_qty) ? $tItem->picked_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
                                 @endphp
                                 <tr id="tsp_row_{{ $tt->id }}_{{ $idx }}" class="tsp-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPicked ? '#d4edda' : ($tItem->status === 'Picking' ? '#fff3cd' : '#f8d7da') }};">
                                     <td>{{ $idx + 1 }}</td>

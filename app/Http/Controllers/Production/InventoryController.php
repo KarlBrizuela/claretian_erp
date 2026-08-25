@@ -1032,6 +1032,21 @@ class InventoryController extends Controller
                 $book->save();
             }
 
+            // Sync TeamStock balance for Team sites (e.g. Team A, Team B, Team C, Book Sales, MIBF)
+            $teamStock = \App\Models\TeamStock::where('team_name', $site->name)
+                ->where('book_id', $book->id)
+                ->first();
+            if ($teamStock) {
+                $teamStock->quantity = $newStock;
+                $teamStock->save();
+            } elseif (in_array($site->name, ['Team A', 'Team B', 'Team C', 'Book Sales', 'MIBF']) || str_contains(strtolower($site->name), 'team')) {
+                \App\Models\TeamStock::create([
+                    'team_name' => $site->name,
+                    'book_id'   => $book->id,
+                    'quantity'  => $newStock,
+                ]);
+            }
+
             // Update ProductStock for compatibility
             $bookStock = ProductStock::firstOrNew([
                 'book_id' => $book->id,

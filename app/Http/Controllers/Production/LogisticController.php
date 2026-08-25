@@ -3672,7 +3672,18 @@ class LogisticController extends Controller
             );
 
             foreach ($transfer->items as $tItem) {
-                $qty = $tItem->quantity;
+                $qty = !is_null($tItem->picked_qty) ? (float)$tItem->picked_qty : (float)$tItem->quantity;
+
+                // Update item quantity to actual picked_qty so only picked quantity proceeds
+                $tItem->quantity = $qty;
+                if ($tItem->status !== 'Picked' && $qty > 0) {
+                    $tItem->status = 'Picked';
+                }
+                $tItem->save();
+
+                if ($qty <= 0) {
+                    continue;
+                }
 
                 // 1. Deduct Main Warehouse Stock & Sync SiteInventory
                 $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
@@ -3781,7 +3792,10 @@ class LogisticController extends Controller
                 );
 
                 foreach ($transfer->items as $tItem) {
-                    $qty = $tItem->quantity;
+                    $qty = !is_null($tItem->packed_qty) ? (float)$tItem->packed_qty : (float)$tItem->quantity;
+                    if ($qty <= 0) {
+                        continue;
+                    }
 
                     // 1. Credit Team Stock balance
                     $teamStock = \App\Models\TeamStock::firstOrNew([

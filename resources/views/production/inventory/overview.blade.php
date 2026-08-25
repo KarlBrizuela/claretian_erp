@@ -611,6 +611,7 @@
                                                               </th>
                                                           @endforeach
                                                           <th class="text-center bg-light" style="width: 130px;"><strong>TOTAL STOCK</strong></th>
+                                                          <th class="text-center" style="width: 110px;"><strong>ACTION</strong></th>
                                                       </tr>
                                                   </thead>
                                                   <tbody>
@@ -642,6 +643,11 @@
                                                               <span class="badge {{ $totalSiteStock > 0 ? 'bg-success' : 'bg-danger' }} fs-14 fw-bold px-3 py-2">
                                                                   {{ number_format($totalSiteStock) }}
                                                               </span>
+                                                          </td>
+                                                          <td class="text-center">
+                                                              <button class="btn btn-sm btn-danger shadow-sm px-2 py-1 fw-semibold" title="Edit Stock" onclick="openStockManagementModal({{ $book->id }}, '{{ addslashes($book->name) }}', {{ $totalSiteStock }}, {{ $book->max_stock ?? 0 }})">
+                                                                  <i class="las la-pen me-1"></i>Edit
+                                                              </button>
                                                           </td>
                                                       </tr>
                                                       @endforeach
@@ -678,6 +684,11 @@
                                                                   {{ number_format($totalIndexStock) }}
                                                               </span>
                                                           </td>
+                                                          <td class="text-center">
+                                                              <button class="btn btn-sm btn-info text-white shadow-sm px-2 py-1 fw-semibold" title="Edit Index Stock" onclick="openIndexStockModal({{ $index->id }}, '{{ addslashes($bookTitle ?: $displayTitle) }}', '{{ addslashes($idxVal) }}', {{ $totalIndexStock }})">
+                                                                  <i class="las la-pen me-1"></i>Edit
+                                                              </button>
+                                                          </td>
                                                       </tr>
                                                       @endforeach
 
@@ -710,12 +721,17 @@
                                                                   {{ number_format($totalBundleStock) }}
                                                               </span>
                                                           </td>
+                                                          <td class="text-center">
+                                                              <button class="btn btn-sm btn-warning text-dark shadow-sm px-2 py-1 fw-semibold" title="Edit Bundle Stock" onclick="openBundleStockModal({{ $bundle->id }}, '{{ addslashes($bundle->name) }}', {{ $totalBundleStock }})">
+                                                                  <i class="las la-pen me-1"></i>Edit
+                                                              </button>
+                                                          </td>
                                                       </tr>
                                                       @endforeach
 
                                                       @if(count($books) == 0 && count($allIndices ?? $indices ?? []) == 0 && count($allBundles ?? $bundles ?? []) == 0)
                                                       <tr>
-                                                          <td colspan="{{ count($allSites ?? $sites) + 4 }}" class="text-center py-4 text-muted">No items found in master registry.</td>
+                                                          <td colspan="{{ count($allSites ?? $sites) + 5 }}" class="text-center py-4 text-muted">No items found in master registry.</td>
                                                       </tr>
                                                       @endif
                                                   </tbody>
@@ -1760,7 +1776,7 @@
                     <div class="mb-3">
                         <label class="form-label font-w600">Site *</label>
                         <select class="form-control" id="mgmtSiteSelect" onchange="onStockMgmtSiteChange()">
-                            @foreach($sites ?? [] as $site)
+                            @foreach($allSites ?? $sites ?? [] as $site)
                                 <option value="{{ $site->id }}">{{ $site->name }}</option>
                             @endforeach
                         </select>
@@ -2387,6 +2403,22 @@
             document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
         }
 
+@php
+    $sitesInventoryMap = [];
+    foreach($allSites ?? $sites ?? [] as $s) {
+        $sitesInventoryMap[$s->id] = $s->inventory ? $s->inventory->map(function($inv) {
+            return [
+                'book_id' => $inv->book_id,
+                'book_index_id' => $inv->book_index_id,
+                'book_bundle_id' => $inv->book_bundle_id,
+                'quantity' => (float)$inv->quantity,
+                'max_stock' => $inv->max_stock
+            ];
+        })->values()->toArray() : [];
+    }
+@endphp
+        var sitesInventoryData = @json($sitesInventoryMap);
+
         let currentBookName = null;
         let currentStock = 0;
         let maxStock = null;
@@ -2397,10 +2429,12 @@
 
         function onStockMgmtSiteChange() {
             if (!currentBookId) return;
-            const siteId = parseInt(document.getElementById('mgmtSiteSelect').value);
+            const siteSelect = document.getElementById('mgmtSiteSelect');
+            if (!siteSelect) return;
+            const siteId = parseInt(siteSelect.value);
             if (!siteId) return;
 
-            const inventory = sitesInventoryData[siteId] || [];
+            const inventory = (typeof sitesInventoryData !== 'undefined' && sitesInventoryData[siteId]) ? sitesInventoryData[siteId] : [];
             const item = inventory.find(i => i.book_id === currentBookId);
             
             const stockVal = item ? item.quantity : 0;
@@ -2409,8 +2443,11 @@
             currentStock = stockVal;
             maxStock = siteMaxStock;
 
-            document.getElementById('mgmtCurrentStock').value = currentStock;
-            document.getElementById('mgmtMaxStock').value = maxStock !== null ? maxStock : 'Not Set';
+            const currentStockInput = document.getElementById('mgmtCurrentStock');
+            if (currentStockInput) currentStockInput.value = currentStock;
+
+            const maxStockInput = document.getElementById('mgmtMaxStock');
+            if (maxStockInput) maxStockInput.value = maxStock !== null ? maxStock : 'Not Set';
 
             // Trigger inputs update to refresh previews/warnings
             const addQtyInput = document.getElementById('mgmtAddQuantity');

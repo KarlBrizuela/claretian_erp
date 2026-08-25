@@ -83,6 +83,23 @@
             background: #D9251C;
             border-radius: 3px 3px 0 0;
         }
+        .pagination .page-item.active .page-link {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 6px rgba(217, 37, 28, 0.2) !important;
+        }
+        .pagination .page-link {
+            color: #475569 !important;
+            border-color: #cbd5e1 !important;
+            padding: 5px 11px !important;
+            font-size: 0.82rem !important;
+            transition: all 0.15s ease-in-out !important;
+        }
+        .pagination .page-link:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
     </style>
     @endpush
 
@@ -286,12 +303,37 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 flex-wrap gap-2" id="inventoryPaginationContainer">
+                            <div class="text-muted small fw-semibold" id="inventoryPaginationInfo">
+                                Showing entries
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted small">Show:</span>
+                                <select id="inventoryPageSize" class="form-select form-select-sm" style="width: 75px; font-size: 0.8rem;">
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <ul class="pagination pagination-sm mb-0" id="inventoryPaginationList"></ul>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Stock Transfer History Tab -->
                     <div class="tab-pane fade" id="historyContent" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold text-dark me-2 small"><i class="fas fa-history me-1 text-danger"></i>TRANSFER RECORDS:</span>
+                            </div>
+                            <div style="width: 280px; height: 32px; display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; padding: 0 10px; box-sizing: border-box;">
+                                <i class="fas fa-search text-muted me-2" style="font-size: 0.85rem;"></i>
+                                <input type="text" id="historySearch" class="form-control" placeholder="Search transfer #, team, user, status..." style="border: none !important; background: transparent !important; padding: 0 !important; height: 100%; font-size: 0.82rem; color: #333; outline: none !important; box-shadow: none !important;">
+                            </div>
+                        </div>
+
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle mb-0">
+                            <table class="table table-bordered table-hover align-middle mb-0" id="transferHistoryTable">
                                 <thead class="table-light">
                                     <tr>
                                         <th>TRANSFER #</th>
@@ -310,8 +352,25 @@
                                     @php
                                         $tBadgeClass = 'bg-danger text-white';
                                         $isReturn = ($tr->transfer_type ?? '') === 'return' || str_starts_with($tr->transfer_number, 'TSR-');
+                                        $statusStr = match($tr->status) {
+                                            'pending_mkt_approval' => 'pending marketing approval',
+                                            'pending_prod_approval' => 'pending production approval',
+                                            'pending_picklist' => 'approved by prod pending pick',
+                                            'approved', 'completed' => 'completed',
+                                            'rejected' => 'rejected',
+                                            default => str_replace('_', ' ', $tr->status)
+                                        };
+                                        $searchAttr = strtolower(implode(' ', array_filter([
+                                            $tr->transfer_number,
+                                            $tr->team_name,
+                                            $tr->transferredByUser->name ?? 'System',
+                                            $statusStr,
+                                            $tr->notes ?? '',
+                                            $tr->remarks ?? '',
+                                            $isReturn ? 'return to warehouse' : 'warehouse to team'
+                                        ])));
                                     @endphp
-                                    <tr>
+                                    <tr class="history-row" data-search="{{ e($searchAttr) }}">
                                         <td class="fw-bold text-dark">{{ $tr->transfer_number }}</td>
                                         <td>
                                             @if($isReturn)
@@ -362,6 +421,21 @@
                                     @endforelse
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 flex-wrap gap-2" id="historyPaginationContainer">
+                            <div class="text-muted small fw-semibold" id="historyPaginationInfo">
+                                Showing entries
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted small">Show:</span>
+                                <select id="historyPageSize" class="form-select form-select-sm" style="width: 75px; font-size: 0.8rem;">
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <ul class="pagination pagination-sm mb-0" id="historyPaginationList"></ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -435,10 +509,10 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold mb-1">Quantity to Transfer</label>
-                                    <input type="number" name="items[0][quantity]" class="form-control qty-input" min="1" placeholder="Qty" required>
+                                    <input type="number" name="items[0][quantity]" class="form-control qty-input" min="0" value="0" placeholder="0" required>
                                 </div>
                                 <div class="col-md-2">
-                                    <button type="button" class="btn btn-outline-danger w-100 remove-row-btn" onclick="removeTransferRow(this)" disabled>
+                                    <button type="button" class="btn btn-outline-danger w-100 remove-row-btn" onclick="removeTransferRow(this)">
                                         Remove
                                     </button>
                                 </div>
@@ -764,70 +838,28 @@
         function updateMaxQty(selectElem) {
             if (!selectElem || !selectElem.options || selectElem.selectedIndex < 0) return;
             const selectedOption = selectElem.options[selectElem.selectedIndex];
+            const row = selectElem.closest('.transfer-item-row');
+            const qtyInput = row ? row.querySelector('.qty-input') : null;
             if (!selectedOption || !selectedOption.value) {
-                const row = selectElem.closest('.transfer-item-row');
-                const qtyInput = row ? row.querySelector('.qty-input') : null;
                 if (qtyInput) {
                     qtyInput.removeAttribute('max');
-                    qtyInput.placeholder = 'Qty';
+                    qtyInput.placeholder = '0';
+                    qtyInput.value = '0';
                 }
                 return;
             }
             const stock = parseInt(selectedOption.dataset.stock || 0);
-            const row = selectElem.closest('.transfer-item-row');
-            const qtyInput = row ? row.querySelector('.qty-input') : null;
             if (qtyInput) {
                 qtyInput.max = stock;
-                qtyInput.placeholder = `Max: ${stock}`;
+                qtyInput.placeholder = '0';
+                if (!qtyInput.value || qtyInput.value === '' || qtyInput.value === String(stock)) {
+                    qtyInput.value = '0';
+                }
             }
         }
 
         function addTransferRow() {
-            const container = document.getElementById('transferItemsContainer');
-            const firstRow = container.querySelector('.transfer-item-row');
-            const newRow = firstRow.cloneNode(true);
-
-            // Clean up any cloned Select2 wrapper element
-            const select2Wrapper = newRow.querySelector('.select2-container');
-            if (select2Wrapper) {
-                select2Wrapper.remove();
-            }
-
-            // Update field names & reset inputs
-            const select = newRow.querySelector('.product-select');
-            select.name = `items[${transferRowIndex}][product_id]`;
-            select.removeAttribute('data-select2-id');
-            select.classList.remove('select2-hidden-accessible');
-            select.style.display = '';
-            select.selectedIndex = 0;
-            
-            // Remove data-select2-id from options and reset selection state
-            Array.from(select.options).forEach(opt => {
-                opt.removeAttribute('data-select2-id');
-                opt.selected = false;
-            });
-            if (select.options.length > 0) select.options[0].selected = true;
-
-            // Remove any other cloned select2-id markers from the row's elements
-            newRow.querySelectorAll('[data-select2-id]').forEach(el => {
-                el.removeAttribute('data-select2-id');
-            });
-
-            const qty = newRow.querySelector('.qty-input');
-            qty.name = `items[${transferRowIndex}][quantity]`;
-            qty.value = '';
-            qty.removeAttribute('max');
-            qty.placeholder = 'Qty';
-
-            const removeBtn = newRow.querySelector('.remove-row-btn');
-            removeBtn.removeAttribute('disabled');
-
-            container.appendChild(newRow);
-            transferRowIndex++;
-            updateRemoveButtons();
-
-            // Initialize select2 on the newly appended row
-            initProductSelect2(select);
+            createAndPopulateTransferRow('', 0, null);
         }
 
         function removeTransferRow(btn) {
@@ -840,6 +872,21 @@
                 }
                 row.remove();
                 updateRemoveButtons();
+            } else {
+                // If only 1 row left, reset the fields to default instead of being stuck
+                const select = row.querySelector('.product-select');
+                if (select) {
+                    select.selectedIndex = 0;
+                    if (window.jQuery && jQuery(select).data('select2')) {
+                        jQuery(select).val('').trigger('change');
+                    }
+                }
+                const qtyInput = row.querySelector('.qty-input');
+                if (qtyInput) {
+                    qtyInput.value = '0';
+                    qtyInput.removeAttribute('max');
+                    qtyInput.placeholder = '0';
+                }
             }
         }
 
@@ -847,11 +894,7 @@
             const rows = document.querySelectorAll('.transfer-item-row');
             rows.forEach((r, idx) => {
                 const btn = r.querySelector('.remove-row-btn');
-                if (rows.length === 1) {
-                    btn.setAttribute('disabled', 'true');
-                } else {
-                    btn.removeAttribute('disabled');
-                }
+                btn.removeAttribute('disabled');
             });
         }
 
@@ -871,6 +914,12 @@
                 } else {
                     updateMaxQty(firstSelect);
                 }
+            }
+
+            const firstQty = document.querySelector('#transferItemsContainer .qty-input');
+            if (firstQty) {
+                firstQty.value = '0';
+                firstQty.placeholder = '0';
             }
 
             const modalElement = document.getElementById('newTransferModal');
@@ -949,7 +998,7 @@
             const rowDiv = document.createElement('div');
             rowDiv.className = 'transfer-item-row row g-2 mb-2 align-items-end';
             
-            let optionsHtml = '<option value="" disabled>Select product...</option>';
+            let optionsHtml = `<option value="" disabled ${!productId ? 'selected' : ''}>Select product...</option>`;
             @foreach($mainProducts as $prod)
             @php
                 $pId = is_object($prod) ? $prod->id : ($prod['id'] ?? '');
@@ -962,13 +1011,13 @@
             rowDiv.innerHTML = `
                 <div class="col-md-7">
                     <label class="form-label small fw-bold mb-1">Product Title / Code (Main Warehouse Stock)</label>
-                    <select name="items[${transferRowIndex}][product_id]" class="form-select product-select" required>
+                    <select name="items[${transferRowIndex}][product_id]" class="form-select product-select" required onchange="updateMaxQty(this)">
                         ${optionsHtml}
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small fw-bold mb-1">Quantity to Transfer</label>
-                    <input type="number" name="items[${transferRowIndex}][quantity]" class="form-control qty-input" min="1" max="${maxStock}" value="${quantity}" placeholder="Max: ${maxStock}" required>
+                    <input type="number" name="items[${transferRowIndex}][quantity]" class="form-control qty-input" min="0" max="${maxStock}" value="${quantity || 0}" placeholder="0" required>
                 </div>
                 <div class="col-md-2">
                     <button type="button" class="btn btn-outline-danger w-100 remove-row-btn" onclick="removeTransferRow(this)">
@@ -987,165 +1036,7 @@
 
         const allTeamStockData = @json($teamStockJsonData ?? []);
 
-        function initProductSelect2(selectElement) {
-            if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
-                jQuery(selectElement).select2({
-                    dropdownParent: jQuery('#newTransferModal'),
-                    width: '100%'
-                });
-            }
-        }
 
-        function updateRemoveButtons() {
-            const rows = document.querySelectorAll('.transfer-item-row');
-            rows.forEach(row => {
-                const btn = row.querySelector('.remove-row-btn');
-                if (btn) btn.disabled = (rows.length <= 1);
-            });
-        }
-
-        function addTransferRow() {
-            const container = document.getElementById('transferItemsContainer');
-            const firstRow = container.querySelector('.transfer-item-row');
-            if (!firstRow) return;
-
-            const newRow = firstRow.cloneNode(true);
-            
-            const selectEl = newRow.querySelector('.product-select');
-            if (selectEl) {
-                selectEl.name = `items[${transferRowIndex}][product_id]`;
-                selectEl.selectedIndex = 0;
-                if (window.jQuery && jQuery(selectEl).data('select2')) {
-                    jQuery(selectEl).select2('destroy');
-                    selectEl.removeAttribute('data-select2-id');
-                    selectEl.querySelectorAll('option').forEach(opt => opt.removeAttribute('data-select2-id'));
-                }
-            }
-
-            const qtyInput = newRow.querySelector('.qty-input');
-            if (qtyInput) {
-                qtyInput.name = `items[${transferRowIndex}][quantity]`;
-                qtyInput.value = 1;
-            }
-
-            container.appendChild(newRow);
-            transferRowIndex++;
-            updateRemoveButtons();
-
-            if (selectEl) {
-                initProductSelect2(selectEl);
-            }
-        }
-
-        function removeTransferRow(btn) {
-            const rows = document.querySelectorAll('.transfer-item-row');
-            if (rows.length > 1) {
-                const row = btn.closest('.transfer-item-row');
-                const selectEl = row.querySelector('.product-select');
-                if (window.jQuery && selectEl && jQuery(selectEl).data('select2')) {
-                    jQuery(selectEl).select2('destroy');
-                }
-                row.remove();
-                updateRemoveButtons();
-            }
-        }
-
-        function triggerExcelImport() {
-            document.getElementById('excelTransferInput').click();
-        }
-
-        function handleExcelImport(input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('excel_file', file);
-            formData.append('_token', '{{ csrf_token() }}');
-
-            const container = document.getElementById('transferItemsContainer');
-            container.innerHTML = `
-                <div class="text-center py-4 text-muted" id="excelLoadingState">
-                    <div class="spinner-border text-danger spinner-border-sm me-2" role="status"></div>
-                    Parsing Excel file and matching products...
-                </div>
-            `;
-
-            fetch("{{ route('marketing.area-sales.team-stocks.parse-excel') }}", {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                input.value = '';
-                if (data.status === 'success' && data.items && data.items.length > 0) {
-                    container.innerHTML = '';
-                    transferRowIndex = 0;
-
-                    data.items.forEach(item => {
-                        createAndPopulateTransferRow(item.product_id, item.quantity, item.stock);
-                    });
-
-                    let msg = `Successfully imported ${data.count} item(s) from Excel!`;
-                    if (data.skipped > 0) {
-                        msg += ` (${data.skipped} row(s) skipped/unmatched)`;
-                    }
-                    alert(msg);
-                } else {
-                    alert('Excel Import Error: ' + (data.message || 'No valid products found.'));
-                    location.reload();
-                }
-            })
-            .catch(err => {
-                input.value = '';
-                alert('Failed to import Excel file: ' + err.message);
-                location.reload();
-            });
-        }
-
-        function createAndPopulateTransferRow(productId, quantity, maxStock) {
-            const container = document.getElementById('transferItemsContainer');
-            
-            const rowDiv = document.createElement('div');
-            rowDiv.className = 'transfer-item-row row g-2 mb-2 align-items-end';
-            
-            let optionsHtml = '<option value="" disabled>Select product...</option>';
-            @foreach($mainProducts as $prod)
-            @php
-                $pId = is_object($prod) ? $prod->id : ($prod['id'] ?? '');
-                $pName = is_object($prod) ? $prod->name : ($prod['name'] ?? '');
-                $pStock = is_object($prod) ? ($prod->stock ?? $prod->main_stock ?? 0) : ($prod['stock'] ?? $prod['main_stock'] ?? 0);
-            @endphp
-            optionsHtml += `<option value="{{ $pId }}" data-stock="{{ $pStock }}" ${productId === '{{ $pId }}' ? 'selected' : ''}>{{ e($pName) }} (Main Stock: {{ number_format($pStock) }} pcs)</option>`;
-            @endforeach
-
-            rowDiv.innerHTML = `
-                <div class="col-md-7">
-                    <label class="form-label small fw-bold mb-1">Product Title / Code (Main Warehouse Stock)</label>
-                    <select name="items[${transferRowIndex}][product_id]" class="form-select product-select" required>
-                        ${optionsHtml}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-bold mb-1">Quantity to Transfer</label>
-                    <input type="number" name="items[${transferRowIndex}][quantity]" class="form-control qty-input" min="1" max="${maxStock}" value="${quantity}" placeholder="Max: ${maxStock}" required>
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-outline-danger w-100 remove-row-btn" onclick="removeTransferRow(this)">
-                        Remove
-                    </button>
-                </div>
-            `;
-
-            container.appendChild(rowDiv);
-            transferRowIndex++;
-            updateRemoveButtons();
-
-            const selectEl = rowDiv.querySelector('.product-select');
-            initProductSelect2(selectEl);
-        }
 
         // Return Stock Feature Logic
         function normalizeBarcode(bc) {
@@ -1437,41 +1328,181 @@
                 }
             });
 
-            const filterBtns = document.querySelectorAll('#teamFilterGroup button');
-            const rows = document.querySelectorAll('#teamStockTable .stock-row');
-            const searchInput = document.getElementById('inventorySearch');
+            // Generic Table Paginator Helper
+            function setupTablePagination(config) {
+                const {
+                    tableId,
+                    rowClass,
+                    searchInputId,
+                    filterBtnGroupParentId,
+                    pageSizeId,
+                    paginationListId,
+                    paginationInfoId,
+                    getFilterState
+                } = config;
 
-            function filterRows() {
-                const activeBtn = document.querySelector('#teamFilterGroup button.active');
-                const selectedTeam = activeBtn ? activeBtn.dataset.filter : 'all';
-                const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+                let currentPage = 1;
 
-                rows.forEach(row => {
-                    const rowTeam = row.dataset.team;
-                    const rowName = row.dataset.name;
+                function render() {
+                    const rows = Array.from(document.querySelectorAll(`#${tableId} .${rowClass}`));
+                    const searchInput = document.getElementById(searchInputId);
+                    const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+                    const pageSizeEl = document.getElementById(pageSizeId);
+                    const pageSize = pageSizeEl ? parseInt(pageSizeEl.value) || 10 : 10;
 
-                    const matchTeam = (selectedTeam === 'all' || rowTeam === selectedTeam);
-                    const matchSearch = (!searchVal || rowName.includes(searchVal));
+                    const visibleRows = rows.filter(row => {
+                        let matchesSearch = true;
+                        if (searchVal) {
+                            const text = row.getAttribute('data-search') || row.getAttribute('data-name') || row.innerText.toLowerCase();
+                            matchesSearch = text.toLowerCase().includes(searchVal);
+                        }
+                        let matchesFilter = true;
+                        if (typeof getFilterState === 'function') {
+                            matchesFilter = getFilterState(row);
+                        }
+                        return matchesSearch && matchesFilter;
+                    });
 
-                    if (matchTeam && matchSearch) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
+                    const totalItems = visibleRows.length;
+                    const totalPages = Math.ceil(totalItems / pageSize) || 1;
+
+                    if (currentPage > totalPages) currentPage = totalPages;
+                    if (currentPage < 1) currentPage = 1;
+
+                    const startIndex = (currentPage - 1) * pageSize;
+                    const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+                    rows.forEach(r => r.style.display = 'none');
+                    visibleRows.slice(startIndex, endIndex).forEach(r => r.style.display = '');
+
+                    const infoEl = document.getElementById(paginationInfoId);
+                    if (infoEl) {
+                        if (totalItems === 0) {
+                            infoEl.textContent = 'No matching records found';
+                        } else {
+                            infoEl.textContent = `Showing ${startIndex + 1} to ${endIndex} of ${totalItems} entries`;
+                        }
                     }
-                });
+
+                    const listEl = document.getElementById(paginationListId);
+                    if (!listEl) return;
+
+                    if (totalPages <= 1) {
+                        listEl.innerHTML = '';
+                        return;
+                    }
+
+                    let paginationHtml = '';
+                    paginationHtml += `
+                        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                            <a class="page-link" href="#" data-page="${currentPage - 1}">&laquo; Prev</a>
+                        </li>
+                    `;
+
+                    let startPage = Math.max(1, currentPage - 2);
+                    let endPage = Math.min(totalPages, startPage + 4);
+                    if (endPage - startPage < 4) {
+                        startPage = Math.max(1, endPage - 4);
+                    }
+
+                    if (startPage > 1) {
+                        paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`;
+                        if (startPage > 2) {
+                            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                        }
+                    }
+
+                    for (let i = startPage; i <= endPage; i++) {
+                        paginationHtml += `
+                            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                                <a class="page-link" href="#" data-page="${i}">${i}</a>
+                            </li>
+                        `;
+                    }
+
+                    if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                        }
+                        paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
+                    }
+
+                    paginationHtml += `
+                        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                            <a class="page-link" href="#" data-page="${currentPage + 1}">Next &raquo;</a>
+                        </li>
+                    `;
+
+                    listEl.innerHTML = paginationHtml;
+
+                    listEl.querySelectorAll('a.page-link').forEach(link => {
+                        link.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const page = parseInt(link.getAttribute('data-page'));
+                            if (page && page !== currentPage && page >= 1 && page <= totalPages) {
+                                currentPage = page;
+                                render();
+                            }
+                        });
+                    });
+                }
+
+                const searchInput = document.getElementById(searchInputId);
+                if (searchInput) {
+                    searchInput.addEventListener('input', () => {
+                        currentPage = 1;
+                        render();
+                    });
+                }
+
+                const pageSizeEl = document.getElementById(pageSizeId);
+                if (pageSizeEl) {
+                    pageSizeEl.addEventListener('change', () => {
+                        currentPage = 1;
+                        render();
+                    });
+                }
+
+                if (filterBtnGroupParentId) {
+                    const btns = document.querySelectorAll(`#${filterBtnGroupParentId} button`);
+                    btns.forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            btns.forEach(b => b.classList.remove('active'));
+                            this.classList.add('active');
+                            currentPage = 1;
+                            render();
+                        });
+                    });
+                }
+
+                render();
             }
 
-            filterBtns.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    filterBtns.forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    filterRows();
-                });
+            // Setup Pagination for Team Stock Inventory
+            setupTablePagination({
+                tableId: 'teamStockTable',
+                rowClass: 'stock-row',
+                searchInputId: 'inventorySearch',
+                filterBtnGroupParentId: 'teamFilterGroup',
+                pageSizeId: 'inventoryPageSize',
+                paginationListId: 'inventoryPaginationList',
+                paginationInfoId: 'inventoryPaginationInfo',
+                getFilterState: function(row) {
+                    const activeBtn = document.querySelector('#teamFilterGroup button.active');
+                    const selectedTeam = activeBtn ? activeBtn.dataset.filter : 'all';
+                    return (selectedTeam === 'all' || row.dataset.team === selectedTeam);
+                }
             });
 
-            if (searchInput) {
-                searchInput.addEventListener('input', filterRows);
-            }
+            // Setup Pagination & Search for Stock Transfer History
+            setupTablePagination({
+                tableId: 'transferHistoryTable',
+                rowClass: 'history-row',
+                searchInputId: 'historySearch',
+                pageSizeId: 'historyPageSize',
+                paginationListId: 'historyPaginationList',
+                paginationInfoId: 'historyPaginationInfo'
+            });
         });
     </script>
     @endpush
