@@ -774,7 +774,7 @@ $isAdmin = auth()->check() && (
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = json_encode($uniqueBarcodes);
                                     $isItemPicked = ($tItem->status === 'Picked' || ($tItem->picked_qty !== null && $tItem->picked_qty >= $tItem->quantity && $tItem->quantity > 0));
-                                    $itemPickedQty = !is_null($tItem->picked_qty) ? $tItem->picked_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
+                                    $itemPickedQty = !is_null($tItem->picked_qty) ? $tItem->picked_qty : $tItem->quantity;
                                 @endphp
                                 <tr id="tsp_row_{{ $tt->id }}_{{ $idx }}" class="tsp-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPicked ? '#d4edda' : ($tItem->status === 'Picking' ? '#fff3cd' : '#f8d7da') }};">
                                     <td>{{ $idx + 1 }}</td>
@@ -855,21 +855,18 @@ $isAdmin = auth()->check() && (
                                     <button type="submit" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;">
                                         <i class="las la-save me-1"></i>Save Picked Items
                                     </button>
-                    </form>
 
                                     @if($tt->status !== 'completed')
-                                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" method="POST" class="w-100 m-0">
-                                        @csrf
-                                        <button type="submit" id="tsp_complete_btn_{{ $tt->id }}" class="btn btn-success w-100 fw-bold py-2 shadow-sm" style="background-color: #28a745; border: none;">
-                                            <i class="las la-check-circle me-1"></i>Complete Pick & Transfer
-                                        </button>
-                                    </form>
+                                    <button type="submit" id="tsp_complete_btn_{{ $tt->id }}" formaction="{{ route('production.logistic.team-stock-transfer.complete-pick', $tt->id) }}" formmethod="POST" class="btn btn-success w-100 fw-bold py-2 shadow-sm" style="background-color: #28a745; border: none;">
+                                        <i class="las la-check-circle me-1"></i>Complete Pick & Transfer
+                                    </button>
                                     @endif
 
                                     <button type="button" class="btn btn-secondary w-100 fw-bold py-2" data-bs-dismiss="modal">
                                         <i class="las la-times me-1"></i>Close Details
                                     </button>
                                 </div>
+                    </form>
                             </div>
                         </div>
                     </div>
@@ -986,8 +983,12 @@ $isAdmin = auth()->check() && (
             if (select) select.value = 'Picked';
             if (row) row.style.backgroundColor = '#d4edda';
 
-            if (qtyInput && qtyInput.max) {
-                qtyInput.value = qtyInput.max;
+            if (qtyInput) {
+                if (qtyInput.max && parseFloat(qtyInput.max) > 0) {
+                    qtyInput.value = qtyInput.max;
+                } else if (!qtyInput.value || parseFloat(qtyInput.value) <= 0) {
+                    qtyInput.value = 1;
+                }
             }
 
             updateTSPProgress(transferId);

@@ -287,7 +287,7 @@ class InventoryController extends Controller
         $visibleIndexIds = collect($indices->items())->pluck('id')->unique()->toArray();
         $visibleBundleIds = collect($bundles->items())->pluck('id')->unique()->toArray();
 
-        $sitesBaseQuery = Site::where('is_active', true)
+        $allSites = Site::where('is_active', true)
             ->whereNotIn('name', $masterCategoryWarehouseNames)
             ->with(['inventory' => function ($q) use ($visibleBookIds, $visibleIndexIds, $visibleBundleIds) {
                 $q->where('quantity', '>', 0)
@@ -296,11 +296,16 @@ class InventoryController extends Controller
                             ->orWhereIn('book_index_id', $visibleIndexIds)
                             ->orWhereIn('book_bundle_id', $visibleBundleIds);
                   });
+            }])
+            ->get();
+
+        $sitesQuery = Site::where('is_active', true)
+            ->whereNotIn('name', $masterCategoryWarehouseNames)
+            ->with(['inventory' => function ($q) {
+                $q->where('quantity', '>', 0)
+                  ->with(['book', 'bookIndex.book', 'bookBundle']);
             }]);
 
-        $allSites = (clone $sitesBaseQuery)->get();
-
-        $sitesQuery = clone $sitesBaseQuery;
         if (!empty($siteSearch)) {
             $sitesQuery->where(function($q) use ($siteSearch) {
                 $q->where('name', 'like', '%' . $siteSearch . '%')

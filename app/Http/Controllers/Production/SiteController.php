@@ -702,20 +702,84 @@ class SiteController extends Controller
 
     public function deleteSite($id)
     {
+        DB::beginTransaction();
         try {
             $site = Site::findOrFail($id);
             
-            // Delete all related site inventory
+            // Prevent deleting Main Warehouse
+            $mainWarehouse = Site::where('name', 'Main Warehouse')->first();
+            $mainSiteId = $mainWarehouse ? $mainWarehouse->id : 1;
+            if ((int)$id === (int)$mainSiteId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Main Warehouse cannot be deleted.'
+                ], 422);
+            }
+
+            // 1. Find a primary target site to re-link or merge into
+            $cleanName = trim(preg_replace('/^(site\s+|warehouse\s+|team\s+)+/i', '', $site->name));
+            $targetSite = Site::where('id', '!=', $id)
+                ->where(function($q) use ($site, $cleanName) {
+                    $q->where('name', $site->name)
+                      ->orWhere('name', $cleanName)
+                      ->orWhere('name', 'Site ' . $cleanName)
+                      ->orWhere('name', 'Team ' . $cleanName)
+                      ->orWhere('name', 'Area Sales - ' . $cleanName)
+                      ->orWhere('code', $site->code)
+                      ->orWhereRaw('LOWER(name) = ?', [strtolower($site->name)])
+                      ->orWhereRaw('LOWER(name) = ?', [strtolower($cleanName)]);
+                })
+                ->first();
+
+            // If no matching duplicate site is found, fallback to Main Warehouse for transfer re-linking
+            $fallbackSiteId = $targetSite ? $targetSite->id : $mainSiteId;
+
+            // 2. Transfer / Merge any existing stock from SiteInventory
+            $siteInventories = SiteInventory::where('site_id', $id)->get();
+            $transferredStockCount = 0;
+            foreach ($siteInventories as $inv) {
+                if ($inv->quantity > 0) {
+                    $targetInv = SiteInventory::firstOrNew([
+                        'site_id'        => $fallbackSiteId,
+                        'book_id'        => $inv->book_id,
+                        'book_index_id'  => $inv->book_index_id,
+                        'book_bundle_id' => $inv->book_bundle_id,
+                    ]);
+                    $targetInv->quantity = ($targetInv->quantity ?? 0) + $inv->quantity;
+                    $targetInv->save();
+                    $transferredStockCount += $inv->quantity;
+                }
+            }
+
+            // Delete site inventory for this site
             SiteInventory::where('site_id', $id)->delete();
-            
-            // Delete the site
+
+            // 3. Re-link foreign keys in stock_transfers to prevent constraint violation
+            StockTransfer::where('to_site_id', $id)->update(['to_site_id' => $fallbackSiteId]);
+            StockTransfer::where('from_site_id', $id)->update(['from_site_id' => $fallbackSiteId]);
+
+            // 4. Re-link lost_inventories if any
+            if (\Illuminate\Support\Facades\Schema::hasTable('lost_inventories')) {
+                \App\Models\LostInventory::where('site_id', $id)->update(['site_id' => $fallbackSiteId]);
+            }
+
+            // 5. Delete the site
             $site->delete();
+
+            DB::commit();
+
+            $msg = 'Site deleted successfully.';
+            if ($transferredStockCount > 0) {
+                $destName = $targetSite ? $targetSite->name : ($mainWarehouse ? $mainWarehouse->name : 'Main Warehouse');
+                $msg .= " Transferred {$transferredStockCount} pcs stock to {$destName} to preserve inventory accuracy.";
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Site deleted successfully'
+                'message' => $msg
             ]);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error deleting site: ' . $e->getMessage()

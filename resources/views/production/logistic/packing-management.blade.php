@@ -1253,6 +1253,9 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     <tbody>
                                         @forelse($teamStockPackingTransfers ?? [] as $tt)
                                         @php
+                                            $totalPcs = $tt->items->sum(function($item) {
+                                                return (float)($item->packed_qty !== null && $item->packed_qty > 0 ? $item->packed_qty : ($item->quantity > 0 ? $item->quantity : ($item->picked_qty > 0 ? $item->picked_qty : 0)));
+                                            });
                                             $totalTransferAmount = $tt->items->sum(function($item) {
                                                 $price = 0;
                                                 if ($item->bookIndex) {
@@ -1262,7 +1265,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 } elseif ($item->bookBundle) {
                                                     $price = (float)($item->bookBundle->price ?: 0);
                                                 }
-                                                return $price * $item->quantity;
+                                                $qty = (float)($item->packed_qty !== null && $item->packed_qty > 0 ? $item->packed_qty : ($item->quantity > 0 ? $item->quantity : ($item->picked_qty > 0 ? $item->picked_qty : 0)));
+                                                return $price * $qty;
                                             });
                                         @endphp
                                         <tr>
@@ -1270,7 +1274,9 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                             <td><span class="badge bg-danger">{{ $tt->team_name }}</span></td>
                                             <td>{{ $tt->transferredByUser->name ?? 'N/A' }}</td>
                                             <td class="text-center">{{ $tt->items->count() }} item(s)</td>
-                                            <td class="text-center fw-bold text-success">{{ number_format($tt->items->sum('quantity')) }} pcs</td>
+                                            <td class="text-center fw-bold {{ $totalPcs > 0 ? 'text-success' : 'text-danger' }}">
+                                                {{ number_format($totalPcs) }} pcs
+                                            </td>
                                             <td class="text-end fw-bold text-dark">₱{{ number_format($totalTransferAmount, 2) }}</td>
                                             <td>{{ $tt->created_at->format('M d, Y h:i A') }}</td>
                                             <td style="max-width: 110px;" class="text-truncate" title="{{ $tt->notes }}"><span class="text-dark">{{ $tt->notes ?: '—' }}</span></td>
@@ -1334,7 +1340,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
             } elseif ($item->bookBundle) {
                 $price = (float)($item->bookBundle->price ?: 0);
             }
-            return $price * $item->quantity;
+            $qty = (float)($item->packed_qty !== null && $item->packed_qty > 0 ? $item->packed_qty : ($item->quantity > 0 ? $item->quantity : ($item->picked_qty > 0 ? $item->picked_qty : 0)));
+            return $price * $qty;
         });
     @endphp
     <div class="modal fade team-stock-modal" id="teamStockPackModal{{ $tt->id }}" tabindex="-1" aria-hidden="true" data-transfer-id="{{ $tt->id }}">
@@ -1476,7 +1483,7 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = json_encode($uniqueBarcodes);
                                     $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && $tItem->packed_qty >= $tItem->quantity && $tItem->quantity > 0));
-                                    $itemPackedQty = !is_null($tItem->packed_qty) ? $tItem->packed_qty : ($tt->status === 'completed' ? $tItem->quantity : 0);
+                                    $itemPackedQty = !is_null($tItem->packed_qty) ? $tItem->packed_qty : $tItem->quantity;
                                     $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                     $tSym = (($tt->currency ?? ($order->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
                                 @endphp
@@ -1498,11 +1505,20 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                             <small class="text-muted d-block"><i class="fas fa-barcode me-1"></i>{{ implode(', ', $uniqueBarcodes) }}</small>
                                         @endif
                                     </td>
-                                    <td class="text-center fw-bold text-primary">{{ number_format($tItem->quantity, 2) }}</td>
+                                    @php
+                                        $displayQty = (float)($tItem->quantity > 0 ? $tItem->quantity : ($tItem->picked_qty > 0 ? $tItem->picked_qty : ($tItem->packed_qty > 0 ? $tItem->packed_qty : 0)));
+                                        $effectiveQty = $itemPackedQty > 0 ? $itemPackedQty : $displayQty;
+                                        $itemSubtotal = $unitPrice * $effectiveQty;
+                                    @endphp
+                                    <td class="text-center fw-bold text-primary">
+                                        <span id="ts_qty_to_pack_{{ $tt->id }}_{{ $idx }}">{{ number_format($displayQty > 0 ? $displayQty : $effectiveQty, 2) }}</span>
+                                    </td>
                                     <td class="text-end">{{ $tSym }}{{ number_format($unitPrice, 2) }}</td>
-                                    <td class="text-end fw-bold">{{ $tSym }}{{ number_format($itemSubtotal, 2) }}</td>
+                                    <td class="text-end fw-bold">
+                                        <span id="ts_subtotal_{{ $tt->id }}_{{ $idx }}">{{ $tSym }}{{ number_format($itemSubtotal, 2) }}</span>
+                                    </td>
                                     <td class="text-center">
-                                        <input type="number" name="items[{{ $idx }}][packed_qty]" id="ts_packed_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $tItem->quantity }}" value="{{ $itemPackedQty }}" onchange="updateTeamStockPackingProgress({{ $tt->id }})" style="width: 60px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                        <input type="number" name="items[{{ $idx }}][packed_qty]" id="ts_packed_qty_{{ $tt->id }}_{{ $idx }}" min="0" {{ $tItem->quantity > 0 ? 'max="' . $tItem->quantity . '"' : '' }} value="{{ $effectiveQty > 0 ? $effectiveQty : '' }}" placeholder="0" oninput="onTSPackedQtyInput({{ $tt->id }}, {{ $idx }}, {{ $unitPrice }})" onchange="updateTeamStockPackingProgress({{ $tt->id }})" style="width: 70px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
                                     </td>
                                     <td class="text-center">
                                         <select name="items[{{ $idx }}][status]" id="ts_packed_status_{{ $tt->id }}_{{ $idx }}" class="ts-status-select" onchange="onTSStatusSelectChange({{ $tt->id }}, {{ $idx }})" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
@@ -1560,21 +1576,18 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     <button type="submit" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;">
                                         <i class="fas fa-save me-1"></i>Save Packing
                                     </button>
-                    </form>
 
                                     @if($tt->status !== 'completed')
-                                    <form action="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" method="POST" class="w-100 m-0">
-                                        @csrf
-                                        <button type="submit" id="ts_modal_complete_btn_{{ $tt->id }}" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" style="background-color: #0d6efd; border: none;">
-                                            <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
-                                        </button>
-                                    </form>
+                                    <button type="submit" id="ts_modal_complete_btn_{{ $tt->id }}" formaction="{{ route('production.logistic.team-stock-transfer.complete-pack', $tt->id) }}" formmethod="POST" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" style="background-color: #0d6efd; border: none;">
+                                        <i class="fas fa-check-circle me-1"></i>Mark Packed & Complete
+                                    </button>
                                     @endif
 
                                     <button type="button" class="btn btn-secondary w-100 fw-bold py-2" data-bs-dismiss="modal">
                                         <i class="fas fa-times me-1"></i>Close Details
                                     </button>
                                 </div>
+                    </form>
                             </div>
                         </div>
                     </div>
@@ -3523,18 +3536,49 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
             updateTeamStockPackingProgress(transferId);
         }
 
+        function onTSPackedQtyInput(transferId, index, unitPrice) {
+            const qtyInput = document.getElementById(`ts_packed_qty_${transferId}_${index}`);
+            const qtyToPackEl = document.getElementById(`ts_qty_to_pack_${transferId}_${index}`);
+            const subtotalEl = document.getElementById(`ts_subtotal_${transferId}_${index}`);
+            const select = document.getElementById(`ts_packed_status_${transferId}_${index}`);
+            const row = document.getElementById(`ts_row_${transferId}_${index}`);
+
+            if (!qtyInput) return;
+            const qty = parseFloat(qtyInput.value) || 0;
+
+            if (qtyToPackEl && (parseFloat(qtyToPackEl.textContent) <= 0 || qtyToPackEl.textContent.trim() === '0.00')) {
+                qtyToPackEl.textContent = qty.toFixed(2);
+            }
+            if (subtotalEl) {
+                subtotalEl.textContent = '₱' + (qty * unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            if (qty > 0) {
+                if (select) select.value = 'Packed';
+                if (row) row.style.backgroundColor = '#d4edda';
+            }
+            updateTeamStockPackingProgress(transferId);
+        }
+
         function markTeamStockItemAsPacked(transferId, index, title) {
             const select = document.getElementById(`ts_packed_status_${transferId}_${index}`);
             const badge = document.getElementById(`ts_status_badge_${transferId}_${index}`);
             const row = document.getElementById(`ts_row_${transferId}_${index}`);
             const qtyInput = document.getElementById(`ts_packed_qty_${transferId}_${index}`);
+            const qtyToPackEl = document.getElementById(`ts_qty_to_pack_${transferId}_${index}`);
 
             if (select) select.value = 'Packed';
             if (badge) badge.className = 'd-none bg-success';
             if (row) row.style.backgroundColor = '#d4edda';
 
-            if (qtyInput && qtyInput.max) {
-                qtyInput.value = qtyInput.max;
+            if (qtyInput) {
+                if (qtyInput.max && parseFloat(qtyInput.max) > 0) {
+                    qtyInput.value = qtyInput.max;
+                } else if (qtyToPackEl && parseFloat(qtyToPackEl.textContent) > 0) {
+                    qtyInput.value = parseFloat(qtyToPackEl.textContent);
+                } else if (!qtyInput.value || parseFloat(qtyInput.value) <= 0) {
+                    qtyInput.value = 1;
+                }
             }
 
             updateTeamStockPackingProgress(transferId);
