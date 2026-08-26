@@ -1322,10 +1322,20 @@ public function checkVoucher()
 
   public function salesInvoice()
   {
-    // 1. Get SalesOrders pending SI prep/approval (NOT YET signed and approved) ordered newest first
+    // 1. Get IDs of SalesOrders that already have an approved SalesInvoice
+    $approvedSiSoIds = \App\Models\SalesInvoice::where('status', 'approved')->pluck('so_id')->filter()->toArray();
+
+    // 2. Get SalesOrders pending SI prep/approval (NOT YET approved) ordered newest first
     $pendingOrders = \App\Models\SalesOrder::with('customer', 'preparedBy', 'siPreparedBy')
-      ->whereNull('signed_by_af_manager')
-      ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created', 'ar_created', 'picking'])
+      ->where(function($q) use ($approvedSiSoIds) {
+          $q->where(function($sq) {
+              $sq->whereNull('signed_by_af_manager')
+                 ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created', 'ar_created', 'picking']);
+          })->orWhere(function($sq) use ($approvedSiSoIds) {
+              $sq->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created'])
+                 ->whereNotIn('id', $approvedSiSoIds);
+          });
+      })
       ->orderBy('id', 'desc')
       ->get();
 
@@ -1337,16 +1347,18 @@ public function checkVoucher()
         return $order->type === 'ecom_direct';
     })->sortByDesc('id')->values();
 
-    // 2. Get all Completed / Finalized Sales Invoices ordered newest first
+    // 3. Get all Completed / Finalized Sales Invoices ordered newest first
     $completedSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder', 'createdBy')
       ->where('status', 'approved')
       ->orderBy('id', 'desc')
       ->get();
 
-    // Ensure all signed/approved SalesOrders have a corresponding entry in $completedSIs (excluding complimentary orders)
+    // Ensure all signed/approved SalesOrders have a corresponding entry in $completedSIs (excluding complimentary orders and orders currently in pending SI queue)
     $existingSiSoIds = $completedSIs->pluck('so_id')->filter()->toArray();
+    $pendingOrderIds = $pendingOrders->pluck('id')->toArray();
     $signedOrdersWithoutSI = \App\Models\SalesOrder::with('customer', 'preparedBy')
       ->where('type', '!=', 'complimentary')
+      ->whereNotIn('id', $pendingOrderIds)
       ->where(function($q) {
           $q->whereNotNull('signed_by_af_manager')
             ->orWhereIn('status', ['ready_for_delivery', 'completed']);
@@ -1480,6 +1492,11 @@ public function checkVoucher()
       $order->save();
     }
 
+    if ($request->filled('si_number')) {
+      $order->si_number = trim($request->input('si_number'));
+      $order->save();
+    }
+
     $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || strtolower($order->transaction_type ?? '') === 'charge';
 
     if (!$isExempt && !$order->proof_of_payment) {
@@ -1498,6 +1515,20 @@ public function checkVoucher()
         'signed_at' => now(),
         'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared and auto-signed by ' . auth()->user()->name
       ]);
+
+      $siNumberVal = $order->si_number ?: ($request->input('si_number') ?: 'SI-' . $order->so_number);
+      $si = \App\Models\SalesInvoice::firstOrCreate(
+        ['so_id' => $order->id],
+        [
+          'si_number' => $siNumberVal,
+          'customer_id' => $order->customer_id,
+          'customer_name' => $order->customer->customer_name ?? 'N/A',
+          'total_amount' => $order->total_amount,
+          'transaction_type' => $order->type . '_si',
+          'created_by' => auth()->id()
+        ]
+      );
+      $si->update(['si_number' => $siNumberVal, 'status' => 'approved', 'posted_at' => now(), 'payment_method' => $order->payment_method ?? 'cash']);
 
       // --- ACCOUNTING INTEGRATION ---
       $this->accounting->postSalesOrderEntry($order);
@@ -1546,10 +1577,11 @@ public function checkVoucher()
       ]);
 
       // 2. Handle Sales Invoice
+      $siNumberVal = $order->si_number ?: ($request->input('si_number') ?: 'SI-' . $order->so_number);
       $si = \App\Models\SalesInvoice::firstOrCreate(
         ['so_id' => $order->id],
         [
-          'si_number' => 'SI-' . $order->so_number,
+          'si_number' => $siNumberVal,
           'customer_id' => $order->customer_id,
           'customer_name' => $order->customer->customer_name ?? 'N/A',
           'total_amount' => $order->total_amount,
@@ -1559,6 +1591,7 @@ public function checkVoucher()
       );
       
       $si->update([
+        'si_number' => $siNumberVal,
         'status' => 'pending_approval',
         'payment_method' => $order->payment_method ?? 'cash'
       ]);
@@ -1724,7 +1757,7 @@ public function checkVoucher()
     }
   }
 
-  public function signSalesInvoice($id)
+  public function signSalesInvoice(Request $request, $id)
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
@@ -1732,6 +1765,11 @@ public function checkVoucher()
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Proof of Payment is required for Paid transactions before Sales Invoice can be signed.');
+    }
+
+    if ($request->filled('si_number')) {
+      $order->si_number = trim($request->input('si_number'));
+      $order->save();
     }
 
     $isEcomDirect = $order->type === 'ecom_direct';
@@ -1747,10 +1785,12 @@ public function checkVoucher()
       'signed_at' => now()
     ]);
 
+    $siNumberVal = $order->si_number ?: ($request->input('si_number') ?: 'SI-' . $order->so_number);
+
     $si = \App\Models\SalesInvoice::firstOrCreate(
       ['so_id' => $order->id],
       [
-        'si_number' => 'SI-' . $order->so_number,
+        'si_number' => $siNumberVal,
         'customer_id' => $order->customer_id,
         'customer_name' => $order->customer->customer_name ?? 'N/A',
         'total_amount' => $order->total_amount,
@@ -1758,7 +1798,7 @@ public function checkVoucher()
         'created_by' => auth()->id()
       ]
     );
-    $si->update(['status' => 'approved', 'posted_at' => now(), 'payment_method' => $order->payment_method ?? 'cash']);
+    $si->update(['si_number' => $siNumberVal, 'status' => 'approved', 'posted_at' => now(), 'payment_method' => $order->payment_method ?? 'cash']);
 
     // --- ACCOUNTING INTEGRATION ---
     $this->accounting->postSalesOrderEntry($order);
@@ -1798,6 +1838,40 @@ public function checkVoucher()
     return redirect()->back()->with('success', $successMsg);
   }
 
+  public function updateSiNumber(Request $request, $id)
+  {
+    $request->validate([
+      'si_number' => 'nullable|string|max:50'
+    ]);
+
+    $order = \App\Models\SalesOrder::findOrFail($id);
+    $siNum = trim($request->input('si_number', ''));
+    $order->si_number = $siNum ?: null;
+    $order->save();
+
+    if (!empty($siNum)) {
+      \App\Models\SalesInvoice::updateOrCreate(
+        ['so_id' => $order->id],
+        [
+          'so_number'        => $order->so_number,
+          'si_number'        => $siNum,
+          'customer_id'      => $order->customer_id,
+          'customer_name'    => $order->customer?->customer_name ?? 'N/A',
+          'transaction_type' => $order->type . '_si',
+          'total_amount'     => $order->total_amount,
+          'status'           => $order->signed_by_af_manager ? 'approved' : 'draft',
+          'created_by'       => auth()->id(),
+        ]
+      );
+    }
+
+    return response()->json([
+      'success' => true,
+      'message' => 'SI Number updated successfully.',
+      'si_number' => $order->si_number
+    ]);
+  }
+
   public function printSalesInvoice($id)
   {
     $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bundle', 'items.product', 'preparedBy', 'mktApprovedBy', 'prodApprovedBy', 'siPreparedBy', 'signedBy'])->findOrFail($id);
@@ -1805,6 +1879,66 @@ public function checkVoucher()
     return view('marketing.sales-orders.print-invoice', [
       'order' => $order
     ]);
+  }
+
+  public function revertSalesInvoiceToDR($id)
+  {
+    try {
+      $order = \App\Models\SalesOrder::findOrFail($id);
+
+      $isFromDR = $order->status === 'si_created'
+          || !empty($order->dr_prepared_by)
+          || !empty($order->dr_prepared_at)
+          || !empty($order->dr_approved_by)
+          || in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
+
+      if (!$isFromDR) {
+          return redirect()->back()->with('error', "Sales Order #{$order->so_number} did not originate from Delivery Receipts (DR).");
+      }
+
+      // Determine where it should return:
+      // If DR was already prepared (dr_prepared_at, dr_prepared_by, or dr_approved_by is set):
+      // return to 'ready_for_delivery' (Completed DRs)
+      // If DR was NOT yet prepared (still pending preparation):
+      // return to 'pending_dr_prep' (Pending DR Prep)
+      $hasPreparedDR = !empty($order->dr_prepared_at) || !empty($order->dr_prepared_by) || !empty($order->dr_approved_by);
+
+      $targetStatus = $hasPreparedDR ? 'ready_for_delivery' : 'pending_dr_prep';
+      $targetLocation = $hasPreparedDR ? 'Completed DRs' : 'Pending DR Prep';
+
+      // 1. Clean up any unapproved / pending SalesInvoice and items
+      $pendingSIs = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'approved')->get();
+      foreach ($pendingSIs as $si) {
+          $si->items()->delete();
+          $si->delete();
+      }
+
+      // 2. Revert Sales Order status
+      $order->update([
+          'status'         => $targetStatus,
+          'si_prepared_by' => null,
+          'si_prepared_at' => null,
+          'remarks'        => ($order->remarks ? $order->remarks . ' | ' : '') . 'Reverted back to DR by ' . (auth()->user()->name ?? 'User')
+      ]);
+
+      // 3. Log activity
+      \App\Models\ActivityLog::create([
+          'user_id'           => auth()->id(),
+          'action'            => 'Reverted to DR',
+          'description'       => "Sales Order {$order->so_number} reverted from Sales Invoice back to Delivery Receipt ({$targetLocation}).",
+          'affected_model'    => 'SalesOrder',
+          'affected_model_id' => $order->id,
+          'ip_address'        => request()->ip(),
+          'user_agent'        => request()->header('User-Agent')
+      ]);
+
+      return redirect()
+          ->back()
+          ->with('success', "Sales Order #{$order->so_number} has been reverted back to Delivery Receipts ({$targetLocation}) successfully.");
+    } catch (\Exception $e) {
+      \Log::error('Error reverting Sales Order to DR: ' . $e->getMessage());
+      return redirect()->back()->with('error', 'Error reverting to DR: ' . $e->getMessage());
+    }
   }
 
   public function bulkPrintSalesInvoice(\Illuminate\Http\Request $request)
@@ -2588,7 +2722,7 @@ public function checkVoucher()
   public function invoice()
   {
     $invoices = \App\Models\SalesOrder::with(['customer', 'items.product'])
-      ->whereIn('status', ['ready_for_delivery', 'completed', 'verified', 'draft', 'pending_si_prep', 'pending_dr_prep', 'pending_dr_approval'])
+      ->whereIn('status', ['ready_for_delivery', 'completed', 'verified', 'draft', 'pending_si_prep', 'pending_dr_prep', 'pending_dr_approval', 'si_created'])
       ->latest()
       ->get();
 

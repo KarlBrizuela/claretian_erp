@@ -304,6 +304,13 @@
     @foreach($orders as $order)
     <div class="invoice-box">
         <div>
+            @php
+                $activeInvoice = null;
+                if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
+                    $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
+                }
+                $siNoDisplay = $order->si_number ?: ($activeInvoice->si_number ?? $order->so_number);
+            @endphp
             <!-- Header -->
             <div class="header-section">
                 <div class="header-logo-details">
@@ -316,17 +323,13 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <div class="doc-no">No. <span>{{ $order->so_number }}</span></div>
+                    <div class="doc-no">No. <span>{{ $siNoDisplay }}</span></div>
                     <div class="doc-title">Sales - Invoice</div>
                 </div>
             </div>
 
             <!-- Customer & Transaction Details -->
             @php
-                $activeInvoice = null;
-                if (in_array($order->type, ['area_consignment', 'area_sales_consignment'])) {
-                    $activeInvoice = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'cancelled')->latest()->first();
-                }
 
                 if ($activeInvoice) {
                     $itemsToPrint = $activeInvoice->items;

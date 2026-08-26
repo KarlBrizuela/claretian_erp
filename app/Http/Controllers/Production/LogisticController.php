@@ -1304,11 +1304,29 @@ class LogisticController extends Controller
 
         // Get sales orders pending DR prep/approval
         $ordersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy')
-            ->whereIn('status', ['pending_dr_prep', 'pending_dr_approval']);
+            ->where(function($q) {
+                $q->whereIn('status', ['pending_dr_prep', 'pending_dr_approval'])
+                  ->orWhere(function($sq) {
+                      $sq->where('status', 'si_created')
+                         ->whereNull('dr_prepared_by')
+                         ->whereNull('dr_prepared_at')
+                         ->whereNull('dr_approved_by');
+                  });
+            });
 
         // Get sales orders where DR is completed
         $completedOrdersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy')
-            ->whereIn('status', ['ready_for_packing', 'ready_for_delivery', 'si_created', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval']);
+            ->where(function($q) {
+                $q->whereIn('status', ['ready_for_packing', 'ready_for_delivery', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval'])
+                  ->orWhere(function($sq) {
+                      $sq->where('status', 'si_created')
+                         ->where(function($ssq) {
+                             $ssq->whereNotNull('dr_prepared_by')
+                                 ->orWhereNotNull('dr_prepared_at')
+                                 ->orWhereNotNull('dr_approved_by');
+                         });
+                  });
+            });
 
         if ($isAccountingContext) {
             $applyFilter = function ($query) {
@@ -3601,10 +3619,12 @@ class LogisticController extends Controller
 
             // Use si_created status: keeps the SO visible in DR list and allows reconsignment
             $order->update([
-                'status'         => 'si_created',
-                'si_prepared_by' => auth()->id(),
-                'si_prepared_at' => now(),
-                'remarks'        => ($order->remarks ? $order->remarks . ' | ' : '') . 'Moved to SI by ' . auth()->user()->name
+                'status'               => 'si_created',
+                'si_prepared_by'       => auth()->id(),
+                'si_prepared_at'       => now(),
+                'signed_by_af_manager' => null,
+                'signed_at'            => null,
+                'remarks'              => ($order->remarks ? $order->remarks . ' | ' : '') . 'Moved to SI by ' . auth()->user()->name
             ]);
 
             // Create or re-use Sales Invoice record
@@ -3646,7 +3666,7 @@ class LogisticController extends Controller
             ]);
 
             return redirect()
-                ->route('admin-finance.accounting.sales-invoice')
+                ->back()
                 ->with('success', 'Sales Order #' . $order->so_number . ' moved to Sales Invoice successfully! ' . count($siItems) . ' item(s) invoiced.');
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error moving order to SI: ' . $e->getMessage());

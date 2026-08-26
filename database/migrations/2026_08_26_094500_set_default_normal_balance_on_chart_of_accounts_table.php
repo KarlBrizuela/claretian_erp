@@ -13,9 +13,9 @@ class SetDefaultNormalBalanceOnChartOfAccountsTable extends Migration
      */
     public function up()
     {
-        Schema::table('chart_of_accounts', function (Blueprint $table) {
-            $table->string('normal_balance')->default('Debit')->change();
-        });
+        if (Schema::hasTable('chart_of_accounts') && Schema::hasColumn('chart_of_accounts', 'normal_balance')) {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE chart_of_accounts MODIFY normal_balance VARCHAR(255) NOT NULL DEFAULT 'Debit'");
+        }
     }
 
     /**
@@ -25,8 +25,8 @@ class SetDefaultNormalBalanceOnChartOfAccountsTable extends Migration
      */
     public function down()
     {
-        Schema::table('chart_of_accounts', function (Blueprint $table) {
-            $table->string('normal_balance')->nullable(false)->change();
-        });
+        if (Schema::hasTable('chart_of_accounts') && Schema::hasColumn('chart_of_accounts', 'normal_balance')) {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE chart_of_accounts MODIFY normal_balance VARCHAR(255) NOT NULL");
+        }
     }
 }

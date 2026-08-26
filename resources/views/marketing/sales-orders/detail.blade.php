@@ -78,8 +78,12 @@
                         if ($order->type == 'calculator_pos') $typeDisplay = 'direct POS';
                         if ($order->type == 'ecom_direct') $typeDisplay = 'ECOM POS';
                         if ($order->type == 'paid') $typeDisplay = 'paid transac';
+                        $siNumberDisplay = $order->si_number ?: (\App\Models\SalesInvoice::where('so_id', $order->id)->value('si_number') ?? null);
                     @endphp
                     <div class="text-center text-uppercase fw-bold {{ $order->type === 'paid' ? 'text-success' : 'text-primary' }}">{{ $typeDisplay }}</div>
+                    @if($siNumberDisplay)
+                        <div class="text-center mt-1"><span class="badge bg-danger text-white px-3 py-1" style="font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px;"><i class="las la-file-invoice me-1"></i>SI #: {{ $siNumberDisplay }}</span></div>
+                    @endif
                     @else
                     <div class="document-title">SALES ORDER</div>
                     @endif
@@ -164,6 +168,12 @@
                                 <td class="fw-bold text-dark">Status:</td>
                                 <td><span class="badge bg-info text-white">{{ strtoupper(str_replace('_', ' ', $order->status)) }}</span></td>
                             </tr>
+                            @if($siNumberDisplay)
+                            <tr>
+                                <td class="fw-bold text-dark"><i class="las la-file-invoice me-1 text-danger"></i>SI Number:</td>
+                                <td class="fw-bold text-danger">{{ $siNumberDisplay }}</td>
+                            </tr>
+                            @endif
                             <tr>
                                 <td class="fw-bold text-dark">Prepared By:</td>
                                 <td class="text-black">{{ $order->preparedBy->name ?? 'N/A' }}</td>
@@ -493,7 +503,10 @@
                             </div>
                         </div>
                         <div class="text-end">
-                            <div class="fw-bold" style="font-size: 11pt;">No. <span class="text-danger" style="font-size: 12pt;">{{ $order->so_number }}</span></div>
+                            @php
+                                $printSiNumber = $order->si_number ?: (\App\Models\SalesInvoice::where('so_id', $order->id)->value('si_number') ?? $order->so_number);
+                            @endphp
+                            <div class="fw-bold" style="font-size: 11pt;">No. <span class="text-danger" style="font-size: 12pt;">{{ $printSiNumber }}</span></div>
                             <div class="fw-black text-uppercase" style="font-size: 15pt; letter-spacing: 1px;">Sales - Invoice</div>
                         </div>
                     </div>

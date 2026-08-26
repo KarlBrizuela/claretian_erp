@@ -551,7 +551,8 @@
         $orderDate = $order->created_at ? $order->created_at->format('m/d/Y') : date('m/d/Y');
         $dueDate = ($order->due_date && $order->due_date !== 'N/A') ? \Carbon\Carbon::parse($order->due_date)->format('m/d/Y') : '';
         $wht = (float) ($order->withholding_tax_amount ?? 0);
-        $siNoDisplay = $activeInvoice->si_number ?? $order->so_number;
+        $siNoDisplay = $order->si_number ?: ($activeInvoice->si_number ?? $order->so_number);
+        $soSym = ($order->currency === 'USD' ? '$' : '₱');
 
         $itemsSubtotal = 0;
         foreach ($itemsToPrint as $item) {

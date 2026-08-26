@@ -92,6 +92,15 @@
                                 <td class="fw-bold text-dark">Status:</td>
                                 <td><span class="badge bg-warning text-white">{{ strtoupper(str_replace('_', ' ', $order->status)) }}</span></td>
                             </tr>
+                            @php
+                                $prodSiNumber = $order->si_number ?: (\App\Models\SalesInvoice::where('so_id', $order->id)->value('si_number') ?? null);
+                            @endphp
+                            @if($prodSiNumber)
+                            <tr>
+                                <td class="fw-bold text-dark"><i class="las la-file-invoice me-1 text-danger"></i>SI Number:</td>
+                                <td class="fw-bold text-danger">{{ $prodSiNumber }}</td>
+                            </tr>
+                            @endif
                             <tr>
                                 <td class="fw-bold text-dark">Currency:</td>
                                 <td class="fw-bold text-primary">{{ $order->currency ?: 'USD' }} ({{ $sym }})</td>

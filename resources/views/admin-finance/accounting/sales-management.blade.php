@@ -231,7 +231,7 @@
 
     <!-- Generic Ledger Detail Modal -->
     <div class="modal fade" id="salesLedgerModal" tabindex="-1" aria-labelledby="salesLedgerModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
                     <h5 class="modal-title fw-bold text-dark" id="salesLedgerModalLabel">Account Ledger</h5>
@@ -246,40 +246,116 @@
 
     @push('scripts')
     <script>
-        // --- CLIENT-SIDE TABLE PAGINATION FOR CARD LEDGER MODALS ---
-        function initTablePagination(tableElement, itemsPerPage = 5) {
+        // --- CLIENT-SIDE TABLE FILTERING & PAGINATION FOR CARD LEDGER MODALS ---
+        function applyModalTableFilters(tableElement) {
             const tbody = tableElement.querySelector('tbody');
             if (!tbody) return;
+
+            const customerInput = document.getElementById('modalFilterCustomer');
+            const dateFromInput = document.getElementById('modalFilterDateFrom');
+            const dateToInput = document.getElementById('modalFilterDateTo');
+
+            const customerVal = customerInput ? customerInput.value.trim().toLowerCase() : '';
+            const dateFromVal = dateFromInput ? dateFromInput.value : '';
+            const dateToVal = dateToInput ? dateToInput.value : '';
+
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.empty-filter-row)'));
+            let matchedRows = [];
+
+            rows.forEach(row => {
+                if (row.querySelector('td[colspan]')) {
+                    row.style.display = 'none';
+                    return;
+                }
+
+                let rowCustomer = row.getAttribute('data-customer');
+                let rowDate = row.getAttribute('data-date');
+                let rowSi = row.getAttribute('data-si') || '';
+                let rowSo = row.getAttribute('data-so') || '';
+                let rowPrepared = row.getAttribute('data-prepared') || '';
+
+                if (!rowCustomer || !rowDate) {
+                    const text = row.innerText.toLowerCase();
+                    rowCustomer = rowCustomer || text;
+                    rowDate = rowDate || '';
+                }
+
+                let matchCustomer = true;
+                if (customerVal) {
+                    const combinedText = (rowCustomer + ' ' + rowSi + ' ' + rowSo + ' ' + rowPrepared + ' ' + row.innerText).toLowerCase();
+                    matchCustomer = combinedText.includes(customerVal);
+                }
+
+                let matchDate = true;
+                if (dateFromVal && rowDate) {
+                    matchDate = matchDate && (rowDate >= dateFromVal);
+                }
+                if (dateToVal && rowDate) {
+                    matchDate = matchDate && (rowDate <= dateToVal);
+                }
+
+                if (matchCustomer && matchDate) {
+                    matchedRows.push(row);
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Handle empty state
+            let emptyRow = tbody.querySelector('.empty-filter-row');
+            if (matchedRows.length === 0) {
+                if (!emptyRow) {
+                    emptyRow = document.createElement('tr');
+                    emptyRow.className = 'empty-filter-row';
+                    const colCount = tableElement.querySelectorAll('thead th').length || 6;
+                    emptyRow.innerHTML = `<td colspan="${colCount}" class="text-center py-4 text-muted"><i class="las la-filter me-1 text-danger"></i>No transactions match the selected filters.</td>`;
+                    tbody.appendChild(emptyRow);
+                }
+                emptyRow.style.display = '';
+            } else if (emptyRow) {
+                emptyRow.style.display = 'none';
+            }
+
+            // Paginate matched rows
+            initFilteredTablePagination(tableElement, matchedRows, 6);
+        }
+
+        function initFilteredTablePagination(tableElement, rows, itemsPerPage = 6) {
+            const wrapper = tableElement.closest('.table-responsive') || tableElement;
             
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            if (rows.length === 1 && rows[0].querySelector('td[colspan]')) return;
-            if (rows.length <= itemsPerPage) return;
-            
+            // Remove old pagination navigation if present
+            const oldNav = wrapper.parentNode.querySelector('.modal-pagination-nav');
+            if (oldNav) oldNav.remove();
+
+            if (rows.length === 0) return;
+
+            if (rows.length <= itemsPerPage) {
+                rows.forEach(r => r.style.display = '');
+                return;
+            }
+
             const totalItems = rows.length;
             const totalPages = Math.ceil(totalItems / itemsPerPage);
             let currentPage = 1;
-            
-            // Create pagination container
+
             const nav = document.createElement('nav');
-            nav.className = 'd-flex justify-content-between align-items-center mt-3';
-            
+            nav.className = 'modal-pagination-nav d-flex justify-content-between align-items-center mt-3 pt-2 border-top';
+
             const info = document.createElement('div');
             info.className = 'small text-muted';
-            
+
             const ul = document.createElement('ul');
             ul.className = 'pagination pagination-xs mb-0';
-            
+
             nav.appendChild(info);
             nav.appendChild(ul);
-            
-            const wrapper = tableElement.closest('.table-responsive') || tableElement;
             wrapper.parentNode.appendChild(nav);
-            
+
             function showPage(page) {
                 currentPage = page;
                 const start = (page - 1) * itemsPerPage;
                 const end = start + itemsPerPage;
-                
+
                 rows.forEach((row, idx) => {
                     if (idx >= start && idx < end) {
                         row.style.display = '';
@@ -287,10 +363,10 @@
                         row.style.display = 'none';
                     }
                 });
-                
+
                 info.textContent = `Showing ${start + 1} to ${Math.min(end, totalItems)} of ${totalItems} entries`;
                 ul.innerHTML = '';
-                
+
                 // Prev
                 const prevLi = document.createElement('li');
                 prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
@@ -300,7 +376,7 @@
                     if (currentPage > 1) showPage(currentPage - 1);
                 };
                 ul.appendChild(prevLi);
-                
+
                 // Numbers
                 for (let i = 1; i <= totalPages; i++) {
                     if (totalPages > 5) {
@@ -314,7 +390,7 @@
                             continue;
                         }
                     }
-                    
+
                     const li = document.createElement('li');
                     li.className = `page-item ${currentPage === i ? 'active' : ''}`;
                     let activeStyles = currentPage === i ? 'background-color: #D9251C; border-color: #D9251C; color: #fff;' : '';
@@ -325,7 +401,7 @@
                     };
                     ul.appendChild(li);
                 }
-                
+
                 // Next
                 const nextLi = document.createElement('li');
                 nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
@@ -336,21 +412,67 @@
                 };
                 ul.appendChild(nextLi);
             }
-            
+
             showPage(1);
         }
 
-        // Dynamically instantiate a modal from JavaScript to display custom details
+        // Dynamically instantiate a modal from JavaScript to display custom details with filters
         function showSalesLedgerModal(title, contentHtml) {
             document.getElementById('salesLedgerModalLabel').innerText = title;
             const body = document.getElementById('salesLedgerModalBody');
-            body.innerHTML = contentHtml;
 
-            // Initialize pagination on any table inside the newly loaded content
-            const tables = body.querySelectorAll('table');
-            tables.forEach(table => {
-                initTablePagination(table, 5);
-            });
+            const filterToolbarHtml = `
+                <div class="modal-filter-toolbar mb-3 p-3 bg-light rounded-3 border" style="border-color: #e2e8f0 !important; background-color: #f8fafc !important;">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-dark mb-1"><i class="las la-user me-1 text-primary"></i>Customer / Staff / Order</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0 text-muted"><i class="las la-search"></i></span>
+                                <input type="text" class="form-control form-control-sm border-start-0 ps-0" id="modalFilterCustomer" placeholder="Filter by customer, SI #, SO #, or staff...">
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label small fw-bold text-dark mb-1"><i class="las la-calendar me-1 text-primary"></i>Date From</label>
+                            <input type="date" class="form-control form-control-sm" id="modalFilterDateFrom">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label small fw-bold text-dark mb-1"><i class="las la-calendar me-1 text-primary"></i>Date To</label>
+                            <input type="date" class="form-control form-control-sm" id="modalFilterDateTo">
+                        </div>
+                        <div class="col-md-1 col-12 d-flex">
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnResetModalFilter" title="Reset Filters" style="height: 31px;">
+                                <i class="las la-undo"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            body.innerHTML = filterToolbarHtml + '<div class="modal-table-content">' + contentHtml + '</div>';
+
+            const table = body.querySelector('table');
+            if (table) {
+                const customerInput = document.getElementById('modalFilterCustomer');
+                const dateFromInput = document.getElementById('modalFilterDateFrom');
+                const dateToInput = document.getElementById('modalFilterDateTo');
+                const resetBtn = document.getElementById('btnResetModalFilter');
+
+                const triggerFilter = () => applyModalTableFilters(table);
+
+                if (customerInput) customerInput.addEventListener('input', triggerFilter);
+                if (dateFromInput) dateFromInput.addEventListener('change', triggerFilter);
+                if (dateToInput) dateToInput.addEventListener('change', triggerFilter);
+                if (resetBtn) {
+                    resetBtn.addEventListener('click', () => {
+                        if (customerInput) customerInput.value = '';
+                        if (dateFromInput) dateFromInput.value = '';
+                        if (dateToInput) dateToInput.value = '';
+                        triggerFilter();
+                    });
+                }
+
+                triggerFilter();
+            }
 
             const modal = new bootstrap.Modal(document.getElementById('salesLedgerModal'));
             modal.show();

@@ -3410,6 +3410,7 @@ class MarketingController extends Controller
             'indices' => $indices,
             'bundles' => $bundles,
             'customers' => \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get(),
+            'nextSiNumber' => \App\Http\Controllers\POSController::getNextSiNumber(),
             'title' => 'New Sale - Point of Sale',
             'role' => 'Marketing Manager',
             'sidebar' => 'marketing'
@@ -3532,6 +3533,7 @@ class MarketingController extends Controller
             'role' => 'Marketing Manager',
             'sidebar' => 'marketing',
             'products' => $products,
+            'nextSiNumber' => \App\Http\Controllers\POSController::getNextSiNumber(),
             'customers' => \App\Models\Customer::where('is_inactive', false)->orderBy('customer_name')->get()
         ]);
     }

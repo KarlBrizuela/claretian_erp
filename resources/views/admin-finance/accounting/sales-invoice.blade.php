@@ -39,6 +39,7 @@
     .table-responsive {
         border: none !important;
         overflow-x: auto;
+        min-height: 320px !important;
     }
     table.table {
         border-collapse: collapse !important;
@@ -509,69 +510,88 @@
                                                 <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</span></td>
                                                 <td>{{ $order->siPreparedBy->name ?? 'N/A' }}</td>
                                                 <td class="text-end">
+                                                     @php
+                                                         $isFromDR = $order->status === 'si_created' 
+                                                             || !empty($order->dr_prepared_by) 
+                                                             || !empty($order->dr_prepared_at) 
+                                                             || !empty($order->dr_approved_by)
+                                                             || in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
+                                                     @endphp
                                                      <div class="dropdown">
                                                          <button class="btn btn-link text-muted p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="box-shadow: none;">
                                                              <i class="las la-ellipsis-v" style="font-size: 1.25rem;"></i>
                                                          </button>
-                                                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="font-size: 12px; border-radius: 6px; min-width: 140px; z-index: 1050;">
-                                                             <li>
-                                                                 <a class="dropdown-item py-2" href="{{ route('admin-finance.sales-order.detail', $order->id) }}">
-                                                                     <i class="las la-eye me-2 text-primary" style="font-size: 1rem;"></i> View SO Detail
-                                                                 </a>
-                                                             </li>
-                                                             
-                                                             @if($remBal > 0 && $order->customer_id)
+                                                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="font-size: 12px; border-radius: 6px; min-width: 150px; z-index: 1050;">
                                                                  <li>
-                                                                     <button type="button" class="dropdown-item py-2 open-pay-modal-btn" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $order->currency ?? 'USD' }}" data-symbol="{{ $ordSym }}">
-                                                                         <i class="las la-coins me-2 text-success" style="font-size: 1rem;"></i> Record Payment
-                                                                     </button>
+                                                                     <a class="dropdown-item py-2" href="{{ route('admin-finance.sales-order.detail', $order->id) }}">
+                                                                         <i class="las la-eye me-2 text-primary" style="font-size: 1rem;"></i> View SO Detail
+                                                                     </a>
                                                                  </li>
-                                                             @endif
-
-                                                             @if($order->status === 'pending_si_prep' || $order->status === 'si_created' || $order->status === 'ar_created')
-                                                                 @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || $paidAmt > 0)
+                                                                 
+                                                                 @if($remBal > 0 && $order->customer_id)
                                                                      <li>
-                                                                         <a class="dropdown-item py-2 text-warning fw-semibold" href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}">
-                                                                             <i class="las la-file-invoice me-2" style="font-size: 1rem;"></i> Prepare SI
-                                                                         </a>
-                                                                     </li>
-                                                                 @else
-                                                                     <li>
-                                                                         <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to prepare SI">
-                                                                             <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Prepare SI (Disabled)
+                                                                         <button type="button" class="dropdown-item py-2 open-pay-modal-btn" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $order->currency ?? 'USD' }}" data-symbol="{{ $ordSym }}">
+                                                                             <i class="las la-coins me-2 text-success" style="font-size: 1rem;"></i> Record Payment
                                                                          </button>
                                                                      </li>
                                                                  @endif
-                                                             @endif
-                                                             
-                                                             @if($order->status === 'pending_si_approval')
-                                                                 @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']))
+
+                                                                 @if($order->status === 'pending_si_prep' || $order->status === 'si_created' || $order->status === 'ar_created')
+                                                                     @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || $paidAmt > 0)
+                                                                         <li>
+                                                                             <a class="dropdown-item py-2 text-warning fw-semibold" href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}">
+                                                                                 <i class="las la-file-invoice me-2" style="font-size: 1rem;"></i> Prepare SI
+                                                                             </a>
+                                                                         </li>
+                                                                     @else
+                                                                         <li>
+                                                                             <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to prepare SI">
+                                                                                 <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Prepare SI (Disabled)
+                                                                             </button>
+                                                                         </li>
+                                                                     @endif
+                                                                 @endif
+                                                                 
+                                                                 @if($order->status === 'pending_si_approval')
+                                                                     @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']))
+                                                                         <li>
+                                                                             <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
+                                                                                 @csrf
+                                                                                 <button type="submit" class="dropdown-item py-2 text-success fw-semibold">
+                                                                                     <i class="las la-check-double me-2" style="font-size: 1rem;"></i> Sign & Approve
+                                                                                 </button>
+                                                                             </form>
+                                                                         </li>
+                                                                     @else
+                                                                         <li>
+                                                                             <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to sign SI">
+                                                                                 <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Sign & Approve (Disabled)
+                                                                             </button>
+                                                                         </li>
+                                                                     @endif
+                                                                 @endif
+                                                                 
+                                                                 @if($order->status === 'ready_for_delivery')
                                                                      <li>
-                                                                         <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
+                                                                         <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" target="_blank">
+                                                                             <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                         </a>
+                                                                     </li>
+                                                                 @endif
+
+                                                                 @if($isFromDR && in_array($order->status, ['pending_si_prep', 'si_created', 'pending_si_approval', 'ar_created', 'picking']))
+                                                                     <li><hr class="dropdown-divider my-1"></li>
+                                                                     <li>
+                                                                         <form action="{{ route('admin-finance.accounting.sales-invoice.revert-to-dr', $order->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to return Sales Order #{{ $order->so_number }} back to Delivery Receipts (DR)?');" class="m-0">
                                                                              @csrf
-                                                                             <button type="submit" class="dropdown-item py-2 text-success fw-semibold">
-                                                                                 <i class="las la-check-double me-2" style="font-size: 1rem;"></i> Sign & Approve
+                                                                             <button type="submit" class="dropdown-item py-2 text-danger fw-semibold">
+                                                                                 <i class="las la-undo-alt me-2" style="font-size: 1rem;"></i> Back to DR
                                                                              </button>
                                                                          </form>
                                                                      </li>
-                                                                 @else
-                                                                     <li>
-                                                                         <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to sign SI">
-                                                                             <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Sign & Approve (Disabled)
-                                                                         </button>
-                                                                     </li>
                                                                  @endif
-                                                             @endif
-                                                             
-                                                             @if($order->status === 'ready_for_delivery')
-                                                                 <li>
-                                                                     <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" target="_blank">
-                                                                         <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
-                                                                     </a>
-                                                                 </li>
-                                                             @endif
-                                                         </ul>
-                                                     </div>
+                                                             </ul>
+                                                         </div>
                                                  </td>
                                             </tr>
                                             @empty

@@ -462,6 +462,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/pos/payment-settings', [App\Http\Controllers\POSController::class, 'getPaymentSettings'])->name('marketing.pos.payment-settings');
     Route::post('/marketing/pos/lookup-barcode', [App\Http\Controllers\POSController::class, 'lookupByBarcode'])->name('marketing.pos.lookup-barcode');
     Route::post('/marketing/pos/process-ecom-order', [App\Http\Controllers\POSController::class, 'processEcomOrder'])->name('marketing.pos.process-ecom-order');
+    Route::get('/marketing/pos/next-si-number', [App\Http\Controllers\POSController::class, 'getNextSiNumberResponse'])->name('marketing.pos.next-si-number');
 
     // E-Com
     Route::get('/marketing/ecom-pos', [MarketingController::class, 'ecomPos'])->name('marketing.ecom.pos');
@@ -501,6 +502,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sales-order/{id}/reject', [App\Http\Controllers\AdminFinanceController::class, 'rejectSalesOrder'])->name('admin-finance.sales-order.reject');
     Route::post('/sales-order/{id}/upload-attachment', [App\Http\Controllers\AdminFinanceController::class, 'uploadSalesOrderAttachment'])->name('admin-finance.sales-order.upload-attachment');
     Route::post('/sales-order/{id}/update-payment-method', [App\Http\Controllers\AdminFinanceController::class, 'updatePaymentMethod'])->name('admin-finance.sales-order.update-payment-method');
+    Route::post('/sales-order/{id}/update-si-number', [App\Http\Controllers\AdminFinanceController::class, 'updateSiNumber'])->name('admin-finance.sales-order.update-si-number');
 
     // Accounting
     Route::prefix('accounting')->group(function () {
@@ -511,6 +513,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/sales-invoice/bulk-finalize', [App\Http\Controllers\AdminFinanceController::class, 'bulkFinalizeInvoices'])->name('admin-finance.accounting.sales-invoice.bulk-finalize');
       Route::get('/sales-invoice/bulk-print', [App\Http\Controllers\AdminFinanceController::class, 'bulkPrintSalesInvoice'])->name('admin-finance.accounting.sales-invoice.bulk-print');
       Route::get('/sales-invoice/{id}/print', [App\Http\Controllers\AdminFinanceController::class, 'printSalesInvoice'])->name('admin-finance.accounting.sales-invoice.print');
+      Route::post('/sales-invoice/{id}/revert-to-dr', [App\Http\Controllers\AdminFinanceController::class, 'revertSalesInvoiceToDR'])->name('admin-finance.accounting.sales-invoice.revert-to-dr');
       Route::get('/complimentary-receipt', [App\Http\Controllers\AdminFinanceController::class, 'complimentaryReceiptIndex'])->name('admin-finance.accounting.complimentary-receipt');
       Route::get('/acknowledgement-receipt/{id}/prepare', [App\Http\Controllers\AdminFinanceController::class, 'prepareAR'])->name('admin-finance.accounting.ar.prepare');
       Route::post('/acknowledgement-receipt/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeAR'])->name('admin-finance.accounting.ar.store');
