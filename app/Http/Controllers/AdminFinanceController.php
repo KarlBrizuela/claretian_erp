@@ -3775,10 +3775,14 @@ public function checkVoucher()
             'name' => 'required|string|max:255',
             'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
             'category' => 'nullable|string|max:255',
+            'normal_balance' => 'nullable|in:Debit,Credit',
             'is_active' => 'nullable|boolean',
         ]);
 
         $validated['is_active'] = $request->has('is_active') ? 1 : 0;
+        if (empty($validated['normal_balance'])) {
+            $validated['normal_balance'] = in_array($validated['type'], ['Asset', 'Expense']) ? 'Debit' : 'Credit';
+        }
 
         $account = \App\Models\ChartOfAccount::create($validated);
 
@@ -3806,10 +3810,14 @@ public function checkVoucher()
             'name' => 'required|string|max:255',
             'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
             'category' => 'nullable|string|max:255',
+            'normal_balance' => 'nullable|in:Debit,Credit',
             'is_active' => 'nullable|boolean',
         ]);
 
         $validated['is_active'] = $request->has('is_active') ? 1 : 0;
+        if (empty($validated['normal_balance'])) {
+            $validated['normal_balance'] = in_array($validated['type'], ['Asset', 'Expense']) ? 'Debit' : 'Credit';
+        }
 
         $account->update($validated);
 
