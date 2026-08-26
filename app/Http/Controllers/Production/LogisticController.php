@@ -3714,18 +3714,17 @@ class LogisticController extends Controller
             }
 
             foreach ($transfer->items as $tItem) {
-                // If picked_qty was submitted or saved (>0), use it; otherwise fallback to item quantity
-                if ($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0) {
+                // If picked_qty was submitted or saved, use it; otherwise fallback to item quantity
+                if ($tItem->picked_qty !== null) {
                     $qty = (float)$tItem->picked_qty;
                 } elseif ($tItem->quantity > 0) {
                     $qty = (float)$tItem->quantity;
                 } else {
-                    $qty = (float)($tItem->picked_qty ?? 0);
+                    $qty = 0;
                 }
 
-                // Update item quantity to actual picked_qty so only picked quantity proceeds to packing
+                // Update item picked_qty to actual picked_qty so only picked quantity proceeds to packing
                 $tItem->picked_qty = $qty;
-                $tItem->quantity = $qty;
                 if ($qty > 0) {
                     $tItem->status = 'Picked';
                 } else {
@@ -3869,7 +3868,7 @@ class LogisticController extends Controller
             $mainSiteId = $mainWarehouse ? $mainWarehouse->id : 1;
 
             foreach ($transfer->items as $tItem) {
-                $previouslyPicked = (float)($tItem->picked_qty !== null && $tItem->picked_qty > 0 ? $tItem->picked_qty : $tItem->quantity);
+                $previouslyPicked = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
 
                 // Determine actual packed quantity
                 if ($tItem->packed_qty !== null && (float)$tItem->packed_qty >= 0) {
@@ -3932,7 +3931,6 @@ class LogisticController extends Controller
                 }
                 
                 $tItem->packed_qty = $qty;
-                $tItem->quantity = $qty;
                 if ($qty > 0) {
                     $tItem->status = 'Packed';
                 }
@@ -4018,14 +4016,18 @@ class LogisticController extends Controller
                         if ($tItem) {
                             $pickedQty = isset($itemData['picked_qty']) ? floatval($itemData['picked_qty']) : $tItem->picked_qty;
                             $tItem->picked_qty = $pickedQty;
-                            if ($pickedQty > 0 || ($tItem->quantity == 0 && $pickedQty >= 0)) {
-                                $tItem->quantity = $pickedQty;
-                            }
-                            if ($pickedQty > 0) {
+                            
+                            // Do not modify $tItem->quantity; quantity represents original requested quantity to pick
+                            if (isset($itemData['status']) && !empty($itemData['status'])) {
+                                $tItem->status = $itemData['status'];
+                            } elseif ($pickedQty >= $tItem->quantity && $tItem->quantity > 0) {
                                 $tItem->status = 'Picked';
+                            } elseif ($pickedQty > 0) {
+                                $tItem->status = 'Picking';
                             } else {
-                                $tItem->status = $itemData['status'] ?? $tItem->status;
+                                $tItem->status = 'Pending';
                             }
+
                             $tItem->notes = $itemData['notes'] ?? $tItem->notes;
                             $tItem->picked_date = $itemData['picked_date'] ?? $tItem->picked_date;
                             $tItem->save();
@@ -4078,14 +4080,19 @@ class LogisticController extends Controller
                         if ($tItem) {
                             $packedQty = isset($itemData['packed_qty']) ? floatval($itemData['packed_qty']) : $tItem->packed_qty;
                             $tItem->packed_qty = $packedQty;
-                            if ($packedQty > 0 || ($tItem->quantity == 0 && $packedQty >= 0)) {
-                                $tItem->quantity = $packedQty;
-                            }
-                            if ($packedQty > 0) {
+
+                            // Do not modify $tItem->quantity; quantity represents original requested quantity
+                            $targetQty = $tItem->picked_qty > 0 ? $tItem->picked_qty : $tItem->quantity;
+                            if (isset($itemData['status']) && !empty($itemData['status'])) {
+                                $tItem->status = $itemData['status'];
+                            } elseif ($packedQty >= $targetQty && $targetQty > 0) {
                                 $tItem->status = 'Packed';
+                            } elseif ($packedQty > 0) {
+                                $tItem->status = 'In Progress';
                             } else {
-                                $tItem->status = $itemData['status'] ?? $tItem->status;
+                                $tItem->status = 'Not Packed';
                             }
+
                             $tItem->notes = $itemData['notes'] ?? $tItem->notes;
                             $tItem->packed_date = $itemData['packed_date'] ?? $tItem->packed_date;
                             $tItem->save();

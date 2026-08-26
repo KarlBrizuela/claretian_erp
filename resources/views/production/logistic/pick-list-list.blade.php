@@ -1034,10 +1034,10 @@ $isAdmin = auth()->check() && (
 
             const tspStatusSelect = document.getElementById(`tsp_status_${transferId}`);
             if (tspStatusSelect) {
-                if (pickedCount === totalCount && totalCount > 0) {
-                    tspStatusSelect.value = 'completed';
-                } else if (pickedCount > 0) {
-                    tspStatusSelect.value = 'in_progress';
+                if (pickedCount > 0) {
+                    tspStatusSelect.value = 'picking';
+                } else {
+                    tspStatusSelect.value = 'pending_picklist';
                 }
             }
         }

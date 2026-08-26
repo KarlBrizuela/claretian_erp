@@ -1506,30 +1506,31 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                         @endif
                                     </td>
                                     @php
-                                        $displayQty = (float)($tItem->quantity > 0 ? $tItem->quantity : ($tItem->picked_qty > 0 ? $tItem->picked_qty : ($tItem->packed_qty > 0 ? $tItem->packed_qty : 0)));
-                                        $effectiveQty = $itemPackedQty > 0 ? $itemPackedQty : $displayQty;
+                                        $displayQty = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
+                                        $effectiveQty = $tItem->packed_qty !== null ? (float)$tItem->packed_qty : ($displayQty > 0 ? $displayQty : 0);
                                         $itemSubtotal = $unitPrice * $effectiveQty;
+                                        $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && $tItem->packed_qty >= $displayQty && $displayQty > 0));
                                     @endphp
-                                    <td class="text-center fw-bold text-primary">
-                                        <span id="ts_qty_to_pack_{{ $tt->id }}_{{ $idx }}">{{ number_format($displayQty > 0 ? $displayQty : $effectiveQty, 2) }}</span>
+                                    <td class="text-center fw-bold {{ $displayQty <= 0 ? 'text-danger' : 'text-primary' }}">
+                                        <span id="ts_qty_to_pack_{{ $tt->id }}_{{ $idx }}">{{ number_format($displayQty, 2) }}</span>
                                     </td>
                                     <td class="text-end">{{ $tSym }}{{ number_format($unitPrice, 2) }}</td>
                                     <td class="text-end fw-bold">
                                         <span id="ts_subtotal_{{ $tt->id }}_{{ $idx }}">{{ $tSym }}{{ number_format($itemSubtotal, 2) }}</span>
                                     </td>
                                     <td class="text-center">
-                                        <input type="number" name="items[{{ $idx }}][packed_qty]" id="ts_packed_qty_{{ $tt->id }}_{{ $idx }}" min="0" {{ $tItem->quantity > 0 ? 'max="' . $tItem->quantity . '"' : '' }} value="{{ $effectiveQty > 0 ? $effectiveQty : '' }}" placeholder="0" oninput="onTSPackedQtyInput({{ $tt->id }}, {{ $idx }}, {{ $unitPrice }})" onchange="updateTeamStockPackingProgress({{ $tt->id }})" style="width: 70px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                        <input type="number" name="items[{{ $idx }}][packed_qty]" id="ts_packed_qty_{{ $tt->id }}_{{ $idx }}" min="0" max="{{ $displayQty }}" value="{{ $effectiveQty > 0 || $displayQty <= 0 ? $effectiveQty : '' }}" placeholder="0" oninput="onTSPackedQtyInput({{ $tt->id }}, {{ $idx }}, {{ $unitPrice }})" onchange="updateTeamStockPackingProgress({{ $tt->id }})" style="width: 70px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
                                     </td>
                                     <td class="text-center">
                                         <select name="items[{{ $idx }}][status]" id="ts_packed_status_{{ $tt->id }}_{{ $idx }}" class="ts-status-select" onchange="onTSStatusSelectChange({{ $tt->id }}, {{ $idx }})" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
-                                            <option value="Not Packed" {{ ($tItem->status ?? 'Not Packed') === 'Not Packed' ? 'selected' : '' }}>Not Packed</option>
-                                            <option value="In Progress" {{ ($tItem->status ?? '') === 'In Progress' ? 'selected' : '' }}>In Progress</option>
-                                            <option value="Packed" {{ ($tItem->status ?? '') === 'Packed' ? 'selected' : '' }}>Packed</option>
+                                            <option value="Not Packed" {{ ($tItem->status ?? 'Not Packed') === 'Not Packed' || $displayQty <= 0 ? 'selected' : '' }}>Not Packed</option>
+                                            <option value="In Progress" {{ ($tItem->status ?? '') === 'In Progress' && $displayQty > 0 ? 'selected' : '' }}>In Progress</option>
+                                            <option value="Packed" {{ ($tItem->status ?? '') === 'Packed' && $displayQty > 0 ? 'selected' : '' }}>Packed</option>
                                         </select>
                                         <span id="ts_status_badge_{{ $tt->id }}_{{ $idx }}" class="d-none {{ $isItemPacked ? 'bg-success' : 'bg-warning' }}"></span>
                                     </td>
                                     <td>
-                                        <input type="text" name="items[{{ $idx }}][notes]" id="ts_notes_{{ $tt->id }}_{{ $idx }}" value="{{ $tItem->notes ?? '' }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                        <input type="text" name="items[{{ $idx }}][notes]" id="ts_notes_{{ $tt->id }}_{{ $idx }}" value="{{ $tItem->notes ?? '' }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem; {{ !empty($tItem->notes) ? 'font-weight: 600; color: #d9251c;' : '' }}">
                                     </td>
                                     <td class="text-center">
                                         <input type="date" name="items[{{ $idx }}][packed_date]" id="ts_date_{{ $tt->id }}_{{ $idx }}" value="{{ $tItem->packed_date ? \Carbon\Carbon::parse($tItem->packed_date)->format('Y-m-d') : date('Y-m-d') }}" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
@@ -3567,18 +3568,21 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
             const qtyInput = document.getElementById(`ts_packed_qty_${transferId}_${index}`);
             const qtyToPackEl = document.getElementById(`ts_qty_to_pack_${transferId}_${index}`);
 
+            const maxQty = parseFloat(qtyInput && qtyInput.max !== '' ? qtyInput.max : (qtyToPackEl ? qtyToPackEl.textContent : 0)) || 0;
+            if (maxQty <= 0) {
+                if (qtyInput) qtyInput.value = 0;
+                if (select) select.value = 'Not Packed';
+                if (row) row.style.backgroundColor = '#f8d7da';
+                updateTeamStockPackingProgress(transferId);
+                return;
+            }
+
             if (select) select.value = 'Packed';
             if (badge) badge.className = 'd-none bg-success';
             if (row) row.style.backgroundColor = '#d4edda';
 
             if (qtyInput) {
-                if (qtyInput.max && parseFloat(qtyInput.max) > 0) {
-                    qtyInput.value = qtyInput.max;
-                } else if (qtyToPackEl && parseFloat(qtyToPackEl.textContent) > 0) {
-                    qtyInput.value = parseFloat(qtyToPackEl.textContent);
-                } else if (!qtyInput.value || parseFloat(qtyInput.value) <= 0) {
-                    qtyInput.value = 1;
-                }
+                qtyInput.value = maxQty;
             }
 
             updateTeamStockPackingProgress(transferId);
