@@ -861,7 +861,220 @@
         </div>
     </div>
 
+    <!-- Universal Dynamic Account Ledger Modal per SKILL.md Section 6 -->
+    <div class="modal fade" id="universalAccountLedgerModal" tabindex="-1" aria-labelledby="universalAccountLedgerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 8px; overflow: hidden;">
+                <div class="modal-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="las la-book fs-20 text-dark"></i>
+                        <h5 class="modal-title fw-bold text-dark mb-0 fs-16" id="ledgerModalTitle">Account Ledger Breakdown</h5>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 bg-white">
+                    {{-- Header info and Search bar per SKILL.md Section 5 --}}
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+                        <div>
+                            <span class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.5px; font-size: 0.7rem;">ACCOUNT CODE & NAME:</span>
+                            <div class="fw-bold fs-16 text-dark" id="ledgerAccountCodeName">—</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="input-group input-group-sm" style="width: 240px;">
+                                <span class="input-group-text bg-white border-end-0" style="border-color: #cbd5e1; height: 36px; display: flex; align-items: center; justify-content: center; padding: 0 10px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
+                                    <i class="las la-search text-muted fs-14"></i>
+                                </span>
+                                <input type="text" id="modalLedgerSearchInput" class="form-control border-start-0" placeholder="Search ref, memo, date..." style="height: 36px; border-color: #cbd5e1; border-top-right-radius: 4px; border-bottom-right-radius: 4px; font-size: 0.82rem; padding-left: 0; outline: none; box-shadow: none;">
+                            </div>
+                            <button type="button" id="modalLedgerSearchBtn" class="btn btn-danger btn-sm text-white fw-bold d-inline-flex align-items-center justify-content-center" style="height: 36px; padding: 0 14px; background-color: #D9251C; border-color: #D9251C; border-radius: 4px; font-size: 0.82rem;">
+                                Search
+                            </button>
+                            <button type="button" id="modalLedgerClearBtn" class="btn btn-light border btn-sm d-inline-flex align-items-center justify-content-center" style="height: 36px; padding: 0 12px; border-radius: 4px; font-size: 0.82rem; color: #475569;">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="ledgerLoadingSpinner" class="text-center py-5">
+                        <div class="spinner-border text-danger" role="status"></div>
+                        <div class="text-muted small mt-2">Loading transactions from General Ledger...</div>
+                    </div>
+
+                    <div id="ledgerTableWrapper" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table claretian-table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>DATE</th>
+                                        <th>REFERENCE / JV NO.</th>
+                                        <th>MEMO / PARTICULARS</th>
+                                        <th class="text-end">DEBIT (₱)</th>
+                                        <th class="text-end">CREDIT (₱)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ledgerTableBody">
+                                    {{-- JS Populated --}}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {{-- Pagination Controls per SKILL.md Section 4 --}}
+                        <div id="modalPaginationContainer" class="mt-3 d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3 border-top">
+                            <span class="text-muted small" id="modalPaginationInfo" style="font-size: 0.8rem;">Showing 0 entries</span>
+                            <div id="modalPaginationButtons" class="d-flex gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top py-3 pe-4">
+                    <button type="button" class="btn btn-light border fw-semibold" data-bs-dismiss="modal" style="color: #475569; border-color: #cbd5e1; font-size: 0.85rem; padding: 8px 20px; border-radius: 6px;">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @push('scripts')
+    <script>
+        let modalRawTransactions = [];
+        let modalCurrentPage = 1;
+        const modalPageSize = 10;
+
+        function renderModalTable() {
+            const searchQuery = (document.getElementById('modalLedgerSearchInput').value || '').toLowerCase().trim();
+            const filtered = modalRawTransactions.filter(t => {
+                if (!searchQuery) return true;
+                return (t.date || '').toLowerCase().includes(searchQuery) ||
+                       (t.ref_no || '').toLowerCase().includes(searchQuery) ||
+                       (t.memo || '').toLowerCase().includes(searchQuery);
+            });
+
+            const totalEntries = filtered.length;
+            const totalPages = Math.ceil(totalEntries / modalPageSize) || 1;
+            if (modalCurrentPage > totalPages) modalCurrentPage = totalPages;
+            if (modalCurrentPage < 1) modalCurrentPage = 1;
+
+            const start = (modalCurrentPage - 1) * modalPageSize;
+            const pageItems = filtered.slice(start, start + modalPageSize);
+
+            const tbody = document.getElementById('ledgerTableBody');
+            tbody.innerHTML = '';
+
+            if (pageItems.length > 0) {
+                pageItems.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${t.date}</td>
+                        <td><strong style="color: #0f172a;">${t.ref_no}</strong></td>
+                        <td>${t.memo}</td>
+                        <td class="text-end fw-bold" style="color: #0f5132;">${t.debit > 0 ? '₱' + t.debit.toLocaleString('en-US', {minimumFractionDigits: 2}) : '—'}</td>
+                        <td class="text-end fw-bold" style="color: #842029;">${t.credit > 0 ? '₱' + t.credit.toLocaleString('en-US', {minimumFractionDigits: 2}) : '—'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="las la-folder-open fs-32 d-block mb-2 text-slate-400"></i>
+                            No ledger transaction records found.
+                        </td>
+                    </tr>
+                `;
+            }
+
+            // Update Pagination Info
+            const endIdx = Math.min(start + modalPageSize, totalEntries);
+            document.getElementById('modalPaginationInfo').innerText = totalEntries > 0 
+                ? `Showing ${start + 1} to ${endIdx} of ${totalEntries} entries` 
+                : 'Showing 0 entries';
+
+            // Render Pagination Buttons
+            const btnContainer = document.getElementById('modalPaginationButtons');
+            btnContainer.innerHTML = '';
+
+            if (totalPages > 1) {
+                // Prev button
+                const prevBtn = document.createElement('button');
+                prevBtn.className = 'btn btn-xs btn-light border me-1';
+                prevBtn.innerText = '«';
+                prevBtn.disabled = modalCurrentPage === 1;
+                prevBtn.onclick = () => { modalCurrentPage--; renderModalTable(); };
+                btnContainer.appendChild(prevBtn);
+
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || (i >= modalCurrentPage - 1 && i <= modalCurrentPage + 1)) {
+                        const pageBtn = document.createElement('button');
+                        pageBtn.className = `btn btn-xs ${i === modalCurrentPage ? 'btn-danger text-white' : 'btn-light border'} me-1`;
+                        if (i === modalCurrentPage) pageBtn.style.backgroundColor = '#D9251C';
+                        pageBtn.innerText = i;
+                        pageBtn.onclick = () => { modalCurrentPage = i; renderModalTable(); };
+                        btnContainer.appendChild(pageBtn);
+                    }
+                }
+
+                // Next button
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'btn btn-xs btn-light border';
+                nextBtn.innerText = '»';
+                nextBtn.disabled = modalCurrentPage === totalPages;
+                nextBtn.onclick = () => { modalCurrentPage++; renderModalTable(); };
+                btnContainer.appendChild(nextBtn);
+            }
+        }
+
+        function openAccountLedgerModal(id, code, name) {
+            const modalEl = document.getElementById('universalAccountLedgerModal');
+            const modal = new bootstrap.Modal(modalEl);
+            
+            document.getElementById('ledgerModalTitle').innerText = name + ' (' + code + ') Ledger Breakdown';
+            document.getElementById('ledgerAccountCodeName').innerText = code + ' - ' + name;
+            document.getElementById('modalLedgerSearchInput').value = '';
+            document.getElementById('ledgerLoadingSpinner').style.display = 'block';
+            document.getElementById('ledgerTableWrapper').style.display = 'none';
+            
+            modalRawTransactions = [];
+            modalCurrentPage = 1;
+            modal.show();
+
+            const ledgerUrl = "{{ route('admin-finance.accounting.chart-of-accounts.ledger', ':id') }}".replace(':id', id);
+            fetch(ledgerUrl)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('ledgerLoadingSpinner').style.display = 'none';
+                    document.getElementById('ledgerTableWrapper').style.display = 'block';
+
+                    if (data.success) {
+                        modalRawTransactions = data.transactions || [];
+                        modalCurrentPage = 1;
+                        renderModalTable();
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('ledgerLoadingSpinner').style.display = 'none';
+                    alert('Failed to load account ledger details.');
+                });
+        }
+
+        document.getElementById('modalLedgerSearchBtn').addEventListener('click', function() {
+            modalCurrentPage = 1;
+            renderModalTable();
+        });
+
+        document.getElementById('modalLedgerSearchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                modalCurrentPage = 1;
+                renderModalTable();
+            }
+        });
+
+        document.getElementById('modalLedgerClearBtn').addEventListener('click', function() {
+            document.getElementById('modalLedgerSearchInput').value = '';
+            modalCurrentPage = 1;
+            renderModalTable();
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         function showGenericModal(title, description, balance = 0) {

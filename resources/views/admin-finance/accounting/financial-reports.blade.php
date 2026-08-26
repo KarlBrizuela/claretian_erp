@@ -9,6 +9,29 @@
             padding-bottom: 80px !important;
         }
 
+        /* Paginator Styles (Claretian ERP Brand Guidelines) */
+        .pagination .page-item.active .page-link {
+            background-color: #D9251C !important;
+            border-color: #D9251C !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15) !important;
+        }
+
+        .pagination .page-link {
+            color: #475569 !important;
+            border-color: #cbd5e1 !important;
+            padding: 8px 14px !important;
+            font-size: 0.85rem !important;
+            transition: all 0.15s ease-in-out !important;
+            background-color: #ffffff !important;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+
         .rpt-header-card {
             background: #fff;
             border-radius: 10px;
@@ -283,12 +306,12 @@
                                 Financial Statements
                             </div>
                             @php
-                                $finStatements = ['Balance Sheet', 'Income Statement', 'Cash Flow', 'General Ledger'];
+                                $finStatements = ['Balance Sheet', 'Income Statement', 'Cash Flow', 'Trial Balance', 'General Ledger'];
                             @endphp
                             @foreach($finStatements as $rpt)
                                 @if(in_array($rpt, $reportsList))
                                 <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }}">
-                                    <i class="las @if($rpt === 'Balance Sheet') la-balance-scale @elseif($rpt === 'Income Statement') la-file-invoice-dollar @elseif($rpt === 'Cash Flow') la-exchange-alt @else la-book @endif me-2"></i> {{ $rpt }}
+                                    <i class="las @if($rpt === 'Balance Sheet') la-balance-scale @elseif($rpt === 'Income Statement') la-file-invoice-dollar @elseif($rpt === 'Cash Flow') la-exchange-alt @elseif($rpt === 'Trial Balance') la-calculator @else la-book @endif me-2"></i> {{ $rpt }}
                                 </a>
                                 @endif
                             @endforeach
@@ -926,6 +949,79 @@
                         @if($reportData instanceof \Illuminate\Pagination\LengthAwarePaginator)
                         <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
                             {{ $reportData->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
+                        @endif
+
+                        @elseif($selectedReport === 'Trial Balance')
+                        <!-- TRIAL BALANCE STATEMENT -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                            <div>
+                                <span class="fw-bold text-uppercase d-block" style="color: #0f172a; font-size: 0.85rem; letter-spacing: 0.5px;">Summary Trial Balance</span>
+                                <span class="text-muted small">Period: {{ \Carbon\Carbon::parse($startDate)->format('M d, Y') }} — {{ \Carbon\Carbon::parse($endDate)->format('M d, Y') }}</span>
+                            </div>
+                            <div>
+                                @if($reportData['is_balanced'])
+                                <span class="badge bg-success-subtle text-success border border-success px-3 py-2 fw-bold rounded-pill" style="font-size: 0.82rem;">
+                                    <i class="las la-check-circle me-1"></i> BALANCED (₱{{ number_format($reportData['total_debits'], 2) }})
+                                </span>
+                                @else
+                                <span class="badge bg-danger-subtle text-danger border border-danger px-3 py-2 fw-bold rounded-pill" style="font-size: 0.82rem;">
+                                    <i class="las la-exclamation-triangle me-1"></i> UNBALANCED DISCREPANCY (₱{{ number_format(abs($reportData['total_debits'] - $reportData['total_credits']), 2) }})
+                                </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle statement-table mb-0">
+                                <thead>
+                                    <tr style="background-color: #f8fafc;">
+                                        <th style="width: 120px;">Code</th>
+                                        <th>Account Description</th>
+                                        <th style="width: 130px;">Account Type</th>
+                                        <th class="text-end" style="width: 180px;">Debit (₱)</th>
+                                        <th class="text-end" style="width: 180px;">Credit (₱)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($reportData['accounts'] as $acc)
+                                    <tr class="hover-row">
+                                        <td><span class="fw-bold text-secondary">{{ $acc['code'] }}</span></td>
+                                        <td>
+                                            <span class="fw-bold text-dark fs-14">{{ $acc['name'] }}</span>
+                                            @if($acc['category'])
+                                            <small class="text-muted d-block">{{ $acc['category'] }}</small>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border">{{ $acc['type'] }}</span>
+                                        </td>
+                                        <td class="text-end fw-bold text-dark">
+                                            {{ $acc['debit'] > 0 ? '₱' . number_format($acc['debit'], 2) : '—' }}
+                                        </td>
+                                        <td class="text-end fw-bold text-dark">
+                                            {{ $acc['credit'] > 0 ? '₱' . number_format($acc['credit'], 2) : '—' }}
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">No active chart of accounts found with transactions in this period.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                                <tfoot>
+                                    <tr class="fw-bold table-light border-top" style="border-top: 2px solid #cbd5e1 !important;">
+                                        <td colspan="3" class="text-uppercase text-end" style="padding: 14px 16px; font-size: 0.88rem; color: #0f172a;">Grand Total Debits & Credits</td>
+                                        <td class="text-end text-dark fs-15" style="padding: 14px 16px;">₱{{ number_format($reportData['total_debits'], 2) }}</td>
+                                        <td class="text-end text-dark fs-15" style="padding: 14px 16px;">₱{{ number_format($reportData['total_credits'], 2) }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        @if(isset($reportData['accounts']) && $reportData['accounts'] instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $reportData['accounts']->onEachSide(0)->links('pagination::bootstrap-4') }}
                         </div>
                         @endif
 

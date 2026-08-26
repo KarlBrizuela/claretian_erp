@@ -575,6 +575,7 @@ Route::middleware(['auth'])->group(function () {
 
       // Payment Posting
       Route::get('/payment-posting', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingIndex'])->name('admin-finance.accounting.payment-posting.index');
+      Route::post('/payment-posting/store', [App\Http\Controllers\Production\FORDController::class, 'storeDirectPaymentPosting'])->name('admin-finance.accounting.payment-posting.store');
       Route::get('/payment-posting/{id}', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingShow'])->name('admin-finance.accounting.payment-posting.show');
       Route::post('/payment-posting/{id}/post', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingPost'])->name('admin-finance.accounting.payment-posting.post');
 
@@ -590,6 +591,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Chart of Accounts
     Route::get('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'chartOfAccounts'])->name('admin-finance.accounting.chart-of-accounts');
+    Route::get('/chart-of-accounts/{id}/ledger', [App\Http\Controllers\AdminFinanceController::class, 'getAccountLedger'])->name('admin-finance.accounting.chart-of-accounts.ledger');
     Route::post('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'storeChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.store');
     Route::put('/chart-of-accounts/{id}', [App\Http\Controllers\AdminFinanceController::class, 'updateChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.update');
     Route::delete('/chart-of-accounts/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.destroy');
