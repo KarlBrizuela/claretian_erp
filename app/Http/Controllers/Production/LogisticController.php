@@ -3911,10 +3911,6 @@ class LogisticController extends Controller
     {
         $transfer = \App\Models\TeamStockTransfer::with('items')->findOrFail($id);
 
-        if ($transfer->status === 'completed') {
-            return redirect()->back()->with('error', 'Team Stock Transfer #' . $transfer->transfer_number . ' is already marked as completed.');
-        }
-
         \DB::beginTransaction();
         try {
             if ($request->has('notes')) {
@@ -3951,140 +3947,7 @@ class LogisticController extends Controller
             // Reload transfer items to get updated quantities
             $transfer->load('items');
 
-            // Find or resolve target Site for the team
-            $teamName = trim($transfer->team_name);
-            $targetSite = \App\Models\Site::where('name', $teamName)
-                ->orWhere('name', 'Site ' . $teamName)
-                ->orWhere('code', strtolower(str_replace([' ', '-'], '_', $teamName)))
-                ->orWhereRaw('LOWER(name) = ?', [strtolower($teamName)])
-                ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($teamName) . '%'])
-                ->first();
-
-            if (!$targetSite) {
-                $targetSite = \App\Models\Site::create([
-                    'name' => $teamName,
-                    'code' => strtolower(str_replace([' ', '-'], '_', $teamName)),
-                    'location' => 'Area Sales',
-                    'description' => 'Area Sales ' . $teamName . ' Inventory',
-                    'is_active' => true
-                ]);
-            }
-
-            $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
-            $mainSiteId = $mainWarehouse ? $mainWarehouse->id : 1;
-
-            foreach ($transfer->items as $tItem) {
-                $previouslyPicked = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
-
-                // Determine actual packed quantity
-                if ($tItem->packed_qty !== null && (float)$tItem->packed_qty >= 0) {
-                    $qty = (float)$tItem->packed_qty;
-                } elseif ($tItem->quantity > 0) {
-                    $qty = (float)$tItem->quantity;
-                } else {
-                    $qty = 0;
-                }
-
-                // If picked quantity was higher than actual packed quantity, restore the difference back to Main Warehouse
-                if ($previouslyPicked > $qty) {
-                    $unpackedDiff = $previouslyPicked - $qty;
-
-                    if ($tItem->book_index_id) {
-                        $index = \App\Models\BookIndex::find($tItem->book_index_id);
-                        if ($index) {
-                            $index->stock = ($index->stock ?? $index->quantity ?? 0) + $unpackedDiff;
-                            $index->save();
-                            \App\Models\SiteInventory::updateOrCreate(
-                                ['site_id' => $mainSiteId, 'book_index_id' => $index->id],
-                                ['quantity' => $index->stock]
-                            );
-                        }
-                    } elseif ($tItem->book_id) {
-                        $book = \App\Models\Book::find($tItem->book_id);
-                        if ($book) {
-                            $book->stock = ($book->stock ?? 0) + $unpackedDiff;
-                            $book->save();
-                        }
-                    } elseif ($tItem->book_bundle_id) {
-                        $bundle = \App\Models\BookBundle::find($tItem->book_bundle_id);
-                        if ($bundle) {
-                            $bundle->stock = ($bundle->stock ?? $bundle->quantity ?? 0) + $unpackedDiff;
-                            $bundle->save();
-                            \App\Models\SiteInventory::updateOrCreate(
-                                ['site_id' => $mainSiteId, 'book_bundle_id' => $bundle->id],
-                                ['quantity' => $bundle->stock]
-                            );
-                        }
-                    }
-
-                    if ($tItem->book_id) {
-                        $bookForCost = \App\Models\Book::find($tItem->book_id);
-                        \App\Models\InventoryTransaction::create([
-                            'book_id'          => $tItem->book_id,
-                            'type'             => 'in',
-                            'quantity'         => $unpackedDiff,
-                            'location'         => 'Main Warehouse',
-                            'source'           => 'Unpacked Stock Return',
-                            'reference_number' => $transfer->transfer_number,
-                            'unit_cost'        => $bookForCost->cost ?? 0,
-                            'total_cost'       => $unpackedDiff * ($bookForCost->cost ?? 0),
-                            'notes'            => 'Restored ' . $unpackedDiff . ' unpacked pcs from transfer ' . $transfer->transfer_number . ' to Main Warehouse',
-                            'status'           => 'completed',
-                            'transaction_date' => now(),
-                            'user_id'          => auth()->id() ?? 1,
-                        ]);
-                    }
-                }
-                
-                $tItem->packed_qty = $qty;
-                if ($qty > 0) {
-                    $tItem->status = 'Packed';
-                }
-                $tItem->save();
-
-                if ($qty <= 0) {
-                    continue;
-                }
-
-                // 1. Credit Team Stock balance
-                $teamStock = \App\Models\TeamStock::firstOrNew([
-                    'team_name' => $transfer->team_name,
-                    'book_id' => $tItem->book_id,
-                    'book_index_id' => $tItem->book_index_id,
-                    'book_bundle_id' => $tItem->book_bundle_id,
-                ]);
-                $teamStock->quantity = ($teamStock->quantity ?? 0) + $qty;
-                $teamStock->save();
-
-                // 2. Sync Target Team SiteInventory
-                $siteInv = \App\Models\SiteInventory::firstOrNew([
-                    'site_id' => $targetSite->id,
-                    'book_id' => $tItem->book_id,
-                    'book_index_id' => $tItem->book_index_id,
-                    'book_bundle_id' => $tItem->book_bundle_id,
-                ]);
-                $siteInv->quantity = ($siteInv->quantity ?? 0) + $qty;
-                $siteInv->save();
-
-                // 3. Record Inventory Transaction Audit Trail (In to Target Site)
-                if ($tItem->book_id) {
-                    $bookForCost = \App\Models\Book::find($tItem->book_id);
-                    \App\Models\InventoryTransaction::create([
-                        'book_id'          => $tItem->book_id,
-                        'type'             => 'in',
-                        'quantity'         => $qty,
-                        'location'         => $targetSite->name,
-                        'source'           => 'Team Stock Transfer',
-                        'reference_number' => $transfer->transfer_number,
-                        'unit_cost'        => $bookForCost->cost ?? 0,
-                        'total_cost'       => $qty * ($bookForCost->cost ?? 0),
-                        'notes'            => 'Stock received by ' . $transfer->team_name . ' from Main Warehouse',
-                        'status'           => 'completed',
-                        'transaction_date' => now(),
-                        'user_id'          => auth()->id() ?? 1,
-                    ]);
-                }
-            }
+            $this->creditTeamStockTransfer($transfer);
 
             $transfer->update(['status' => 'completed']);
             \DB::commit();
@@ -4094,6 +3957,150 @@ class LogisticController extends Controller
         } catch (\Exception $e) {
             \DB::rollBack();
             return redirect()->back()->with('error', 'Failed to complete team stock packing: ' . $e->getMessage());
+        }
+    }
+
+    protected function creditTeamStockTransfer(\App\Models\TeamStockTransfer $transfer)
+    {
+        // Find or resolve target Site for the team
+        $teamName = trim($transfer->team_name);
+        $targetSite = \App\Models\Site::where('name', $teamName)
+            ->orWhere('name', 'Site ' . $teamName)
+            ->orWhere('code', strtolower(str_replace([' ', '-'], '_', $teamName)))
+            ->orWhereRaw('LOWER(name) = ?', [strtolower($teamName)])
+            ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($teamName) . '%'])
+            ->first();
+
+        if (!$targetSite) {
+            $targetSite = \App\Models\Site::create([
+                'name' => $teamName,
+                'code' => strtolower(str_replace([' ', '-'], '_', $teamName)),
+                'location' => 'Area Sales',
+                'description' => 'Area Sales ' . $teamName . ' Inventory',
+                'is_active' => true
+            ]);
+        }
+
+        $mainWarehouse = \App\Models\Site::where('name', 'Main Warehouse')->first();
+        $mainSiteId = $mainWarehouse ? $mainWarehouse->id : 1;
+
+        // Check if this transfer was already credited by checking InventoryTransaction
+        $alreadyCredited = \App\Models\InventoryTransaction::where('reference_number', $transfer->transfer_number)
+            ->where('type', 'in')
+            ->where('source', 'Team Stock Transfer')
+            ->exists();
+
+        foreach ($transfer->items as $tItem) {
+            $previouslyPicked = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
+
+            // Determine actual packed quantity
+            if ($tItem->packed_qty !== null && (float)$tItem->packed_qty >= 0) {
+                $qty = (float)$tItem->packed_qty;
+            } elseif ($tItem->quantity > 0) {
+                $qty = (float)$tItem->quantity;
+            } else {
+                $qty = 0;
+            }
+
+            // If picked quantity was higher than actual packed quantity, restore the difference back to Main Warehouse
+            if ($previouslyPicked > $qty) {
+                $unpackedDiff = $previouslyPicked - $qty;
+
+                if ($tItem->book_index_id) {
+                    $index = \App\Models\BookIndex::find($tItem->book_index_id);
+                    if ($index) {
+                        $index->stock = ($index->stock ?? $index->quantity ?? 0) + $unpackedDiff;
+                        $index->save();
+                        \App\Models\SiteInventory::updateOrCreate(
+                            ['site_id' => $mainSiteId, 'book_index_id' => $index->id],
+                            ['quantity' => $index->stock]
+                        );
+                    }
+                } elseif ($tItem->book_id) {
+                    $book = \App\Models\Book::find($tItem->book_id);
+                    if ($book) {
+                        $book->stock = ($book->stock ?? 0) + $unpackedDiff;
+                        $book->save();
+                    }
+                } elseif ($tItem->book_bundle_id) {
+                    $bundle = \App\Models\BookBundle::find($tItem->book_bundle_id);
+                    if ($bundle) {
+                        $bundle->stock = ($bundle->stock ?? $bundle->quantity ?? 0) + $unpackedDiff;
+                        $bundle->save();
+                        \App\Models\SiteInventory::updateOrCreate(
+                            ['site_id' => $mainSiteId, 'book_bundle_id' => $bundle->id],
+                            ['quantity' => $bundle->stock]
+                        );
+                    }
+                }
+
+                if ($tItem->book_id) {
+                    $bookForCost = \App\Models\Book::find($tItem->book_id);
+                    \App\Models\InventoryTransaction::create([
+                        'book_id'          => $tItem->book_id,
+                        'type'             => 'in',
+                        'quantity'         => $unpackedDiff,
+                        'location'         => 'Main Warehouse',
+                        'source'           => 'Unpacked Stock Return',
+                        'reference_number' => $transfer->transfer_number,
+                        'unit_cost'        => $bookForCost->cost ?? 0,
+                        'total_cost'       => $unpackedDiff * ($bookForCost->cost ?? 0),
+                        'notes'            => 'Restored ' . $unpackedDiff . ' unpacked pcs from transfer ' . $transfer->transfer_number . ' to Main Warehouse',
+                        'status'           => 'completed',
+                        'transaction_date' => now(),
+                        'user_id'          => auth()->id() ?? 1,
+                    ]);
+                }
+            }
+            
+            $tItem->packed_qty = $qty;
+            if ($qty > 0) {
+                $tItem->status = 'Packed';
+            }
+            $tItem->save();
+
+            if ($qty <= 0 || $alreadyCredited) {
+                continue;
+            }
+
+            // 1. Credit Team Stock balance
+            $teamStock = \App\Models\TeamStock::firstOrNew([
+                'team_name' => $transfer->team_name,
+                'book_id' => $tItem->book_id,
+                'book_index_id' => $tItem->book_index_id,
+                'book_bundle_id' => $tItem->book_bundle_id,
+            ]);
+            $teamStock->quantity = ($teamStock->quantity ?? 0) + $qty;
+            $teamStock->save();
+
+            // 2. Sync Target Team SiteInventory
+            $siteInv = \App\Models\SiteInventory::firstOrNew([
+                'site_id' => $targetSite->id,
+                'book_id' => $tItem->book_id,
+                'book_index_id' => $tItem->book_index_id,
+                'book_bundle_id' => $tItem->book_bundle_id,
+            ]);
+            $siteInv->quantity = ($siteInv->quantity ?? 0) + $qty;
+            $siteInv->save();
+
+            // 3. Record Inventory Transaction Audit Trail (In to Target Site)
+            if ($tItem->book_id) {
+                $bookForCost = \App\Models\Book::find($tItem->book_id);
+                \App\Models\InventoryTransaction::create([
+                    'book_id'          => $tItem->book_id,
+                    'type'             => 'in',
+                    'quantity'         => $qty,
+                    'location'         => $targetSite->name,
+                    'source'           => 'Team Stock Transfer',
+                    'reference_number' => $transfer->transfer_number,
+                    'unit_cost'        => $bookForCost->cost ?? 0,
+                    'total_cost'       => $qty * ($bookForCost->cost ?? 0),
+                    'notes'            => 'Stock received by ' . $transfer->team_name . ' from Main Warehouse',
+                    'status'           => 'completed',
+                    'transaction_date' => now(),
+                    'user_id'          => auth()->id() ?? 1,
+                ]);
+            }
         }
     }
 
@@ -4161,21 +4168,13 @@ class LogisticController extends Controller
 
     public function saveTeamStockPackItems(Request $request, $id)
     {
-        $transfer = \App\Models\TeamStockTransfer::findOrFail($id);
+        $transfer = \App\Models\TeamStockTransfer::with('items')->findOrFail($id);
 
         \DB::beginTransaction();
         try {
             if ($request->has('notes')) {
                 $transfer->notes = $request->notes;
             }
-            if ($request->has('status') && $transfer->status !== 'completed') {
-                if (in_array($request->status, ['packing', 'in_progress', 'not_started'])) {
-                    $transfer->status = 'packing';
-                } elseif ($request->status === 'completed') {
-                    $transfer->status = 'completed';
-                }
-            }
-            $transfer->save();
 
             if ($request->has('items') && is_array($request->items)) {
                 foreach ($request->items as $itemData) {
@@ -4188,7 +4187,7 @@ class LogisticController extends Controller
                             $tItem->packed_qty = $packedQty;
 
                             // Do not modify $tItem->quantity; quantity represents original requested quantity
-                            $targetQty = $tItem->picked_qty > 0 ? $tItem->picked_qty : $tItem->quantity;
+                            $targetQty = (float)($tItem->picked_qty !== null && $tItem->picked_qty > 0 ? $tItem->picked_qty : $tItem->quantity);
                             if (isset($itemData['status']) && !empty($itemData['status'])) {
                                 $tItem->status = $itemData['status'];
                             } elseif ($packedQty >= $targetQty && $targetQty > 0) {
@@ -4206,6 +4205,20 @@ class LogisticController extends Controller
                     }
                 }
             }
+
+            // Reload transfer items to get updated quantities
+            $transfer->load('items');
+
+            $shouldComplete = ($request->has('status') && $request->status === 'completed');
+            if ($shouldComplete) {
+                $this->creditTeamStockTransfer($transfer);
+                $transfer->status = 'completed';
+            } elseif ($request->has('status') && $transfer->status !== 'completed') {
+                if (in_array($request->status, ['packing', 'in_progress', 'not_started'])) {
+                    $transfer->status = 'packing';
+                }
+            }
+            $transfer->save();
 
             \DB::commit();
 

@@ -259,23 +259,28 @@
         }
 
         @media print {
+            .no-print,
+            .actions-bar,
+            .btn,
+            button,
+            .print-button {
+                display: none !important;
+                visibility: hidden !important;
+            }
+
             body {
-                background-color: #fff;
-                padding: 0;
-                margin: 0;
+                background-color: #fff !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
 
             .invoice-container {
-                box-shadow: none;
-                padding: 0.3in;
-                margin: 0;
-                max-width: 100%;
-                height: auto;
+                box-shadow: none !important;
+                padding: 0.3in !important;
+                margin: 0 auto !important;
+                max-width: 100% !important;
+                height: auto !important;
                 page-break-after: avoid;
-            }
-
-            .print-button {
-                display: none;
             }
 
             @page {

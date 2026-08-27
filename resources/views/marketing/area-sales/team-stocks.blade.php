@@ -766,15 +766,16 @@
                                 <thead style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
                                     <tr>
                                         <th class="py-2 px-3 text-secondary uppercase small fw-bold">PRODUCT DESCRIPTION</th>
-                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 130px;">AVAIL. QTY</th>
-                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 140px;">RETURN QTY</th>
-                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 140px;">LOST QTY</th>
-                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 150px;">STATUS</th>
+                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 120px;">AVAIL. QTY</th>
+                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 130px;">RETURN QTY</th>
+                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 130px;">LOST QTY</th>
+                                        <th class="py-2 px-3 text-secondary uppercase small fw-bold" style="width: 160px;">REMARKS</th>
+                                        <th class="py-2 px-3 text-center text-secondary uppercase small fw-bold" style="width: 120px;">STATUS</th>
                                     </tr>
                                 </thead>
                                 <tbody id="returnItemsBody">
                                     <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted small">Please select a team above to view available stock for return.</td>
+                                        <td colspan="6" class="text-center py-4 text-muted small">Please select a team above to view available stock for return.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -802,11 +803,18 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light border-top py-3 px-4">
-                        <button type="button" class="btn btn-light border px-4 fw-semibold text-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger px-4 fw-semibold" id="btnConfirmReturn" style="background-color: #D9251C; border: none;" disabled>
-                            Confirm & Return Stock
-                        </button>
+                    <div class="modal-footer bg-light border-top py-3 px-4 d-flex justify-content-between align-items-center">
+                        <div>
+                            <button type="button" class="btn btn-outline-dark fw-semibold" id="btnPrintReturnList" onclick="printReturnStockList()">
+                                <i class="fas fa-print me-1"></i> Print Stock Sheet
+                            </button>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-light border px-4 fw-semibold text-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger px-4 fw-semibold" id="btnConfirmReturn" style="background-color: #D9251C; border: none;" disabled>
+                                Confirm & Return Stock
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -1056,7 +1064,7 @@
             if (summaryTeam) summaryTeam.textContent = teamName || 'None';
 
             if (!teamName) {
-                if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Please select a team above to view available stock for return.</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted small">Please select a team above to view available stock for return.</td></tr>';
                 if (barcodeInput) barcodeInput.disabled = true;
                 if (scanBtn) scanBtn.disabled = true;
                 if (confirmBtn) confirmBtn.disabled = true;
@@ -1075,7 +1083,7 @@
             });
 
             if (currentReturnItems.length === 0) {
-                if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted small">No items with positive stock found under <strong>${teamName}</strong>.</td></tr>`;
+                if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted small">No items with positive stock found under <strong>${teamName}</strong>.</td></tr>`;
                 if (barcodeInput) barcodeInput.disabled = true;
                 if (scanBtn) scanBtn.disabled = true;
                 if (confirmBtn) confirmBtn.disabled = true;
@@ -1111,6 +1119,9 @@
                         <td class="text-center py-2 px-3">
                             <input type="number" name="items[${idx}][lost_qty]" class="form-control form-control-sm text-center fw-bold text-danger input-lost-qty border-slate" value="0" min="0" max="${item.available_qty}" oninput="onReturnQtyChanged(${idx})">
                         </td>
+                        <td class="py-2 px-3">
+                            <input type="text" name="items[${idx}][item_remarks]" class="form-control form-control-sm border-slate" placeholder="Remarks...">
+                        </td>
                         <td class="text-center py-2 px-3 row-status-cell">
                             <span class="badge bg-light text-secondary border fw-medium">Pending</span>
                         </td>
@@ -1120,6 +1131,142 @@
 
             tbody.innerHTML = html;
             updateReturnTotals();
+        }
+
+        function printReturnStockList() {
+            const teamSelect = document.getElementById('returnTeamSelect');
+            const teamName = teamSelect ? teamSelect.value : '';
+
+            if (!teamName) {
+                alert('Please select a Sales Team first to generate and print their stock return sheet.');
+                if (teamSelect) teamSelect.focus();
+                return;
+            }
+
+            // Get items for the selected team
+            const rawTeam = teamName.trim();
+            const cleanName = rawTeam.replace(/^(site\s+|team\s+)+/i, '').trim().toLowerCase();
+
+            const itemsToPrint = allTeamStockData.filter(item => {
+                const itemTeam = (item.team_name || '').trim().toLowerCase();
+                const itemClean = itemTeam.replace(/^(site\s+|team\s+)+/i, '').trim();
+                return (itemTeam === rawTeam.toLowerCase() || itemClean === cleanName) && (item.available_qty > 0);
+            });
+
+            if (itemsToPrint.length === 0) {
+                alert(`No available stock records found under ${teamName} to print.`);
+                return;
+            }
+
+            const totalPcs = itemsToPrint.reduce((acc, i) => acc + (parseInt(i.available_qty) || 0), 0);
+            const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            let rowsHtml = '';
+            itemsToPrint.forEach((item, idx) => {
+                const barcodes = (item.barcodes && item.barcodes.length > 0) ? item.barcodes.join(', ') : '';
+                rowsHtml += `
+                    <tr>
+                        <td style="text-align: center; vertical-align: middle; padding: 6px 4px; font-size: 11px;">${idx + 1}</td>
+                        <td style="padding: 6px 8px; vertical-align: middle;">
+                            <div style="font-weight: bold; font-size: 12px; color: #111;">${item.product_name}</div>
+                            ${barcodes ? `<div style="font-size: 10px; color: #555;">Code/Barcode: ${barcodes}</div>` : ''}
+                        </td>
+                        <td style="text-align: center; vertical-align: middle; font-weight: bold; font-size: 12px; padding: 6px 4px; color: #000;">
+                            ${item.available_qty}
+                        </td>
+                        <td style="padding: 6px 8px; vertical-align: middle; min-width: 180px;">
+                            <!-- Blank area for manual handwriting / physical count / remarks -->
+                        </td>
+                    </tr>
+                `;
+            });
+
+            const printContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Return Stock Sheet - ${teamName}</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+                        body { padding: 20px; color: #000; background: #fff; }
+                        .header-container { text-align: center; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+                        .company-title { font-size: 15pt; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; color: #000; }
+                        .company-sub { font-size: 9pt; color: #333; margin-top: 2px; }
+                        .doc-title { font-size: 13pt; font-weight: bold; margin-top: 8px; text-transform: uppercase; letter-spacing: 1px; color: #d9251c; }
+                        .meta-grid { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10pt; }
+                        .meta-grid td { padding: 3px 0; }
+                        table.stock-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11pt; }
+                        table.stock-table th, table.stock-table td { border: 1px solid #333; }
+                        table.stock-table th { background-color: #f2f2f2; padding: 6px 4px; text-transform: uppercase; font-size: 10pt; font-weight: bold; }
+                        @media print {
+                            body { padding: 8mm; }
+                            @page { size: portrait; margin: 8mm; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header-container">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 6px;">
+                            <img src="{{ asset('images/claeritian_logo.png') }}" alt="Claretian Logo" style="height: 55px; width: auto; max-width: 65px; object-fit: contain;">
+                            <div style="text-align: left;">
+                                <div class="company-title">Claretian Communications Foundation, Inc.</div>
+                                <div class="company-sub">8 Mayumi Street, U.P. Village, Diliman, 1101 Quezon City NCR, Philippines</div>
+                                <div class="company-sub">Tel: (02) 8921-3984 | Fax: (02) 8921-6205</div>
+                            </div>
+                        </div>
+                        <div class="doc-title">Team Stock Return & Physical Count Sheet</div>
+                    </div>
+
+                    <table class="meta-grid">
+                        <tr>
+                            <td style="width: 50%;"><strong>Sales Team:</strong> <span style="font-size: 11pt; font-weight: bold; color: #d9251c;">${teamName}</span></td>
+                            <td style="text-align: right;"><strong>Date Printed:</strong> ${today}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total Distinct Titles:</strong> ${itemsToPrint.length} item(s)</td>
+                            <td style="text-align: right;"><strong>Total Available Qty:</strong> <span style="font-weight: bold;">${totalPcs.toLocaleString()} pcs</span></td>
+                        </tr>
+                    </table>
+
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 35px; text-align: center;">#</th>
+                                <th style="text-align: left; padding-left: 8px;">TITLE / DESCRIPTION</th>
+                                <th style="width: 90px; text-align: center;">QTY</th>
+                                <th style="width: 220px; text-align: center;">REMARKS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </body>
+                </html>
+            `;
+
+            let printIframe = document.getElementById('returnStockPrintIframe');
+            if (!printIframe) {
+                printIframe = document.createElement('iframe');
+                printIframe.id = 'returnStockPrintIframe';
+                printIframe.style.position = 'fixed';
+                printIframe.style.right = '0';
+                printIframe.style.bottom = '0';
+                printIframe.style.width = '0';
+                printIframe.style.height = '0';
+                printIframe.style.border = '0';
+                document.body.appendChild(printIframe);
+            }
+
+            const doc = printIframe.contentWindow.document;
+            doc.open();
+            doc.write(printContent);
+            doc.close();
+
+            setTimeout(function() {
+                printIframe.contentWindow.focus();
+                printIframe.contentWindow.print();
+            }, 300);
         }
 
         function onReturnQtyChanged(idx) {

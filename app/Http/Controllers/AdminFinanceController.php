@@ -246,9 +246,17 @@ class AdminFinanceController extends Controller
       ->sum('total_amount') ?: 0.00;
 
     // Expenses: sum debits for journal items whose account type is 'Expense' within period
-    $totalExpenses = \App\Models\JournalEntryItem::whereHas('account', function($q){
-      $q->where('type', 'Expense');
-    })->whereBetween('created_at', [$start, $end])->sum('debit');
+    $totalExpenses = 0.00;
+    try {
+      if (\Illuminate\Support\Facades\Schema::hasTable('journal_entry_items') && \Illuminate\Support\Facades\Schema::hasTable('chart_of_accounts')) {
+        $totalExpenses = (float) \App\Models\JournalEntryItem::whereHas('account', function($q){
+          $q->where('type', 'Expense');
+        })->whereBetween('created_at', [$start, $end])->sum('debit');
+      }
+    } catch (\Throwable $e) {
+      \Log::warning('Dashboard totalExpenses calculation error: ' . $e->getMessage());
+      $totalExpenses = 0.00;
+    }
 
     $netProfit = $totalRevenue - $totalExpenses;
 
@@ -6382,8 +6390,11 @@ public function checkVoucher()
             );
             $reportData->withQueryString();
         } elseif ($selectedReport === 'Trial Balance') {
-            $accounts = \App\Models\ChartOfAccount::where('is_active', 1)
-                ->where('is_postable', 1)
+            $accountQuery = \App\Models\ChartOfAccount::where('is_active', 1);
+            if (\Illuminate\Support\Facades\Schema::hasColumn('chart_of_accounts', 'is_postable')) {
+                $accountQuery->where('is_postable', 1);
+            }
+            $accounts = $accountQuery
                 ->orderByRaw("
                     CASE type
                         WHEN 'Asset' THEN 1

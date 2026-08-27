@@ -441,6 +441,28 @@
         }
 
         @media print {
+            .no-print,
+            .actions-bar,
+            .btn,
+            button {
+                display: none !important;
+                visibility: hidden !important;
+            }
+
+            body {
+                background: #fff !important;
+                background-color: #fff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .invoice-box {
+                border: none !important;
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                padding: 0.2in 0.3in !important;
+            }
+
             body.preprinted-mode {
                 background: #fff !important;
                 padding: 0 !important;
