@@ -13,7 +13,34 @@
     </div>
     <div class="card-body p-3 pt-1">
         <div class="row g-2">
-            @forelse($categoryAccounts as $acc)
+            <!-- Account Group Cards (Aggregated) -->
+            @foreach($categoryAccountGroups as $group)
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <div class="card h-100 shadow-sm hover-card income-card" style="background-color: #ffffff; border: 1.5px solid #10b981 !important; border-radius: 10px; transition: all 0.2s ease; cursor: pointer;" onclick="openAccountGroupDetailModal({{ $group->id }})">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: rgba(16, 185, 129, 0.12); color: #10b981;">
+                                    <i class="las la-layer-group fs-20"></i>
+                                </div>
+                                <span class="badge px-2.5 py-1 rounded-pill small fw-bold" style="background-color: rgba(16, 185, 129, 0.1); color: #10b981; font-size: 0.7rem;">
+                                    {{ $group->accounts->count() }} {{ Str::plural('Account', $group->accounts->count()) }}
+                                </span>
+                            </div>
+                            <h6 class="mb-1 fw-bold fs-15 text-success" style="letter-spacing: -0.2px;">{{ $group->name }}</h6>
+                            <p class="text-muted small mb-3" style="font-size: 0.76rem; line-height: 1.4; min-height: 38px;">{{ $group->description ?: 'Grouped Income Accounts Card' }}</p>
+                        </div>
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: #f1f5f9 !important;">
+                            <span class="text-muted small fw-bold" style="font-size: 0.72rem;">Total Group Balance</span>
+                            <span class="fw-bold fs-14 text-success">₱{{ number_format($group->calculated_balance, 2) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+
+            <!-- Standalone Accounts (Without Account Group) -->
+            @forelse($categoryAccounts->whereNull('account_group_id') as $acc)
             <div class="col-xl-3 col-md-4 col-sm-6">
                 <div class="card h-100 shadow-sm hover-card income-card" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; transition: all 0.2s ease; cursor: pointer;" onclick="openAccountLedgerModal({{ $acc->id }}, '{{ $acc->code }}', '{{ addslashes($acc->name) }}')">
                     <div class="card-body p-3 d-flex flex-column justify-content-between">
@@ -37,7 +64,9 @@
                 </div>
             </div>
             @empty
+            @if($categoryAccountGroups->isEmpty())
             <div class="col-12 py-4 text-center text-muted">No income accounts registered in the database.</div>
+            @endif
             @endforelse
         </div>
     </div>

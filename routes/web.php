@@ -601,6 +601,12 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/chart-of-accounts/{id}', [App\Http\Controllers\AdminFinanceController::class, 'updateChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.update');
     Route::delete('/chart-of-accounts/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.destroy');
     Route::post('/chart-of-accounts/toggle', [App\Http\Controllers\AdminFinanceController::class, 'toggleAccountStatus'])->name('admin-finance.accounting.chart-of-accounts.toggle');
+
+    // Account Groups
+    Route::post('/account-groups', [App\Http\Controllers\AdminFinanceController::class, 'storeAccountGroup'])->name('admin-finance.accounting.account-groups.store');
+    Route::put('/account-groups/{id}', [App\Http\Controllers\AdminFinanceController::class, 'updateAccountGroup'])->name('admin-finance.accounting.account-groups.update');
+    Route::delete('/account-groups/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyAccountGroup'])->name('admin-finance.accounting.account-groups.destroy');
+    Route::get('/account-groups/{id}/accounts', [App\Http\Controllers\AdminFinanceController::class, 'getAccountGroupAccounts'])->name('admin-finance.accounting.account-groups.accounts');
     Route::get('/sales-management', [App\Http\Controllers\AdminFinanceController::class, 'salesManagement'])->name('admin-finance.accounting.sales-management');
     Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');
     Route::get('/accounts-payable', [App\Http\Controllers\AdminFinanceController::class, 'accountsPayable'])->name('admin-finance.accounting.accounts-payable');

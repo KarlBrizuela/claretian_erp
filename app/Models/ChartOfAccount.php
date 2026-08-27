@@ -14,6 +14,7 @@ class ChartOfAccount extends Model
         'name',
         'type',
         'category',
+        'account_group_id',
         'is_active',
         'parent_id',
         'is_postable',
@@ -24,5 +25,10 @@ class ChartOfAccount extends Model
     public function journalEntryItems()
     {
         return $this->hasMany(JournalEntryItem::class);
+    }
+
+    public function accountGroup()
+    {
+        return $this->belongsTo(AccountGroup::class, 'account_group_id');
     }
 }

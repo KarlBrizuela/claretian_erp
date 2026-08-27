@@ -396,10 +396,28 @@
                                     </thead>
                                     <tbody>
                                         @foreach($reportData['current_assets'] as $ca)
-                                        <tr>
-                                            <td>{{ $ca['account'] }}</td>
-                                            <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($ca['amount'], 2) }}</td>
-                                        </tr>
+                                            @if(!empty($ca['is_group']))
+                                            <tr class="bg-light border-top border-bottom">
+                                                <td class="fw-bold" style="color: #D9251C; padding-left: 10px;">
+                                                    <i class="las la-layer-group me-1 fs-15"></i> {{ $ca['group_name'] }}
+                                                    <span class="badge bg-white text-secondary border ms-1 fw-normal" style="font-size: 0.68rem;">Account Group</span>
+                                                </td>
+                                                <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($ca['amount'], 2) }}</td>
+                                            </tr>
+                                            @foreach($ca['accounts'] as $sub)
+                                            <tr>
+                                                <td class="ps-4 text-muted small" style="font-size: 0.82rem;">
+                                                    <i class="las la-angle-right me-1 text-secondary opacity-50"></i> {{ $sub['code'] }} - {{ $sub['name'] }}
+                                                </td>
+                                                <td class="text-end text-muted small" style="font-size: 0.82rem;">₱{{ number_format($sub['amount'], 2) }}</td>
+                                            </tr>
+                                            @endforeach
+                                            @else
+                                            <tr>
+                                                <td>{{ $ca['account'] }}</td>
+                                                <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($ca['amount'], 2) }}</td>
+                                            </tr>
+                                            @endif
                                         @endforeach
                                     </tbody>
                                     <tfoot>
@@ -419,10 +437,28 @@
                                     </thead>
                                     <tbody>
                                         @foreach($reportData['non_current_assets'] as $nca)
-                                        <tr>
-                                            <td>{{ $nca['account'] }}</td>
-                                            <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($nca['amount'], 2) }}</td>
-                                        </tr>
+                                            @if(!empty($nca['is_group']))
+                                            <tr class="bg-light border-top border-bottom">
+                                                <td class="fw-bold" style="color: #D9251C; padding-left: 10px;">
+                                                    <i class="las la-layer-group me-1 fs-15"></i> {{ $nca['group_name'] }}
+                                                    <span class="badge bg-white text-secondary border ms-1 fw-normal" style="font-size: 0.68rem;">Account Group</span>
+                                                </td>
+                                                <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($nca['amount'], 2) }}</td>
+                                            </tr>
+                                            @foreach($nca['accounts'] as $sub)
+                                            <tr>
+                                                <td class="ps-4 text-muted small" style="font-size: 0.82rem;">
+                                                    <i class="las la-angle-right me-1 text-secondary opacity-50"></i> {{ $sub['code'] }} - {{ $sub['name'] }}
+                                                </td>
+                                                <td class="text-end text-muted small" style="font-size: 0.82rem;">₱{{ number_format($sub['amount'], 2) }}</td>
+                                            </tr>
+                                            @endforeach
+                                            @else
+                                            <tr>
+                                                <td>{{ $nca['account'] }}</td>
+                                                <td class="text-end fw-bold" style="color: #0f172a;">₱{{ number_format($nca['amount'], 2) }}</td>
+                                            </tr>
+                                            @endif
                                         @endforeach
                                     </tbody>
                                     <tfoot>
@@ -454,10 +490,28 @@
                                     </thead>
                                     <tbody>
                                         @foreach($reportData['liabilities'] as $liab)
-                                        <tr>
-                                            <td>{{ $liab['account'] }}</td>
-                                            <td class="text-end fw-bold text-danger">₱{{ number_format($liab['amount'], 2) }}</td>
-                                        </tr>
+                                            @if(!empty($liab['is_group']))
+                                            <tr class="bg-light border-top border-bottom">
+                                                <td class="fw-bold text-danger" style="padding-left: 10px;">
+                                                    <i class="las la-layer-group me-1 fs-15"></i> {{ $liab['group_name'] }}
+                                                    <span class="badge bg-white text-secondary border ms-1 fw-normal" style="font-size: 0.68rem;">Account Group</span>
+                                                </td>
+                                                <td class="text-end fw-bold text-danger">₱{{ number_format($liab['amount'], 2) }}</td>
+                                            </tr>
+                                            @foreach($liab['accounts'] as $sub)
+                                            <tr>
+                                                <td class="ps-4 text-muted small" style="font-size: 0.82rem;">
+                                                    <i class="las la-angle-right me-1 text-secondary opacity-50"></i> {{ $sub['code'] }} - {{ $sub['name'] }}
+                                                </td>
+                                                <td class="text-end text-muted small" style="font-size: 0.82rem;">₱{{ number_format($sub['amount'], 2) }}</td>
+                                            </tr>
+                                            @endforeach
+                                            @else
+                                            <tr>
+                                                <td>{{ $liab['account'] }}</td>
+                                                <td class="text-end fw-bold text-danger">₱{{ number_format($liab['amount'], 2) }}</td>
+                                            </tr>
+                                            @endif
                                         @endforeach
                                     </tbody>
                                     <tfoot>
@@ -477,10 +531,28 @@
                                     </thead>
                                     <tbody>
                                         @foreach($reportData['equity'] as $eq)
-                                        <tr>
-                                            <td>{{ $eq['account'] }}</td>
-                                            <td class="text-end fw-bold text-success">₱{{ number_format($eq['amount'], 2) }}</td>
-                                        </tr>
+                                            @if(!empty($eq['is_group']))
+                                            <tr class="bg-light border-top border-bottom">
+                                                <td class="fw-bold text-success" style="padding-left: 10px;">
+                                                    <i class="las la-layer-group me-1 fs-15"></i> {{ $eq['group_name'] }}
+                                                    <span class="badge bg-white text-secondary border ms-1 fw-normal" style="font-size: 0.68rem;">Account Group</span>
+                                                </td>
+                                                <td class="text-end fw-bold text-success">₱{{ number_format($eq['amount'], 2) }}</td>
+                                            </tr>
+                                            @foreach($eq['accounts'] as $sub)
+                                            <tr>
+                                                <td class="ps-4 text-muted small" style="font-size: 0.82rem;">
+                                                    <i class="las la-angle-right me-1 text-secondary opacity-50"></i> {{ $sub['code'] }} - {{ $sub['name'] }}
+                                                </td>
+                                                <td class="text-end text-muted small" style="font-size: 0.82rem;">₱{{ number_format($sub['amount'], 2) }}</td>
+                                            </tr>
+                                            @endforeach
+                                            @else
+                                            <tr>
+                                                <td>{{ $eq['account'] }}</td>
+                                                <td class="text-end fw-bold text-success">₱{{ number_format($eq['amount'], 2) }}</td>
+                                            </tr>
+                                            @endif
                                         @endforeach
                                     </tbody>
                                     <tfoot>

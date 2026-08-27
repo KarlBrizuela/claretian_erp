@@ -3534,7 +3534,7 @@ public function checkVoucher()
         }
 
         $mainTab = $request->query('main_tab', 'crud');
-        if (!in_array($mainTab, ['crud', 'cards'])) {
+        if (!in_array($mainTab, ['crud', 'cards', 'account_groups'])) {
             $mainTab = 'crud';
         }
 
@@ -3547,7 +3547,7 @@ public function checkVoucher()
         $searchQuery = trim($request->query('search', ''));
         $categoryFilter = $request->query('category', '');
 
-        $accountsQuery = \App\Models\ChartOfAccount::query();
+        $accountsQuery = \App\Models\ChartOfAccount::with('accountGroup');
         if (!empty($searchQuery)) {
             $accountsQuery->where(function($q) use ($searchQuery) {
                 $q->where('code', 'like', "%{$searchQuery}%")
@@ -3766,6 +3766,7 @@ public function checkVoucher()
 
         $uncategorizedAccounts = \App\Models\ChartOfAccount::where('type', $typeFilter)
             ->whereNotIn('id', $trackedIds)
+            ->whereNull('account_group_id')
             ->get()
             ->map(function($acc) use ($typeFilter) {
                 $debit = $acc->journalEntryItems()->sum('debit');
@@ -3872,34 +3873,42 @@ public function checkVoucher()
         $expensesRecordsList = \App\Models\Expense::with(['department', 'addedBy'])->latest()->get();
         $fixedAssetsRecordsList = \App\Models\ProductionFixedAsset::latest()->get();
 
-        $categoryAccounts = \App\Models\ChartOfAccount::where('type', $typeFilter)
+        $allAccountGroups = \App\Models\AccountGroup::withCount('accounts')->orderBy('name')->get();
+
+        $categoryAccounts = \App\Models\ChartOfAccount::with('accountGroup')
+            ->where('type', $typeFilter)
             ->orderBy('code')
             ->get()
             ->map(function($acc) use ($typeFilter) {
-                $debit = $acc->journalEntryItems()->whereHas('journalEntry', function($q) { $q->where('status', 'posted'); })->sum('debit');
-                $credit = $acc->journalEntryItems()->whereHas('journalEntry', function($q) { $q->where('status', 'posted'); })->sum('credit');
-                
-                // Add pending payment postings sum if not yet posted to GL
-                $pendingPpSum = \App\Models\ClientPaymentPostingItem::where('chart_of_account_id', $acc->id)
-                    ->whereHas('posting', function($q) { $q->where('status', 'pending'); })
-                    ->sum('amount');
-
-                if ($typeFilter === 'Asset' || $typeFilter === 'Expense') {
-                    $acc->calculated_balance = ($debit - $credit) + $pendingPpSum;
-                } else {
-                    $acc->calculated_balance = ($credit - $debit) + $pendingPpSum;
-                }
+                $acc->calculated_balance = $this->calculateAccountLiveBalance($acc, $typeFilter);
                 return $acc;
             });
 
+        $categoryAccountGroups = \App\Models\AccountGroup::where('type', $typeFilter)
+            ->with(['accounts' => function($q) {
+                $q->where('is_active', true);
+            }])
+            ->orderBy('name')
+            ->get()
+            ->map(function($group) use ($typeFilter) {
+                $totalBalance = 0;
+                foreach ($group->accounts as $acc) {
+                    $totalBalance += $this->calculateAccountLiveBalance($acc, $typeFilter);
+                }
+                $group->calculated_balance = $totalBalance;
+                return $group;
+            });
+
         return view('admin-finance.accounting.chart-of-accounts', [
-            'title' => 'Chart of Accounts - ' . ($mainTab === 'crud' ? 'Management' : ucfirst($tab)),
+            'title' => 'Chart of Accounts - ' . ($mainTab === 'crud' ? 'Management' : ($mainTab === 'account_groups' ? 'Account Groups' : ucfirst($tab))),
             'role' => $user->position,
             'sidebar' => 'admin-finance',
             'mainTab' => $mainTab,
             'tab' => $tab,
             'allAccounts' => $allAccounts,
             'categoryAccounts' => $categoryAccounts,
+            'allAccountGroups' => $allAccountGroups,
+            'categoryAccountGroups' => $categoryAccountGroups,
             'balances' => $balances,
             'uncategorizedAccounts' => $uncategorizedAccounts,
             'salesInvoices' => $salesInvoices,
@@ -3913,6 +3922,37 @@ public function checkVoucher()
             'fixedAssetsRecordsList' => $fixedAssetsRecordsList,
             'accountDetails' => $accountDetails,
         ]);
+    }
+
+    private function calculateAccountLiveBalance($acc, $typeFilter = null)
+    {
+        $type = $typeFilter ?? $acc->type;
+        $debit = $acc->journalEntryItems()->whereHas('journalEntry', function($q) { $q->where('status', 'posted'); })->sum('debit');
+        $credit = $acc->journalEntryItems()->whereHas('journalEntry', function($q) { $q->where('status', 'posted'); })->sum('credit');
+        
+        $pendingPpSum = \App\Models\ClientPaymentPostingItem::where('chart_of_account_id', $acc->id)
+            ->whereHas('posting', function($q) { $q->where('status', 'pending'); })
+            ->sum('amount');
+
+        $glBalance = ($type === 'Asset' || $type === 'Expense') ? ($debit - $credit) : ($credit - $debit);
+
+        // Check if there is a matching Company Bank Account for this Chart of Account
+        $cbaBalance = 0.00;
+        if (\Illuminate\Support\Facades\Schema::hasTable('company_bank_accounts')) {
+            $cba = \App\Models\CompanyBankAccount::where('account_code', $acc->code)->first();
+            if (!$cba) {
+                // Try matching by first word of name if BDO/BPI/GCash/Bank/Union
+                $firstWord = explode(' ', trim($acc->name))[0];
+                if (strlen($firstWord) >= 3 && in_array(strtoupper($firstWord), ['BDO', 'BPI', 'GCASH', 'BANK', 'UNION'])) {
+                    $cba = \App\Models\CompanyBankAccount::where('bank_name', 'like', "%{$firstWord}%")->first();
+                }
+            }
+            if ($cba) {
+                $cbaBalance = (float) $cba->current_balance;
+            }
+        }
+
+        return max(0, $glBalance + $pendingPpSum + $cbaBalance);
     }
 
     public function storeChartOfAccount(\Illuminate\Http\Request $request)
@@ -3930,6 +3970,7 @@ public function checkVoucher()
             'name' => 'required|string|max:255',
             'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
             'category' => 'nullable|string|max:255',
+            'account_group_id' => 'nullable|exists:account_groups,id',
             'normal_balance' => 'nullable|in:Debit,Credit',
             'is_active' => 'nullable|boolean',
         ]);
@@ -3965,6 +4006,7 @@ public function checkVoucher()
             'name' => 'required|string|max:255',
             'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
             'category' => 'nullable|string|max:255',
+            'account_group_id' => 'nullable|exists:account_groups,id',
             'normal_balance' => 'nullable|in:Debit,Credit',
             'is_active' => 'nullable|boolean',
         ]);
@@ -3981,6 +4023,113 @@ public function checkVoucher()
         }
 
         return redirect()->back()->with('success', 'Chart of Account updated successfully.');
+    }
+
+    public function storeAccountGroup(\Illuminate\Http\Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
+            'description' => 'nullable|string',
+        ]);
+
+        $group = \App\Models\AccountGroup::create($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Account Group created successfully.', 'group' => $group]);
+        }
+
+        return redirect()->back()->with('success', 'Account Group created successfully.');
+    }
+
+    public function updateAccountGroup(\Illuminate\Http\Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $group = \App\Models\AccountGroup::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
+            'description' => 'nullable|string',
+        ]);
+
+        $group->update($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Account Group updated successfully.', 'group' => $group]);
+        }
+
+        return redirect()->back()->with('success', 'Account Group updated successfully.');
+    }
+
+    public function destroyAccountGroup(\Illuminate\Http\Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $group = \App\Models\AccountGroup::findOrFail($id);
+        $group->accounts()->update(['account_group_id' => null]);
+        $group->delete();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Account Group deleted successfully.']);
+        }
+
+        return redirect()->back()->with('success', 'Account Group deleted successfully.');
+    }
+
+    public function getAccountGroupAccounts(\Illuminate\Http\Request $request, $id)
+    {
+        $group = \App\Models\AccountGroup::with(['accounts' => function($q) {
+            $q->orderBy('code');
+        }])->findOrFail($id);
+
+        $accounts = $group->accounts->map(function($acc) {
+            $balance = $this->calculateAccountLiveBalance($acc);
+
+            return [
+                'id' => $acc->id,
+                'code' => $acc->code,
+                'name' => $acc->name,
+                'type' => $acc->type,
+                'category' => $acc->category,
+                'balance' => number_format($balance, 2),
+                'raw_balance' => $balance,
+                'is_active' => (bool)$acc->is_active,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'group' => [
+                'id' => $group->id,
+                'name' => $group->name,
+                'type' => $group->type,
+                'description' => $group->description,
+                'total_balance' => number_format($accounts->sum('raw_balance'), 2),
+            ],
+            'accounts' => $accounts,
+        ]);
     }
 
     public function destroyChartOfAccount(\Illuminate\Http\Request $request, $id)
@@ -5801,26 +5950,112 @@ public function checkVoucher()
                 return $code . ' - ' . $fallbackName;
             };
 
+            // Dynamically load Account Groups for Asset
+            $assetGroups = \App\Models\AccountGroup::where('type', 'Asset')->with(['accounts' => function($q) {
+                $q->where('is_active', true);
+            }])->get();
+
+            $currentAssetsList = [];
+            foreach ($assetGroups as $grp) {
+                if ($grp->accounts->count() > 0) {
+                    $grpTotal = 0;
+                    $subAccs = [];
+                    foreach ($grp->accounts as $acc) {
+                        $bal = $this->calculateAccountLiveBalance($acc, 'Asset');
+                        $grpTotal += $bal;
+                        $subAccs[] = [
+                            'code' => $acc->code,
+                            'name' => $acc->name,
+                            'amount' => $bal,
+                        ];
+                    }
+                    $currentAssetsList[] = [
+                        'is_group' => true,
+                        'group_name' => $grp->name,
+                        'amount' => $grpTotal,
+                        'accounts' => $subAccs,
+                    ];
+                }
+            }
+
+            if (empty($currentAssetsList)) {
+                $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1010', 'Cash & Bank Balances'), 'amount' => $totalCash];
+            }
+            $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1200', 'Accounts Receivable'), 'amount' => $liveAr];
+            $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1300', 'Production Master Inventory'), 'amount' => $liveBookInventory];
+            $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1040', 'Short-term Time Deposits'), 'amount' => \App\Models\Investment::where('type', 'Time Deposits')->sum('current_value')];
+
+            // Liabilities Groups & Standalone
+            $liabGroups = \App\Models\AccountGroup::where('type', 'Liability')->with(['accounts' => function($q) {
+                $q->where('is_active', true);
+            }])->get();
+
+            $liabilitiesList = [];
+            foreach ($liabGroups as $grp) {
+                if ($grp->accounts->count() > 0) {
+                    $grpTotal = 0;
+                    $subAccs = [];
+                    foreach ($grp->accounts as $acc) {
+                        $bal = $this->calculateAccountLiveBalance($acc, 'Liability');
+                        $grpTotal += $bal;
+                        $subAccs[] = [
+                            'code' => $acc->code,
+                            'name' => $acc->name,
+                            'amount' => $bal,
+                        ];
+                    }
+                    $liabilitiesList[] = [
+                        'is_group' => true,
+                        'group_name' => $grp->name,
+                        'amount' => $grpTotal,
+                        'accounts' => $subAccs,
+                    ];
+                }
+            }
+
+            $liabilitiesList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('2000', 'Accounts Payable (Suppliers)'), 'amount' => $liveAp];
+            $liabilitiesList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('2020', 'Accrued Operating Expenses'), 'amount' => $liveExpenses];
+            $liabilitiesList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('2100', 'Withholding Tax Payable'), 'amount' => $liveWht];
+
+            // Equity Groups & Standalone
+            $equityGroups = \App\Models\AccountGroup::where('type', 'Equity')->with(['accounts' => function($q) {
+                $q->where('is_active', true);
+            }])->get();
+
+            $equityList = [];
+            foreach ($equityGroups as $grp) {
+                if ($grp->accounts->count() > 0) {
+                    $grpTotal = 0;
+                    $subAccs = [];
+                    foreach ($grp->accounts as $acc) {
+                        $bal = $this->calculateAccountLiveBalance($acc, 'Equity');
+                        $grpTotal += $bal;
+                        $subAccs[] = [
+                            'code' => $acc->code,
+                            'name' => $acc->name,
+                            'amount' => $bal,
+                        ];
+                    }
+                    $equityList[] = [
+                        'is_group' => true,
+                        'group_name' => $grp->name,
+                        'amount' => $grpTotal,
+                        'accounts' => $subAccs,
+                    ];
+                }
+            }
+
             $liabilitiesTotal = $liveAp + $liveExpenses + $liveWht;
+            $equityList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('3000', 'Capital & Retained Earnings'), 'amount' => max(0, $totalAssets - $liabilitiesTotal)];
+
             $reportData = [
-                'current_assets' => [
-                    ['account' => $getDynamicAccountLabel('1010', 'Cash & Bank Balances'), 'amount' => $totalCash],
-                    ['account' => $getDynamicAccountLabel('1200', 'Accounts Receivable'), 'amount' => $liveAr],
-                    ['account' => $getDynamicAccountLabel('1300', 'Production Master Inventory'), 'amount' => $liveBookInventory],
-                    ['account' => $getDynamicAccountLabel('1040', 'Short-term Time Deposits'), 'amount' => \App\Models\Investment::where('type', 'Time Deposits')->sum('current_value')],
-                ],
+                'current_assets' => $currentAssetsList,
                 'non_current_assets' => [
-                    ['account' => $getDynamicAccountLabel('1600', 'Production Fixed Machinery'), 'amount' => $liveFixedAssets],
-                    ['account' => $getDynamicAccountLabel('1700', 'Long-term Investments & Bonds'), 'amount' => \App\Models\Investment::whereIn('type', ['Bonds', 'Stocks', 'Mutual Funds'])->sum('current_value')],
+                    ['is_group' => false, 'account' => $getDynamicAccountLabel('1600', 'Production Fixed Machinery'), 'amount' => $liveFixedAssets],
+                    ['is_group' => false, 'account' => $getDynamicAccountLabel('1700', 'Long-term Investments & Bonds'), 'amount' => \App\Models\Investment::whereIn('type', ['Bonds', 'Stocks', 'Mutual Funds'])->sum('current_value')],
                 ],
-                'liabilities' => [
-                    ['account' => $getDynamicAccountLabel('2000', 'Accounts Payable (Suppliers)'), 'amount' => $liveAp],
-                    ['account' => $getDynamicAccountLabel('2020', 'Accrued Operating Expenses'), 'amount' => $liveExpenses],
-                    ['account' => $getDynamicAccountLabel('2100', 'Withholding Tax Payable'), 'amount' => $liveWht],
-                ],
-                'equity' => [
-                    ['account' => $getDynamicAccountLabel('3000', 'Capital & Retained Earnings'), 'amount' => max(0, $totalAssets - $liabilitiesTotal)],
-                ],
+                'liabilities' => $liabilitiesList,
+                'equity' => $equityList,
             ];
         } elseif ($selectedReport === 'Income Statement') {
             $salesFilter = function($q) {
@@ -5873,6 +6108,7 @@ public function checkVoucher()
                 $totalExpAmount = max($jeAmount, $liveAmount);
                 if ($totalExpAmount > 0) {
                     $operatingExpenses[] = [
+                        'is_group' => false,
                         'category' => $expAcc->code . ' - ' . $expAcc->name,
                         'amount' => $totalExpAmount
                     ];
@@ -5884,13 +6120,14 @@ public function checkVoucher()
             if ($totalRealExpensesSum > $mappedExpenseTotal) {
                 $unmappedAmount = $totalRealExpensesSum - $mappedExpenseTotal;
                 $operatingExpenses[] = [
+                    'is_group' => false,
                     'category' => '5999 - Other General & Administrative Expenses',
                     'amount' => $unmappedAmount
                 ];
             }
 
             if (empty($operatingExpenses)) {
-                $operatingExpenses[] = ['category' => '5100 - Operating Expenses', 'amount' => $totalRealExpensesSum];
+                $operatingExpenses[] = ['is_group' => false, 'category' => '5100 - Operating Expenses', 'amount' => $totalRealExpensesSum];
             }
 
             $getRevLabel = function($code, $fallbackName) {

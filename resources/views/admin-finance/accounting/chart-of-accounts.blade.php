@@ -190,13 +190,16 @@
             <div class="col-12">
                 <div class="card border-0 shadow-sm p-2" style="border-radius: 8px; background-color: #ffffff; border: 1px solid #e2e8f0;">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                        <!-- Main Tabs: CRUD vs Cards -->
+                        <!-- Main Tabs: CRUD vs Cards vs Account Groups -->
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             <a href="?main_tab=crud" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $mainTab === 'crud' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid #cbd5e1;' }}">
                                 <i class="las la-list-alt fs-16"></i> Account Management (CRUD)
                             </a>
                             <a href="?main_tab=cards&tab=assets" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $mainTab === 'cards' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid #cbd5e1;' }}">
                                 <i class="las la-th-large fs-16"></i> Accounts Cards Overview
+                            </a>
+                            <a href="?main_tab=account_groups" class="btn btn-sm fw-bold px-3 py-2 d-flex align-items-center gap-2" style="border-radius: 6px; transition: all 0.2s; {{ $mainTab === 'account_groups' ? 'background-color: #D9251C; color: #ffffff;' : 'background-color: transparent; color: #475569; border: 1px solid #cbd5e1;' }}">
+                                <i class="las la-layer-group fs-16"></i> Account Groups Management
                             </a>
                         </div>
 
@@ -234,6 +237,8 @@
         <!-- Tab 1: Account Management (CRUD Datatable) -->
         @if($mainTab === 'crud')
             @include('admin-finance.accounting.chart-of-accounts.crud-table')
+        @elseif($mainTab === 'account_groups')
+            @include('admin-finance.accounting.chart-of-accounts.account-groups-table')
         @else
             <!-- Tab 2: Accounts Cards Overview -->
             <div class="row">
@@ -728,6 +733,107 @@
         </div>
     </div>
 
+    <!-- Account Group Accounts Detail Modal -->
+    <div class="modal fade" id="accountGroupDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header bg-light border-0 py-3">
+                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                        <i class="las la-layer-group text-primary fs-20"></i> <span id="accountGroupDetailName">Account Group Ledger</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" id="accountGroupDetailBody">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Account Group Modal -->
+    <div class="modal fade" id="addAccountGroupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-white border-bottom pb-3">
+                    <h5 class="modal-title fw-bold" style="color: #000000; font-size: 0.95rem;">
+                        <i class="las la-plus-circle me-1" style="color: #D9251C;"></i> Add New Account Group
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ route('admin-finance.accounting.account-groups.store') }}" method="POST">
+                    @csrf
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Account Group Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. Bank" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Base Category <span class="text-danger">*</span></label>
+                            <select name="type" class="form-select" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                                <option value="">Select Base Category</option>
+                                <option value="Asset">Asset</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Equity">Equity</option>
+                                <option value="Income">Income</option>
+                                <option value="Expense">Expense</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Description (Optional)</label>
+                            <textarea name="description" class="form-control" rows="2" placeholder="e.g. Bank accounts, savings, and deposits" style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-top px-4 py-3">
+                        <button type="button" class="btn btn-light border btn-sm px-3 fw-bold" data-bs-dismiss="modal" style="color: #475569;">Cancel</button>
+                        <button type="submit" class="btn btn-sm text-white px-4 fw-bold" style="background-color: #D9251C; border: none; box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15);">Save Account Group</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Account Group Modal -->
+    <div class="modal fade" id="editAccountGroupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-white border-bottom pb-3">
+                    <h5 class="modal-title fw-bold" style="color: #000000; font-size: 0.95rem;">
+                        <i class="las la-pen me-1" style="color: #f59e0b;"></i> Edit Account Group
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" id="editAccountGroupForm">
+                    @csrf
+                    @method('PUT')
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Account Group Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" id="editGroupName" class="form-control" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Base Category <span class="text-danger">*</span></label>
+                            <select name="type" id="editGroupType" class="form-select" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                                <option value="Asset">Asset</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Equity">Equity</option>
+                                <option value="Income">Income</option>
+                                <option value="Expense">Expense</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Description (Optional)</label>
+                            <textarea name="description" id="editGroupDescription" class="form-control" rows="2" style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-top px-4 py-3">
+                        <button type="button" class="btn btn-light border btn-sm px-3 fw-bold" data-bs-dismiss="modal" style="color: #475569;">Cancel</button>
+                        <button type="submit" class="btn btn-sm text-white px-4 fw-bold" style="background-color: #D9251C; border: none; box-shadow: 0 4px 10px rgba(217, 37, 28, 0.15);">Update Group</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Account Modal -->
     <div class="modal fade" id="addAccountModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -751,13 +857,22 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Category / Type <span class="text-danger">*</span></label>
-                            <select name="type" class="form-select" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                            <select name="type" id="addAccountType" class="form-select" required style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
                                 <option value="">Select Category</option>
                                 <option value="Asset">Asset</option>
                                 <option value="Liability">Liability</option>
                                 <option value="Equity">Equity</option>
                                 <option value="Income">Income</option>
                                 <option value="Expense">Expense</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Account Group (Card Grouping)</label>
+                            <select name="account_group_id" id="addAccountGroupId" class="form-select" style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                                <option value="">None (Standalone Account Card)</option>
+                                @foreach($allAccountGroups as $ag)
+                                    <option value="{{ $ag->id }}" data-type="{{ $ag->type }}">{{ $ag->name }} ({{ $ag->type }})</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="mb-3">
@@ -810,6 +925,15 @@
                                 <option value="Equity">Equity</option>
                                 <option value="Income">Income</option>
                                 <option value="Expense">Expense</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-uppercase fw-bold" style="color: #475569; font-size: 0.72rem; letter-spacing: 0.5px;">Account Group (Card Grouping)</label>
+                            <select name="account_group_id" id="editAccountGroupId" class="form-select" style="border-color: #cbd5e1; border-radius: 6px; color: #000000; font-size: 0.85rem;">
+                                <option value="">None (Standalone Account Card)</option>
+                                @foreach($allAccountGroups as $ag)
+                                    <option value="{{ $ag->id }}" data-type="{{ $ag->type }}">{{ $ag->name }} ({{ $ag->type }})</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="mb-3">
@@ -1207,6 +1331,7 @@
                 const name = $(this).data('name');
                 const type = $(this).data('type');
                 const category = $(this).data('category');
+                const accountGroupId = $(this).data('account-group-id');
                 const active = $(this).data('active');
 
                 $('#editCode').val(code);
@@ -1215,11 +1340,153 @@
                 $('#editCategory').val(category);
                 $('#editIsActive').prop('checked', active == 1);
 
+                filterAccountGroupsByType('#editType', '#editAccountGroupId', accountGroupId);
+
                 const updateUrl = "{{ route('admin-finance.accounting.chart-of-accounts.update', ':id') }}".replace(':id', id);
                 $('#editAccountForm').attr('action', updateUrl);
 
                 $('#editAccountModal').modal('show');
             });
+
+            // Dynamic Account Group dropdown filtering by Base Category Type
+            function filterAccountGroupsByType(typeSelect, groupSelect, selectedVal) {
+                const selectedType = $(typeSelect).val();
+                $(groupSelect).find('option').each(function() {
+                    const optType = $(this).data('type');
+                    if (!optType || optType === selectedType) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+                $(groupSelect).val(selectedVal || '');
+            }
+
+            $('#addAccountType').on('change', function() {
+                filterAccountGroupsByType('#addAccountType', '#addAccountGroupId', '');
+            });
+
+            $('#editType').on('change', function() {
+                filterAccountGroupsByType('#editType', '#editAccountGroupId', $('#editAccountGroupId').val());
+            });
+
+            // Account Group Detail Modal Handler
+            window.openAccountGroupDetailModal = function(groupId) {
+                const modal = new bootstrap.Modal(document.getElementById('accountGroupDetailModal'));
+                $('#accountGroupDetailName').text('Loading Account Group Details...');
+                $('#accountGroupDetailBody').html('<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Loading assigned accounts...</p></div>');
+                modal.show();
+
+                $.ajax({
+                    url: "{{ url('admin-finance/account-groups') }}/" + groupId + "/accounts",
+                    method: 'GET',
+                    success: function(res) {
+                        if (res.success) {
+                            $('#accountGroupDetailName').text(res.group.name + ' Group Accounts (' + res.group.type + ')');
+                            let html = `
+                                <div class="d-flex align-items-center justify-content-between mb-3 p-3 bg-light rounded border">
+                                    <div>
+                                        <h6 class="mb-0 fw-bold text-dark fs-16">${res.group.name}</h6>
+                                        <small class="text-muted">${res.group.description || 'Grouped Chart of Accounts Card'}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.7rem;">Combined Group Balance</small>
+                                        <span class="fw-bold fs-18 text-primary">₱${res.group.total_balance}</span>
+                                    </div>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light text-muted small text-uppercase">
+                                            <tr>
+                                                <th style="width: 120px;">Code</th>
+                                                <th>Account Name</th>
+                                                <th>Sub-Category</th>
+                                                <th style="width: 120px; text-align: center;">Status</th>
+                                                <th style="width: 160px;" class="text-end">Balance</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                            `;
+                            if (!res.accounts || res.accounts.length === 0) {
+                                html += `<tr><td colspan="5" class="text-center py-4 text-muted">No Chart of Accounts assigned to this group yet.</td></tr>`;
+                            } else {
+                                res.accounts.forEach(acc => {
+                                    html += `
+                                        <tr style="cursor: pointer;" onclick="bootstrap.Modal.getInstance(document.getElementById('accountGroupDetailModal')).hide(); openAccountLedgerModal(${acc.id}, '${acc.code}', '${acc.name.replace(/'/g, "\\'")}')">
+                                            <td><span class="fw-bold text-dark">${acc.code}</span></td>
+                                            <td><span class="fw-bold text-primary">${acc.name}</span></td>
+                                            <td><span class="badge bg-light text-dark border">${acc.category || 'General'}</span></td>
+                                            <td style="text-align: center;"><span class="badge ${acc.is_active ? 'bg-success text-white' : 'bg-secondary text-white'}">${acc.is_active ? 'Active' : 'Inactive'}</span></td>
+                                            <td class="text-end fw-bold text-dark">₱${acc.balance}</td>
+                                        </tr>
+                                    `;
+                                });
+                            }
+                            html += `</tbody></table></div>`;
+                            $('#accountGroupDetailBody').html(html);
+                        }
+                    },
+                    error: function() {
+                        $('#accountGroupDetailBody').html('<div class="alert alert-danger mb-0">Failed to load account group details.</div>');
+                    }
+                });
+            };
+
+            // Edit Account Group Modal Trigger
+            window.editAccountGroup = function(id, name, type, description) {
+                $('#editGroupName').val(name);
+                $('#editGroupType').val(type);
+                $('#editGroupDescription').val(description);
+                $('#editAccountGroupForm').attr('action', "{{ url('admin-finance/account-groups') }}/" + id);
+                const modal = new bootstrap.Modal(document.getElementById('editAccountGroupModal'));
+                modal.show();
+            };
+
+            // Delete Account Group Confirmation
+            window.deleteAccountGroup = function(id, name) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Delete Account Group?',
+                        text: 'Are you sure you want to delete "' + name + '"? Linked accounts will not be deleted, they will simply become standalone cards.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#D9251C',
+                        cancelButtonColor: '#475569',
+                        confirmButtonText: 'Yes, delete group'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            $.ajax({
+                                url: "{{ url('admin-finance/account-groups') }}/" + id,
+                                type: 'POST',
+                                data: {
+                                    _token: '{{ csrf_token() }}',
+                                    _method: 'DELETE'
+                                },
+                                success: function(res) {
+                                    Swal.fire('Deleted!', res.message || 'Account Group deleted successfully.', 'success').then(() => {
+                                        window.location.reload();
+                                    });
+                                },
+                                error: function(xhr) {
+                                    Swal.fire('Error', xhr.responseJSON ? xhr.responseJSON.error : 'Failed to delete Account Group.', 'error');
+                                }
+                            });
+                        }
+                    });
+                } else if (confirm('Are you sure you want to delete account group "' + name + '"?')) {
+                    $.ajax({
+                        url: "{{ url('admin-finance/account-groups') }}/" + id,
+                        type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            _method: 'DELETE'
+                        },
+                        success: function() {
+                            window.location.reload();
+                        }
+                    });
+                }
+            };
 
             // Delete Account confirmation modal trigger
             $(document).on('click', '.btn-delete-account', function(e) {

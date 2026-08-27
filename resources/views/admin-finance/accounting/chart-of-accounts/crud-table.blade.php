@@ -62,6 +62,7 @@
                         <th style="background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.8px; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; width: 120px;">Account Code</th>
                         <th style="background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.8px; padding: 12px 16px; border-bottom: 2px solid #e2e8f0;">Account Name</th>
                         <th style="background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.8px; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; width: 140px; text-align: center;">Type / Category</th>
+                        <th style="background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.8px; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; width: 160px;">Account Group</th>
                         <th style="background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.8px; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; width: 160px;">Sub-Category</th>
                         <th style="background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.8px; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; width: 120px; text-align: center;">Status</th>
                         <th style="background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.8px; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; width: 130px; text-align: center;">Actions</th>
@@ -94,6 +95,13 @@
                             </span>
                         </td>
                         <td style="padding: 12px 16px; font-size: 0.82rem; color: #475569;">
+                            @if($account->accountGroup)
+                                <span class="badge bg-light text-dark border px-2 py-1 rounded small"><i class="las la-folder me-1 text-primary"></i>{{ $account->accountGroup->name }}</span>
+                            @else
+                                <span class="text-muted small">None</span>
+                            @endif
+                        </td>
+                        <td style="padding: 12px 16px; font-size: 0.82rem; color: #475569;">
                             {{ $account->category ?? 'General' }}
                         </td>
                         <td style="padding: 12px 16px; text-align: center;">
@@ -110,6 +118,7 @@
                                     data-name="{{ $account->name }}" 
                                     data-type="{{ $account->type }}" 
                                     data-category="{{ $account->category }}" 
+                                    data-account-group-id="{{ $account->account_group_id }}"
                                     data-active="{{ $account->is_active }}"
                                     title="Edit Account">
                                     <i class="las la-pen"></i>
