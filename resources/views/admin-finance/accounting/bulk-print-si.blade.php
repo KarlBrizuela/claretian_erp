@@ -332,10 +332,10 @@
             @php
 
                 if ($activeInvoice) {
-                    $itemsToPrint = $activeInvoice->items;
+                    $itemsToPrint = $activeInvoice->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0);
                     $totalSalesAmount = (float) $activeInvoice->total_amount;
                 } else {
-                    $itemsToPrint = $order->items;
+                    $itemsToPrint = $order->items ? $order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) : collect();
                     $totalSalesAmount = (float) $order->total_amount;
                 }
 

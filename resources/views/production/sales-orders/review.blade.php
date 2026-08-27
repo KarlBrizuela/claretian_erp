@@ -204,7 +204,7 @@
                         $sym = ($order->currency === 'USD' ? '$' : '₱');
                     @endphp
                     <tbody>
-                        @foreach($order->items as $item)
+                        @foreach($order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) as $item)
                         @php 
                             $itemName = $item->item_name ?? ($item->product?->name ?? ($item->book?->name ?? ($item->bundle?->name ?? null))); 
                         @endphp

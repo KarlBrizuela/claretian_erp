@@ -35,6 +35,12 @@ Route::middleware(['auth'])->group(function () {
   Route::post('/payment-requests/{id}/approve', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'approve'])->name('payment-requests.approve');
   Route::post('/payment-requests/{id}/reject', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'reject'])->name('payment-requests.reject');
 
+  // Auto Debit Letters Common Routes (Accessible across divisions: Director, Admin & Finance Managers, Production)
+  Route::get('/production/ford/auto-debit/{id}', [App\Http\Controllers\Production\FORDController::class, 'autoDebitShow'])->name('production.ford.auto-debit.show');
+  Route::post('/production/ford/auto-debit/{id}/approve-director', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveDirector'])->name('production.ford.auto-debit.approve-director');
+  Route::post('/production/ford/auto-debit/{id}/approve-finance', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveFinance'])->name('production.ford.auto-debit.approve-finance');
+  Route::post('/production/ford/auto-debit/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'autoDebitReject'])->name('production.ford.auto-debit.reject');
+
   // Universal Storage Fallback (Fix for servers without symlink support)
   Route::get('/storage/{path}', [FileController::class, 'serve'])->where('path', '.*');
 
@@ -222,10 +228,6 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/auto-debit', [App\Http\Controllers\Production\FORDController::class, 'autoDebitIndex'])->name('auto-debit');
       Route::get('/auto-debit/create', [App\Http\Controllers\Production\FORDController::class, 'autoDebitCreate'])->name('auto-debit.create');
       Route::post('/auto-debit/store', [App\Http\Controllers\Production\FORDController::class, 'autoDebitStore'])->name('auto-debit.store');
-      Route::get('/auto-debit/{id}', [App\Http\Controllers\Production\FORDController::class, 'autoDebitShow'])->name('auto-debit.show');
-      Route::post('/auto-debit/{id}/approve-director', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveDirector'])->name('auto-debit.approve-director');
-      Route::post('/auto-debit/{id}/approve-finance', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveFinance'])->name('auto-debit.approve-finance');
-      Route::post('/auto-debit/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'autoDebitReject'])->name('auto-debit.reject');
       Route::get('/client-payment-posting', [App\Http\Controllers\Production\FORDController::class, 'clientPaymentPosting'])->name('client-payment-posting');
       Route::post('/client-payment-posting', [App\Http\Controllers\Production\FORDController::class, 'storeClientPaymentPosting'])->name('client-payment-posting.store');
       Route::get('/eford-payout', [App\Http\Controllers\Production\FORDController::class, 'eFordPayout'])->name('eford-payout');

@@ -260,8 +260,42 @@ class LogisticController extends Controller
                 return response()->json(['success' => false, 'message' => 'Order ID is required'], 400);
             }
             
-            $order = \App\Models\SalesOrder::findOrFail($orderId);
+            $order = \App\Models\SalesOrder::with('items')->findOrFail($orderId);
             
+            // Sync submitted items if passed (e.g. from Mark as Gathered form serialization)
+            $submittedItems = $request->input('picked_items', $request->input('items', []));
+            if (empty($submittedItems) && $request->has('picked_items_json')) {
+                $submittedItems = json_decode($request->input('picked_items_json'), true) ?: [];
+            }
+
+            if (!empty($submittedItems) && is_array($submittedItems)) {
+                $currentPickList = \App\Models\PickList::where('sales_order_id', $order->id)
+                    ->where('status', '!=', 'completed')
+                    ->first();
+                if ($currentPickList) {
+                    foreach ($submittedItems as $itemData) {
+                        $plItem = null;
+                        if (!empty($itemData['id'])) {
+                            $plItem = \App\Models\PickListItem::where('pick_list_id', $currentPickList->id)->find($itemData['id']);
+                        } elseif (!empty($itemData['so_item_id'])) {
+                            $plItem = \App\Models\PickListItem::where('pick_list_id', $currentPickList->id)->where('sales_order_item_id', $itemData['so_item_id'])->first();
+                        }
+                        if ($plItem) {
+                            if (isset($itemData['picked_qty'])) {
+                                $plItem->picked_qty = floatval($itemData['picked_qty']);
+                            }
+                            if (isset($itemData['status'])) {
+                                $plItem->status = $itemData['status'];
+                            }
+                            if (isset($itemData['notes'])) {
+                                $plItem->notes = $itemData['notes'];
+                            }
+                            $plItem->save();
+                        }
+                    }
+                }
+            }
+
             // Pick list gathered: move order to appropriate next queue
             $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
             if ($order->type === 'ecom_direct') {
@@ -286,7 +320,7 @@ class LogisticController extends Controller
                 'gathered_by' => auth()->id()
             ]);
 
-            // Retrieve pending pick lists for this sales order to deduct stock
+            // Retrieve pending pick lists for this sales order to deduct stock and forward only picked qty
             $pendingPickLists = \App\Models\PickList::where('sales_order_id', $orderId)
                 ->where('status', '!=', 'completed')
                 ->with('pickListItems.salesOrderItem.book')
@@ -299,7 +333,11 @@ class LogisticController extends Controller
                 foreach ($pl->pickListItems as $plItem) {
                     $soItem = $plItem->salesOrderItem;
                     if ($soItem) {
-                        $unfulfilledQty = max(0, (int)$soItem->quantity - (int)$plItem->picked_qty);
+                        $origQty = (float)$soItem->quantity;
+                        // If picked_qty was recorded, use it; otherwise fallback to original item quantity
+                        $pickedQty = $plItem->picked_qty !== null ? (float)$plItem->picked_qty : $origQty;
+
+                        $unfulfilledQty = max(0, $origQty - $pickedQty);
                         if ($unfulfilledQty > 0) {
                             \App\Services\StockDeductionService::adjustForDRReturn($order, [[
                                 'book_id' => $soItem->book_id,
@@ -309,26 +347,47 @@ class LogisticController extends Controller
                             ]]);
                         }
                         
-                            // Record Inventory Transaction for audit trail
-                            if ($soItem->book && $plItem->picked_qty > 0) {
-                                \App\Models\InventoryTransaction::create([
-                                    'book_id' => $soItem->book->id,
-                                    'type' => 'out',
-                                    'quantity' => $plItem->picked_qty,
-                                    'location' => $salesTeam ? ($salesTeam . ' Stock') : 'Main Warehouse',
-                                    'source' => 'Sales Order Picklist',
-                                    'reference_number' => $order->so_number,
-                                    'unit_cost' => $soItem->book->cost ?? 0,
-                                    'total_cost' => $plItem->picked_qty * ($soItem->book->cost ?? 0),
-                                    'notes' => 'Sales Order #' . $order->so_number . ' - Picked from Picklist #' . $pl->pick_list_number . ($salesTeam ? ' (' . $salesTeam . ')' : ''),
-                                    'status' => 'completed',
-                                    'transaction_date' => now(),
-                                    'user_id' => auth()->id()
-                                ]);
-                            }
+                        // Record Inventory Transaction for audit trail
+                        if ($soItem->book && $pickedQty > 0) {
+                            \App\Models\InventoryTransaction::create([
+                                'book_id' => $soItem->book->id,
+                                'type' => 'out',
+                                'quantity' => $pickedQty,
+                                'location' => $salesTeam ? ($salesTeam . ' Stock') : 'Main Warehouse',
+                                'source' => 'Sales Order Picklist',
+                                'reference_number' => $order->so_number,
+                                'unit_cost' => $soItem->book->cost ?? 0,
+                                'total_cost' => $pickedQty * ($soItem->book->cost ?? 0),
+                                'notes' => 'Sales Order #' . $order->so_number . ' - Picked from Picklist #' . $pl->pick_list_number . ($salesTeam ? ' (' . $salesTeam . ')' : ''),
+                                'status' => 'completed',
+                                'transaction_date' => now(),
+                                'user_id' => auth()->id()
+                            ]);
                         }
+
+                        // Update Sales Order Item quantity and subtotal to reflect actual picked quantity
+                        $soItem->quantity = $pickedQty;
+                        $soItem->subtotal = round($pickedQty * ($soItem->price ?? 0), 2);
+                        $soItem->save();
+
+                        // Mark pick list item status
+                        $plItem->picked_qty = $pickedQty;
+                        $plItem->status = ($pickedQty >= $plItem->requested_qty && $plItem->requested_qty > 0) ? 'picked' : ($pickedQty > 0 ? 'short' : 'pending');
+                        $plItem->save();
                     }
                 }
+            }
+
+            // Recalculate Sales Order total amount based on updated item quantities
+            $order->load('items');
+            $newTotalAmount = $order->items->sum('subtotal');
+            $order->update(['total_amount' => $newTotalAmount]);
+
+            // Sync Sales Invoice if exists
+            $si = \App\Models\SalesInvoice::where('so_id', $order->id)->first();
+            if ($si) {
+                $si->update(['total_amount' => $newTotalAmount]);
+            }
 
             // Mark all associated pick lists as completed
             \App\Models\PickList::where('sales_order_id', $orderId)
@@ -2324,11 +2383,11 @@ class LogisticController extends Controller
                 ->where('status', '!=', 'completed')
                 ->first();
             
+            $remarks = $request->input('remarks', $request->input('notes', null));
             if (!$pickList) {
                 // Generate unique pick list number only if creating new
                 $pickListNumber = 'PL-' . $request->so_number . '-' . now()->format('YmdHis');
                 
-                $remarks = $request->input('remarks', $request->input('notes', null));
                 // Create the PickList record
                 $pickList = \App\Models\PickList::create([
                     'sales_order_id' => $order->id,
@@ -2338,13 +2397,10 @@ class LogisticController extends Controller
                     'notes' => $remarks,
                 ]);
             } else {
-                $remarks = $request->input('remarks', $request->input('notes', $pickList->notes));
                 // Update existing pick list
                 $pickList->update([
-                    'notes' => $remarks,
+                    'notes' => $remarks !== null ? $remarks : $pickList->notes,
                 ]);
-                // Delete old items so we can recreate them
-                $pickList->pickListItems()->delete();
             }
 
             if ($request->has('remarks') || $request->has('notes')) {
@@ -2354,37 +2410,59 @@ class LogisticController extends Controller
             // Get the sales order items for matching
             $soItems = $order->items()->get();
 
-            // Create PickListItem records for each picked item if provided
+            // Create or update PickListItem records for each picked item if provided
             if ($request->has('picked_items') && is_array($request->picked_items)) {
                 foreach ($request->picked_items as $pickedItem) {
-                    // Try to match by item_index first, then by product name
                     $matchedItem = null;
                     
-                    // If item_index is provided, use it directly
-                    if (isset($pickedItem['item_index'])) {
+                    if (!empty($pickedItem['so_item_id'])) {
+                        $matchedItem = $soItems->firstWhere('id', $pickedItem['so_item_id']);
+                    }
+                    if (!$matchedItem && !empty($pickedItem['id'])) {
+                        $existingItem = \App\Models\PickListItem::find($pickedItem['id']);
+                        if ($existingItem) {
+                            $matchedItem = $soItems->firstWhere('id', $existingItem->sales_order_item_id);
+                        }
+                    }
+                    if (!$matchedItem && isset($pickedItem['item_index'])) {
                         $matchedItem = $soItems[$pickedItem['item_index']] ?? null;
-                    } else {
-                        // Fallback: match by product name
-                        $matchedItem = $soItems->first(function ($item) use ($pickedItem) {
-                            return $item->book->name === $pickedItem['product'];
+                    }
+                    if (!$matchedItem && !empty($pickedItem['product'])) {
+                        $prodName = trim($pickedItem['product']);
+                        $matchedItem = $soItems->first(function ($item) use ($prodName) {
+                            return ($item->book && trim($item->book->name) === $prodName)
+                                || ($item->bundle && trim($item->bundle->name) === $prodName)
+                                || ($item->bookIndex && trim($item->bookIndex->display_name) === $prodName)
+                                || trim($item->item_name ?? '') === $prodName;
                         });
                     }
 
                     if ($matchedItem) {
-                        \App\Models\PickListItem::create([
-                            'pick_list_id' => $pickList->id,
-                            'sales_order_item_id' => $matchedItem->id,
-                            'requested_qty' => $matchedItem->quantity,
-                            'picked_qty' => floatval($pickedItem['picked_qty']),
-                            'status' => $pickedItem['status'] ?? 'pending',
-                            'notes' => $pickedItem['notes'] ?? null,
-                        ]);
+                        $existingPlItem = \App\Models\PickListItem::where('pick_list_id', $pickList->id)
+                            ->where('sales_order_item_id', $matchedItem->id)
+                            ->first();
+
+                        $reqQty = $existingPlItem ? $existingPlItem->requested_qty : $matchedItem->quantity;
+                        $pQty = floatval($pickedItem['picked_qty']);
+                        $status = $pickedItem['status'] ?? ($pQty >= $reqQty && $reqQty > 0 ? 'picked' : ($pQty > 0 ? 'short' : 'pending'));
+
+                        \App\Models\PickListItem::updateOrCreate(
+                            [
+                                'pick_list_id' => $pickList->id,
+                                'sales_order_item_id' => $matchedItem->id,
+                            ],
+                            [
+                                'requested_qty' => $reqQty,
+                                'picked_qty' => $pQty,
+                                'status' => $status,
+                                'notes' => $pickedItem['notes'] ?? null,
+                            ]
+                        );
                     }
                 }
             }
 
             // Update order status - keep it as picking for all types
-            // E-com direct invoices will move to ready_for_delivery when marked as gathered
             $newStatus = 'picking';
             $order->update([
                 'status' => $newStatus,
@@ -2601,7 +2679,15 @@ class LogisticController extends Controller
         try {
             \Log::info('Fetching packing order data for ID: ' . $id);
             
-            $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex.book', 'items.bundle'])->findOrFail($id);
+            $order = \App\Models\SalesOrder::with([
+                'customer',
+                'items' => function($q) {
+                    $q->where('quantity', '>', 0);
+                },
+                'items.book',
+                'items.bookIndex.book',
+                'items.bundle'
+            ])->findOrFail($id);
 
             $bName = $order->customer_representative;
             if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
@@ -2624,7 +2710,7 @@ class LogisticController extends Controller
                 ?: ($bCompany?->company_name 
                 ?: ($acctCompany?->parent?->company_name 
                 ?: ($acctCompany?->company_name 
-                ?: ($order->customer?->company_name && $order->customer->company_name !== 'Intracode' ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+                ?: ($order->customer?->company_name && !in_array(strtolower($order->customer->company_name), ['intracode', 'individual']) ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
             $order->display_account_number = $bCompany?->account_number ?: ($acctCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A'));
             $order->display_address = $order->shipping_address ?: ($order->customer?->address ?: ($order->customer?->business_address ?? 'N/A'));
 

@@ -46,10 +46,10 @@
 
             // If activeInvoice exists but has no items, fall back to SO items
             if ($activeInvoice && $activeInvoice->items->count() > 0) {
-                $itemsToRender = $activeInvoice->items ?? collect();
+                $itemsToRender = $activeInvoice->items ? $activeInvoice->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) : collect();
                 $totalSalesAmount = (float) ($activeInvoice->total_amount ?? 0);
             } else {
-                $itemsToRender = $order->items ?? collect();
+                $itemsToRender = $order->items ? $order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) : collect();
                 $totalSalesAmount = (float) ($order->total_amount ?? 0);
                 $activeInvoice = null; // reset so item display uses SO item fields
             }
@@ -112,7 +112,7 @@
                                     ?: ($bCompany?->company_name 
                                     ?: ($acctCompany?->parent?->company_name 
                                     ?: ($acctCompany?->company_name 
-                                    ?: ($order->customer?->company_name && $order->customer->company_name !== 'Intracode' ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+                                    ?: ($order->customer?->company_name && !in_array(strtolower($order->customer->company_name), ['intracode', 'individual']) ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
                                 $displayAccountNo = $bCompany?->account_number ?: ($acctCompany?->account_number ?: ($order->customer?->account_number ?? 'N/A'));
                             @endphp
                             <tr>

@@ -90,7 +90,7 @@ class PaymentRequest extends Model
         }
 
         if ($this->status === 'pending_director_approval') {
-            return $user->position === 'Director';
+            return $user->position === 'Director' || str_contains(strtolower($user->position ?? ''), 'director') || (!empty($user->role) && str_contains(strtolower($user->role), 'director'));
         }
 
         if ($this->status === 'pending_admin_finance_approval') {

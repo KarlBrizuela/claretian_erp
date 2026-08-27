@@ -6,6 +6,14 @@
         </div>
         <span class="modern-nav-label">Dashboard</span>
     </a>
+
+    <!-- Approval Queue -->
+    <a href="{{ route('admin-finance.approval-queue') }}" class="modern-nav-item {{ request()->routeIs('*approval-queue') ? 'active' : '' }}" data-page="approval-queue">
+        <div class="modern-nav-icon">
+            <i class="las la-clipboard-check"></i>
+        </div>
+        <span class="modern-nav-label">Approval Queue</span>
+    </a>
     
     <!-- Production Division -->
     <a href="{{ route('production.dashboard') }}" class="modern-nav-item {{ request()->routeIs('production.*') ? 'active' : '' }}" data-page="production">

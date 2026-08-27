@@ -146,7 +146,7 @@
             <div class="col-item">
                 <div class="th">Item</div>
                 <div class="td">
-                    @foreach($order->items as $item)
+                    @foreach($order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) as $item)
                     {{ $item->book?->item_code ?? $item->book?->sku ?? 'Item' }}<br>
                     @endforeach
                 </div>
@@ -154,7 +154,7 @@
             <div class="col-desc">
                 <div class="th">Description</div>
                 <div class="td">
-                    @foreach($order->items as $item)
+                    @foreach($order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) as $item)
                     {{ $item->book?->name ?? $item->bundle?->name ?? 'Unknown Item' }} ({{ $item->quantity }} pcs)<br>
                     @endforeach
                 </div>

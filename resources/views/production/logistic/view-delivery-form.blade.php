@@ -160,7 +160,7 @@
                         $totalItemDiscounts = 0;
                     @endphp
                     <tbody>
-                        @foreach($order->items as $item)
+                        @foreach($order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) as $item)
                         @php
                             $qty = (float)($item->quantity ?? 0);
                             $unitPrice = (float)($item->price ?? $item->unit_price ?? 0);

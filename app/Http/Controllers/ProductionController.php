@@ -199,7 +199,7 @@ class ProductionController extends Controller
             : collect();
 
         $autoDebitQuery = \App\Models\AutoDebit::with('preparer');
-        if ($pos === 'Director') {
+        if (str_contains(strtolower($pos), 'director')) {
             $autoDebitQuery->where('status', 'pending_director');
         } elseif ($pos === 'Super Admin') {
             $autoDebitQuery->whereIn('status', ['pending_director', 'pending_finance']);
@@ -212,6 +212,36 @@ class ProductionController extends Controller
             }
         }
         $pendingAutoDebits = $autoDebitQuery->latest()->get();
+
+        // Payment Requests
+        $paymentRequestQuery = \App\Models\PaymentRequest::with(['requester', 'items']);
+        if (str_contains(strtolower($pos), 'director')) {
+            $paymentRequestQuery->where('status', 'pending_director_approval');
+        } elseif ($pos === 'Super Admin') {
+            $paymentRequestQuery->whereIn('status', ['pending_director_approval', 'pending_admin_finance_approval']);
+        } else {
+            $isAFManager = str_contains($pos, 'Manager') && 
+                           (str_contains($user->division, 'Admin') || str_contains($user->division, 'Finance') || str_contains($user->department, 'Admin') || str_contains($user->department, 'Finance'));
+            $isAdmin = str_contains($pos, 'Admin') || $pos === 'A&F Manager' || $isAFManager;
+            $isFinance = str_contains($pos, 'Finance') || str_contains($pos, 'Accounting') || $pos === 'A&F Manager' || $isAFManager;
+            
+            if ($isAdmin && $isFinance) {
+                $paymentRequestQuery->where('status', 'pending_admin_finance_approval')
+                                    ->where(function($q) {
+                                        $q->whereNull('admin_approved_by')
+                                          ->orWhereNull('finance_approved_by');
+                                    });
+            } elseif ($isAdmin) {
+                $paymentRequestQuery->where('status', 'pending_admin_finance_approval')
+                                    ->whereNull('admin_approved_by');
+            } elseif ($isFinance) {
+                $paymentRequestQuery->where('status', 'pending_admin_finance_approval')
+                                    ->whereNull('finance_approved_by');
+            } else {
+                $paymentRequestQuery->whereRaw('1 = 0');
+            }
+        }
+        $pendingPaymentRequests = $paymentRequestQuery->orderBy('created_at', 'desc')->get();
 
         // 3. Unified Listing for "My Approvals" tab
         $myApprovals = [];
@@ -330,6 +360,22 @@ class ProductionController extends Controller
                 'status' => $debit->status === 'pending_director' ? 'Pending Director' : 'Pending Finance',
                 'url' => route('production.ford.auto-debit.show', $debit->id),
                 'original' => $debit
+            ];
+        }
+
+        foreach ($pendingPaymentRequests as $req) {
+            $myApprovals[] = [
+                'type' => 'Payment Request',
+                'id' => $req->id,
+                'reference_no' => 'PR-' . str_pad($req->id, 5, '0', STR_PAD_LEFT),
+                'submitted_by' => $req->requester->name ?? 'N/A',
+                'submitted_date' => $req->created_at,
+                'amount' => '₱' . number_format($req->total_amount, 2),
+                'attachment' => $req->attachment_path,
+                'status' => $req->status,
+                'description' => 'Payment to: ' . $req->payment_to . ' for: ' . ($req->payment_for ?? 'N/A'),
+                'url' => route('payment-requests.show', $req->id),
+                'original' => $req
             ];
         }
 

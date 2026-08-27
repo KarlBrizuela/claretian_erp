@@ -551,7 +551,7 @@ class AdminFinanceController extends Controller
 
     // --- Payment Requests ---
     $paymentRequestQuery = \App\Models\PaymentRequest::with(['requester', 'items']);
-    if ($pos === 'Director') {
+    if (str_contains(strtolower($pos), 'director')) {
         $paymentRequestQuery->where('status', 'pending_director_approval');
     } elseif ($pos === 'Super Admin') {
         $paymentRequestQuery->whereIn('status', ['pending_director_approval', 'pending_admin_finance_approval']);
@@ -581,12 +581,12 @@ class AdminFinanceController extends Controller
 
     // --- Auto Debit Requests ---
     $autoDebitQuery = \App\Models\AutoDebit::with(['preparer']);
-    if ($pos === 'Director') {
+    if (str_contains(strtolower($pos), 'director')) {
         $autoDebitQuery->where('status', 'pending_director');
     } elseif ($pos === 'Super Admin') {
         $autoDebitQuery->whereIn('status', ['pending_director', 'pending_finance']);
     } else {
-        $isAFManager = str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor');
+        $isAFManager = str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor') || $pos === 'A&F Manager';
         if ($isAFManager) {
             $autoDebitQuery->where('status', 'pending_finance');
         } else {

@@ -1029,16 +1029,29 @@ class FORDController extends Controller
         $debit = \App\Models\AutoDebit::with(['preparer', 'directorApprover', 'financeApprover'])
             ->findOrFail($id);
 
+        $user = auth()->user();
+        $sidebar = 'production';
+        if (str_contains(strtolower($user->division ?? ''), 'admin') || str_contains(strtolower($user->division ?? ''), 'finance') || str_contains(strtolower($user->department ?? ''), 'admin') || str_contains(strtolower($user->department ?? ''), 'finance')) {
+            $sidebar = 'admin-finance';
+        }
+        if (str_contains(strtolower($user->position ?? ''), 'director')) {
+            $sidebar = 'director';
+        }
+
         return view('production.ford.auto-debit.show', [
             'title' => 'Auto Debit Letter Details',
-            'role' => auth()->user()->position,
+            'role' => $user->position,
+            'sidebar' => $sidebar,
             'debit' => $debit
         ]);
     }
 
     public function autoDebitApproveDirector($id)
     {
-        if (auth()->user()->position !== 'Director' && !auth()->user()->isSuperAdmin()) {
+        $user = auth()->user();
+        $pos = $user->position ?? '';
+        $isDirector = str_contains(strtolower($pos), 'director') || $user->isSuperAdmin();
+        if (!$isDirector) {
             return redirect()->back()->with('error', 'Only the Director can perform this approval.');
         }
 
@@ -1050,7 +1063,7 @@ class FORDController extends Controller
 
         $debit->update([
             'status' => 'pending_finance',
-            'director_approved_by' => auth()->id(),
+            'director_approved_by' => $user->id,
             'director_approved_at' => now(),
         ]);
 
@@ -1059,8 +1072,10 @@ class FORDController extends Controller
 
     public function autoDebitApproveFinance($id)
     {
-        $isManager = str_contains(auth()->user()->position, 'Manager') || str_contains(auth()->user()->position, 'Supervisor') || auth()->user()->isSuperAdmin();
-        if (!$isManager) {
+        $user = auth()->user();
+        $pos = $user->position ?? '';
+        $isAFManager = str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor') || $pos === 'A&F Manager' || $user->isSuperAdmin();
+        if (!$isAFManager) {
             return redirect()->back()->with('error', 'Only Admin and Finance Managers/Supervisors can perform this approval.');
         }
 
@@ -1072,7 +1087,7 @@ class FORDController extends Controller
 
         $debit->update([
             'status' => 'approved',
-            'finance_approved_by' => auth()->id(),
+            'finance_approved_by' => $user->id,
             'finance_approved_at' => now(),
         ]);
 

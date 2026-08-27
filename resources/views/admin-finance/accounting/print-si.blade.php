@@ -475,7 +475,7 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($order->items as $item)
+                @forelse($order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) as $item)
                 <tr>
                     <td class="text-center">{{ $item->quantity }} {{ $item->unit ?? 'pcs' }}</td>
                     <td>{{ $item->item_name ?? ($item->product?->name ?? ($item->book?->name ?? ($item->bundle?->name ?? 'Unknown Product'))) }}</td>

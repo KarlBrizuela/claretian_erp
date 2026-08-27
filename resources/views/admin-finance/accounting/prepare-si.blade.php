@@ -7,10 +7,10 @@
 
         // If activeInvoice has no items, fall back to SO items
         if ($activeInvoice && $activeInvoice->items->count() > 0) {
-            $itemsToRender = $activeInvoice->items;
+            $itemsToRender = $activeInvoice->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0);
             $totalSalesAmount = (float) $activeInvoice->total_amount;
         } else {
-            $itemsToRender = $order->items;
+            $itemsToRender = $order->items ? $order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) : collect();
             $totalSalesAmount = (float) $order->total_amount;
             $activeInvoice = null; // reset so item fields resolve from SO items
         }

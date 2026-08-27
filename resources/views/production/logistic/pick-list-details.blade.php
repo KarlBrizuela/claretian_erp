@@ -46,7 +46,7 @@
                             ?: ($bCompany?->company_name 
                             ?: ($acctCompany?->parent?->company_name 
                             ?: ($acctCompany?->company_name 
-                            ?: ($so?->customer?->company_name && $so->customer->company_name !== 'Intracode' ? $so->customer->company_name : ($so?->customer?->customer_name ?? 'N/A')))));
+                            ?: ($so?->customer?->company_name && !in_array(strtolower($so->customer->company_name), ['intracode', 'individual']) ? $so->customer->company_name : ($so?->customer?->customer_name ?? 'N/A')))));
                         $displayAccountNo = $bCompany?->account_number ?: ($acctCompany?->account_number ?: ($so?->customer?->account_number ?? 'N/A'));
                     @endphp
                     <div class="order-info-section">
@@ -171,7 +171,7 @@
                                         $rowCurr = $pickList->salesOrder?->currency ?? 'USD';
                                         $rowSym = ($rowCurr === 'USD' ? '$' : ($rowCurr === 'EUR' ? '€' : '₱'));
                                     @endphp
-                                    <tr data-product="{{ $prodName }}">
+                                    <tr data-product="{{ $prodName }}" data-item-id="{{ $item->id }}" data-so-item-id="{{ $soItem?->id }}" data-requested-qty="{{ (int) $item->requested_qty }}">
                                         <td style="padding: 0.6rem; border: 1px solid #ddd; text-align: center;">{{ $loop->iteration }}</td>
                                         <td style="padding: 0.6rem; border: 1px solid #ddd;">
                                             {{ $prodName }}
@@ -192,7 +192,9 @@
                                             <input type="number" class="picked-qty form-control form-control-sm text-center"
                                                    value="{{ $pickedQtyInt }}"
                                                    min="0"
+                                                   max="{{ (int) $item->requested_qty }}"
                                                    step="1"
+                                                   oninput="onPickedQtyChange(this)"
                                                    style="width: 80px; margin: 0 auto; font-weight: 600; border: 1px solid #aaa; border-radius: 4px;">
                                         </td>
                                         <td style="padding: 0.5rem; border: 1px solid #ddd; text-align: center;">
@@ -259,8 +261,9 @@
                             $isConsignmentOrder = $pickList->salesOrder && in_array($pickList->salesOrder->type, ['area_consignment', 'area_sales_consignment']);
                             $targetQueueText = $isConsignmentOrder ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
                         @endphp
-                        <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return confirm('Mark {{ $pickList->pick_list_number }} as gathered and move to {{ $targetQueueText }}?');">
+                        <form action="{{ route('production.logistic.mark-as-gathered', $pickList->salesOrder->id ?? 0) }}" method="POST" style="display:inline;" onsubmit="return handleMarkAsGatheredSubmit(this, 'Mark {{ $pickList->pick_list_number }} as gathered and move to {{ $targetQueueText }}?');">
                             @csrf
+                            <input type="hidden" name="picked_items_json" id="gatheredPickedItemsJson">
                             <button type="submit" class="btn btn-success" style="background: #28a745; border: none; color: white; padding: 0.75rem 2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
                                 <i class="las la-check-circle me-2"></i>Mark as Gathered
                             </button>
@@ -552,9 +555,28 @@
             });
         }
 
-        // Live update total picked qty as user types
+        // Live update total picked qty and auto-update status when picked-qty changes
+        function onPickedQtyChange(input) {
+            const row = input.closest('tr');
+            if (!row) return;
+            const requestedQty = parseFloat(row.dataset.requestedQty) || 0;
+            const pickedQty = parseFloat(input.value) || 0;
+            const statusSelect = row.querySelector('.status-select');
+
+            if (statusSelect) {
+                if (pickedQty >= requestedQty && requestedQty > 0) {
+                    statusSelect.value = 'picked';
+                } else if (pickedQty > 0 && pickedQty < requestedQty) {
+                    statusSelect.value = 'short';
+                } else if (pickedQty === 0) {
+                    statusSelect.value = 'pending';
+                }
+            }
+            updateTotalPicked();
+        }
+
         document.querySelectorAll('.picked-qty').forEach(input => {
-            input.addEventListener('input', updateTotalPicked);
+            input.addEventListener('input', () => onPickedQtyChange(input));
         });
 
         function updateTotalPicked() {
@@ -566,9 +588,7 @@
             if (display) display.value = total;
         }
 
-        function savePickedItemsInline() {
-            const orderId = {{ $pickList->salesOrder?->id ?? 'null' }};
-            const soNumber = '{{ $pickList->salesOrder?->so_number }}';
+        function collectTablePickedItems() {
             const rows = document.querySelectorAll('#pickListItemsBody tr');
             const pickedItems = [];
             let totalPicked = 0;
@@ -581,9 +601,11 @@
                 if (!pickedQtyInput) return; // empty state row
 
                 const pickedQty = parseFloat(pickedQtyInput.value) || 0;
-                const status = statusSelect.value;
-                const notes = notesInput.value;
+                const status = statusSelect ? statusSelect.value : 'pending';
+                const notes = notesInput ? notesInput.value : '';
                 const product = row.dataset.product || row.cells[1]?.innerText || '';
+                const id = row.dataset.itemId || null;
+                const soItemId = row.dataset.soItemId || null;
 
                 if (status === 'picked' && pickedQty === 0) {
                     alert(`"${product}" is marked as Picked but has 0 quantity. Please update.`);
@@ -591,13 +613,42 @@
                     return;
                 }
 
-                pickedItems.push({ product, picked_qty: pickedQty, status, notes, item_index: idx });
+                pickedItems.push({
+                    id: id,
+                    so_item_id: soItemId,
+                    product: product,
+                    picked_qty: pickedQty,
+                    status: status,
+                    notes: notes,
+                    item_index: idx
+                });
                 totalPicked += pickedQty;
             });
 
-            if (hasError) return;
+            return { items: pickedItems, totalPicked: totalPicked, hasError: hasError };
+        }
 
-            if (!confirm(`Save picked items for ${soNumber}?\n\nTotal picked: ${totalPicked}`)) return;
+        function handleMarkAsGatheredSubmit(form, confirmMsg) {
+            const collected = collectTablePickedItems();
+            if (collected.hasError) return false;
+
+            if (!confirm(confirmMsg)) return false;
+
+            const hiddenInput = form.querySelector('#gatheredPickedItemsJson') || form.querySelector('input[name="picked_items_json"]');
+            if (hiddenInput) {
+                hiddenInput.value = JSON.stringify(collected.items);
+            }
+            return true;
+        }
+
+        function savePickedItemsInline() {
+            const orderId = {{ $pickList->salesOrder?->id ?? 'null' }};
+            const soNumber = '{{ $pickList->salesOrder?->so_number }}';
+            const collected = collectTablePickedItems();
+
+            if (collected.hasError) return;
+
+            if (!confirm(`Save picked items for ${soNumber}?\n\nTotal picked: ${collected.totalPicked}`)) return;
 
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             if (!csrfToken) {
@@ -615,7 +666,7 @@
             fetch('/production/logistic/pick-list/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-                body: JSON.stringify({ order_id: orderId, so_number: soNumber, picked_items: pickedItems, remarks })
+                body: JSON.stringify({ order_id: orderId, so_number: soNumber, picked_items: collected.items, remarks: remarks })
             })
             .then(r => r.json())
             .then(data => {

@@ -355,10 +355,15 @@
             ?: ($bCompany?->company_name 
             ?: ($acctCompany?->parent?->company_name 
             ?: ($acctCompany?->company_name 
-            ?: ($order->customer?->company_name && $order->customer->company_name !== 'Intracode' ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+            ?: ($order->customer?->company_name && !in_array(strtolower($order->customer->company_name), ['intracode', 'individual']) ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
 
         $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
-        $displayItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
+        $rawDrItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
+        $displayItems = collect($rawDrItems)->filter(function($item) {
+            $qty = (float)($item->quantity ?? 0);
+            $pickQty = (float)($item->customer_selected_qty ?? 0);
+            return $qty > 0 || $pickQty > 0;
+        });
 
         $grossSubtotal = 0;
         $totalItemDiscounts = 0;

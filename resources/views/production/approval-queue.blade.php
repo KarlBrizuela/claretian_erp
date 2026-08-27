@@ -115,6 +115,7 @@
         .type-direct-invoice { background-color: #ceffbcff; color: #00991fff; }
         .type-expense { background-color: #fff3cd; color: #856404; }
         .type-job-order { background-color: #f8d7da; color: #721c24; }
+        .type-payment-request { background-color: #e0cffc; color: #5a3791; }
 
         .btn-xs {
             padding: 0.35rem 0.65rem;
@@ -315,16 +316,18 @@
                                     <tr>
                                             <td>
                                                 @php
-                                                    $typeClass = match($approval['type']) {
-                                                        'Sales Order' => 'type-sales-order',
-                                                        'Delivery Receipt' => 'bg-warning text-dark border border-warning',
-                                                        'CCTV' => 'type-job-order',
-                                                        default => 'badge-info'
-                                                    };
-                                                @endphp
-                                                <span class="document-type-badge {{ $typeClass }}" @if($approval['type'] === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @elseif($approval['type'] === 'Stock Transfer') style="background-color: #d4edda; color: #155724;" @endif>{{ $approval['type'] }}</span>
-                                                
-                                        </td>
+                                                     $typeClass = match($approval['type']) {
+                                                         'Sales Order' => 'type-sales-order',
+                                                         'Delivery Receipt' => 'bg-warning text-dark border border-warning',
+                                                         'CCTV' => 'type-job-order',
+                                                         'Payment Request' => 'type-payment-request',
+                                                         'Auto Debit Letter', 'Auto Debit' => 'type-expense',
+                                                         default => 'badge-info'
+                                                     };
+                                                 @endphp
+                                                 <span class="document-type-badge {{ $typeClass }}" @if($approval['type'] === 'Cash Advance') style="background-color: #e3f2fd; color: #0d47a1;" @elseif($approval['type'] === 'Stock Transfer') style="background-color: #d4edda; color: #155724;" @endif>{{ $approval['type'] }}</span>
+                                                 
+                                         </td>
                                         <td><strong>{{ $approval['reference_no'] }}</strong></td>
                                         <td>{{ $approval['original']->customer?->customer_name ?? ($approval['original']->customer_representative ?? 'N/A') }}</td>
                                         <td>{{ $approval['submitted_by'] }}</td>
@@ -347,6 +350,11 @@
                                                 $status = $approval['status'];
                                                 $badgeClass = 'status-pending';
                                             @endphp
+                                            @if(in_array($status, ['approved', 'completed', 'Approved']))
+                                                @php $badgeClass = 'status-success'; @endphp
+                                            @elseif(in_array($status, ['rejected', 'cancelled', 'Rejected']))
+                                                @php $badgeClass = 'status-danger'; @endphp
+                                            @endif
                                             <span class="status-badge {{ $badgeClass }}">{{ ucwords(str_replace('_', ' ', $status)) }}</span>
                                         </td>
                                         <td>
@@ -356,6 +364,15 @@
                                                     @csrf
                                                     <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve</button>
                                                 </form>
+                                            @elseif($approval['type'] === 'Payment Request')
+                                                <a href="{{ route('payment-requests.show', $approval['id']) }}" class="btn btn-primary btn-sm me-1"><i class="las la-eye me-1"></i> Review</a>
+                                                @if(isset($approval['original']->status) && $approval['original']->status === 'pending_director_approval' && (auth()->user()->isSuperAdmin() || str_contains(strtolower(auth()->user()->position ?? ''), 'director')))
+                                                    <form action="{{ route('payment-requests.approve', $approval['id']) }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <input type="hidden" name="approval_type" value="director">
+                                                        <button type="submit" class="btn btn-success btn-sm"><i class="las la-check me-1"></i> Approve</button>
+                                                    </form>
+                                                @endif
                                             @elseif($approval['type'] === 'Sales Order')
                                                 <a href="{{ $approval['url'] }}" class="btn btn-danger btn-sm text-white me-1"><i class="las la-eye me-1"></i> Review</a>
                                                 @if(isset($approval['status']) && $approval['status'] === 'pending_dr_approval')
