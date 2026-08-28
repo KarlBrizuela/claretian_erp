@@ -1765,6 +1765,94 @@ public function checkVoucher()
     }
   }
 
+  public function bulkSetPaid(Request $request)
+  {
+    $siIds = $request->input('si_ids', []);
+    $soIds = $request->input('so_ids', []);
+
+    if (empty($siIds) && empty($soIds)) {
+      return response()->json(['success' => false, 'message' => 'No invoices selected.'], 400);
+    }
+
+    $processed = 0;
+    \DB::beginTransaction();
+    try {
+      $invoices = \App\Models\SalesInvoice::with('salesOrder')->whereIn('id', $siIds)->get();
+      $orderIds = $invoices->pluck('so_id')->filter()->merge($soIds)->unique()->toArray();
+      $orders = \App\Models\SalesOrder::whereIn('id', $orderIds)->get();
+
+      foreach ($orders as $so) {
+        $remBal = (float) $so->remaining_balance;
+        $totalAmount = (float) ($so->total_amount ?: $so->final_total);
+
+        if ($remBal > 0 || $so->payment_status !== 'paid') {
+          $payAmt = $remBal > 0 ? $remBal : $totalAmount;
+          $pm = $so->payment_method ?: ($so->ecom_platform ? 'ecom_' . $so->ecom_platform : 'cash');
+
+          $payment = \App\Models\Payment::create([
+            'customer_id' => $so->customer_id,
+            'sales_order_id' => $so->id,
+            'amount' => $payAmt,
+            'payment_method' => $pm,
+            'payment_date' => now()->toDateString(),
+            'status' => 'verified',
+            'reference_number' => $so->so_number,
+            'verified_by' => auth()->id(),
+            'notes' => 'Bulk Set as Paid for E-Com Order #' . $so->so_number,
+          ]);
+
+          $so->update([
+            'payment_status' => 'paid',
+            'remarks' => ($so->remarks ? $so->remarks . ' | ' : '') . 'Marked as Paid in bulk by ' . (auth()->user()->name ?? 'System')
+          ]);
+
+          try {
+            if (isset($this->accounting) && method_exists($this->accounting, 'postPaymentEntry')) {
+              $this->accounting->postPaymentEntry($so, $payment, $pm, $payAmt);
+            }
+          } catch (\Exception $glEx) {
+            \Log::warning("Bulk Set Paid GL entry skipped for SO #{$so->so_number}: " . $glEx->getMessage());
+          }
+        }
+        $processed++;
+      }
+
+      foreach ($invoices as $inv) {
+        if (!$inv->so_id) {
+          $inv->update(['status' => 'approved']);
+          $processed++;
+        }
+      }
+
+      \DB::commit();
+
+      if (class_exists('\App\Models\ActivityLog')) {
+        \App\Models\ActivityLog::create([
+          'user_id' => auth()->id() ?: 1,
+          'action' => 'Bulk Payment Set as Paid',
+          'description' => "Marked {$processed} E-com Sales Invoice(s) as Paid in bulk.",
+          'affected_model' => 'SalesInvoice',
+          'affected_model_id' => null,
+          'ip_address' => $request->ip(),
+        ]);
+      }
+
+      return response()->json([
+        'success' => true,
+        'message' => "Successfully marked {$processed} invoice(s) as Paid.",
+        'processed' => $processed
+      ]);
+    } catch (\Exception $e) {
+      \DB::rollBack();
+      \Log::error("Bulk Set as Paid failed: " . $e->getMessage());
+
+      return response()->json([
+        'success' => false,
+        'message' => 'An error occurred while marking invoices as paid: ' . $e->getMessage()
+      ], 500);
+    }
+  }
+
   public function signSalesInvoice(Request $request, $id)
   {
     $order = \App\Models\SalesOrder::findOrFail($id);

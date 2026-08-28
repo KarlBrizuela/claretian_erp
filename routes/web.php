@@ -513,6 +513,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/sales-invoice/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeSalesInvoice'])->name('admin-finance.accounting.sales-invoice.store');
       Route::post('/sales-invoice/{id}/sign', [App\Http\Controllers\AdminFinanceController::class, 'signSalesInvoice'])->name('admin-finance.accounting.sales-invoice.sign');
       Route::post('/sales-invoice/bulk-finalize', [App\Http\Controllers\AdminFinanceController::class, 'bulkFinalizeInvoices'])->name('admin-finance.accounting.sales-invoice.bulk-finalize');
+      Route::post('/sales-invoice/bulk-set-paid', [App\Http\Controllers\AdminFinanceController::class, 'bulkSetPaid'])->name('admin-finance.accounting.sales-invoice.bulk-set-paid');
       Route::get('/sales-invoice/bulk-print', [App\Http\Controllers\AdminFinanceController::class, 'bulkPrintSalesInvoice'])->name('admin-finance.accounting.sales-invoice.bulk-print');
       Route::get('/sales-invoice/{id}/print', [App\Http\Controllers\AdminFinanceController::class, 'printSalesInvoice'])->name('admin-finance.accounting.sales-invoice.print');
       Route::post('/sales-invoice/{id}/revert-to-dr', [App\Http\Controllers\AdminFinanceController::class, 'revertSalesInvoiceToDR'])->name('admin-finance.accounting.sales-invoice.revert-to-dr');
