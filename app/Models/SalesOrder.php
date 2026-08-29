@@ -13,6 +13,7 @@ class SalesOrder extends Model
         'customer_contact',
         'area_sales_staff_id',
         'so_number',
+        'si_number',
         'type',
         'currency',
         'transaction_type', // COD, Credit, Prepaid, Check, Other

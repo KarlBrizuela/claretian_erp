@@ -34,9 +34,9 @@
                         <input type="text" class="form-control" placeholder="Sales Order" value="{{ $order ? $order->so_number : '' }}" readonly>
                     </div>
                     @if($order?->cancellation_date)
-                    <div class="form-info-item">
-                        <label class="text-danger fw-bold">Cancel Date:</label>
-                        <input type="text" class="form-control fw-bold text-danger" value="{{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}" readonly style="color: #dc3545 !important;">
+                    <div class="form-info-item cancellation-date-item">
+                        <label class="cancellation-date-label">Cancel Date:</label>
+                        <input type="text" class="form-control cancellation-date-input" value="{{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}" readonly>
                     </div>
                     @endif
                 </div>
@@ -59,7 +59,7 @@
                             ?: ($bCompany?->company_name 
                             ?: ($acctCompany?->parent?->company_name 
                             ?: ($acctCompany?->company_name 
-                            ?: ($order->customer?->company_name && $order->customer->company_name !== 'Intracode' ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+                            ?: ($order->customer?->company_name && !in_array(strtolower($order->customer->company_name), ['intracode', 'individual']) ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
                     @endphp
                     <!-- Delivered To Section -->
                     <div class="form-group">
@@ -106,7 +106,12 @@
                     <!-- Delivery Receipt Items Table -->
                     @php
                         $isConsignment = $order && in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
-                        $displayItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
+                        $rawItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
+                        $displayItems = collect($rawItems)->filter(function($item) {
+                            $qty = (float)($item->quantity ?? 0);
+                            $pickQty = (float)($item->customer_selected_qty ?? 0);
+                            return $qty > 0 || $pickQty > 0;
+                        });
                         
                         $grossSubtotal = 0;
                         $totalItemDiscounts = 0;
@@ -690,6 +695,12 @@
             flex: 1;
         }
 
+        .cancellation-date-label,
+        .cancellation-date-input {
+            color: #dc3545 !important;
+            font-weight: 700 !important;
+        }
+
         .form-group {
             margin-bottom: 1rem;
         }
@@ -1098,9 +1109,26 @@
                 border: none !important;
                 padding: 0.15rem 0 !important;
                 margin-bottom: 0.35rem !important;
-                display: grid !important;
-                grid-template-columns: repeat(3, 1fr) !important;
-                gap: 0.5rem !important;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                gap: 0.5rem 1rem !important;
+                justify-content: space-between !important;
+            }
+
+            .form-info-item {
+                flex: 1 1 auto !important;
+                min-width: 130px !important;
+            }
+
+            .cancellation-date-label,
+            .cancellation-date-input,
+            .form-info-item.cancellation-date-item input,
+            .form-info-item.cancellation-date-item label {
+                color: #000000 !important;
+                -webkit-text-fill-color: #000000 !important;
+                font-weight: 900 !important;
+                font-size: 11px !important;
+                opacity: 1 !important;
             }
 
             .form-info-item label,
@@ -1149,19 +1177,21 @@
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
                 page-break-before: auto !important;
-                margin-top: 0.5rem !important;
+                margin-top: 1rem !important;
                 border-top: none !important;
-                padding-top: 0.25rem !important;
-                display: flex !important;
-                flex-direction: row !important;
-                justify-content: space-between !important;
+                padding-top: 0.5rem !important;
+                display: table !important;
+                table-layout: fixed !important;
                 width: 100% !important;
+                clear: both !important;
             }
 
             .signature-box {
-                width: 30% !important;
-                display: block !important;
-                text-align: left !important;
+                display: table-cell !important;
+                width: 33.33% !important;
+                vertical-align: top !important;
+                text-align: center !important;
+                padding: 0 8px !important;
             }
 
             .signature-box label {
@@ -1170,6 +1200,7 @@
                 font-size: 0.75rem !important;
                 margin-bottom: 0.15rem !important;
                 color: #000000 !important;
+                text-align: left !important;
             }
 
             .signature-box input {
@@ -1178,7 +1209,7 @@
 
             .signature-input-wrapper {
                 display: block !important;
-                min-height: 18px !important;
+                min-height: 22px !important;
                 margin-bottom: 0.25rem !important;
             }
 
@@ -1187,6 +1218,8 @@
                 color: #000000 !important;
                 font-weight: bold !important;
                 font-size: 0.85rem !important;
+                min-height: 1.2rem !important;
+                text-align: center !important;
             }
 
             .signature-line-box,
@@ -1201,38 +1234,58 @@
 
             body,
             html,
+            #main-wrapper,
+            .content-body,
+            .container-fluid,
+            .receipt-form,
+            .table-responsive,
+            .card,
             .row,
             .col-xl-12 {
                 margin: 0 !important;
                 padding: 0 !important;
+                overflow: visible !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                display: block !important;
+                float: none !important;
             }
         }
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            function syncSignatureDisplays() {
+                const prep = document.getElementById('preparedBy');
+                const prepDisp = document.getElementById('preparedByDisplay');
+                if (prep && prepDisp) prepDisp.textContent = prep.value || ' ';
+
+                const app = document.getElementById('approvedBy');
+                const appDisp = document.getElementById('approvedByDisplay');
+                if (app && appDisp) appDisp.textContent = app.value || ' ';
+
+                const rec = document.getElementById('receivedBy');
+                const recDisp = document.getElementById('receivedByDisplay');
+                if (rec && recDisp) recDisp.textContent = rec.value || ' ';
+            }
+
+            syncSignatureDisplays();
+            window.addEventListener('beforeprint', syncSignatureDisplays);
+
             // Live sync signature inputs to print display spans
             const preparedInput = document.getElementById('preparedBy');
-            const preparedDisplay = document.getElementById('preparedByDisplay');
-            if (preparedInput && preparedDisplay) {
-                preparedInput.addEventListener('input', function() {
-                    preparedDisplay.textContent = this.value;
-                });
+            if (preparedInput) {
+                preparedInput.addEventListener('input', syncSignatureDisplays);
             }
 
             const approvedInput = document.getElementById('approvedBy');
-            const approvedDisplay = document.getElementById('approvedByDisplay');
-            if (approvedInput && approvedDisplay) {
-                approvedInput.addEventListener('input', function() {
-                    approvedDisplay.textContent = this.value;
-                });
+            if (approvedInput) {
+                approvedInput.addEventListener('input', syncSignatureDisplays);
             }
 
             const receivedInput = document.getElementById('receivedBy');
-            const receivedDisplay = document.getElementById('receivedByDisplay');
-            if (receivedInput && receivedDisplay) {
-                receivedInput.addEventListener('input', function() {
-                    receivedDisplay.textContent = this.value;
-                });
+            if (receivedInput) {
+                receivedInput.addEventListener('input', syncSignatureDisplays);
             }
 
             document.querySelectorAll('.pick-qty-input').forEach(input => {

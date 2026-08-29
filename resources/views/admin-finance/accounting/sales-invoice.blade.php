@@ -39,6 +39,7 @@
     .table-responsive {
         border: none !important;
         overflow-x: auto;
+        min-height: 320px !important;
     }
     table.table {
         border-collapse: collapse !important;
@@ -351,6 +352,8 @@
                                                 <option value="lazada">Lazada</option>
                                                 <option value="shopee">Shopee</option>
                                                 <option value="tiktok">TikTok</option>
+                                                <option value="cob">COB</option>
+                                                <option value="mibf">MIBF</option>
                                             </select>
                                         </div>
                                         <div class="col-md">
@@ -374,7 +377,7 @@
                         <!-- Bulk Actions Bar -->
                         <div id="bulkActionsBar" class="alert alert-light border d-none justify-content-between align-items-center mb-4 py-2 px-3 shadow-sm bg-white rounded" style="border-left: 4px solid #D9251C !important;">
                             <div class="d-flex align-items-center gap-3">
-                                <span class="fw-bold text-dark"><span id="selectedCount" class="badge bg-primary fs-14">0</span> Sales Order(s) selected</span>
+                                <span class="fw-bold text-dark"><span id="selectedCount" class="badge bg-primary fs-14">0</span> <span id="selectedItemLabel">Sales Order(s)</span> selected</span>
                                 <span id="selectedTotalAmount" class="fw-bold text-success d-none">| Total: <span id="totalAmountValue">₱0.00</span></span>
                             </div>
                             <div class="d-flex align-items-center gap-2">
@@ -386,6 +389,9 @@
                                 </button>
                                 <button type="button" id="bulkPrintSIBtn" class="btn btn-info btn-sm px-3 fw-bold d-none">
                                     <i class="las la-print me-1"></i> Print Selected SIs
+                                </button>
+                                <button type="button" id="bulkSetPaidBtn" class="btn btn-success btn-sm px-3 fw-bold d-none">
+                                    <i class="las la-money-bill-wave me-1"></i> Set as Paid
                                 </button>
                             </div>
                         </div>
@@ -509,69 +515,88 @@
                                                 <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</span></td>
                                                 <td>{{ $order->siPreparedBy->name ?? 'N/A' }}</td>
                                                 <td class="text-end">
+                                                     @php
+                                                         $isFromDR = $order->status === 'si_created' 
+                                                             || !empty($order->dr_prepared_by) 
+                                                             || !empty($order->dr_prepared_at) 
+                                                             || !empty($order->dr_approved_by)
+                                                             || in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
+                                                     @endphp
                                                      <div class="dropdown">
                                                          <button class="btn btn-link text-muted p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="box-shadow: none;">
                                                              <i class="las la-ellipsis-v" style="font-size: 1.25rem;"></i>
                                                          </button>
-                                                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="font-size: 12px; border-radius: 6px; min-width: 140px; z-index: 1050;">
-                                                             <li>
-                                                                 <a class="dropdown-item py-2" href="{{ route('admin-finance.sales-order.detail', $order->id) }}">
-                                                                     <i class="las la-eye me-2 text-primary" style="font-size: 1rem;"></i> View SO Detail
-                                                                 </a>
-                                                             </li>
-                                                             
-                                                             @if($remBal > 0 && $order->customer_id)
+                                                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="font-size: 12px; border-radius: 6px; min-width: 150px; z-index: 1050;">
                                                                  <li>
-                                                                     <button type="button" class="dropdown-item py-2 open-pay-modal-btn" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $order->currency ?? 'USD' }}" data-symbol="{{ $ordSym }}">
-                                                                         <i class="las la-coins me-2 text-success" style="font-size: 1rem;"></i> Record Payment
-                                                                     </button>
+                                                                     <a class="dropdown-item py-2" href="{{ route('admin-finance.sales-order.detail', $order->id) }}">
+                                                                         <i class="las la-eye me-2 text-primary" style="font-size: 1rem;"></i> View SO Detail
+                                                                     </a>
                                                                  </li>
-                                                             @endif
-
-                                                             @if($order->status === 'pending_si_prep' || $order->status === 'si_created' || $order->status === 'ar_created')
-                                                                 @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || $paidAmt > 0)
+                                                                 
+                                                                 @if($remBal > 0 && $order->customer_id)
                                                                      <li>
-                                                                         <a class="dropdown-item py-2 text-warning fw-semibold" href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}">
-                                                                             <i class="las la-file-invoice me-2" style="font-size: 1rem;"></i> Prepare SI
-                                                                         </a>
-                                                                     </li>
-                                                                 @else
-                                                                     <li>
-                                                                         <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to prepare SI">
-                                                                             <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Prepare SI (Disabled)
+                                                                         <button type="button" class="dropdown-item py-2 open-pay-modal-btn" data-so-id="{{ $order->id }}" data-customer-id="{{ $order->customer_id }}" data-so-number="{{ $order->so_number }}" data-total="{{ $displayAmount }}" data-paid="{{ $paidAmt }}" data-remaining="{{ $remBal }}" data-terms="{{ $order->terms ?? 'COD' }}" data-due-date="{{ $order->due_date ? $order->due_date->format('M d, Y') : 'N/A' }}" data-currency="{{ $order->currency ?? 'USD' }}" data-symbol="{{ $ordSym }}">
+                                                                             <i class="las la-coins me-2 text-success" style="font-size: 1rem;"></i> Record Payment
                                                                          </button>
                                                                      </li>
                                                                  @endif
-                                                             @endif
-                                                             
-                                                             @if($order->status === 'pending_si_approval')
-                                                                 @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']))
+
+                                                                 @if($order->status === 'pending_si_prep' || $order->status === 'si_created' || $order->status === 'ar_created')
+                                                                     @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || $paidAmt > 0)
+                                                                         <li>
+                                                                             <a class="dropdown-item py-2 text-warning fw-semibold" href="{{ route('admin-finance.accounting.sales-invoice.prepare', $order->id) }}">
+                                                                                 <i class="las la-file-invoice me-2" style="font-size: 1rem;"></i> Prepare SI
+                                                                             </a>
+                                                                         </li>
+                                                                     @else
+                                                                         <li>
+                                                                             <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to prepare SI">
+                                                                                 <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Prepare SI (Disabled)
+                                                                             </button>
+                                                                         </li>
+                                                                     @endif
+                                                                 @endif
+                                                                 
+                                                                 @if($order->status === 'pending_si_approval')
+                                                                     @if($order->proof_of_payment || in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']))
+                                                                         <li>
+                                                                             <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
+                                                                                 @csrf
+                                                                                 <button type="submit" class="dropdown-item py-2 text-success fw-semibold">
+                                                                                     <i class="las la-check-double me-2" style="font-size: 1rem;"></i> Sign & Approve
+                                                                                 </button>
+                                                                             </form>
+                                                                         </li>
+                                                                     @else
+                                                                         <li>
+                                                                             <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to sign SI">
+                                                                                 <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Sign & Approve (Disabled)
+                                                                             </button>
+                                                                         </li>
+                                                                     @endif
+                                                                 @endif
+                                                                 
+                                                                 @if($order->status === 'ready_for_delivery')
                                                                      <li>
-                                                                         <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" class="m-0">
+                                                                         <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" target="_blank">
+                                                                             <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                         </a>
+                                                                     </li>
+                                                                 @endif
+
+                                                                 @if($isFromDR && in_array($order->status, ['pending_si_prep', 'si_created', 'pending_si_approval', 'ar_created', 'picking']))
+                                                                     <li><hr class="dropdown-divider my-1"></li>
+                                                                     <li>
+                                                                         <form action="{{ route('admin-finance.accounting.sales-invoice.revert-to-dr', $order->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to return Sales Order #{{ $order->so_number }} back to Delivery Receipts (DR)?');" class="m-0">
                                                                              @csrf
-                                                                             <button type="submit" class="dropdown-item py-2 text-success fw-semibold">
-                                                                                 <i class="las la-check-double me-2" style="font-size: 1rem;"></i> Sign & Approve
+                                                                             <button type="submit" class="dropdown-item py-2 text-danger fw-semibold">
+                                                                                 <i class="las la-undo-alt me-2" style="font-size: 1rem;"></i> Back to DR
                                                                              </button>
                                                                          </form>
                                                                      </li>
-                                                                 @else
-                                                                     <li>
-                                                                         <button class="dropdown-item py-2 text-muted" disabled title="Proof of Payment is required to sign SI">
-                                                                             <i class="las la-exclamation-triangle me-2" style="font-size: 1rem;"></i> Sign & Approve (Disabled)
-                                                                         </button>
-                                                                     </li>
                                                                  @endif
-                                                             @endif
-                                                             
-                                                             @if($order->status === 'ready_for_delivery')
-                                                                 <li>
-                                                                     <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" target="_blank">
-                                                                         <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
-                                                                     </a>
-                                                                 </li>
-                                                             @endif
-                                                         </ul>
-                                                     </div>
+                                                             </ul>
+                                                         </div>
                                                  </td>
                                             </tr>
                                             @empty
@@ -621,7 +646,10 @@
                                         </thead>
                                         <tbody>
                                             @forelse($ecomOrders as $order)
-                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-platform="{{ strtolower($order->ecom_platform) }}" data-amount="{{ $order->total_amount }}" data-type="{{ $order->type }}">
+                                            @php
+                                                $ecomPlat = strtolower($order->ecom_platform ?: ($order->platform ?? 'ecom'));
+                                            @endphp
+                                            <tr class="si-row" data-date="{{ $order->created_at->format('Y-m-d') }}" data-platform="{{ $ecomPlat }}" data-amount="{{ $order->total_amount }}" data-type="{{ $order->type }}">
                                                 <td>
                                                     <input type="checkbox"
                                                         class="order-checkbox ecom-check ecom-print-check"
@@ -634,12 +662,16 @@
                                                 </td>
                                                 <td><strong>#{{ $order->so_number }}</strong></td>
                                                 <td class="text-capitalize">
-                                                    @if($order->ecom_platform === 'lazada')
-                                                        <span class="badge bg-primary text-white"><i class="las la-shopping-bag me-1"></i> Lazada</span>
-                                                    @elseif($order->ecom_platform === 'shopee')
+                                                    @if($ecomPlat === 'lazada')
+                                                        <span class="badge bg-danger text-white"><i class="las la-shopping-bag me-1"></i> Lazada</span>
+                                                    @elseif($ecomPlat === 'shopee')
                                                         <span class="badge bg-warning text-dark"><i class="las la-shopping-basket me-1"></i> Shopee</span>
-                                                    @elseif($order->ecom_platform === 'tiktok')
+                                                    @elseif($ecomPlat === 'tiktok')
                                                         <span class="badge bg-dark text-white"><i class="las la-music me-1"></i> TikTok</span>
+                                                    @elseif($ecomPlat === 'cob')
+                                                        <span class="badge bg-info text-white"><i class="las la-building me-1"></i> COB</span>
+                                                    @elseif($ecomPlat === 'mibf')
+                                                        <span class="badge bg-secondary text-white"><i class="las la-store me-1"></i> MIBF</span>
                                                     @else
                                                         <span class="badge bg-secondary text-white">{{ $order->ecom_platform ?? 'E-commerce' }}</span>
                                                     @endif
@@ -828,11 +860,14 @@
                             </div>
 
                             <!-- Completed E-com Invoices Tab Pane -->
-                            <div class="tab-pane fade" id="completed-ecom-pane" role="tabpanel" aria-labelledby="completed-ecom-tab">
+                            <div class="tab-pane fade {{ $activeTab === 'completed-ecom' ? 'show active' : '' }}" id="completed-ecom-pane" role="tabpanel" aria-labelledby="completed-ecom-tab">
                                 <div class="table-responsive">
                                     <table class="table table-hover">
                                         <thead>
                                             <tr>
+                                                <th style="width: 45px;">
+                                                    <input type="checkbox" id="selectAllCompletedEcom" style="width: 16px; height: 16px; cursor: pointer;">
+                                                </th>
                                                 <th>SI Number</th>
                                                 <th>SO Number</th>
                                                 <th>Platform</th>
@@ -853,20 +888,43 @@
                                                 $pmStatus = $so ? $so->computed_payment_status : ($remBal <= 0 ? 'paid' : 'unpaid');
                                                 $pmBadgeColor = $pmStatus === 'paid' ? 'success' : ($pmStatus === 'partially_paid' ? 'warning' : 'danger');
                                                 $pmLabel = $pmStatus === 'partially_paid' ? 'PARTIALLY PAID' : strtoupper($pmStatus);
-                                                $platform = $so->ecom_platform ?? 'ecom';
+                                                
+                                                $platform = $so->ecom_platform ?? ($so->platform ?? '');
+                                                if (empty($platform)) {
+                                                    if (str_contains(strtolower($si->si_number ?? ''), 'lazada')) $platform = 'lazada';
+                                                    elseif (str_contains(strtolower($si->si_number ?? ''), 'shopee')) $platform = 'shopee';
+                                                    elseif (str_contains(strtolower($si->si_number ?? ''), 'tiktok')) $platform = 'tiktok';
+                                                    elseif (str_contains(strtolower($si->si_number ?? ''), 'cob')) $platform = 'cob';
+                                                    elseif (str_contains(strtolower($si->si_number ?? ''), 'mibf') || str_contains(strtolower($so->so_number ?? ''), 'mibf')) $platform = 'mibf';
+                                                    else $platform = 'ecom';
+                                                }
+                                                
                                                 $siCurr = $so->currency ?? 'PHP';
                                                 $siSym = ($siCurr === 'USD' ? '$' : ($siCurr === 'EUR' ? '€' : '₱'));
                                             @endphp
-                                            <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}" data-platform="{{ strtolower($platform) }}" data-amount="{{ $totalAmt }}" data-type="ecom_direct">
+                                            <tr class="si-row" data-date="{{ $si->created_at->format('Y-m-d') }}" data-platform="{{ strtolower($platform) }}" data-amount="{{ $totalAmt }}" data-type="ecom_direct" data-payment-status="{{ strtolower($pmStatus) }}">
+                                                <td>
+                                                    <input type="checkbox" class="order-checkbox completed-ecom-check"
+                                                           value="{{ $si->id }}"
+                                                           data-si-id="{{ $si->id }}"
+                                                           data-so-id="{{ $si->so_id }}"
+                                                           data-amount="{{ $totalAmt }}"
+                                                           data-status="{{ strtolower($pmStatus) }}"
+                                                           style="width: 16px; height: 16px; cursor: pointer;">
+                                                </td>
                                                 <td><strong>#{{ $si->si_number }}</strong></td>
                                                 <td>#{{ $si->so_number }}</td>
                                                 <td class="text-capitalize">
                                                     @if(strtolower($platform) === 'lazada')
-                                                        <span class="badge bg-primary text-white"><i class="las la-shopping-bag me-1"></i> Lazada</span>
+                                                        <span class="badge bg-danger text-white"><i class="las la-shopping-bag me-1"></i> Lazada</span>
                                                     @elseif(strtolower($platform) === 'shopee')
                                                         <span class="badge bg-warning text-dark"><i class="las la-shopping-basket me-1"></i> Shopee</span>
                                                     @elseif(strtolower($platform) === 'tiktok')
                                                         <span class="badge bg-dark text-white"><i class="las la-music me-1"></i> TikTok</span>
+                                                    @elseif(strtolower($platform) === 'cob')
+                                                        <span class="badge bg-info text-white"><i class="las la-building me-1"></i> COB</span>
+                                                    @elseif(strtolower($platform) === 'mibf')
+                                                        <span class="badge bg-secondary text-white"><i class="las la-store me-1"></i> MIBF</span>
                                                     @else
                                                         <span class="badge bg-secondary text-white">{{ $platform ?: 'E-commerce' }}</span>
                                                     @endif
@@ -901,13 +959,13 @@
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="8" class="text-center py-4 text-muted">No completed E-commerce direct invoices at this time.</td>
+                                                <td colspan="9" class="text-center py-4 text-muted">No completed E-commerce direct invoices at this time.</td>
                                             </tr>
                                             @endforelse
                                         </tbody>
                                         <tfoot>
                                             <tr id="completedEcomTotalRow" style="background: #f8f9fa; border-top: 2px solid #dee2e6;">
-                                                <td colspan="4" class="text-end fw-bold" style="font-size: 14px;">TOTAL SUMMARY:</td>
+                                                <td colspan="5" class="text-end fw-bold" style="font-size: 14px;">TOTAL SUMMARY:</td>
                                                 <td class="fw-bold text-success" style="font-size: 14px;" id="completedEcomTotalAmount">₱0.00</td>
                                                 <td colspan="3"></td>
                                             </tr>
@@ -1319,32 +1377,64 @@
         // Tab switch visibility for platform filter
         const normalTab = document.getElementById('normal-tab');
         const ecomTab = document.getElementById('ecom-tab');
+        const completedEcomTab = document.getElementById('completed-ecom-tab');
+        const completedTab = document.getElementById('completed-tab');
         const platformFilterContainer = document.getElementById('platformFilterContainer');
 
-        if (normalTab && ecomTab && platformFilterContainer) {
-            normalTab.addEventListener('shown.bs.tab', function () {
-                platformFilterContainer.style.display = 'none';
-                platformSelect.value = '';
-                filterRows();
-            });
-
-            ecomTab.addEventListener('shown.bs.tab', function () {
-                platformFilterContainer.style.display = 'block';
-            });
+        function updatePlatformFilterVisibility() {
+            const activeTab = document.querySelector('#siTabs .nav-link.active');
+            const isEcomTab = activeTab && (activeTab.id === 'ecom-tab' || activeTab.id === 'completed-ecom-tab');
+            if (platformFilterContainer) {
+                platformFilterContainer.style.display = isEcomTab ? 'block' : 'none';
+                if (!isEcomTab && platformSelect) {
+                    platformSelect.value = '';
+                }
+            }
         }
+
+        // Run initially
+        updatePlatformFilterVisibility();
 
         // Checkbox variables & events
         const selectAllNormal = document.getElementById('selectAllNormal');
         const selectAllEcom = document.getElementById('selectAllEcom');
+        const selectAllCompletedEcom = document.getElementById('selectAllCompletedEcom');
         const normalChecks = document.querySelectorAll('.normal-check');
         const ecomChecks = document.querySelectorAll('.ecom-check');
+        const completedEcomChecks = document.querySelectorAll('.completed-ecom-check');
         const bulkActionsBar = document.getElementById('bulkActionsBar');
         const selectedCountEl = document.getElementById('selectedCount');
+        const selectedItemLabel = document.getElementById('selectedItemLabel');
         const bulkFinalizeBtn = document.getElementById('bulkFinalizeBtn');
+        const bulkPrepareBtn = document.getElementById('bulkPrepareBtn');
+        const bulkPrintSIBtn = document.getElementById('bulkPrintSIBtn');
+        const bulkSetPaidBtn = document.getElementById('bulkSetPaidBtn');
 
         function updateBulkBar() {
-            const checkedCount = document.querySelectorAll('.order-checkbox:checked').length;
-            selectedCountEl.textContent = checkedCount;
+            const activeTab = document.querySelector('#siTabs .nav-link.active');
+            const isCompletedEcom = activeTab && activeTab.id === 'completed-ecom-tab';
+            const isEcom = activeTab && activeTab.id === 'ecom-tab';
+            const isNormal = activeTab && activeTab.id === 'normal-tab';
+            const isCompleted = activeTab && activeTab.id === 'completed-tab';
+
+            let checkedBoxes = [];
+            if (isCompletedEcom) {
+                checkedBoxes = Array.from(document.querySelectorAll('#completed-ecom-pane .completed-ecom-check:checked'));
+            } else if (isEcom) {
+                checkedBoxes = Array.from(document.querySelectorAll('#ecom-pane .ecom-check:checked'));
+            } else if (isNormal) {
+                checkedBoxes = Array.from(document.querySelectorAll('#normal-pane .normal-check:checked'));
+            } else {
+                checkedBoxes = Array.from(document.querySelectorAll('.order-checkbox:checked'));
+            }
+
+            const checkedCount = checkedBoxes.length;
+            if (selectedCountEl) selectedCountEl.textContent = checkedCount;
+
+            if (selectedItemLabel) {
+                selectedItemLabel.textContent = (isCompletedEcom || isCompleted) ? 'Sales Invoice(s)' : 'Sales Order(s)';
+            }
+
             if (checkedCount > 0) {
                 bulkActionsBar.classList.remove('d-none');
                 bulkActionsBar.classList.add('d-flex');
@@ -1358,7 +1448,7 @@
             const totalAmountValue = document.getElementById('totalAmountValue');
             if (totalAmountContainer && totalAmountValue) {
                 let total = 0;
-                document.querySelectorAll('.order-checkbox:checked').forEach(cb => {
+                checkedBoxes.forEach(cb => {
                     const amt = parseFloat(cb.getAttribute('data-amount'));
                     if (!isNaN(amt)) total += amt;
                 });
@@ -1370,18 +1460,46 @@
                 }
             }
 
-            // Show print button only when e-com tab is active and items are checked
-            const bulkPrintSIBtn = document.getElementById('bulkPrintSIBtn');
-            if (bulkPrintSIBtn) {
-                const ecomPaneActive = document.getElementById('ecom-pane') && document.getElementById('ecom-pane').classList.contains('show');
-                const ecomCheckedPrintable = document.querySelectorAll('.ecom-print-check:checked').length;
-                if (ecomPaneActive && ecomCheckedPrintable > 0) {
-                    bulkPrintSIBtn.classList.remove('d-none');
-                } else {
-                    bulkPrintSIBtn.classList.add('d-none');
+            // Control action button visibilities based on active tab
+            if (isCompletedEcom) {
+                if (bulkSetPaidBtn) bulkSetPaidBtn.classList.remove('d-none');
+                if (bulkPrepareBtn) bulkPrepareBtn.classList.add('d-none');
+                if (bulkFinalizeBtn) bulkFinalizeBtn.classList.add('d-none');
+                if (bulkPrintSIBtn) bulkPrintSIBtn.classList.add('d-none');
+            } else if (isEcom) {
+                if (bulkSetPaidBtn) bulkSetPaidBtn.classList.add('d-none');
+                if (bulkPrepareBtn) bulkPrepareBtn.classList.add('d-none');
+                if (bulkFinalizeBtn) bulkFinalizeBtn.classList.remove('d-none');
+                if (bulkPrintSIBtn) {
+                    const ecomCheckedPrintable = document.querySelectorAll('#ecom-pane .ecom-print-check:checked').length;
+                    if (ecomCheckedPrintable > 0) {
+                        bulkPrintSIBtn.classList.remove('d-none');
+                    } else {
+                        bulkPrintSIBtn.classList.add('d-none');
+                    }
                 }
+            } else if (isNormal) {
+                if (bulkSetPaidBtn) bulkSetPaidBtn.classList.add('d-none');
+                if (bulkPrepareBtn) bulkPrepareBtn.classList.remove('d-none');
+                if (bulkFinalizeBtn) bulkFinalizeBtn.classList.remove('d-none');
+                if (bulkPrintSIBtn) bulkPrintSIBtn.classList.add('d-none');
+            } else {
+                if (bulkSetPaidBtn) bulkSetPaidBtn.classList.add('d-none');
+                if (bulkPrepareBtn) bulkPrepareBtn.classList.add('d-none');
+                if (bulkFinalizeBtn) bulkFinalizeBtn.classList.add('d-none');
+                if (bulkPrintSIBtn) bulkPrintSIBtn.classList.add('d-none');
             }
         }
+
+        // Tab switch listeners to update platform filter and bulk bar
+        document.querySelectorAll('#siTabs button[data-bs-toggle="tab"]').forEach(tabBtn => {
+            tabBtn.addEventListener('shown.bs.tab', function () {
+                updatePlatformFilterVisibility();
+                updateBulkBar();
+                resetPageStates();
+                filterAndPaginate();
+            });
+        });
 
         if (selectAllNormal) {
             selectAllNormal.addEventListener('change', function() {
@@ -1405,12 +1523,22 @@
             });
         }
 
+        if (selectAllCompletedEcom) {
+            selectAllCompletedEcom.addEventListener('change', function() {
+                document.querySelectorAll('#completed-ecom-pane .completed-ecom-check').forEach(cb => {
+                    if (cb.closest('tr').style.display !== 'none') {
+                        cb.checked = selectAllCompletedEcom.checked;
+                    }
+                });
+                updateBulkBar();
+            });
+        }
+
         document.querySelectorAll('.order-checkbox').forEach(cb => {
             cb.addEventListener('change', updateBulkBar);
         });
 
         // Print Selected SIs
-        const bulkPrintSIBtn = document.getElementById('bulkPrintSIBtn');
         if (bulkPrintSIBtn) {
             bulkPrintSIBtn.addEventListener('click', function () {
                 const selected = document.querySelectorAll('.ecom-print-check:checked');
@@ -1426,7 +1554,63 @@
             });
         }
 
-        const bulkPrepareBtn = document.getElementById('bulkPrepareBtn');
+        // Bulk Set as Paid for Completed E-Com Invoices
+        if (bulkSetPaidBtn) {
+            bulkSetPaidBtn.addEventListener('click', function () {
+                const selectedCheckboxes = document.querySelectorAll('#completed-ecom-pane .completed-ecom-check:checked');
+                if (selectedCheckboxes.length === 0) {
+                    alert('Please select at least one completed E-com sales invoice to set as paid.');
+                    return;
+                }
+
+                const siIds = [];
+                const soIds = [];
+                selectedCheckboxes.forEach(cb => {
+                    const siId = cb.getAttribute('data-si-id') || cb.value;
+                    const soId = cb.getAttribute('data-so-id');
+                    if (siId) siIds.push(siId);
+                    if (soId) soIds.push(soId);
+                });
+
+                if (!confirm(`Are you sure you want to set ${selectedCheckboxes.length} selected E-Commerce invoice(s) as PAID?`)) {
+                    return;
+                }
+
+                bulkSetPaidBtn.disabled = true;
+                const origHtml = bulkSetPaidBtn.innerHTML;
+                bulkSetPaidBtn.innerHTML = '<i class="las la-spinner la-spin me-1"></i> Processing...';
+
+                fetch('{{ route("admin-finance.accounting.sales-invoice.bulk-set-paid") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        si_ids: siIds,
+                        so_ids: soIds
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message || 'Successfully marked selected invoices as Paid.');
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data.message || 'Failed to update payment status.'));
+                        bulkSetPaidBtn.disabled = false;
+                        bulkSetPaidBtn.innerHTML = origHtml;
+                    }
+                })
+                .catch(err => {
+                    console.error('Bulk set as paid error:', err);
+                    alert('An error occurred while marking invoices as paid.');
+                    bulkSetPaidBtn.disabled = false;
+                    bulkSetPaidBtn.innerHTML = origHtml;
+                });
+            });
+        }
 
         function executeBulkProcess(actionType, buttonEl, btnOriginalHtml) {
             const selectedCheckboxes = document.querySelectorAll('.order-checkbox:checked');

@@ -68,6 +68,9 @@
                                                         data-so-number="{{ $pickList->salesOrder?->so_number ?? 'N/A' }}"
                                                         data-customer="{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}"
                                                         data-date="{{ $pickList->created_at?->format('Y-m-d') ?? '' }}"
+                                                        data-freight="{{ $pickList->salesOrder?->freight_option ?? 'N/A' }}"
+                                                        data-forwarder="{{ $pickList->salesOrder?->freight_forwarder ?? '' }}"
+                                                        data-remarks="{{ $pickList->remarks ?: ($pickList->salesOrder?->remarks ?? '') }}"
                                                         data-items='{{ $pickListItemsJson }}'
                                                         style="background: #ffc107; border: none; color: #000;">
                                                     <i class="las la-redo me-1"></i> Recreate
@@ -1228,6 +1231,9 @@
                 const orderId = this.dataset.orderId;
                 const soNumber = this.dataset.soNumber;
                 const customer = this.dataset.customer;
+                const freight = this.dataset.freight || 'N/A';
+                const forwarder = this.dataset.forwarder || '';
+                const remarks = this.dataset.remarks || '';
                 
                 console.log('Recreating pick list for:', { orderId, soNumber, customer });
                 
@@ -1245,36 +1251,65 @@
                 
                 // Populate the form
                 document.getElementById('detailSONumber').value = soNumber;
-                document.getElementById('detailOrderDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('detailOrderDate').value = this.dataset.date || new Date().toISOString().split('T')[0];
                 document.getElementById('detailCustomerName').value = customer;
+                document.getElementById('detailFreightOption').value = freight;
+                const fwdGroup = document.getElementById('detailForwarderGroup');
+                const fwdInput = document.getElementById('detailForwarder');
+                if (fwdGroup && fwdInput) {
+                    if (forwarder) {
+                        fwdInput.value = forwarder;
+                        fwdGroup.style.display = 'block';
+                    } else {
+                        fwdGroup.style.display = 'none';
+                    }
+                }
+                const remarksInput = document.getElementById('pickListRemarks');
+                if (remarksInput) {
+                    remarksInput.value = remarks;
+                }
                 document.getElementById('pickListNumber').value = 'PL-' + soNumber + '-' + Date.now();
                 document.getElementById('pickListStatus').value = 'in_progress';
                 
-                // Populate items table with previous pick quantities
+                // Populate items table with previous pick quantities, status and notes
                 const pickListBody = document.getElementById('pickListTableBody');
                 pickListBody.innerHTML = '';
                 
                 items.forEach((item, index) => {
                     const row = document.createElement('tr');
+                    const itemStatus = item.status || 'pending';
+                    const itemNotes = item.notes || '';
+                    const itemPickedQty = (item.picked_qty !== undefined && item.picked_qty !== null) ? item.picked_qty : 0;
+                    const itemType = item.item_type || '';
+
+                    let typeBadge = '';
+                    if (itemType === 'Bundle') {
+                        typeBadge = '<span class="badge ms-1" style="background:#6f42c1; color:#fff; font-size:10px; padding:2px 5px;">Bundle</span>';
+                    } else if (itemType === 'Index') {
+                        typeBadge = '<span class="badge bg-info text-white ms-1" style="font-size:10px; padding:2px 5px;">Index</span>';
+                    }
+
                     row.innerHTML = `
                         <td>${index + 1}</td>
-                        <td>${item.product}</td>
-                        <td class="text-center">${item.quantity}</td>
+                        <td class="fw-bold">${item.product} ${typeBadge}</td>
+                        <td class="text-center">${item.quantity} ${item.unit || 'pcs'}</td>
                         <td class="text-right">₱${parseFloat(item.price || 0).toFixed(2)}</td>
-                        <td class="text-right">₱${(item.quantity * parseFloat(item.price || 0)).toFixed(2)}</td>
+                        <td class="text-right">₱${(parseFloat(item.quantity || 0) * parseFloat(item.price || 0)).toFixed(2)}</td>
                         <td>
                             <input type="number" class="form-control form-control-sm picked-qty" 
-                                   value="${item.picked_qty}" min="0" max="${item.quantity}" style="width: 80px;">
+                                   value="${itemPickedQty}" min="0" max="${item.quantity}" style="width: 80px; text-align: center;">
                         </td>
                         <td>
                             <select class="form-control form-control-sm status-select" style="width: 100px;">
-                                <option value="pending">Pending</option>
-                                <option value="picked" selected>Picked</option>
-                                <option value="not_available">Not Available</option>
+                                <option value="pending" ${itemStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="picked" ${itemStatus === 'picked' ? 'selected' : ''}>Picked</option>
+                                <option value="short" ${itemStatus === 'short' ? 'selected' : ''}>Short</option>
+                                <option value="not_available" ${itemStatus === 'not_available' ? 'selected' : ''}>Not Available</option>
                             </select>
                         </td>
                         <td>
-                            <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" style="width: 150px;">
+                            <input type="text" class="form-control form-control-sm notes-input" 
+                                   value="${itemNotes.replace(/"/g, '&quot;')}" placeholder="Notes" style="width: 150px;">
                         </td>
                     `;
                     pickListBody.appendChild(row);
@@ -1295,9 +1330,29 @@
                     document.getElementById('itemsPicked').value = total;
                 };
 
+                const onRecreatePickedQtyChange = (input) => {
+                    const row = input.closest('tr');
+                    if (row) {
+                        const pickedQty = parseFloat(input.value) || 0;
+                        const reqQtyMatch = row.cells[2]?.innerText.match(/[\d.]+/);
+                        const requestedQty = reqQtyMatch ? parseFloat(reqQtyMatch[0]) : 0;
+                        const statusSelect = row.querySelector('.status-select');
+                        if (statusSelect) {
+                            if (pickedQty >= requestedQty && requestedQty > 0) {
+                                statusSelect.value = 'picked';
+                            } else if (pickedQty > 0 && pickedQty < requestedQty) {
+                                statusSelect.value = 'short';
+                            } else if (pickedQty === 0) {
+                                statusSelect.value = 'pending';
+                            }
+                        }
+                    }
+                    updateItemsPickedRecreate();
+                };
+
                 // Attach event listeners to all picked quantity inputs
                 document.querySelectorAll('#pickListTableBody .picked-qty').forEach(input => {
-                    input.addEventListener('input', updateItemsPickedRecreate);
+                    input.addEventListener('input', () => onRecreatePickedQtyChange(input));
                 });
                 
                 // Add info message about recreation

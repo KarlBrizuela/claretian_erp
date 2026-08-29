@@ -522,11 +522,20 @@
                                             </span>
                                         </td>
                                         <td>
-                                            @if($item['type'] === 'Sales Order' || $item['type'] === 'Payment Request')
+                                            @if($item['type'] === 'Sales Order')
                                                 @if($item['status'] === 'Pending AR')
                                                     <a href="{{ route('admin-finance.accounting.ar.prepare', $item['id']) }}" class="btn btn-success btn-sm"><i class="las la-file-invoice"></i> Issue AR</a>
                                                 @else
                                                     <a href="{{ $item['url'] }}" class="btn btn-primary btn-xs"><i class="las la-eye"></i> Review</a>
+                                                @endif
+                                            @elseif($item['type'] === 'Payment Request')
+                                                <a href="{{ $item['url'] }}" class="btn btn-primary btn-xs me-1"><i class="las la-eye"></i> Review</a>
+                                                @if(isset($item['original']->status) && $item['original']->status === 'pending_director_approval' && (auth()->user()->isSuperAdmin() || str_contains(strtolower(auth()->user()->position ?? ''), 'director')))
+                                                    <form action="{{ route('payment-requests.approve', $item['id']) }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <input type="hidden" name="approval_type" value="director">
+                                                        <button type="submit" class="btn btn-success btn-xs"><i class="las la-check me-1"></i> Approve</button>
+                                                    </form>
                                                 @endif
                                             @elseif($item['type'] === 'Auto Debit Letter' || $item['type'] === 'Auto Debit')
                                                 <a href="{{ route('production.ford.auto-debit.show', $item['id']) }}" class="btn btn-danger btn-xs text-white me-1" title="Review"><i class="las la-eye me-1"></i> Review</a>

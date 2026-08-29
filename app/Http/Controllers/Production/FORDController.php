@@ -737,14 +737,40 @@ class FORDController extends Controller
                     $attachmentPath = null;
                     if ($request->hasFile("proof_file.{$index}")) {
                         $file = $request->file("proof_file.{$index}");
-                        $filename = time() . '_' . $index . '_' . $file->getClientOriginalName();
-                        $attachmentPath = $file->storeAs('proof_attachments', $filename, 'public');
+                        $mime = $file->getMimeType();
+                        $filename = time() . '_' . $index . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+                        $uploadDir = public_path('proof_attachments');
+                        if (!file_exists($uploadDir)) {
+                            mkdir($uploadDir, 0777, true);
+                        }
+
+                        $filePath = $uploadDir . '/' . $filename;
+                        if (str_starts_with($mime, 'image/') && function_exists('imagecreatefromstring')) {
+                            try {
+                                $img = @imagecreatefromstring(file_get_contents($file->getRealPath()));
+                                if ($img !== false) {
+                                    imagejpeg($img, $filePath, 75);
+                                    imagedestroy($img);
+                                } else {
+                                    $file->move($uploadDir, $filename);
+                                }
+                            } catch (\Exception $ex) {
+                                $file->move($uploadDir, $filename);
+                            }
+                        } else {
+                            $file->move($uploadDir, $filename);
+                        }
+
+                        $attachmentPath = 'proof_attachments/' . $filename;
                     }
 
+                    $docNo = $request->document_no[$index] ?? null;
                     $posting->items()->create([
                         'customer_id' => $customerId,
                         'bank_date' => $request->bank_date[$index] ?? null,
-                        'document_no' => $request->document_no[$index] ?? null,
+                        'document_no' => $docNo,
+                        'reference_no' => $docNo,
+                        'payment_date' => $request->date,
                         'amount' => $request->amount[$index],
                         'proof_attachment' => $attachmentPath,
                     ]);
@@ -765,23 +791,131 @@ class FORDController extends Controller
         }
     }
 
-    public function paymentPostingIndex()
+    public function paymentPostingIndex(Request $request)
     {
-        $postings = \App\Models\ClientPaymentPosting::with(['preparer', 'items'])
-            ->withSum('items', 'amount')
-            ->latest()
-            ->paginate(15);
+        $search = $request->input('search');
+
+        $query = \App\Models\ClientPaymentPosting::with(['preparer', 'items.customer', 'items.account'])
+            ->withSum('items', 'amount');
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                  ->orWhereHas('items.customer', function($sub) use ($search) {
+                      $sub->where('customer_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('items', function($sub) use ($search) {
+                      $sub->where('invoice_no', 'like', "%{$search}%")
+                          ->orWhere('receipt_no', 'like', "%{$search}%")
+                          ->orWhere('reference_no', 'like', "%{$search}%")
+                          ->orWhere('document_no', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $postings = $query->latest()->paginate(15)->withQueryString();
+
+        $customers = \App\Models\Customer::orderBy('customer_name')->get();
+        $depositAccounts = \App\Models\ChartOfAccount::where('is_active', 1)
+            ->where('is_postable', 1)
+            ->where('type', 'Asset')
+            ->orderBy('code')
+            ->get();
+        $invoices = \App\Models\SalesInvoice::orderBy('id', 'desc')->take(100)->get();
 
         return view('admin-finance.accounting.payment-posting.index', [
             'title' => 'Client Payment Posting Requests',
             'role' => 'Finance Staff',
-            'postings' => $postings
+            'postings' => $postings,
+            'customers' => $customers,
+            'depositAccounts' => $depositAccounts,
+            'invoices' => $invoices,
         ]);
+    }
+
+    public function storeDirectPaymentPosting(Request $request)
+    {
+        $request->validate([
+            'payment_date'       => 'required|date',
+            'customer_id'        => 'required|exists:customers,customer_id',
+            'amount'             => 'required|numeric|min:0.01',
+            'payment_method'     => 'required|string',
+            'chart_of_account_id'=> 'nullable|exists:chart_of_accounts,id',
+            'reference_no'       => 'nullable|string|max:255',
+            'invoice_no'         => 'nullable|string|max:255',
+            'receipt_no'         => 'nullable|string|max:255',
+            'check_number'       => 'nullable|string|max:255',
+            'check_date'         => 'nullable|date',
+            'bank_name'          => 'nullable|string|max:255',
+            'proof_file'         => 'nullable|file|max:25600',
+        ]);
+
+        try {
+            $attachmentPath = null;
+            if ($request->hasFile('proof_file')) {
+                $file = $request->file('proof_file');
+                $mime = $file->getMimeType();
+                $filename = time() . '_direct_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+                $uploadDir = public_path('proof_attachments');
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+
+                $filePath = $uploadDir . '/' . $filename;
+                if (str_starts_with($mime, 'image/') && function_exists('imagecreatefromstring')) {
+                    try {
+                        $img = @imagecreatefromstring(file_get_contents($file->getRealPath()));
+                        if ($img !== false) {
+                            imagejpeg($img, $filePath, 75);
+                            imagedestroy($img);
+                        } else {
+                            $file->move($uploadDir, $filename);
+                        }
+                    } catch (\Exception $ex) {
+                        $file->move($uploadDir, $filename);
+                    }
+                } else {
+                    $file->move($uploadDir, $filename);
+                }
+
+                $attachmentPath = 'proof_attachments/' . $filename;
+            }
+
+            $coaId = $request->chart_of_account_id ?: \App\Models\ChartOfAccount::where('is_active', 1)->where('type', 'Asset')->value('id');
+
+            $posting = \App\Models\ClientPaymentPosting::create([
+                'date' => $request->payment_date,
+                'status' => 'pending',
+                'prepared_by' => auth()->id(),
+            ]);
+
+            $posting->items()->create([
+                'customer_id' => $request->customer_id,
+                'invoice_no' => $request->invoice_no,
+                'receipt_no' => $request->receipt_no,
+                'reference_no' => $request->reference_no,
+                'payment_method' => $request->payment_method,
+                'chart_of_account_id' => $coaId,
+                'check_number' => $request->check_number,
+                'check_date' => $request->check_date,
+                'bank_name' => $request->bank_name,
+                'payment_date' => $request->payment_date,
+                'bank_date' => $request->bank_name ? ($request->bank_name . ($request->payment_date ? ' ' . $request->payment_date : '')) : null,
+                'document_no' => $request->receipt_no ?: ($request->check_number ?: $request->reference_no),
+                'amount' => $request->amount,
+                'proof_attachment' => $attachmentPath,
+            ]);
+
+            return redirect()->route('admin-finance.accounting.payment-posting.index')
+                ->with('success', 'Payment Posting Request created successfully and added to Pending queue.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to create Payment Posting: ' . $e->getMessage())->withInput();
+        }
     }
 
     public function paymentPostingShow($id)
     {
-        $posting = \App\Models\ClientPaymentPosting::with(['preparer', 'items.customer'])
+        $posting = \App\Models\ClientPaymentPosting::with(['preparer', 'items.customer', 'items.account'])
             ->findOrFail($id);
 
         return view('admin-finance.accounting.payment-posting.show', [
@@ -793,11 +927,67 @@ class FORDController extends Controller
 
     public function paymentPostingPost($id)
     {
-        $posting = \App\Models\ClientPaymentPosting::findOrFail($id);
-        $posting->update(['status' => 'posted']);
+        $posting = \App\Models\ClientPaymentPosting::with(['items.customer', 'items.account'])->findOrFail($id);
+        
+        if ($posting->status === 'posted') {
+            return redirect()->back()->with('info', 'This payment posting has already been posted.');
+        }
+
+        \DB::transaction(function () use ($posting) {
+            // Dynamic AR account lookup via database type and name
+            $arAccount = \App\Models\ChartOfAccount::where('type', 'Asset')
+                ->where(function($q) {
+                    $q->where('name', 'like', '%Receivable%')->orWhere('code', 'like', '12%');
+                })->first() ?? \App\Models\ChartOfAccount::where('type', 'Asset')->first();
+            
+            $totalAmount = $posting->items->sum('amount') ?: 0.00;
+            $firstItem = $posting->items->first();
+
+            $depositAccountId = $firstItem ? $firstItem->chart_of_account_id : null;
+            if (!$depositAccountId) {
+                $depositAcc = \App\Models\ChartOfAccount::where('type', 'Asset')
+                    ->where(function($q) {
+                        $q->where('name', 'like', '%Cash%')->orWhere('name', 'like', '%Bank%');
+                    })->first() ?? \App\Models\ChartOfAccount::where('type', 'Asset')->first();
+                $depositAccountId = $depositAcc ? $depositAcc->id : null;
+            }
+
+            $customerName = $firstItem && $firstItem->customer ? $firstItem->customer->customer_name : 'Client';
+            $refNo = $firstItem && $firstItem->receipt_no ? $firstItem->receipt_no : ($firstItem->reference_no ?? 'PP-' . str_pad($posting->id, 5, '0', STR_PAD_LEFT));
+
+            $entry = \App\Models\JournalEntry::create([
+                'entry_no' => 'JV-PP-' . str_pad($posting->id, 5, '0', STR_PAD_LEFT),
+                'entry_type' => 'CR',
+                'date' => $posting->date ?: now(),
+                'reference' => $refNo,
+                'memo' => "Client Payment Posting for {$customerName} (Ref: {$refNo})",
+                'currency' => 'PHP',
+                'exchange_rate' => 1.0000,
+                'created_by' => auth()->id() ?? 1,
+                'status' => 'posted',
+            ]);
+
+            \App\Models\JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $depositAccountId,
+                'debit' => $totalAmount,
+                'credit' => 0,
+                'memo' => "Cash/Bank Deposit for Payment Posting #" . $posting->id,
+            ]);
+
+            \App\Models\JournalEntryItem::create([
+                'journal_entry_id' => $entry->id,
+                'chart_of_account_id' => $arAccount->id,
+                'debit' => 0,
+                'credit' => $totalAmount,
+                'memo' => "Accounts Receivable reduction for {$customerName}",
+            ]);
+
+            $posting->update(['status' => 'posted']);
+        });
 
         return redirect()->route('admin-finance.accounting.payment-posting.index')
-            ->with('success', 'Client Payment Posting has been successfully marked as posted.');
+            ->with('success', 'Client Payment Posting #' . str_pad($posting->id, 5, '0', STR_PAD_LEFT) . ' has been posted successfully to the General Ledger & Chart of Accounts!');
     }
 
     public function autoDebitStore(Request $request)
@@ -839,16 +1029,29 @@ class FORDController extends Controller
         $debit = \App\Models\AutoDebit::with(['preparer', 'directorApprover', 'financeApprover'])
             ->findOrFail($id);
 
+        $user = auth()->user();
+        $sidebar = 'production';
+        if (str_contains(strtolower($user->division ?? ''), 'admin') || str_contains(strtolower($user->division ?? ''), 'finance') || str_contains(strtolower($user->department ?? ''), 'admin') || str_contains(strtolower($user->department ?? ''), 'finance')) {
+            $sidebar = 'admin-finance';
+        }
+        if (str_contains(strtolower($user->position ?? ''), 'director')) {
+            $sidebar = 'director';
+        }
+
         return view('production.ford.auto-debit.show', [
             'title' => 'Auto Debit Letter Details',
-            'role' => auth()->user()->position,
+            'role' => $user->position,
+            'sidebar' => $sidebar,
             'debit' => $debit
         ]);
     }
 
     public function autoDebitApproveDirector($id)
     {
-        if (auth()->user()->position !== 'Director' && !auth()->user()->isSuperAdmin()) {
+        $user = auth()->user();
+        $pos = $user->position ?? '';
+        $isDirector = str_contains(strtolower($pos), 'director') || $user->isSuperAdmin();
+        if (!$isDirector) {
             return redirect()->back()->with('error', 'Only the Director can perform this approval.');
         }
 
@@ -860,7 +1063,7 @@ class FORDController extends Controller
 
         $debit->update([
             'status' => 'pending_finance',
-            'director_approved_by' => auth()->id(),
+            'director_approved_by' => $user->id,
             'director_approved_at' => now(),
         ]);
 
@@ -869,8 +1072,10 @@ class FORDController extends Controller
 
     public function autoDebitApproveFinance($id)
     {
-        $isManager = str_contains(auth()->user()->position, 'Manager') || str_contains(auth()->user()->position, 'Supervisor') || auth()->user()->isSuperAdmin();
-        if (!$isManager) {
+        $user = auth()->user();
+        $pos = $user->position ?? '';
+        $isAFManager = str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor') || $pos === 'A&F Manager' || $user->isSuperAdmin();
+        if (!$isAFManager) {
             return redirect()->back()->with('error', 'Only Admin and Finance Managers/Supervisors can perform this approval.');
         }
 
@@ -882,7 +1087,7 @@ class FORDController extends Controller
 
         $debit->update([
             'status' => 'approved',
-            'finance_approved_by' => auth()->id(),
+            'finance_approved_by' => $user->id,
             'finance_approved_at' => now(),
         ]);
 

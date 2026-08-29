@@ -112,7 +112,12 @@
                             <tbody>
                                 @forelse($orders as $order)
                                 <tr>
-                                    <td><strong>{{ $order->so_number }}</strong></td>
+                                    <td>
+                                        <strong>{{ $order->so_number }}</strong>
+                                        @if($order->si_number)
+                                            <br><span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.72rem; font-weight: 600;">SI: {{ $order->si_number }}</span>
+                                        @endif
+                                    </td>
                                     <td>{{ $order->customer?->customer_name ?? 'Unknown Customer' }}</td>
                                     <td>{{ $order->created_at?->format('Y-m-d') ?? 'N/A' }}</td>
                                     @php

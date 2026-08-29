@@ -35,6 +35,12 @@ Route::middleware(['auth'])->group(function () {
   Route::post('/payment-requests/{id}/approve', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'approve'])->name('payment-requests.approve');
   Route::post('/payment-requests/{id}/reject', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'reject'])->name('payment-requests.reject');
 
+  // Auto Debit Letters Common Routes (Accessible across divisions: Director, Admin & Finance Managers, Production)
+  Route::get('/production/ford/auto-debit/{id}', [App\Http\Controllers\Production\FORDController::class, 'autoDebitShow'])->name('production.ford.auto-debit.show');
+  Route::post('/production/ford/auto-debit/{id}/approve-director', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveDirector'])->name('production.ford.auto-debit.approve-director');
+  Route::post('/production/ford/auto-debit/{id}/approve-finance', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveFinance'])->name('production.ford.auto-debit.approve-finance');
+  Route::post('/production/ford/auto-debit/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'autoDebitReject'])->name('production.ford.auto-debit.reject');
+
   // Universal Storage Fallback (Fix for servers without symlink support)
   Route::get('/storage/{path}', [FileController::class, 'serve'])->where('path', '.*');
 
@@ -222,10 +228,6 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/auto-debit', [App\Http\Controllers\Production\FORDController::class, 'autoDebitIndex'])->name('auto-debit');
       Route::get('/auto-debit/create', [App\Http\Controllers\Production\FORDController::class, 'autoDebitCreate'])->name('auto-debit.create');
       Route::post('/auto-debit/store', [App\Http\Controllers\Production\FORDController::class, 'autoDebitStore'])->name('auto-debit.store');
-      Route::get('/auto-debit/{id}', [App\Http\Controllers\Production\FORDController::class, 'autoDebitShow'])->name('auto-debit.show');
-      Route::post('/auto-debit/{id}/approve-director', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveDirector'])->name('auto-debit.approve-director');
-      Route::post('/auto-debit/{id}/approve-finance', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveFinance'])->name('auto-debit.approve-finance');
-      Route::post('/auto-debit/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'autoDebitReject'])->name('auto-debit.reject');
       Route::get('/client-payment-posting', [App\Http\Controllers\Production\FORDController::class, 'clientPaymentPosting'])->name('client-payment-posting');
       Route::post('/client-payment-posting', [App\Http\Controllers\Production\FORDController::class, 'storeClientPaymentPosting'])->name('client-payment-posting.store');
       Route::get('/eford-payout', [App\Http\Controllers\Production\FORDController::class, 'eFordPayout'])->name('eford-payout');
@@ -462,6 +464,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketing/pos/payment-settings', [App\Http\Controllers\POSController::class, 'getPaymentSettings'])->name('marketing.pos.payment-settings');
     Route::post('/marketing/pos/lookup-barcode', [App\Http\Controllers\POSController::class, 'lookupByBarcode'])->name('marketing.pos.lookup-barcode');
     Route::post('/marketing/pos/process-ecom-order', [App\Http\Controllers\POSController::class, 'processEcomOrder'])->name('marketing.pos.process-ecom-order');
+    Route::get('/marketing/pos/next-si-number', [App\Http\Controllers\POSController::class, 'getNextSiNumberResponse'])->name('marketing.pos.next-si-number');
 
     // E-Com
     Route::get('/marketing/ecom-pos', [MarketingController::class, 'ecomPos'])->name('marketing.ecom.pos');
@@ -501,6 +504,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sales-order/{id}/reject', [App\Http\Controllers\AdminFinanceController::class, 'rejectSalesOrder'])->name('admin-finance.sales-order.reject');
     Route::post('/sales-order/{id}/upload-attachment', [App\Http\Controllers\AdminFinanceController::class, 'uploadSalesOrderAttachment'])->name('admin-finance.sales-order.upload-attachment');
     Route::post('/sales-order/{id}/update-payment-method', [App\Http\Controllers\AdminFinanceController::class, 'updatePaymentMethod'])->name('admin-finance.sales-order.update-payment-method');
+    Route::post('/sales-order/{id}/update-si-number', [App\Http\Controllers\AdminFinanceController::class, 'updateSiNumber'])->name('admin-finance.sales-order.update-si-number');
 
     // Accounting
     Route::prefix('accounting')->group(function () {
@@ -509,8 +513,10 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/sales-invoice/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeSalesInvoice'])->name('admin-finance.accounting.sales-invoice.store');
       Route::post('/sales-invoice/{id}/sign', [App\Http\Controllers\AdminFinanceController::class, 'signSalesInvoice'])->name('admin-finance.accounting.sales-invoice.sign');
       Route::post('/sales-invoice/bulk-finalize', [App\Http\Controllers\AdminFinanceController::class, 'bulkFinalizeInvoices'])->name('admin-finance.accounting.sales-invoice.bulk-finalize');
+      Route::post('/sales-invoice/bulk-set-paid', [App\Http\Controllers\AdminFinanceController::class, 'bulkSetPaid'])->name('admin-finance.accounting.sales-invoice.bulk-set-paid');
       Route::get('/sales-invoice/bulk-print', [App\Http\Controllers\AdminFinanceController::class, 'bulkPrintSalesInvoice'])->name('admin-finance.accounting.sales-invoice.bulk-print');
       Route::get('/sales-invoice/{id}/print', [App\Http\Controllers\AdminFinanceController::class, 'printSalesInvoice'])->name('admin-finance.accounting.sales-invoice.print');
+      Route::post('/sales-invoice/{id}/revert-to-dr', [App\Http\Controllers\AdminFinanceController::class, 'revertSalesInvoiceToDR'])->name('admin-finance.accounting.sales-invoice.revert-to-dr');
       Route::get('/complimentary-receipt', [App\Http\Controllers\AdminFinanceController::class, 'complimentaryReceiptIndex'])->name('admin-finance.accounting.complimentary-receipt');
       Route::get('/acknowledgement-receipt/{id}/prepare', [App\Http\Controllers\AdminFinanceController::class, 'prepareAR'])->name('admin-finance.accounting.ar.prepare');
       Route::post('/acknowledgement-receipt/{id}/store', [App\Http\Controllers\AdminFinanceController::class, 'storeAR'])->name('admin-finance.accounting.ar.store');
@@ -575,6 +581,7 @@ Route::middleware(['auth'])->group(function () {
 
       // Payment Posting
       Route::get('/payment-posting', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingIndex'])->name('admin-finance.accounting.payment-posting.index');
+      Route::post('/payment-posting/store', [App\Http\Controllers\Production\FORDController::class, 'storeDirectPaymentPosting'])->name('admin-finance.accounting.payment-posting.store');
       Route::get('/payment-posting/{id}', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingShow'])->name('admin-finance.accounting.payment-posting.show');
       Route::post('/payment-posting/{id}/post', [App\Http\Controllers\Production\FORDController::class, 'paymentPostingPost'])->name('admin-finance.accounting.payment-posting.post');
 
@@ -590,7 +597,17 @@ Route::middleware(['auth'])->group(function () {
 
     // Chart of Accounts
     Route::get('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'chartOfAccounts'])->name('admin-finance.accounting.chart-of-accounts');
+    Route::get('/chart-of-accounts/{id}/ledger', [App\Http\Controllers\AdminFinanceController::class, 'getAccountLedger'])->name('admin-finance.accounting.chart-of-accounts.ledger');
+    Route::post('/chart-of-accounts', [App\Http\Controllers\AdminFinanceController::class, 'storeChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.store');
+    Route::put('/chart-of-accounts/{id}', [App\Http\Controllers\AdminFinanceController::class, 'updateChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.update');
+    Route::delete('/chart-of-accounts/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyChartOfAccount'])->name('admin-finance.accounting.chart-of-accounts.destroy');
     Route::post('/chart-of-accounts/toggle', [App\Http\Controllers\AdminFinanceController::class, 'toggleAccountStatus'])->name('admin-finance.accounting.chart-of-accounts.toggle');
+
+    // Account Groups
+    Route::post('/account-groups', [App\Http\Controllers\AdminFinanceController::class, 'storeAccountGroup'])->name('admin-finance.accounting.account-groups.store');
+    Route::put('/account-groups/{id}', [App\Http\Controllers\AdminFinanceController::class, 'updateAccountGroup'])->name('admin-finance.accounting.account-groups.update');
+    Route::delete('/account-groups/{id}', [App\Http\Controllers\AdminFinanceController::class, 'destroyAccountGroup'])->name('admin-finance.accounting.account-groups.destroy');
+    Route::get('/account-groups/{id}/accounts', [App\Http\Controllers\AdminFinanceController::class, 'getAccountGroupAccounts'])->name('admin-finance.accounting.account-groups.accounts');
     Route::get('/sales-management', [App\Http\Controllers\AdminFinanceController::class, 'salesManagement'])->name('admin-finance.accounting.sales-management');
     Route::get('/accounts-receivable', [App\Http\Controllers\AdminFinanceController::class, 'accountsReceivable'])->name('admin-finance.accounting.accounts-receivable');
     Route::get('/accounts-payable', [App\Http\Controllers\AdminFinanceController::class, 'accountsPayable'])->name('admin-finance.accounting.accounts-payable');

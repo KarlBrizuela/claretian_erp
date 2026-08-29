@@ -193,6 +193,14 @@
                 </select>
             </div>
 
+            <div class="pos-form-group">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="mb-0 font-w600">SI Number *</label>
+                    <span class="badge bg-light text-muted" style="font-size: 0.7rem; font-weight: 500;">Auto-incremented</span>
+                </div>
+                <input type="text" id="siNumber" class="form-control" value="{{ $nextSiNumber ?? '00001' }}" placeholder="e.g. 00123" style="height: 48px; border: 2px solid #eef0f2; border-radius: 10px; font-weight: 700; color: #ff0000; font-size: 1.05rem; padding-left: 15px;">
+            </div>
+
             <div class="pos-cart-items" id="cartItems">
                 <div class="text-center text-muted p-5">
                     <i class="las la-shopping-cart" style="font-size: 4rem; opacity: 0.2;"></i>
@@ -382,6 +390,20 @@
         let cart = [];
         let activeCategory = 'books';
 
+        function calculateNextSiNumber(currentSi) {
+            if (!currentSi || !currentSi.trim()) return '00001';
+            const trimmed = currentSi.trim();
+            const match = trimmed.match(/^(.*?)(\d+)$/);
+            if (match) {
+                const prefix = match[1];
+                const digits = match[2];
+                const nextNum = parseInt(digits, 10) + 1;
+                const nextDigits = String(nextNum).padStart(digits.length, '0');
+                return prefix + nextDigits;
+            }
+            return trimmed + '1';
+        }
+
         function switchCategory(category, evt) {
             activeCategory = category;
             document.querySelectorAll('.pos-category-tab').forEach(tab => tab.classList.remove('active'));
@@ -563,6 +585,7 @@
             const customerId = document.getElementById('customerSelect').value;
             const refNumber = document.getElementById('refNumber').value;
             const cashReceived = parseFloat(document.getElementById('cashReceived').value) || 0;
+            const currentSiVal = document.getElementById('siNumber')?.value?.trim() || '';
 
             if (!customerId) return alert('Please select a customer');
 
@@ -576,6 +599,7 @@
             
             const orderData = {
                 customer_id: customerId,
+                si_number: currentSiVal,
                 platform: 'MIBF',
                 payment_method: selectedMethodName,
                 cash_received: selectedMethodName === 'cash' ? cashReceived : null,
@@ -614,6 +638,15 @@
                 if (data.success) {
                     bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
                     
+                    // Update SI Number field to next incremented value
+                    if (data.next_si_number) {
+                        const siInput = document.getElementById('siNumber');
+                        if (siInput) siInput.value = data.next_si_number;
+                    } else if (currentSiVal) {
+                        const siInput = document.getElementById('siNumber');
+                        if (siInput) siInput.value = calculateNextSiNumber(currentSiVal);
+                    }
+
                     if (data.order && data.order.print_url) {
                         currentOrderPrintUrl = data.order.print_url;
                         switchPrintFormat('whole');

@@ -287,7 +287,7 @@ class InventoryController extends Controller
         $visibleIndexIds = collect($indices->items())->pluck('id')->unique()->toArray();
         $visibleBundleIds = collect($bundles->items())->pluck('id')->unique()->toArray();
 
-        $sitesBaseQuery = Site::where('is_active', true)
+        $allSites = Site::where('is_active', true)
             ->whereNotIn('name', $masterCategoryWarehouseNames)
             ->with(['inventory' => function ($q) use ($visibleBookIds, $visibleIndexIds, $visibleBundleIds) {
                 $q->where('quantity', '>', 0)
@@ -296,11 +296,16 @@ class InventoryController extends Controller
                             ->orWhereIn('book_index_id', $visibleIndexIds)
                             ->orWhereIn('book_bundle_id', $visibleBundleIds);
                   });
+            }])
+            ->get();
+
+        $sitesQuery = Site::where('is_active', true)
+            ->whereNotIn('name', $masterCategoryWarehouseNames)
+            ->with(['inventory' => function ($q) {
+                $q->where('quantity', '>', 0)
+                  ->with(['book', 'bookIndex.book', 'bookBundle']);
             }]);
 
-        $allSites = (clone $sitesBaseQuery)->get();
-
-        $sitesQuery = clone $sitesBaseQuery;
         if (!empty($siteSearch)) {
             $sitesQuery->where(function($q) use ($siteSearch) {
                 $q->where('name', 'like', '%' . $siteSearch . '%')
@@ -347,7 +352,8 @@ class InventoryController extends Controller
             $bookMap = [];
             foreach ($orders as $order) {
                 $drNum = 'DR-' . $order->so_number;
-                $soDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('M d, Y') : null;
+                $soDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('m/d/Y') : ($order->created_at ? $order->created_at->format('m/d/Y') : 'N/A');
+                $rawDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('Y-m-d') : ($order->created_at ? $order->created_at->format('Y-m-d') : '');
                 $drItems = [];
 
                 foreach ($order->items as $item) {
@@ -355,11 +361,18 @@ class InventoryController extends Controller
                     $sku = $item->bookIndex ? ($item->bookIndex->barcode ?: $item->bookIndex->article) : ($item->book ? ($item->book->sku ?: $item->book->item_code) : ($item->bookBundle ? $item->bookBundle->sku : ''));
                     $key = ($item->book_index_id ? 'idx_' . $item->book_index_id : ($item->book_id ? 'bk_' . $item->book_id : 'bdl_' . $item->book_bundle_id));
                     $qty = (int) $item->quantity;
+                    $unitPrice = (float) ($item->price ?? ($item->book->price ?? ($item->bookIndex->price ?? ($item->bookBundle->price ?? 0))));
+                    $subtotal = (float) ($item->subtotal ?? ($unitPrice * $qty));
 
                     $drItems[] = [
                         'sku' => $sku,
                         'name' => $name,
                         'qty' => $qty,
+                        'price' => $unitPrice,
+                        'amount' => $subtotal,
+                        'order_date' => $soDate,
+                        'raw_date' => $rawDate,
+                        'dr_number' => $drNum,
                     ];
 
                     if (!isset($bookMap[$key])) {
@@ -397,7 +410,7 @@ class InventoryController extends Controller
                 'books' => collect($bookMap)->sortBy(fn($b) => $b['name'])->values(),
                 'total_items' => collect($bookMap)->sum('total_qty'),
             ];
-        })->sortBy(fn($c) => $c->customer_name)->values();
+        })->filter(fn($c) => count($c->books) > 0)->sortBy(fn($c) => $c->customer_name)->values();
 
         // Paginate Area Consignment
         $currentPageArea = \Illuminate\Pagination\Paginator::resolveCurrentPage('area_consignment_page');
@@ -451,7 +464,8 @@ class InventoryController extends Controller
             $bookMap = [];
             foreach ($orders as $order) {
                 $drNum = 'DR-' . $order->so_number;
-                $soDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('M d, Y') : null;
+                $soDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('m/d/Y') : ($order->created_at ? $order->created_at->format('m/d/Y') : 'N/A');
+                $rawDate = $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('Y-m-d') : ($order->created_at ? $order->created_at->format('Y-m-d') : '');
                 $drItems = [];
 
                 foreach ($order->items as $item) {
@@ -459,11 +473,18 @@ class InventoryController extends Controller
                     $sku = $item->bookIndex ? ($item->bookIndex->barcode ?: $item->bookIndex->article) : ($item->book ? ($item->book->sku ?: $item->book->item_code) : ($item->bookBundle ? $item->bookBundle->sku : ''));
                     $key = ($item->book_index_id ? 'idx_' . $item->book_index_id : ($item->book_id ? 'bk_' . $item->book_id : 'bdl_' . $item->book_bundle_id));
                     $qty = (int) $item->quantity;
+                    $unitPrice = (float) ($item->price ?? ($item->book->price ?? ($item->bookIndex->price ?? ($item->bookBundle->price ?? 0))));
+                    $subtotal = (float) ($item->subtotal ?? ($unitPrice * $qty));
 
                     $drItems[] = [
                         'sku' => $sku,
                         'name' => $name,
                         'qty' => $qty,
+                        'price' => $unitPrice,
+                        'amount' => $subtotal,
+                        'order_date' => $soDate,
+                        'raw_date' => $rawDate,
+                        'dr_number' => $drNum,
                     ];
 
                     if (!isset($bookMap[$key])) {
@@ -499,7 +520,7 @@ class InventoryController extends Controller
                 'books' => collect($bookMap)->sortBy(fn($b) => $b['name'])->values(),
                 'total_items' => collect($bookMap)->sum('total_qty'),
             ];
-        })->sortBy(fn($c) => $c->customer_name)->values();
+        })->filter(fn($c) => count($c->books) > 0)->sortBy(fn($c) => $c->customer_name)->values();
 
         // Paginate Direct Consignment
         $currentPageDirect = \Illuminate\Pagination\Paginator::resolveCurrentPage('direct_consignment_page');
@@ -1030,6 +1051,21 @@ class InventoryController extends Controller
             if ($site->id == 1 || $site->name == 'Main Warehouse') {
                 $book->stock = $newStock;
                 $book->save();
+            }
+
+            // Sync TeamStock balance for Team sites (e.g. Team A, Team B, Team C, Book Sales, MIBF)
+            $teamStock = \App\Models\TeamStock::where('team_name', $site->name)
+                ->where('book_id', $book->id)
+                ->first();
+            if ($teamStock) {
+                $teamStock->quantity = $newStock;
+                $teamStock->save();
+            } elseif (in_array($site->name, ['Team A', 'Team B', 'Team C', 'Book Sales', 'MIBF']) || str_contains(strtolower($site->name), 'team')) {
+                \App\Models\TeamStock::create([
+                    'team_name' => $site->name,
+                    'book_id'   => $book->id,
+                    'quantity'  => $newStock,
+                ]);
             }
 
             // Update ProductStock for compatibility

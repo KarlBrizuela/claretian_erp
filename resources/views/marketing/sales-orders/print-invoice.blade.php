@@ -441,6 +441,28 @@
         }
 
         @media print {
+            .no-print,
+            .actions-bar,
+            .btn,
+            button {
+                display: none !important;
+                visibility: hidden !important;
+            }
+
+            body {
+                background: #fff !important;
+                background-color: #fff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .invoice-box {
+                border: none !important;
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                padding: 0.2in 0.3in !important;
+            }
+
             body.preprinted-mode {
                 background: #fff !important;
                 padding: 0 !important;
@@ -508,10 +530,10 @@
         }
 
         if ($activeInvoice) {
-            $allItems = $activeInvoice->items;
+            $allItems = $activeInvoice->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0);
             $totalSalesAmount = (float) $activeInvoice->total_amount;
         } else {
-            $allItems = $order->items;
+            $allItems = $order->items ? $order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) : collect();
             $totalSalesAmount = (float) $order->total_amount;
         }
 
@@ -551,7 +573,8 @@
         $orderDate = $order->created_at ? $order->created_at->format('m/d/Y') : date('m/d/Y');
         $dueDate = ($order->due_date && $order->due_date !== 'N/A') ? \Carbon\Carbon::parse($order->due_date)->format('m/d/Y') : '';
         $wht = (float) ($order->withholding_tax_amount ?? 0);
-        $siNoDisplay = $activeInvoice->si_number ?? $order->so_number;
+        $siNoDisplay = $order->si_number ?: ($activeInvoice->si_number ?? $order->so_number);
+        $soSym = ($order->currency === 'USD' ? '$' : '₱');
 
         $itemsSubtotal = 0;
         foreach ($itemsToPrint as $item) {

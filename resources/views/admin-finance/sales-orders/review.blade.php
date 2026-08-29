@@ -26,10 +26,10 @@
 
         // If activeInvoice has no items, fall back to SO items
         if ($activeInvoice && $activeInvoice->items->count() > 0) {
-            $itemsToRender = $activeInvoice->items;
+            $itemsToRender = $activeInvoice->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0);
             $totalSalesAmount = (float) $activeInvoice->total_amount;
         } else {
-            $itemsToRender = $order->items;
+            $itemsToRender = $order->items ? $order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) : collect();
             $totalSalesAmount = (float) $order->total_amount;
             $activeInvoice = null; // reset so item fields resolve from SO items
         }
@@ -128,6 +128,20 @@
                             <tr>
                                 <td class="fw-bold text-dark">Status:</td>
                                 <td><span class="badge bg-warning text-white">{{ strtoupper(str_replace('_', ' ', $order->status)) }}</span></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-dark"><i class="las la-hashtag me-1 text-danger"></i>SI Number:</td>
+                                <td>
+                                    <div class="input-group input-group-sm" style="max-width: 260px;">
+                                        <input type="text" id="reviewSiNumberInput" class="form-control fw-bold text-danger" 
+                                               value="{{ $order->si_number ?: (\App\Models\SalesInvoice::where('so_id', $order->id)->value('si_number') ?? '') }}" 
+                                               placeholder="e.g. 00123" style="font-size: 0.95rem; border: 2px solid #ced4da;">
+                                        <button type="button" class="btn btn-outline-danger" id="saveReviewSiBtn" onclick="saveSiNumberQuick()" title="Save SI Number">
+                                            <i class="las la-save"></i> Save
+                                        </button>
+                                    </div>
+                                    <small id="siSaveStatus" class="d-block mt-1" style="font-size: 0.75rem;"></small>
+                                </td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-dark">Prepared By:</td>
@@ -434,10 +448,7 @@
                         <button type="button" class="btn btn-dark" onclick="window.history.back()">
                             <i class="las la-arrow-left me-2"></i>Back to Queue
                         </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
-                            <i class="las la-print me-1"></i>Print Order
-                        </button>
-                        <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-primary">
+                        <a href="{{ route('marketing.sales-orders.print-invoice', $order->id) }}" target="_blank" class="btn btn-primary" onclick="return handlePrintSalesInvoice(event, this)">
                             <i class="las la-file-invoice me-1"></i>Print Sales Invoice
                         </a>
                         <a href="{{ route('marketing.sales-orders.shipping-label', $order->id) }}" target="_blank" class="btn btn-info text-white">
@@ -493,8 +504,9 @@
                                 </button>
                             @endif
                         @elseif($order->status === 'pending_si_approval' || (!$order->signed_by_af_manager && $order->type !== 'complimentary'))
-                            <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST">
+                            <form action="{{ route('admin-finance.accounting.sales-invoice.sign', $order->id) }}" method="POST" onsubmit="document.getElementById('signSiNumberHidden').value = document.getElementById('reviewSiNumberInput')?.value || '';">
                                 @csrf
+                                <input type="hidden" name="si_number" id="signSiNumberHidden">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="las la-file-signature me-2"></i>Sign & Approve Sales Invoice
                                 </button>
@@ -515,6 +527,50 @@
 
     @push('scripts')
     <script>
+        function saveSiNumberQuick() {
+            const siVal = document.getElementById('reviewSiNumberInput')?.value?.trim() || '';
+            const statusEl = document.getElementById('siSaveStatus');
+            if (statusEl) {
+                statusEl.innerHTML = '<span class="text-muted"><i class="las la-spinner la-spin"></i> Saving...</span>';
+            }
+
+            return fetch("{{ route('admin-finance.sales-order.update-si-number', $order->id) }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ si_number: siVal })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (statusEl) statusEl.innerHTML = '<span class="text-success fw-bold"><i class="las la-check"></i> Saved</span>';
+                    setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 3000);
+                    return data;
+                } else {
+                    if (statusEl) statusEl.innerHTML = '<span class="text-danger">' + (data.message || 'Error saving') + '</span>';
+                    throw new Error(data.message || 'Error saving');
+                }
+            })
+            .catch(err => {
+                if (statusEl) statusEl.innerHTML = '<span class="text-danger">Failed to save SI Number</span>';
+                throw err;
+            });
+        }
+
+        function handlePrintSalesInvoice(event, el) {
+            const siInput = document.getElementById('reviewSiNumberInput');
+            if (siInput) {
+                event.preventDefault();
+                saveSiNumberQuick().finally(() => {
+                    window.open(el.href, '_blank');
+                });
+                return false;
+            }
+            return true;
+        }
+
         function confirmReject() {
             if (typeof showAppModal === 'function') {
                 showAppModal('Reject Sales Order', 'Please provide a reason for rejection:', {

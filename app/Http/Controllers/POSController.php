@@ -19,12 +19,163 @@ class POSController extends Controller
         $this->accounting = $accounting;
     }
     /**
+     * Get the next SI Number based on the latest entered SI number in the specific channel.
+     * Supported channels:
+     * - 'mibf' (MIBF POS)
+     * - 'pos' or 'direct_sales' (Direct Sales POS / Calculator POS)
+     * - 'sales_invoice' or 'accounting' (General Sales Invoices / Accounting)
+     */
+    public static function getNextSiNumber(string $channel = 'pos'): string
+    {
+        $normalizedChannel = strtolower(trim($channel));
+
+        if (in_array($normalizedChannel, ['mibf', 'mibf_pos', 'ecom', 'ecom_pos'])) {
+            // 1. MIBF POS: Check latest MIBF SalesOrder with non-empty si_number
+            $lastOrder = SalesOrder::whereNotNull('si_number')
+                ->where('si_number', '!=', '')
+                ->where(function($q) {
+                    $q->where('type', 'ecom_direct')
+                      ->orWhere('ecom_platform', 'MIBF')
+                      ->orWhere('platform', 'mibf')
+                      ->orWhere('so_number', 'like', 'MIBF-%');
+                })
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($lastOrder && !empty($lastOrder->si_number)) {
+                return self::calculateNextSiNumber($lastOrder->si_number);
+            }
+
+            // Also check latest SalesInvoice with transaction_type = 'mibf_si'
+            $lastInvoice = \App\Models\SalesInvoice::whereNotNull('si_number')
+                ->where('si_number', '!=', '')
+                ->where('transaction_type', 'mibf_si')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($lastInvoice && !empty($lastInvoice->si_number)) {
+                return self::calculateNextSiNumber($lastInvoice->si_number);
+            }
+
+            return '00001';
+        }
+
+        if (in_array($normalizedChannel, ['pos', 'direct_sales', 'direct_sale', 'calculator_pos'])) {
+            // 2. Direct Sales POS: Check latest POS SalesOrder with non-empty si_number
+            $lastOrder = SalesOrder::whereNotNull('si_number')
+                ->where('si_number', '!=', '')
+                ->where(function($q) {
+                    $q->whereIn('type', ['calculator_pos', 'pos', 'direct_sale'])
+                      ->orWhere('so_number', 'like', 'POS-%');
+                })
+                ->where(function($q) {
+                    $q->where('so_number', 'not like', 'MIBF-%')
+                      ->where(function($sq) {
+                          $sq->whereNull('ecom_platform')
+                             ->orWhere('ecom_platform', '!=', 'MIBF');
+                      });
+                })
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($lastOrder && !empty($lastOrder->si_number)) {
+                return self::calculateNextSiNumber($lastOrder->si_number);
+            }
+
+            // Also check latest SalesInvoice with transaction_type = 'pos_si'
+            $lastInvoice = \App\Models\SalesInvoice::whereNotNull('si_number')
+                ->where('si_number', '!=', '')
+                ->where('transaction_type', 'pos_si')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($lastInvoice && !empty($lastInvoice->si_number)) {
+                return self::calculateNextSiNumber($lastInvoice->si_number);
+            }
+
+            return '00001';
+        }
+
+        // 3. Sales Invoice / Accounting / General Sales Orders
+        $lastOrder = SalesOrder::whereNotNull('si_number')
+            ->where('si_number', '!=', '')
+            ->whereNotIn('type', ['calculator_pos', 'pos', 'ecom_direct'])
+            ->where('so_number', 'not like', 'POS-%')
+            ->where('so_number', 'not like', 'MIBF-%')
+            ->where(function($q) {
+                $q->whereNull('ecom_platform')
+                  ->orWhere('ecom_platform', '!=', 'MIBF');
+            })
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($lastOrder && !empty($lastOrder->si_number)) {
+            return self::calculateNextSiNumber($lastOrder->si_number);
+        }
+
+        // Also check latest SalesInvoice for general sales invoices
+        $lastInvoice = \App\Models\SalesInvoice::whereNotNull('si_number')
+            ->where('si_number', '!=', '')
+            ->whereNotIn('transaction_type', ['pos_si', 'mibf_si'])
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($lastInvoice && !empty($lastInvoice->si_number)) {
+            return self::calculateNextSiNumber($lastInvoice->si_number);
+        }
+
+        return '00001';
+    }
+
+    /**
+     * Automatically increment the numeric part of the SI number while preserving leading zeros and prefix.
+     * e.g., '00123' -> '00124', 'SI-00123' -> 'SI-00124', '1' -> '2'
+     */
+    public static function calculateNextSiNumber(?string $currentSi): string
+    {
+        if (empty($currentSi)) {
+            return '00001';
+        }
+
+        $trimmed = trim($currentSi);
+        if ($trimmed === '') {
+            return '00001';
+        }
+
+        // Match prefix and numeric suffix
+        if (preg_match('/^(.*?)(\d+)$/', $trimmed, $matches)) {
+            $prefix = $matches[1];
+            $digits = $matches[2];
+            $digitLen = strlen($digits);
+            $nextNum = intval($digits) + 1;
+            $nextDigits = str_pad((string)$nextNum, $digitLen, '0', STR_PAD_LEFT);
+            return $prefix . $nextDigits;
+        }
+
+        return $trimmed . '1';
+    }
+
+    /**
+     * JSON endpoint to fetch the next SI number dynamically
+     */
+    public function getNextSiNumberResponse(Request $request)
+    {
+        $channel = $request->query('channel', $request->query('type', 'pos'));
+        return response()->json([
+            'success' => true,
+            'channel' => $channel,
+            'next_si_number' => self::getNextSiNumber($channel)
+        ]);
+    }
+
+    /**
      * Process a POS order
      */
     public function processOrder(Request $request)
     {
         $validated = $request->validate([
             'customer_id'         => 'nullable|exists:customers,customer_id',
+            'si_number'           => 'nullable|string|max:50',
             'payment_method'      => 'required|in:cash,gcash,paymaya,maya,card,bank,bank_transfer,check',
             'payment_reference'   => 'required_unless:payment_method,cash|nullable|string|max:20',
             'cash_received'       => ['nullable', 'required_if:payment_method,cash', 'numeric', 'min:0'],
@@ -138,6 +289,7 @@ class POSController extends Controller
             $order = SalesOrder::create([
                 'customer_id'      => $validated['customer_id'] ?? null,
                 'so_number'        => $orderNumber,
+                'si_number'        => !empty($validated['si_number']) ? trim($validated['si_number']) : null,
                 'type'             => 'calculator_pos',
                 'status'           => 'completed',
                 'payment_method'   => $validated['payment_method'],
@@ -254,6 +406,25 @@ class POSController extends Controller
             // Deduct stock via StockDeductionService (respects user sales_team vs Main Warehouse)
             \App\Services\StockDeductionService::deductForSalesOrder($order);
 
+            // Synchronize Sales Invoice record if SI number was provided
+            if (!empty($order->si_number)) {
+                \App\Models\SalesInvoice::updateOrCreate(
+                    ['so_id' => $order->id],
+                    [
+                        'so_number'        => $order->so_number,
+                        'si_number'        => $order->si_number,
+                        'customer_id'      => $order->customer_id,
+                        'customer_name'    => $order->customer?->customer_name ?? 'N/A',
+                        'transaction_type' => 'pos_si',
+                        'total_amount'     => $order->total_amount,
+                        'status'           => 'approved',
+                        'created_by'       => auth()->id(),
+                        'approved_by'      => auth()->id(),
+                        'posted_by'        => auth()->id(),
+                    ]
+                );
+            }
+
             // Accounting integration
             $this->accounting->postSalesOrderEntry($order);
 
@@ -262,9 +433,11 @@ class POSController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Order processed successfully',
+                'next_si_number' => self::getNextSiNumber('pos'),
                 'order'   => [
                     'id'             => $order->id,
                     'order_number'   => $orderNumber,
+                    'si_number'      => $order->si_number,
                     'total'          => $validated['total'],
                     'payment_method' => $validated['payment_method'],
                     'change'         => $changeAmount,
@@ -369,6 +542,7 @@ class POSController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
+            'si_number' => 'nullable|string|max:50',
             'platform' => 'nullable|string',
             'payment_method' => 'required|in:cod,cash,gcash,lazada,shopee,paymaya,maya,card,bank,check,bank_transfer',
             'items' => 'required|array|min:1',
@@ -478,6 +652,7 @@ class POSController extends Controller
             $order = SalesOrder::create([
                 'customer_id' => $validated['customer_id'],
                 'so_number' => $orderNumber,
+                'si_number' => !empty($validated['si_number']) ? trim($validated['si_number']) : null,
                 'type' => 'ecom_direct',
                 'status' => 'completed',
                 'platform' => in_array(strtolower($platformName), ['lazada', 'shopee', 'tiktok', 'website', 'facebook', 'other']) ? strtolower($platformName) : 'other',
@@ -572,6 +747,25 @@ class POSController extends Controller
             // Synchronize site inventory for MIBF team site
             \App\Services\StockDeductionService::syncTeamSitesInventory();
 
+            // Synchronize Sales Invoice record if SI number was provided
+            if (!empty($order->si_number)) {
+                \App\Models\SalesInvoice::updateOrCreate(
+                    ['so_id' => $order->id],
+                    [
+                        'so_number'        => $order->so_number,
+                        'si_number'        => $order->si_number,
+                        'customer_id'      => $order->customer_id,
+                        'customer_name'    => $order->customer?->customer_name ?? 'N/A',
+                        'transaction_type' => 'mibf_si',
+                        'total_amount'     => $order->total_amount,
+                        'status'           => 'approved',
+                        'created_by'       => auth()->id(),
+                        'approved_by'      => auth()->id(),
+                        'posted_by'        => auth()->id(),
+                    ]
+                );
+            }
+
             // Accounting integration
             $this->accounting->postSalesOrderEntry($order);
 
@@ -580,9 +774,11 @@ class POSController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'MIBF order processed successfully',
+                'next_si_number' => self::getNextSiNumber('mibf'),
                 'order' => [
                     'id' => $order->id,
                     'order_number' => $orderNumber,
+                    'si_number' => $order->si_number,
                     'total' => $validated['total'],
                     'payment_status' => $paymentStatus,
                     'created_at' => $order->created_at->format('Y-m-d h:i A'),

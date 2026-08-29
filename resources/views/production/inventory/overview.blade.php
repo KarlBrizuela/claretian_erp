@@ -366,7 +366,7 @@
                                                             @endif
                                                         </td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-danger" onclick="openStockManagementModal({{ $book->id }}, '{{ addslashes($book->name) }}', {{ $book->stock }}, {{ $book->max_stock ?? 0 }})">
+                                                            <button type="button" class="btn btn-sm btn-danger btn-open-stock-mgmt" data-book-id="{{ $book->id }}" data-book-name="{{ $book->name }}" data-stock="{{ $mainWarehouseQuantity }}" data-max="{{ $book->max_stock ?? 0 }}">
                                                                 <i class="las la-pen"></i>
                                                             </button>
                                                         </td>
@@ -417,69 +417,86 @@
                                                         <tbody>
                                                             @forelse($consignmentStaff as $custId => $cData)
                                                                 @php $bookCount = count($cData->books); $rowIdx = 0; @endphp
-                                                                @foreach($cData->books as $bookData)
-                                                                @php $rowIdx++; @endphp
-                                                                <tr>
-                                                                    @if($rowIdx === 1)
-                                                                    <td class="text-center text-muted align-middle" rowspan="{{ $bookCount + 1 }}">
-                                                                        <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #1a5276;">
-                                                                            <i class="las la-store fs-16"></i>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td class="fw-bold text-black align-middle" rowspan="{{ $bookCount + 1 }}">
-                                                                        <div class="fs-14 text-primary fw-bold mb-1">{{ $cData->customer_name }}</div>
-                                                                        @if(!empty($cData->company_name))
-                                                                            <div class="fs-12 text-muted fw-normal mb-1"><i class="las la-building text-secondary me-1"></i>Company: {{ $cData->company_name }}</div>
-                                                                        @endif
-                                                                        <div class="d-flex flex-wrap gap-1 mb-2">
-                                                                            <span class="badge bg-secondary px-2 py-1 fs-11"><i class="las la-user me-1"></i>Staff: {{ $cData->staff_name }}</span>
-                                                                            <span class="badge bg-primary px-2 py-1 fs-11">{{ $cData->orders_count }} {{ Str::plural('Order', $cData->orders_count) }}</span>
-                                                                        </div>
-                                                                        @if(!empty($cData->dr_numbers))
-                                                                        <div class="mt-2 text-muted fs-11 fw-normal">
-                                                                            <strong><i class="las la-file-alt text-primary me-1"></i>DR Numbers:</strong>
-                                                                            <div class="mt-1 d-flex flex-wrap gap-1">
-                                                                                @foreach($cData->dr_numbers as $drNum)
-                                                                                    <span class="badge bg-light text-dark border font-monospace px-1 py-1 fs-11">{{ $drNum }}</span>
-                                                                                @endforeach
+                                                                @if($bookCount > 0)
+                                                                    @foreach($cData->books as $bookData)
+                                                                    @php $rowIdx++; @endphp
+                                                                    <tr>
+                                                                        @if($rowIdx === 1)
+                                                                        <td class="text-center text-muted align-middle" rowspan="{{ $bookCount + 1 }}">
+                                                                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #1a5276;">
+                                                                                <i class="las la-store fs-16"></i>
                                                                             </div>
-                                                                        </div>
-                                                                        @endif
-                                                                        <div class="mt-3">
-                                                                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-2 py-1 fs-11 btn-print-cust-sheet"
-                                                                                    data-cust-data="{{ base64_encode(json_encode($cData)) }}">
-                                                                                <i class="las la-print me-1"></i>Print Inventory Sheet
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                    @endif
-                                                                    <td><strong>#{{ $bookData['sku'] ?? 'N/A' }}</strong></td>
-                                                                    <td class="fw-bold text-black">
-                                                                        {{ $bookData['name'] }}
-                                                                        @if(!empty($bookData['drs']))
-                                                                            <div class="mt-1">
-                                                                                <small class="text-muted fw-normal d-inline-block me-2">
-                                                                                    <i class="las la-file-alt text-secondary me-1"></i>DRs: {{ implode(', ', $bookData['drs']) }}
-                                                                                </small>
+                                                                        </td>
+                                                                        <td class="fw-bold text-black align-middle" rowspan="{{ $bookCount + 1 }}">
+                                                                            <div class="fs-14 text-primary fw-bold mb-1">{{ $cData->customer_name }}</div>
+                                                                            @if(!empty($cData->company_name))
+                                                                                <div class="fs-12 text-muted fw-normal mb-1"><i class="las la-building text-secondary me-1"></i>Company: {{ $cData->company_name }}</div>
+                                                                            @endif
+                                                                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                                                                <span class="badge bg-secondary px-2 py-1 fs-11"><i class="las la-user me-1"></i>Staff: {{ $cData->staff_name }}</span>
+                                                                                <span class="badge bg-primary px-2 py-1 fs-11">{{ $cData->orders_count }} {{ Str::plural('Order', $cData->orders_count) }}</span>
                                                                             </div>
+                                                                            @if(!empty($cData->dr_numbers))
+                                                                            <div class="mt-2 text-muted fs-11 fw-normal">
+                                                                                <strong><i class="las la-file-alt text-primary me-1"></i>DR Numbers:</strong>
+                                                                                <div class="mt-1 d-flex flex-wrap gap-1">
+                                                                                    @foreach($cData->dr_numbers as $drNum)
+                                                                                        <span class="badge bg-light text-dark border font-monospace px-1 py-1 fs-11">{{ $drNum }}</span>
+                                                                                    @endforeach
+                                                                                </div>
+                                                                            </div>
+                                                                            @endif
+                                                                            <div class="mt-3">
+                                                                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-2 py-1 fs-11 btn-print-cust-sheet"
+                                                                                        data-cust-data="{{ base64_encode(json_encode($cData)) }}">
+                                                                                    <i class="las la-print me-1"></i>Print Inventory Sheet
+                                                                                </button>
+                                                                            </div>
+                                                                        </td>
                                                                         @endif
-                                                                    </td>
-                                                                    <td class="text-center">
-                                                                        <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
-                                                                            {{ number_format($bookData['total_qty']) }}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                                @endforeach
-                                                                {{-- Subtotal row --}}
-                                                                <tr class="bg-light">
-                                                                    <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
-                                                                    <td class="text-center">
-                                                                        <span class="badge bg-success fs-14 fw-bold px-3 py-2">
-                                                                            {{ number_format($cData->total_items) }}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
+                                                                        <td><strong>#{{ $bookData['sku'] ?? 'N/A' }}</strong></td>
+                                                                        <td class="fw-bold text-black">
+                                                                            {{ $bookData['name'] }}
+                                                                            @if(!empty($bookData['drs']))
+                                                                                <div class="mt-1">
+                                                                                    <small class="text-muted fw-normal d-inline-block me-2">
+                                                                                        <i class="las la-file-alt text-secondary me-1"></i>DRs: {{ implode(', ', $bookData['drs']) }}
+                                                                                    </small>
+                                                                                </div>
+                                                                            @endif
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            <span class="badge bg-light text-success border border-success fw-bold px-2 py-1 fs-13">
+                                                                                {{ number_format($bookData['total_qty']) }}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                    @endforeach
+                                                                    {{-- Subtotal row --}}
+                                                                    <tr class="bg-light">
+                                                                        <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
+                                                                        <td class="text-center">
+                                                                            <span class="badge bg-success fs-14 fw-bold px-3 py-2">
+                                                                                {{ number_format($cData->total_items) }}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                @else
+                                                                    <tr>
+                                                                        <td class="text-center text-muted align-middle">
+                                                                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #1a5276;">
+                                                                                <i class="las la-store fs-16"></i>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td class="fw-bold text-black align-middle">
+                                                                            <div class="fs-14 text-primary fw-bold mb-1">{{ $cData->customer_name }}</div>
+                                                                            @if(!empty($cData->company_name))
+                                                                                <div class="fs-12 text-muted fw-normal mb-1"><i class="las la-building text-secondary me-1"></i>Company: {{ $cData->company_name }}</div>
+                                                                            @endif
+                                                                        </td>
+                                                                        <td colspan="3" class="text-center text-muted py-3">No consigned books recorded.</td>
+                                                                    </tr>
+                                                                @endif
                                                             @empty
                                                             <tr>
                                                                 <td colspan="5" class="text-center py-4 text-muted">No Area Consignment inventory found.</td>
@@ -514,68 +531,85 @@
                                                         <tbody>
                                                             @forelse($directConsignmentCustomers as $custId => $cData)
                                                                 @php $bCount = count($cData->books); $rIdx = 0; @endphp
-                                                                @foreach($cData->books as $bData)
-                                                                @php $rIdx++; @endphp
-                                                                <tr>
-                                                                    @if($rIdx === 1)
-                                                                    <td class="text-center text-muted align-middle" rowspan="{{ $bCount + 1 }}">
-                                                                        <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #c0392b;">
-                                                                            <i class="las la-store fs-16"></i>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td class="fw-bold text-black align-middle" rowspan="{{ $bCount + 1 }}">
-                                                                        <div class="fs-14 text-danger fw-bold mb-1">{{ $cData->customer_name }}</div>
-                                                                        @if(!empty($cData->company_name))
-                                                                            <div class="fs-12 text-muted fw-normal mb-1"><i class="las la-building text-secondary me-1"></i>Company: {{ $cData->company_name }}</div>
-                                                                        @endif
-                                                                        <div class="d-flex flex-wrap gap-1 mb-2">
-                                                                            <span class="badge bg-danger px-2 py-1 fs-11">{{ $cData->orders_count }} {{ Str::plural('Order', $cData->orders_count) }}</span>
-                                                                        </div>
-                                                                        @if(!empty($cData->dr_numbers))
-                                                                        <div class="mt-2 text-muted fs-11 fw-normal">
-                                                                            <strong><i class="las la-file-alt text-danger me-1"></i>DR Numbers:</strong>
-                                                                            <div class="mt-1 d-flex flex-wrap gap-1">
-                                                                                @foreach($cData->dr_numbers as $drNum)
-                                                                                    <span class="badge bg-light text-dark border font-monospace px-1 py-1 fs-11">{{ $drNum }}</span>
-                                                                                @endforeach
+                                                                @if($bCount > 0)
+                                                                    @foreach($cData->books as $bData)
+                                                                    @php $rIdx++; @endphp
+                                                                    <tr>
+                                                                        @if($rIdx === 1)
+                                                                        <td class="text-center text-muted align-middle" rowspan="{{ $bCount + 1 }}">
+                                                                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #c0392b;">
+                                                                                <i class="las la-store fs-16"></i>
                                                                             </div>
-                                                                        </div>
-                                                                        @endif
-                                                                        <div class="mt-3">
-                                                                            <button type="button" class="btn btn-sm btn-outline-danger fw-bold px-2 py-1 fs-11 btn-print-cust-sheet"
-                                                                                    data-cust-data="{{ base64_encode(json_encode($cData)) }}">
-                                                                                <i class="las la-print me-1"></i>Print Inventory Sheet
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                    @endif
-                                                                    <td><strong>#{{ $bData['sku'] ?? 'N/A' }}</strong></td>
-                                                                    <td class="fw-bold text-black">
-                                                                        {{ $bData['name'] }}
-                                                                        @if(!empty($bData['drs']))
-                                                                            <div class="mt-1">
-                                                                                <small class="text-muted fw-normal d-inline-block me-2">
-                                                                                    <i class="las la-file-alt text-secondary me-1"></i>DRs: {{ implode(', ', $bData['drs']) }}
-                                                                                </small>
+                                                                        </td>
+                                                                        <td class="fw-bold text-black align-middle" rowspan="{{ $bCount + 1 }}">
+                                                                            <div class="fs-14 text-danger fw-bold mb-1">{{ $cData->customer_name }}</div>
+                                                                            @if(!empty($cData->company_name))
+                                                                                <div class="fs-12 text-muted fw-normal mb-1"><i class="las la-building text-secondary me-1"></i>Company: {{ $cData->company_name }}</div>
+                                                                            @endif
+                                                                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                                                                <span class="badge bg-danger px-2 py-1 fs-11">{{ $cData->orders_count }} {{ Str::plural('Order', $cData->orders_count) }}</span>
                                                                             </div>
+                                                                            @if(!empty($cData->dr_numbers))
+                                                                            <div class="mt-2 text-muted fs-11 fw-normal">
+                                                                                <strong><i class="las la-file-alt text-danger me-1"></i>DR Numbers:</strong>
+                                                                                <div class="mt-1 d-flex flex-wrap gap-1">
+                                                                                    @foreach($cData->dr_numbers as $drNum)
+                                                                                        <span class="badge bg-light text-dark border font-monospace px-1 py-1 fs-11">{{ $drNum }}</span>
+                                                                                    @endforeach
+                                                                                </div>
+                                                                            </div>
+                                                                            @endif
+                                                                            <div class="mt-3">
+                                                                                <button type="button" class="btn btn-sm btn-outline-danger fw-bold px-2 py-1 fs-11 btn-print-cust-sheet"
+                                                                                        data-cust-data="{{ base64_encode(json_encode($cData)) }}">
+                                                                                    <i class="las la-print me-1"></i>Print Inventory Sheet
+                                                                                </button>
+                                                                            </div>
+                                                                        </td>
                                                                         @endif
-                                                                    </td>
-                                                                    <td class="text-center">
-                                                                        <span class="badge bg-light text-danger border border-danger fw-bold px-2 py-1 fs-13">
-                                                                            {{ number_format($bData['total_qty']) }}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                                @endforeach
-                                                                {{-- Subtotal row --}}
-                                                                <tr class="bg-light">
-                                                                    <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
-                                                                    <td class="text-center">
-                                                                        <span class="badge bg-danger fs-14 fw-bold px-3 py-2">
-                                                                            {{ number_format($cData->total_items) }}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
+                                                                        <td><strong>#{{ $bData['sku'] ?? 'N/A' }}</strong></td>
+                                                                        <td class="fw-bold text-black">
+                                                                            {{ $bData['name'] }}
+                                                                            @if(!empty($bData['drs']))
+                                                                                <div class="mt-1">
+                                                                                    <small class="text-muted fw-normal d-inline-block me-2">
+                                                                                        <i class="las la-file-alt text-secondary me-1"></i>DRs: {{ implode(', ', $bData['drs']) }}
+                                                                                    </small>
+                                                                                </div>
+                                                                            @endif
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            <span class="badge bg-light text-danger border border-danger fw-bold px-2 py-1 fs-13">
+                                                                                {{ number_format($bData['total_qty']) }}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                    @endforeach
+                                                                    {{-- Subtotal row --}}
+                                                                    <tr class="bg-light">
+                                                                        <td colspan="2" class="text-end fw-bold text-black">TOTAL CONSIGNED:</td>
+                                                                        <td class="text-center">
+                                                                            <span class="badge bg-danger fs-14 fw-bold px-3 py-2">
+                                                                                {{ number_format($cData->total_items) }}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                @else
+                                                                    <tr>
+                                                                        <td class="text-center text-muted align-middle">
+                                                                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white mx-auto" style="width: 34px; height: 34px; background: #c0392b;">
+                                                                                <i class="las la-store fs-16"></i>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td class="fw-bold text-black align-middle">
+                                                                            <div class="fs-14 text-danger fw-bold mb-1">{{ $cData->customer_name }}</div>
+                                                                            @if(!empty($cData->company_name))
+                                                                                <div class="fs-12 text-muted fw-normal mb-1"><i class="las la-building text-secondary me-1"></i>Company: {{ $cData->company_name }}</div>
+                                                                            @endif
+                                                                        </td>
+                                                                        <td colspan="3" class="text-center text-muted py-3">No consigned books recorded.</td>
+                                                                    </tr>
+                                                                @endif
                                                             @empty
                                                             <tr>
                                                                 <td colspan="5" class="text-center py-4 text-muted">No Direct Consignment inventory found.</td>
@@ -611,6 +645,7 @@
                                                               </th>
                                                           @endforeach
                                                           <th class="text-center bg-light" style="width: 130px;"><strong>TOTAL STOCK</strong></th>
+                                                          <th class="text-center" style="width: 110px;"><strong>ACTION</strong></th>
                                                       </tr>
                                                   </thead>
                                                   <tbody>
@@ -642,6 +677,11 @@
                                                               <span class="badge {{ $totalSiteStock > 0 ? 'bg-success' : 'bg-danger' }} fs-14 fw-bold px-3 py-2">
                                                                   {{ number_format($totalSiteStock) }}
                                                               </span>
+                                                          </td>
+                                                          <td class="text-center">
+                                                              <button type="button" class="btn btn-sm btn-danger shadow-sm px-2 py-1 fw-semibold btn-open-stock-mgmt" title="Edit Stock" data-book-id="{{ $book->id }}" data-book-name="{{ $book->name }}" data-stock="{{ $totalSiteStock }}" data-max="{{ $book->max_stock ?? 0 }}">
+                                                                  <i class="las la-pen me-1"></i>Edit
+                                                              </button>
                                                           </td>
                                                       </tr>
                                                       @endforeach
@@ -678,6 +718,11 @@
                                                                   {{ number_format($totalIndexStock) }}
                                                               </span>
                                                           </td>
+                                                          <td class="text-center">
+                                                              <button type="button" class="btn btn-sm btn-info text-white shadow-sm px-2 py-1 fw-semibold btn-open-index-mgmt" title="Edit Index Stock" data-index-id="{{ $index->id }}" data-book-title="{{ $bookTitle ?: $displayTitle }}" data-index-val="{{ $idxVal }}" data-stock="{{ $totalIndexStock }}">
+                                                                  <i class="las la-pen me-1"></i>Edit
+                                                              </button>
+                                                          </td>
                                                       </tr>
                                                       @endforeach
 
@@ -710,12 +755,17 @@
                                                                   {{ number_format($totalBundleStock) }}
                                                               </span>
                                                           </td>
+                                                          <td class="text-center">
+                                                              <button type="button" class="btn btn-sm btn-warning text-dark shadow-sm px-2 py-1 fw-semibold btn-open-bundle-mgmt" title="Edit Bundle Stock" data-bundle-id="{{ $bundle->id }}" data-bundle-name="{{ $bundle->name }}" data-stock="{{ $totalBundleStock }}">
+                                                                  <i class="las la-pen me-1"></i>Edit
+                                                              </button>
+                                                          </td>
                                                       </tr>
                                                       @endforeach
 
                                                       @if(count($books) == 0 && count($allIndices ?? $indices ?? []) == 0 && count($allBundles ?? $bundles ?? []) == 0)
                                                       <tr>
-                                                          <td colspan="{{ count($allSites ?? $sites) + 4 }}" class="text-center py-4 text-muted">No items found in master registry.</td>
+                                                          <td colspan="{{ count($allSites ?? $sites) + 5 }}" class="text-center py-4 text-muted">No items found in master registry.</td>
                                                       </tr>
                                                       @endif
                                                   </tbody>
@@ -1554,24 +1604,31 @@
                         @endphp
 
                         @if($site->inventory->count() > 0)
-                            <!-- Nav tabs inside modal -->
-                            <ul class="nav nav-tabs nav-tabs-primary mb-3" role="tablist">
-                                <li class="nav-item">
-                                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#site-books-{{ $site->id }}" type="button">
-                                        <i class="las la-book me-1"></i> Books <span class="badge bg-primary text-white ms-1">{{ $booksInv->count() }}</span>
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-indices-{{ $site->id }}" type="button">
-                                        <i class="las la-bookmark me-1"></i> Indices <span class="badge bg-info text-white ms-1">{{ $indicesInv->count() }}</span>
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-bundles-{{ $site->id }}" type="button">
-                                        <i class="las la-boxes me-1"></i> Bundles <span class="badge bg-warning text-white ms-1">{{ $bundlesInv->count() }}</span>
-                                    </button>
-                                </li>
-                            </ul>
+                            <!-- Nav tabs & Search inside modal -->
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 pb-2 border-bottom">
+                                <ul class="nav nav-tabs nav-tabs-primary mb-0 border-bottom-0" role="tablist">
+                                    <li class="nav-item">
+                                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#site-books-{{ $site->id }}" type="button">
+                                            <i class="las la-book me-1"></i> Books <span class="badge bg-primary text-white ms-1">{{ $booksInv->count() }}</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-indices-{{ $site->id }}" type="button">
+                                            <i class="las la-bookmark me-1"></i> Indices <span class="badge bg-info text-white ms-1">{{ $indicesInv->count() }}</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#site-bundles-{{ $site->id }}" type="button">
+                                            <i class="las la-boxes me-1"></i> Bundles <span class="badge bg-warning text-white ms-1">{{ $bundlesInv->count() }}</span>
+                                        </button>
+                                    </li>
+                                </ul>
+                                <div class="input-group input-group-sm" style="width: 280px; max-width: 100%;">
+                                    <span class="input-group-text bg-light text-muted border-end-0"><i class="las la-search fs-14"></i></span>
+                                    <input type="text" class="form-control border-start-0 ps-0 site-inv-search" data-site-id="{{ $site->id }}" placeholder="Search title or item..." autocomplete="off">
+                                    <button class="btn btn-outline-secondary btn-clear-site-search d-none" type="button" data-site-id="{{ $site->id }}" title="Clear search"><i class="las la-times"></i></button>
+                                </div>
+                            </div>
 
                             <div class="tab-content">
                                 <!-- Books Tab -->
@@ -1760,7 +1817,7 @@
                     <div class="mb-3">
                         <label class="form-label font-w600">Site *</label>
                         <select class="form-control" id="mgmtSiteSelect" onchange="onStockMgmtSiteChange()">
-                            @foreach($sites ?? [] as $site)
+                            @foreach($allSites ?? $sites ?? [] as $site)
                                 <option value="{{ $site->id }}">{{ $site->name }}</option>
                             @endforeach
                         </select>
@@ -2387,6 +2444,22 @@
             document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
         }
 
+@php
+    $sitesInventoryMap = [];
+    foreach($allSites ?? $sites ?? [] as $s) {
+        $sitesInventoryMap[$s->id] = $s->inventory ? $s->inventory->map(function($inv) {
+            return [
+                'book_id' => $inv->book_id,
+                'book_index_id' => $inv->book_index_id,
+                'book_bundle_id' => $inv->book_bundle_id,
+                'quantity' => (float)$inv->quantity,
+                'max_stock' => $inv->max_stock
+            ];
+        })->values()->toArray() : [];
+    }
+@endphp
+        window.sitesInventoryData = window.sitesInventoryData || @json($sitesInventoryMap);
+
         let currentBookName = null;
         let currentStock = 0;
         let maxStock = null;
@@ -2397,10 +2470,12 @@
 
         function onStockMgmtSiteChange() {
             if (!currentBookId) return;
-            const siteId = parseInt(document.getElementById('mgmtSiteSelect').value);
+            const siteSelect = document.getElementById('mgmtSiteSelect');
+            if (!siteSelect) return;
+            const siteId = parseInt(siteSelect.value);
             if (!siteId) return;
 
-            const inventory = sitesInventoryData[siteId] || [];
+            const inventory = (typeof window.sitesInventoryData !== 'undefined' && window.sitesInventoryData[siteId]) ? window.sitesInventoryData[siteId] : [];
             const item = inventory.find(i => i.book_id === currentBookId);
             
             const stockVal = item ? item.quantity : 0;
@@ -2409,8 +2484,11 @@
             currentStock = stockVal;
             maxStock = siteMaxStock;
 
-            document.getElementById('mgmtCurrentStock').value = currentStock;
-            document.getElementById('mgmtMaxStock').value = maxStock !== null ? maxStock : 'Not Set';
+            const currentStockInput = document.getElementById('mgmtCurrentStock');
+            if (currentStockInput) currentStockInput.value = currentStock;
+
+            const maxStockInput = document.getElementById('mgmtMaxStock');
+            if (maxStockInput) maxStockInput.value = maxStock !== null ? maxStock : 'Not Set';
 
             // Trigger inputs update to refresh previews/warnings
             const addQtyInput = document.getElementById('mgmtAddQuantity');
@@ -2423,12 +2501,36 @@
             }
         }
 
+        function showModalSafely(modalId) {
+            const modalEl = document.getElementById(modalId);
+            if (!modalEl) return;
+            try {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                    if (inst) {
+                        inst.show();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('Bootstrap modal error, falling back to jQuery/DOM:', e);
+            }
+            if (window.jQuery && typeof jQuery.fn.modal === 'function') {
+                $(modalEl).modal('show');
+            } else {
+                modalEl.classList.add('show');
+                modalEl.style.display = 'block';
+                document.body.classList.add('modal-open');
+            }
+        }
+
         function openStockManagementModal(bookId, bookName, stock, max) {
             currentBookId = bookId;
             currentBookName = bookName;
             globalBookMaxStock = max;
 
-            document.getElementById('mgmtBookName').value = bookName;
+            const nameEl = document.getElementById('mgmtBookName');
+            if (nameEl) nameEl.value = bookName;
             
             // Default select site to "Main Warehouse" if it exists
             const siteSelect = document.getElementById('mgmtSiteSelect');
@@ -2444,12 +2546,19 @@
             // Sync values for selected site
             onStockMgmtSiteChange();
             
-            document.getElementById('mgmtAddQuantity').value = '';
-            document.getElementById('mgmtAddWarning').innerHTML = '';
-            document.getElementById('mgmtAddPreview').style.display = 'none';
-            document.getElementById('mgmtEditQuantity').value = '';
-            document.getElementById('mgmtEditWarning').innerHTML = '';
-            document.getElementById('mgmtEditPreview').style.display = 'none';
+            const addQtyInput = document.getElementById('mgmtAddQuantity');
+            if (addQtyInput) addQtyInput.value = '';
+            const addWarningEl = document.getElementById('mgmtAddWarning');
+            if (addWarningEl) addWarningEl.innerHTML = '';
+            const addPreviewEl = document.getElementById('mgmtAddPreview');
+            if (addPreviewEl) addPreviewEl.style.display = 'none';
+
+            const editQtyInput = document.getElementById('mgmtEditQuantity');
+            if (editQtyInput) editQtyInput.value = '';
+            const editWarningEl = document.getElementById('mgmtEditWarning');
+            if (editWarningEl) editWarningEl.innerHTML = '';
+            const editPreviewEl = document.getElementById('mgmtEditPreview');
+            if (editPreviewEl) editPreviewEl.style.display = 'none';
 
             const saveBtn = document.getElementById('mgmtSaveBtn');
             if (saveBtn) {
@@ -2473,11 +2582,11 @@
                 editTabPane.classList.remove('show', 'active');
             }
 
-            if (stockMgmtAddHandler) {
-                document.getElementById('mgmtAddQuantity').removeEventListener('input', stockMgmtAddHandler);
+            if (stockMgmtAddHandler && addQtyInput) {
+                addQtyInput.removeEventListener('input', stockMgmtAddHandler);
             }
-            if (stockMgmtEditHandler) {
-                document.getElementById('mgmtEditQuantity').removeEventListener('input', stockMgmtEditHandler);
+            if (stockMgmtEditHandler && editQtyInput) {
+                editQtyInput.removeEventListener('input', stockMgmtEditHandler);
             }
 
             stockMgmtAddHandler = function() {
@@ -2487,18 +2596,21 @@
                 const preview = document.getElementById('mgmtAddPreview');
 
                 if (quantity > 0) {
-                    preview.style.display = 'block';
-                    document.getElementById('mgmtAddNewStock').textContent = newStock;
+                    if (preview) preview.style.display = 'block';
+                    const newStockEl = document.getElementById('mgmtAddNewStock');
+                    if (newStockEl) newStockEl.textContent = newStock;
 
-                    if (maxStock && newStock > maxStock) {
-                        warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
-                    } else {
-                        warning.innerHTML = '';
+                    if (warning) {
+                        if (maxStock && newStock > maxStock) {
+                            warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
+                        } else {
+                            warning.innerHTML = '';
+                        }
                     }
                     if (saveBtn) saveBtn.disabled = false;
                 } else {
-                    preview.style.display = 'none';
-                    warning.innerHTML = '';
+                    if (preview) preview.style.display = 'none';
+                    if (warning) warning.innerHTML = '';
                     if (saveBtn) saveBtn.disabled = false;
                 }
             };
@@ -2509,28 +2621,31 @@
                 const preview = document.getElementById('mgmtEditPreview');
 
                 if (!isNaN(newStock) && newStock >= 0) {
-                    preview.style.display = 'block';
-                    document.getElementById('mgmtEditOldStock').textContent = currentStock;
-                    document.getElementById('mgmtEditNewStock').textContent = newStock;
+                    if (preview) preview.style.display = 'block';
+                    const oldStockEl = document.getElementById('mgmtEditOldStock');
+                    if (oldStockEl) oldStockEl.textContent = currentStock;
+                    const editNewStockEl = document.getElementById('mgmtEditNewStock');
+                    if (editNewStockEl) editNewStockEl.textContent = newStock;
 
-                    if (maxStock && newStock > maxStock) {
-                        warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
-                    } else {
-                        warning.innerHTML = '';
+                    if (warning) {
+                        if (maxStock && newStock > maxStock) {
+                            warning.innerHTML = `<span class="text-warning"><i class="las la-exclamation-triangle"></i> Notice: New stock (${newStock}) exceeds max stock limit (${maxStock})</span>`;
+                        } else {
+                            warning.innerHTML = '';
+                        }
                     }
                     if (saveBtn) saveBtn.disabled = false;
                 } else {
-                    preview.style.display = 'none';
-                    warning.innerHTML = '';
+                    if (preview) preview.style.display = 'none';
+                    if (warning) warning.innerHTML = '';
                     if (saveBtn) saveBtn.disabled = false;
                 }
             };
 
-            document.getElementById('mgmtAddQuantity').addEventListener('input', stockMgmtAddHandler);
-            document.getElementById('mgmtEditQuantity').addEventListener('input', stockMgmtEditHandler);
+            if (addQtyInput) addQtyInput.addEventListener('input', stockMgmtAddHandler);
+            if (editQtyInput) editQtyInput.addEventListener('input', stockMgmtEditHandler);
 
-            const modal = new bootstrap.Modal(document.getElementById('stockManagementModal'));
-            modal.show();
+            showModalSafely('stockManagementModal');
         }
 
         function saveStockManagement() {
@@ -3823,17 +3938,24 @@
                 }
             }
 
-            // Site Inventory Modal Client-side Pagination (Sliding Window)
-            function initSiteTablePagination(tableId, pageSize = 10) {
+            // Site Inventory Modal Client-side Pagination with Search
+            function initSiteTablePagination(tableId, pageSize = 6, searchQuery = '') {
                 const table = document.getElementById(tableId);
                 if (!table) return;
                 const tbody = table.querySelector('tbody');
                 if (!tbody) return;
-                const rows = Array.from(tbody.querySelectorAll('tr.paginate-row'));
-                if (rows.length === 0) return;
+                const allRows = Array.from(tbody.querySelectorAll('tr.paginate-row'));
+                if (allRows.length === 0) return;
 
-                let currentPage = 1;
-                const totalPages = Math.ceil(rows.length / pageSize);
+                const query = (searchQuery || '').trim().toLowerCase();
+                const filteredRows = allRows.filter(row => {
+                    if (!query) return true;
+                    return row.textContent.toLowerCase().includes(query);
+                });
+
+                // Remove existing no-match row if any
+                const existingNoMatch = tbody.querySelector('.no-matching-row');
+                if (existingNoMatch) existingNoMatch.remove();
 
                 let container = document.getElementById(tableId + '_pagination');
                 if (!container) {
@@ -3843,18 +3965,35 @@
                     table.parentNode.appendChild(container);
                 }
 
+                if (filteredRows.length === 0) {
+                    allRows.forEach(r => r.style.display = 'none');
+                    const colCount = table.querySelectorAll('thead th').length || 4;
+                    const noMatchTr = document.createElement('tr');
+                    noMatchTr.className = 'no-matching-row';
+                    const safeQuery = query.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    noMatchTr.innerHTML = `<td colspan="${colCount}" class="text-center py-4 text-muted"><i class="las la-search me-1"></i> No items found matching "<strong>${safeQuery}</strong>"</td>`;
+                    tbody.appendChild(noMatchTr);
+                    container.innerHTML = `<small class="text-muted fw-bold">0 matching entries (filtered from ${allRows.length} total)</small>`;
+                    return;
+                }
+
+                let currentPage = 1;
+                const totalPages = Math.ceil(filteredRows.length / pageSize);
+
                 function render() {
                     const start = (currentPage - 1) * pageSize;
                     const end = start + pageSize;
 
-                    rows.forEach((row, idx) => {
+                    allRows.forEach(r => r.style.display = 'none');
+                    filteredRows.forEach((row, idx) => {
                         row.style.display = (idx >= start && idx < end) ? '' : 'none';
                     });
 
-                    const showingStart = Math.min(start + 1, rows.length);
-                    const showingEnd = Math.min(end, rows.length);
+                    const showingStart = start + 1;
+                    const showingEnd = Math.min(end, filteredRows.length);
 
-                    let html = `<small class="text-muted fw-bold">Showing ${showingStart} to ${showingEnd} of ${rows.length} entries</small>`;
+                    let html = `<small class="text-muted fw-bold">Showing ${showingStart} to ${showingEnd} of ${filteredRows.length} entries` + 
+                               (query ? ` (filtered from ${allRows.length} total)` : '') + `</small>`;
                     
                     if (totalPages > 1) {
                         html += `<ul class="pagination pagination-sm m-0 flex-wrap">`;
@@ -3932,17 +4071,44 @@
 
             document.querySelectorAll('[id^="viewSiteInventory"]').forEach(modalEl => {
                 const siteId = modalEl.id.replace('viewSiteInventory', '');
+                const searchInput = modalEl.querySelector(`.site-inv-search[data-site-id="${siteId}"]`);
+                const clearBtn = modalEl.querySelector(`.btn-clear-site-search[data-site-id="${siteId}"]`);
                 
-                function initAllTabs() {
-                    initSiteTablePagination(`site-books-table-${siteId}`, 6);
-                    initSiteTablePagination(`site-indices-table-${siteId}`, 6);
-                    initSiteTablePagination(`site-bundles-table-${siteId}`, 6);
+                function applySearchAndPagination() {
+                    const q = searchInput ? searchInput.value : '';
+                    if (clearBtn) {
+                        if (q.trim().length > 0) {
+                            clearBtn.classList.remove('d-none');
+                        } else {
+                            clearBtn.classList.add('d-none');
+                        }
+                    }
+                    initSiteTablePagination(`site-books-table-${siteId}`, 6, q);
+                    initSiteTablePagination(`site-indices-table-${siteId}`, 6, q);
+                    initSiteTablePagination(`site-bundles-table-${siteId}`, 6, q);
                 }
 
-                modalEl.addEventListener('shown.bs.modal', initAllTabs);
+                if (searchInput) {
+                    searchInput.addEventListener('input', applySearchAndPagination);
+                }
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', function() {
+                        if (searchInput) {
+                            searchInput.value = '';
+                            searchInput.focus();
+                        }
+                        applySearchAndPagination();
+                    });
+                }
+
+                modalEl.addEventListener('shown.bs.modal', function() {
+                    applySearchAndPagination();
+                });
 
                 modalEl.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tabBtn => {
-                    tabBtn.addEventListener('shown.bs.tab', initAllTabs);
+                    tabBtn.addEventListener('shown.bs.tab', function() {
+                        applySearchAndPagination();
+                    });
                 });
             });
 
@@ -4227,58 +4393,104 @@
             const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             const logoUrl = @json(asset('images/claeritian_logo.png'));
             
-            let drTablesHtml = '';
+            // 1. Flatten all items across all DRs
+            let allItems = [];
             const drList = cData.dr_breakdown || [];
             
-            if (drList.length > 0) {
-                drList.forEach((dr, drIdx) => {
-                    let rowsHtml = '';
-                    let itemIdx = 0;
-                    (dr.items || []).forEach(b => {
-                        itemIdx++;
-                        rowsHtml += `
-                            <tr style="border: 1px solid #000;">
-                                <td style="padding: 6px; text-align: center; border: 1px solid #000;">${itemIdx}</td>
-                                <td style="padding: 6px; border: 1px solid #000; font-weight: bold;">#${b.sku || 'N/A'}</td>
-                                <td style="padding: 6px; border: 1px solid #000; font-weight: 600;">${b.name || 'N/A'}</td>
-                                <td style="padding: 6px; text-align: center; border: 1px solid #000; font-weight: bold;">${(b.qty || 0).toLocaleString()}</td>
-                            </tr>
-                        `;
+            drList.forEach(dr => {
+                const drDate = dr.order_date || 'N/A';
+                const drNum = dr.dr_number || 'N/A';
+                (dr.items || []).forEach(b => {
+                    allItems.push({
+                        date: b.order_date || drDate,
+                        raw_date: b.raw_date || '',
+                        dr_number: b.dr_number || drNum,
+                        sku: b.sku || '',
+                        title: b.name || 'N/A',
+                        qty: parseInt(b.qty) || 0,
+                        price: parseFloat(b.price) || 0,
+                        amount: parseFloat(b.amount) || ((parseInt(b.qty) || 0) * (parseFloat(b.price) || 0))
                     });
+                });
+            });
 
-                    drTablesHtml += `
-                        <div style="margin-top: 15px; margin-bottom: 5px; background: #e7f3ff; border-left: 4px solid #1a5276; padding: 6px 10px; font-weight: bold; font-size: 13px; color: #1a5276; display: flex; justify-content: space-between;">
-                            <span>DELIVERY RECEIPT NO: ${dr.dr_number}</span>
-                            <span>Date: ${dr.order_date || 'N/A'}</span>
-                        </div>
-                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px;">
-                            <thead>
-                                <tr style="background: #f1f3f5; border: 1px solid #000;">
-                                    <th style="padding: 6px; text-align: center; border: 1px solid #000; width: 40px;">#</th>
-                                    <th style="padding: 6px; text-align: left; border: 1px solid #000; width: 140px;">SKU / BARCODE</th>
-                                    <th style="padding: 6px; text-align: left; border: 1px solid #000;">BOOK DESCRIPTION</th>
-                                    <th style="padding: 6px; text-align: center; border: 1px solid #000; width: 120px;">CONSIGNED QTY</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${rowsHtml}
-                            </tbody>
-                            <tfoot>
-                                <tr style="font-weight: bold; background: #f8f9fa; border: 1px solid #000;">
-                                    <td colspan="3" style="padding: 6px; text-align: right; border: 1px solid #000;">DR TOTAL QTY:</td>
-                                    <td style="padding: 6px; text-align: center; border: 1px solid #000; font-size: 13px; color: #1a5276;">${(dr.total_qty || 0).toLocaleString()}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+            // 2. Sort by Book Title first (so items with same name are consecutive), then by Date / DR#
+            allItems.sort((a, b) => {
+                const nameComp = a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+                if (nameComp !== 0) return nameComp;
+                if (a.raw_date && b.raw_date) {
+                    const dateComp = a.raw_date.localeCompare(b.raw_date);
+                    if (dateComp !== 0) return dateComp;
+                }
+                return a.dr_number.localeCompare(b.dr_number);
+            });
+
+            let grandTotalQty = 0;
+            let grandTotalAmount = 0;
+            let rowsHtml = '';
+
+            if (allItems.length > 0) {
+                allItems.forEach((b, idx) => {
+                    grandTotalQty += b.qty;
+                    grandTotalAmount += b.amount;
+                    rowsHtml += `
+                        <tr style="border: 1px solid #000;">
+                            <td style="padding: 5px 3px; text-align: center; border: 1px solid #000; font-size: 11px;">${idx + 1}</td>
+                            <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; font-size: 11px; white-space: nowrap;">${b.date}</td>
+                            <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; font-size: 11px; font-weight: bold; white-space: nowrap;">${b.dr_number}</td>
+                            <td style="padding: 5px 6px; border: 1px solid #000; font-size: 11px;">
+                                <div style="font-weight: bold; color: #111;">${b.title}</div>
+                                ${b.sku ? `<div style="font-size: 9.5px; color: #555;">#${b.sku}</div>` : ''}
+                            </td>
+                            <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; font-weight: bold; font-size: 11px;">${b.qty.toLocaleString()}</td>
+                            <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; min-width: 65px;"></td>
+                            <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; min-width: 55px;"></td>
+                            <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; min-width: 50px;"></td>
+                            <td style="padding: 5px 6px; text-align: right; border: 1px solid #000; font-size: 11px; white-space: nowrap;">₱${b.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="padding: 5px 6px; text-align: right; border: 1px solid #000; font-size: 11px; font-weight: bold; white-space: nowrap;">₱${b.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        </tr>
                     `;
                 });
             } else {
-                drTablesHtml = `
-                    <div style="padding: 15px; text-align: center; color: #777; border: 1px solid #ddd;">No DR details found.</div>
+                rowsHtml = `
+                    <tr style="border: 1px solid #000;">
+                        <td colspan="10" style="padding: 15px; text-align: center; color: #777; border: 1px solid #000;">No consignment items found for this customer.</td>
+                    </tr>
                 `;
             }
 
-            const printWindow = window.open('', '_blank', 'width=850,height=900');
+            const unifiedTableHtml = `
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
+                    <thead>
+                        <tr style="background: #e9ecef; border: 1px solid #000;">
+                            <th style="padding: 6px 3px; text-align: center; border: 1px solid #000; width: 30px;">#</th>
+                            <th style="padding: 6px 4px; text-align: center; border: 1px solid #000; width: 75px;">DATE</th>
+                            <th style="padding: 6px 4px; text-align: center; border: 1px solid #000; width: 110px;">DR #</th>
+                            <th style="padding: 6px 6px; text-align: left; border: 1px solid #000;">BOOK TITLE</th>
+                            <th style="padding: 6px 4px; text-align: center; border: 1px solid #000; width: 50px;">QTY</th>
+                            <th style="padding: 6px 4px; text-align: center; border: 1px solid #000; width: 75px;">PHYSICAL INV</th>
+                            <th style="padding: 6px 4px; text-align: center; border: 1px solid #000; width: 60px;">RETURN</th>
+                            <th style="padding: 6px 4px; text-align: center; border: 1px solid #000; width: 55px;">SOLD</th>
+                            <th style="padding: 6px 6px; text-align: right; border: 1px solid #000; width: 70px;">PRICE</th>
+                            <th style="padding: 6px 6px; text-align: right; border: 1px solid #000; width: 85px;">AMOUNT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight: bold; background: #f8f9fa; border: 1px solid #000;">
+                            <td colspan="4" style="padding: 6px 8px; text-align: right; border: 1px solid #000; font-size: 12px;">TOTAL:</td>
+                            <td style="padding: 6px 4px; text-align: center; border: 1px solid #000; font-size: 12px; color: #1a5276;">${grandTotalQty.toLocaleString()}</td>
+                            <td colspan="3" style="border: 1px solid #000; background: #f8f9fa;"></td>
+                            <td style="border: 1px solid #000; background: #f8f9fa;"></td>
+                            <td style="padding: 6px 6px; text-align: right; border: 1px solid #000; font-size: 12px; color: #1a5276;">₱${grandTotalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+
+            const printWindow = window.open('', '_blank', 'width=900,height=900');
             if (!printWindow) {
                 alert('Please allow popups for this website to print the inventory sheet.');
                 return;
@@ -4289,25 +4501,26 @@
                 <head>
                     <title>Customer Consignment Inventory Sheet - ${cData.customer_name}</title>
                     <style>
-                        @page { size: letter portrait; margin: 0.4in; }
-                        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                        @page { size: letter portrait; margin: 0.35in; }
+                        body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; background: #fff; }
+                        * { box-sizing: border-box; }
                     </style>
                 </head>
                 <body>
-                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #000;">
-                        <div style="border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
-                            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 5px;">
-                                <img src="${logoUrl}" alt="Claretian Logo" style="height: 52px; width: auto;" onerror="this.style.display='none'">
+                    <div style="font-family: Arial, sans-serif; padding: 15px; color: #000;">
+                        <div style="border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 4px;">
+                                <img src="${logoUrl}" alt="Claretian Logo" style="height: 50px; width: auto;" onerror="this.style.display='none'">
                                 <div style="text-align: left;">
-                                    <h2 style="margin: 0; font-size: 17px; font-weight: bold; color: #000; text-transform: uppercase;">CLARETIAN COMMUNICATIONS FOUNDATION INC.</h2>
-                                    <p style="margin: 2px 0 0 0; font-size: 12px; color: #333;">8 Mayumi St., UP Village, Diliman, Quezon City</p>
-                                    <p style="margin: 1px 0 0 0; font-size: 12px; color: #333;">Tel. No.: 921-3984</p>
+                                    <h2 style="margin: 0; font-size: 16px; font-weight: bold; color: #000; text-transform: uppercase;">CLARETIAN COMMUNICATIONS FOUNDATION INC.</h2>
+                                    <p style="margin: 2px 0 0 0; font-size: 11px; color: #333;">8 Mayumi St., UP Village, Diliman, Quezon City</p>
+                                    <p style="margin: 1px 0 0 0; font-size: 11px; color: #333;">Tel. No.: 921-3984</p>
                                 </div>
                             </div>
-                            <h3 style="margin: 8px 0 0 0; text-align: center; font-size: 15px; font-weight: bold; letter-spacing: 1px; color: #1a5276;">CUSTOMER CONSIGNMENT INVENTORY SHEET</h3>
+                            <h3 style="margin: 6px 0 0 0; text-align: center; font-size: 14px; font-weight: bold; letter-spacing: 1px; color: #1a5276;">CUSTOMER CONSIGNMENT INVENTORY SHEET</h3>
                         </div>
 
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 12px; line-height: 1.6;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 11.5px; line-height: 1.5;">
                             <div>
                                 <strong>Customer Name:</strong> ${cData.company_name ? `${cData.customer_name} (${cData.company_name})` : (cData.customer_name || 'N/A')}<br>
                                 <strong>Area Sales Staff:</strong> ${cData.staff_name || 'Direct / Area Sales Team'}
@@ -4318,18 +4531,18 @@
                             </div>
                         </div>
 
-                        <div style="margin-bottom: 15px; font-size: 11px; background: #f8f9fa; border: 1px solid #ddd; padding: 8px; border-radius: 4px;">
+                        <div style="margin-bottom: 12px; font-size: 10.5px; background: #f8f9fa; border: 1px solid #ddd; padding: 6px 10px; border-radius: 4px;">
                             <strong>Consigned DR Numbers:</strong> ${(cData.dr_numbers || []).join(', ') || 'N/A'}
                         </div>
 
-                        ${drTablesHtml}
+                        ${unifiedTableHtml}
 
-                        <div style="margin-top: 20px; background: #f8f9fa; border: 2px solid #1a5276; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 13px; font-weight: bold; color: #000;">OVERALL CONSIGNED BOOKS (${(cData.orders_count || 1)} DRs COMBINED):</span>
-                            <span style="font-size: 15px; font-weight: bold; color: #1a5276;">${(cData.total_items || 0).toLocaleString()} pcs</span>
+                        <div style="margin-top: 15px; background: #f8f9fa; border: 2px solid #1a5276; padding: 8px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 12px; font-weight: bold; color: #000;">OVERALL CONSIGNED BOOKS (${(cData.orders_count || 1)} DRs COMBINED):</span>
+                            <span style="font-size: 14px; font-weight: bold; color: #1a5276;">${grandTotalQty.toLocaleString()} pcs (Total Value: ₱${grandTotalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
                         </div>
 
-                        <div style="margin-top: 50px; display: flex; justify-content: space-between; font-size: 12px;">
+                        <div style="margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; page-break-inside: avoid;">
                             <div style="width: 45%; text-align: center;">
                                 <div style="border-top: 1px solid #000; padding-top: 5px; font-weight: bold;">
                                     Prepared By (Claretian Staff)
@@ -4354,17 +4567,51 @@
         };
 
         document.addEventListener('click', function(e) {
-            const btn = e.target.closest('.btn-print-cust-sheet');
-            if (!btn) return;
-            e.preventDefault();
-            const raw = btn.getAttribute('data-cust-data');
-            if (!raw) return;
-            try {
-                const jsonStr = atob(raw);
-                const cData = JSON.parse(jsonStr);
-                printCustomerInventorySheet(cData);
-            } catch (err) {
-                console.error('Error opening print window:', err);
+            const btnStock = e.target.closest('.btn-open-stock-mgmt');
+            if (btnStock) {
+                e.preventDefault();
+                const bookId = parseInt(btnStock.getAttribute('data-book-id'));
+                const bookName = btnStock.getAttribute('data-book-name') || '';
+                const stock = parseFloat(btnStock.getAttribute('data-stock') || 0);
+                const maxAttr = btnStock.getAttribute('data-max');
+                const max = (maxAttr && maxAttr !== 'N/A') ? parseFloat(maxAttr) : 0;
+                openStockManagementModal(bookId, bookName, stock, max);
+                return;
+            }
+
+            const btnIndex = e.target.closest('.btn-open-index-mgmt');
+            if (btnIndex) {
+                e.preventDefault();
+                const id = parseInt(btnIndex.getAttribute('data-index-id'));
+                const title = btnIndex.getAttribute('data-book-title') || '';
+                const val = btnIndex.getAttribute('data-index-val') || '';
+                const stock = parseFloat(btnIndex.getAttribute('data-stock') || 0);
+                openIndexStockModal(id, title, val, stock);
+                return;
+            }
+
+            const btnBundle = e.target.closest('.btn-open-bundle-mgmt');
+            if (btnBundle) {
+                e.preventDefault();
+                const id = parseInt(btnBundle.getAttribute('data-bundle-id'));
+                const name = btnBundle.getAttribute('data-bundle-name') || '';
+                const stock = parseFloat(btnBundle.getAttribute('data-stock') || 0);
+                openBundleStockModal(id, name, stock);
+                return;
+            }
+
+            const btnPrintSheet = e.target.closest('.btn-print-cust-sheet');
+            if (btnPrintSheet) {
+                e.preventDefault();
+                const raw = btnPrintSheet.getAttribute('data-cust-data');
+                if (!raw) return;
+                try {
+                    const jsonStr = atob(raw);
+                    const cData = JSON.parse(jsonStr);
+                    printCustomerInventorySheet(cData);
+                } catch (err) {
+                    console.error('Error opening print window:', err);
+                }
             }
         });
     </script>

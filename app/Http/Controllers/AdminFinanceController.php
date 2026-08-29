@@ -246,9 +246,17 @@ class AdminFinanceController extends Controller
       ->sum('total_amount') ?: 0.00;
 
     // Expenses: sum debits for journal items whose account type is 'Expense' within period
-    $totalExpenses = \App\Models\JournalEntryItem::whereHas('account', function($q){
-      $q->where('type', 'Expense');
-    })->whereBetween('created_at', [$start, $end])->sum('debit');
+    $totalExpenses = 0.00;
+    try {
+      if (\Illuminate\Support\Facades\Schema::hasTable('journal_entry_items') && \Illuminate\Support\Facades\Schema::hasTable('chart_of_accounts')) {
+        $totalExpenses = (float) \App\Models\JournalEntryItem::whereHas('account', function($q){
+          $q->where('type', 'Expense');
+        })->whereBetween('created_at', [$start, $end])->sum('debit');
+      }
+    } catch (\Throwable $e) {
+      \Log::warning('Dashboard totalExpenses calculation error: ' . $e->getMessage());
+      $totalExpenses = 0.00;
+    }
 
     $netProfit = $totalRevenue - $totalExpenses;
 
@@ -551,7 +559,7 @@ class AdminFinanceController extends Controller
 
     // --- Payment Requests ---
     $paymentRequestQuery = \App\Models\PaymentRequest::with(['requester', 'items']);
-    if ($pos === 'Director') {
+    if (str_contains(strtolower($pos), 'director')) {
         $paymentRequestQuery->where('status', 'pending_director_approval');
     } elseif ($pos === 'Super Admin') {
         $paymentRequestQuery->whereIn('status', ['pending_director_approval', 'pending_admin_finance_approval']);
@@ -581,12 +589,12 @@ class AdminFinanceController extends Controller
 
     // --- Auto Debit Requests ---
     $autoDebitQuery = \App\Models\AutoDebit::with(['preparer']);
-    if ($pos === 'Director') {
+    if (str_contains(strtolower($pos), 'director')) {
         $autoDebitQuery->where('status', 'pending_director');
     } elseif ($pos === 'Super Admin') {
         $autoDebitQuery->whereIn('status', ['pending_director', 'pending_finance']);
     } else {
-        $isAFManager = str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor');
+        $isAFManager = str_contains($pos, 'Manager') || str_contains($pos, 'Supervisor') || $pos === 'A&F Manager';
         if ($isAFManager) {
             $autoDebitQuery->where('status', 'pending_finance');
         } else {
@@ -1322,10 +1330,20 @@ public function checkVoucher()
 
   public function salesInvoice()
   {
-    // 1. Get SalesOrders pending SI prep/approval (NOT YET signed and approved) ordered newest first
+    // 1. Get IDs of SalesOrders that already have an approved SalesInvoice
+    $approvedSiSoIds = \App\Models\SalesInvoice::where('status', 'approved')->pluck('so_id')->filter()->toArray();
+
+    // 2. Get SalesOrders pending SI prep/approval (NOT YET approved) ordered newest first
     $pendingOrders = \App\Models\SalesOrder::with('customer', 'preparedBy', 'siPreparedBy')
-      ->whereNull('signed_by_af_manager')
-      ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created', 'ar_created', 'picking'])
+      ->where(function($q) use ($approvedSiSoIds) {
+          $q->where(function($sq) {
+              $sq->whereNull('signed_by_af_manager')
+                 ->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created', 'ar_created', 'picking']);
+          })->orWhere(function($sq) use ($approvedSiSoIds) {
+              $sq->whereIn('status', ['pending_si_prep', 'pending_si_approval', 'si_created'])
+                 ->whereNotIn('id', $approvedSiSoIds);
+          });
+      })
       ->orderBy('id', 'desc')
       ->get();
 
@@ -1337,16 +1355,18 @@ public function checkVoucher()
         return $order->type === 'ecom_direct';
     })->sortByDesc('id')->values();
 
-    // 2. Get all Completed / Finalized Sales Invoices ordered newest first
+    // 3. Get all Completed / Finalized Sales Invoices ordered newest first
     $completedSIs = \App\Models\SalesInvoice::with('customer', 'salesOrder', 'createdBy')
       ->where('status', 'approved')
       ->orderBy('id', 'desc')
       ->get();
 
-    // Ensure all signed/approved SalesOrders have a corresponding entry in $completedSIs (excluding complimentary orders)
+    // Ensure all signed/approved SalesOrders have a corresponding entry in $completedSIs (excluding complimentary orders and orders currently in pending SI queue)
     $existingSiSoIds = $completedSIs->pluck('so_id')->filter()->toArray();
+    $pendingOrderIds = $pendingOrders->pluck('id')->toArray();
     $signedOrdersWithoutSI = \App\Models\SalesOrder::with('customer', 'preparedBy')
       ->where('type', '!=', 'complimentary')
+      ->whereNotIn('id', $pendingOrderIds)
       ->where(function($q) {
           $q->whereNotNull('signed_by_af_manager')
             ->orWhereIn('status', ['ready_for_delivery', 'completed']);
@@ -1480,6 +1500,11 @@ public function checkVoucher()
       $order->save();
     }
 
+    if ($request->filled('si_number')) {
+      $order->si_number = trim($request->input('si_number'));
+      $order->save();
+    }
+
     $isExempt = in_array($order->type, ['ecom_direct', 'charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment', 'complimentary', 'cod']) || strtolower($order->transaction_type ?? '') === 'charge';
 
     if (!$isExempt && !$order->proof_of_payment) {
@@ -1498,6 +1523,20 @@ public function checkVoucher()
         'signed_at' => now(),
         'remarks' => ($order->remarks ? $order->remarks . ' | ' : '') . 'SI Prepared and auto-signed by ' . auth()->user()->name
       ]);
+
+      $siNumberVal = $order->si_number ?: ($request->input('si_number') ?: 'SI-' . $order->so_number);
+      $si = \App\Models\SalesInvoice::firstOrCreate(
+        ['so_id' => $order->id],
+        [
+          'si_number' => $siNumberVal,
+          'customer_id' => $order->customer_id,
+          'customer_name' => $order->customer->customer_name ?? 'N/A',
+          'total_amount' => $order->total_amount,
+          'transaction_type' => $order->type . '_si',
+          'created_by' => auth()->id()
+        ]
+      );
+      $si->update(['si_number' => $siNumberVal, 'status' => 'approved', 'posted_at' => now(), 'payment_method' => $order->payment_method ?? 'cash']);
 
       // --- ACCOUNTING INTEGRATION ---
       $this->accounting->postSalesOrderEntry($order);
@@ -1546,10 +1585,11 @@ public function checkVoucher()
       ]);
 
       // 2. Handle Sales Invoice
+      $siNumberVal = $order->si_number ?: ($request->input('si_number') ?: 'SI-' . $order->so_number);
       $si = \App\Models\SalesInvoice::firstOrCreate(
         ['so_id' => $order->id],
         [
-          'si_number' => 'SI-' . $order->so_number,
+          'si_number' => $siNumberVal,
           'customer_id' => $order->customer_id,
           'customer_name' => $order->customer->customer_name ?? 'N/A',
           'total_amount' => $order->total_amount,
@@ -1559,6 +1599,7 @@ public function checkVoucher()
       );
       
       $si->update([
+        'si_number' => $siNumberVal,
         'status' => 'pending_approval',
         'payment_method' => $order->payment_method ?? 'cash'
       ]);
@@ -1724,7 +1765,95 @@ public function checkVoucher()
     }
   }
 
-  public function signSalesInvoice($id)
+  public function bulkSetPaid(Request $request)
+  {
+    $siIds = $request->input('si_ids', []);
+    $soIds = $request->input('so_ids', []);
+
+    if (empty($siIds) && empty($soIds)) {
+      return response()->json(['success' => false, 'message' => 'No invoices selected.'], 400);
+    }
+
+    $processed = 0;
+    \DB::beginTransaction();
+    try {
+      $invoices = \App\Models\SalesInvoice::with('salesOrder')->whereIn('id', $siIds)->get();
+      $orderIds = $invoices->pluck('so_id')->filter()->merge($soIds)->unique()->toArray();
+      $orders = \App\Models\SalesOrder::whereIn('id', $orderIds)->get();
+
+      foreach ($orders as $so) {
+        $remBal = (float) $so->remaining_balance;
+        $totalAmount = (float) ($so->total_amount ?: $so->final_total);
+
+        if ($remBal > 0 || $so->payment_status !== 'paid') {
+          $payAmt = $remBal > 0 ? $remBal : $totalAmount;
+          $pm = $so->payment_method ?: ($so->ecom_platform ? 'ecom_' . $so->ecom_platform : 'cash');
+
+          $payment = \App\Models\Payment::create([
+            'customer_id' => $so->customer_id,
+            'sales_order_id' => $so->id,
+            'amount' => $payAmt,
+            'payment_method' => $pm,
+            'payment_date' => now()->toDateString(),
+            'status' => 'verified',
+            'reference_number' => $so->so_number,
+            'verified_by' => auth()->id(),
+            'notes' => 'Bulk Set as Paid for E-Com Order #' . $so->so_number,
+          ]);
+
+          $so->update([
+            'payment_status' => 'paid',
+            'remarks' => ($so->remarks ? $so->remarks . ' | ' : '') . 'Marked as Paid in bulk by ' . (auth()->user()->name ?? 'System')
+          ]);
+
+          try {
+            if (isset($this->accounting) && method_exists($this->accounting, 'postPaymentEntry')) {
+              $this->accounting->postPaymentEntry($so, $payment, $pm, $payAmt);
+            }
+          } catch (\Exception $glEx) {
+            \Log::warning("Bulk Set Paid GL entry skipped for SO #{$so->so_number}: " . $glEx->getMessage());
+          }
+        }
+        $processed++;
+      }
+
+      foreach ($invoices as $inv) {
+        if (!$inv->so_id) {
+          $inv->update(['status' => 'approved']);
+          $processed++;
+        }
+      }
+
+      \DB::commit();
+
+      if (class_exists('\App\Models\ActivityLog')) {
+        \App\Models\ActivityLog::create([
+          'user_id' => auth()->id() ?: 1,
+          'action' => 'Bulk Payment Set as Paid',
+          'description' => "Marked {$processed} E-com Sales Invoice(s) as Paid in bulk.",
+          'affected_model' => 'SalesInvoice',
+          'affected_model_id' => null,
+          'ip_address' => $request->ip(),
+        ]);
+      }
+
+      return response()->json([
+        'success' => true,
+        'message' => "Successfully marked {$processed} invoice(s) as Paid.",
+        'processed' => $processed
+      ]);
+    } catch (\Exception $e) {
+      \DB::rollBack();
+      \Log::error("Bulk Set as Paid failed: " . $e->getMessage());
+
+      return response()->json([
+        'success' => false,
+        'message' => 'An error occurred while marking invoices as paid: ' . $e->getMessage()
+      ], 500);
+    }
+  }
+
+  public function signSalesInvoice(Request $request, $id)
   {
     $order = \App\Models\SalesOrder::findOrFail($id);
 
@@ -1732,6 +1861,11 @@ public function checkVoucher()
 
     if (!$isExempt && !$order->proof_of_payment) {
       return redirect()->back()->with('error', 'Cannot proceed. Proof of Payment is required for Paid transactions before Sales Invoice can be signed.');
+    }
+
+    if ($request->filled('si_number')) {
+      $order->si_number = trim($request->input('si_number'));
+      $order->save();
     }
 
     $isEcomDirect = $order->type === 'ecom_direct';
@@ -1747,10 +1881,12 @@ public function checkVoucher()
       'signed_at' => now()
     ]);
 
+    $siNumberVal = $order->si_number ?: ($request->input('si_number') ?: 'SI-' . $order->so_number);
+
     $si = \App\Models\SalesInvoice::firstOrCreate(
       ['so_id' => $order->id],
       [
-        'si_number' => 'SI-' . $order->so_number,
+        'si_number' => $siNumberVal,
         'customer_id' => $order->customer_id,
         'customer_name' => $order->customer->customer_name ?? 'N/A',
         'total_amount' => $order->total_amount,
@@ -1758,7 +1894,7 @@ public function checkVoucher()
         'created_by' => auth()->id()
       ]
     );
-    $si->update(['status' => 'approved', 'posted_at' => now(), 'payment_method' => $order->payment_method ?? 'cash']);
+    $si->update(['si_number' => $siNumberVal, 'status' => 'approved', 'posted_at' => now(), 'payment_method' => $order->payment_method ?? 'cash']);
 
     // --- ACCOUNTING INTEGRATION ---
     $this->accounting->postSalesOrderEntry($order);
@@ -1798,6 +1934,40 @@ public function checkVoucher()
     return redirect()->back()->with('success', $successMsg);
   }
 
+  public function updateSiNumber(Request $request, $id)
+  {
+    $request->validate([
+      'si_number' => 'nullable|string|max:50'
+    ]);
+
+    $order = \App\Models\SalesOrder::findOrFail($id);
+    $siNum = trim($request->input('si_number', ''));
+    $order->si_number = $siNum ?: null;
+    $order->save();
+
+    if (!empty($siNum)) {
+      \App\Models\SalesInvoice::updateOrCreate(
+        ['so_id' => $order->id],
+        [
+          'so_number'        => $order->so_number,
+          'si_number'        => $siNum,
+          'customer_id'      => $order->customer_id,
+          'customer_name'    => $order->customer?->customer_name ?? 'N/A',
+          'transaction_type' => $order->type . '_si',
+          'total_amount'     => $order->total_amount,
+          'status'           => $order->signed_by_af_manager ? 'approved' : 'draft',
+          'created_by'       => auth()->id(),
+        ]
+      );
+    }
+
+    return response()->json([
+      'success' => true,
+      'message' => 'SI Number updated successfully.',
+      'si_number' => $order->si_number
+    ]);
+  }
+
   public function printSalesInvoice($id)
   {
     $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bundle', 'items.product', 'preparedBy', 'mktApprovedBy', 'prodApprovedBy', 'siPreparedBy', 'signedBy'])->findOrFail($id);
@@ -1805,6 +1975,66 @@ public function checkVoucher()
     return view('marketing.sales-orders.print-invoice', [
       'order' => $order
     ]);
+  }
+
+  public function revertSalesInvoiceToDR($id)
+  {
+    try {
+      $order = \App\Models\SalesOrder::findOrFail($id);
+
+      $isFromDR = $order->status === 'si_created'
+          || !empty($order->dr_prepared_by)
+          || !empty($order->dr_prepared_at)
+          || !empty($order->dr_approved_by)
+          || in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
+
+      if (!$isFromDR) {
+          return redirect()->back()->with('error', "Sales Order #{$order->so_number} did not originate from Delivery Receipts (DR).");
+      }
+
+      // Determine where it should return:
+      // If DR was already prepared (dr_prepared_at, dr_prepared_by, or dr_approved_by is set):
+      // return to 'ready_for_delivery' (Completed DRs)
+      // If DR was NOT yet prepared (still pending preparation):
+      // return to 'pending_dr_prep' (Pending DR Prep)
+      $hasPreparedDR = !empty($order->dr_prepared_at) || !empty($order->dr_prepared_by) || !empty($order->dr_approved_by);
+
+      $targetStatus = $hasPreparedDR ? 'ready_for_delivery' : 'pending_dr_prep';
+      $targetLocation = $hasPreparedDR ? 'Completed DRs' : 'Pending DR Prep';
+
+      // 1. Clean up any unapproved / pending SalesInvoice and items
+      $pendingSIs = \App\Models\SalesInvoice::where('so_id', $order->id)->where('status', '!=', 'approved')->get();
+      foreach ($pendingSIs as $si) {
+          $si->items()->delete();
+          $si->delete();
+      }
+
+      // 2. Revert Sales Order status
+      $order->update([
+          'status'         => $targetStatus,
+          'si_prepared_by' => null,
+          'si_prepared_at' => null,
+          'remarks'        => ($order->remarks ? $order->remarks . ' | ' : '') . 'Reverted back to DR by ' . (auth()->user()->name ?? 'User')
+      ]);
+
+      // 3. Log activity
+      \App\Models\ActivityLog::create([
+          'user_id'           => auth()->id(),
+          'action'            => 'Reverted to DR',
+          'description'       => "Sales Order {$order->so_number} reverted from Sales Invoice back to Delivery Receipt ({$targetLocation}).",
+          'affected_model'    => 'SalesOrder',
+          'affected_model_id' => $order->id,
+          'ip_address'        => request()->ip(),
+          'user_agent'        => request()->header('User-Agent')
+      ]);
+
+      return redirect()
+          ->back()
+          ->with('success', "Sales Order #{$order->so_number} has been reverted back to Delivery Receipts ({$targetLocation}) successfully.");
+    } catch (\Exception $e) {
+      \Log::error('Error reverting Sales Order to DR: ' . $e->getMessage());
+      return redirect()->back()->with('error', 'Error reverting to DR: ' . $e->getMessage());
+    }
   }
 
   public function bulkPrintSalesInvoice(\Illuminate\Http\Request $request)
@@ -2588,7 +2818,7 @@ public function checkVoucher()
   public function invoice()
   {
     $invoices = \App\Models\SalesOrder::with(['customer', 'items.product'])
-      ->whereIn('status', ['ready_for_delivery', 'completed', 'verified', 'draft', 'pending_si_prep', 'pending_dr_prep', 'pending_dr_approval'])
+      ->whereIn('status', ['ready_for_delivery', 'completed', 'verified', 'draft', 'pending_si_prep', 'pending_dr_prep', 'pending_dr_approval', 'si_created'])
       ->latest()
       ->get();
 
@@ -3399,10 +3629,33 @@ public function checkVoucher()
             abort(403, 'Unauthorized action.');
         }
 
+        $mainTab = $request->query('main_tab', 'crud');
+        if (!in_array($mainTab, ['crud', 'cards', 'account_groups'])) {
+            $mainTab = 'crud';
+        }
+
         $tab = $request->query('tab', 'assets');
         if (!in_array($tab, ['assets', 'liabilities', 'equity', 'income', 'expenses'])) {
             $tab = 'assets';
         }
+
+        // --- Fetch all accounts for CRUD Data Table ---
+        $searchQuery = trim($request->query('search', ''));
+        $categoryFilter = $request->query('category', '');
+
+        $accountsQuery = \App\Models\ChartOfAccount::with('accountGroup');
+        if (!empty($searchQuery)) {
+            $accountsQuery->where(function($q) use ($searchQuery) {
+                $q->where('code', 'like', "%{$searchQuery}%")
+                  ->orWhere('name', 'like', "%{$searchQuery}%")
+                  ->orWhere('category', 'like', "%{$searchQuery}%")
+                  ->orWhere('type', 'like', "%{$searchQuery}%");
+            });
+        }
+        if (!empty($categoryFilter)) {
+            $accountsQuery->where('type', $categoryFilter);
+        }
+        $allAccounts = $accountsQuery->orderBy('code', 'asc')->paginate(10)->withQueryString();
 
         // --- Fetch unposted sales orders (POS, SO, E-Com, Area Sales, etc.) ---
         $postedOrderNumbers = \App\Models\JournalEntry::pluck('reference')->filter()->toArray();
@@ -3609,6 +3862,7 @@ public function checkVoucher()
 
         $uncategorizedAccounts = \App\Models\ChartOfAccount::where('type', $typeFilter)
             ->whereNotIn('id', $trackedIds)
+            ->whereNull('account_group_id')
             ->get()
             ->map(function($acc) use ($typeFilter) {
                 $debit = $acc->journalEntryItems()->sum('debit');
@@ -3647,6 +3901,30 @@ public function checkVoucher()
                     'created_at' => $so->created_at,
                 ];
             });
+
+        // Fetch General Journal items hitting the Cash on Hand accounts (1010 / 1040)
+        $cashOnHandAccountIds = \App\Models\ChartOfAccount::whereIn('code', ['1010', '1040'])->pluck('id');
+        $journalItems = \App\Models\JournalEntryItem::with(['journalEntry'])
+            ->whereIn('chart_of_account_id', $cashOnHandAccountIds)
+            ->whereHas('journalEntry', function($q) {
+                $q->where('status', 'posted');
+            })
+            ->get()
+            ->map(function($item) {
+                // Asset account: Debit increases it (+), Credit decreases it (-)
+                $amount = (float)$item->debit - (float)$item->credit;
+                
+                return (object)[
+                    'si_number' => $item->journalEntry->entry_no,
+                    'customer_name' => $item->memo ?? $item->journalEntry->reference ?? 'General Journal Entry',
+                    'total_amount' => $amount,
+                    'status' => 'Posted',
+                    'created_at' => \Carbon\Carbon::parse($item->journalEntry->date),
+                ];
+            });
+
+        // Merge and sort by date descending
+        $salesInvoices = $salesInvoices->concat($journalItems)->sortByDesc('created_at');
         $pettyCashVouchers = \App\Models\PettyCashVoucher::withSum('items', 'amount')->latest()->get();
         $unpaidReceivables = \App\Models\SalesOrder::with('customer')
             ->where('status', '!=', 'cancelled')
@@ -3691,11 +3969,42 @@ public function checkVoucher()
         $expensesRecordsList = \App\Models\Expense::with(['department', 'addedBy'])->latest()->get();
         $fixedAssetsRecordsList = \App\Models\ProductionFixedAsset::latest()->get();
 
+        $allAccountGroups = \App\Models\AccountGroup::withCount('accounts')->orderBy('name')->get();
+
+        $categoryAccounts = \App\Models\ChartOfAccount::with('accountGroup')
+            ->where('type', $typeFilter)
+            ->orderBy('code')
+            ->get()
+            ->map(function($acc) use ($typeFilter) {
+                $acc->calculated_balance = $this->calculateAccountLiveBalance($acc, $typeFilter);
+                return $acc;
+            });
+
+        $categoryAccountGroups = \App\Models\AccountGroup::where('type', $typeFilter)
+            ->with(['accounts' => function($q) {
+                $q->where('is_active', true);
+            }])
+            ->orderBy('name')
+            ->get()
+            ->map(function($group) use ($typeFilter) {
+                $totalBalance = 0;
+                foreach ($group->accounts as $acc) {
+                    $totalBalance += $this->calculateAccountLiveBalance($acc, $typeFilter);
+                }
+                $group->calculated_balance = $totalBalance;
+                return $group;
+            });
+
         return view('admin-finance.accounting.chart-of-accounts', [
-            'title' => 'Chart of Accounts - ' . ucfirst($tab),
+            'title' => 'Chart of Accounts - ' . ($mainTab === 'crud' ? 'Management' : ($mainTab === 'account_groups' ? 'Account Groups' : ucfirst($tab))),
             'role' => $user->position,
             'sidebar' => 'admin-finance',
+            'mainTab' => $mainTab,
             'tab' => $tab,
+            'allAccounts' => $allAccounts,
+            'categoryAccounts' => $categoryAccounts,
+            'allAccountGroups' => $allAccountGroups,
+            'categoryAccountGroups' => $categoryAccountGroups,
             'balances' => $balances,
             'uncategorizedAccounts' => $uncategorizedAccounts,
             'salesInvoices' => $salesInvoices,
@@ -3709,6 +4018,242 @@ public function checkVoucher()
             'fixedAssetsRecordsList' => $fixedAssetsRecordsList,
             'accountDetails' => $accountDetails,
         ]);
+    }
+
+    private function calculateAccountLiveBalance($acc, $typeFilter = null)
+    {
+        $type = $typeFilter ?? $acc->type;
+        $debit = $acc->journalEntryItems()->whereHas('journalEntry', function($q) { $q->where('status', 'posted'); })->sum('debit');
+        $credit = $acc->journalEntryItems()->whereHas('journalEntry', function($q) { $q->where('status', 'posted'); })->sum('credit');
+        
+        $pendingPpSum = \App\Models\ClientPaymentPostingItem::where('chart_of_account_id', $acc->id)
+            ->whereHas('posting', function($q) { $q->where('status', 'pending'); })
+            ->sum('amount');
+
+        $glBalance = ($type === 'Asset' || $type === 'Expense') ? ($debit - $credit) : ($credit - $debit);
+
+        // Check if there is a matching Company Bank Account for this Chart of Account
+        $cbaBalance = 0.00;
+        if (\Illuminate\Support\Facades\Schema::hasTable('company_bank_accounts')) {
+            $cba = \App\Models\CompanyBankAccount::where('account_code', $acc->code)->first();
+            if (!$cba) {
+                // Try matching by first word of name if BDO/BPI/GCash/Bank/Union
+                $firstWord = explode(' ', trim($acc->name))[0];
+                if (strlen($firstWord) >= 3 && in_array(strtoupper($firstWord), ['BDO', 'BPI', 'GCASH', 'BANK', 'UNION'])) {
+                    $cba = \App\Models\CompanyBankAccount::where('bank_name', 'like', "%{$firstWord}%")->first();
+                }
+            }
+            if ($cba) {
+                $cbaBalance = (float) $cba->current_balance;
+            }
+        }
+
+        return max(0, $glBalance + $pendingPpSum + $cbaBalance);
+    }
+
+    public function storeChartOfAccount(\Illuminate\Http\Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'code' => 'required|string|max:50|unique:chart_of_accounts,code',
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
+            'category' => 'nullable|string|max:255',
+            'account_group_id' => 'nullable|exists:account_groups,id',
+            'normal_balance' => 'nullable|in:Debit,Credit',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $validated['is_active'] = $request->has('is_active') ? 1 : 0;
+        if (empty($validated['normal_balance'])) {
+            $validated['normal_balance'] = in_array($validated['type'], ['Asset', 'Expense']) ? 'Debit' : 'Credit';
+        }
+
+        $account = \App\Models\ChartOfAccount::create($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Chart of Account created successfully.', 'account' => $account]);
+        }
+
+        return redirect()->back()->with('success', 'Chart of Account created successfully.');
+    }
+
+    public function updateChartOfAccount(\Illuminate\Http\Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $account = \App\Models\ChartOfAccount::findOrFail($id);
+
+        $validated = $request->validate([
+            'code' => 'required|string|max:50|unique:chart_of_accounts,code,' . $id,
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
+            'category' => 'nullable|string|max:255',
+            'account_group_id' => 'nullable|exists:account_groups,id',
+            'normal_balance' => 'nullable|in:Debit,Credit',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $validated['is_active'] = $request->has('is_active') ? 1 : 0;
+        if (empty($validated['normal_balance'])) {
+            $validated['normal_balance'] = in_array($validated['type'], ['Asset', 'Expense']) ? 'Debit' : 'Credit';
+        }
+
+        $account->update($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Chart of Account updated successfully.', 'account' => $account]);
+        }
+
+        return redirect()->back()->with('success', 'Chart of Account updated successfully.');
+    }
+
+    public function storeAccountGroup(\Illuminate\Http\Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
+            'description' => 'nullable|string',
+        ]);
+
+        $group = \App\Models\AccountGroup::create($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Account Group created successfully.', 'group' => $group]);
+        }
+
+        return redirect()->back()->with('success', 'Account Group created successfully.');
+    }
+
+    public function updateAccountGroup(\Illuminate\Http\Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $group = \App\Models\AccountGroup::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:Asset,Liability,Equity,Income,Expense',
+            'description' => 'nullable|string',
+        ]);
+
+        $group->update($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Account Group updated successfully.', 'group' => $group]);
+        }
+
+        return redirect()->back()->with('success', 'Account Group updated successfully.');
+    }
+
+    public function destroyAccountGroup(\Illuminate\Http\Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $group = \App\Models\AccountGroup::findOrFail($id);
+        $group->accounts()->update(['account_group_id' => null]);
+        $group->delete();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Account Group deleted successfully.']);
+        }
+
+        return redirect()->back()->with('success', 'Account Group deleted successfully.');
+    }
+
+    public function getAccountGroupAccounts(\Illuminate\Http\Request $request, $id)
+    {
+        $group = \App\Models\AccountGroup::with(['accounts' => function($q) {
+            $q->orderBy('code');
+        }])->findOrFail($id);
+
+        $accounts = $group->accounts->map(function($acc) {
+            $balance = $this->calculateAccountLiveBalance($acc);
+
+            return [
+                'id' => $acc->id,
+                'code' => $acc->code,
+                'name' => $acc->name,
+                'type' => $acc->type,
+                'category' => $acc->category,
+                'balance' => number_format($balance, 2),
+                'raw_balance' => $balance,
+                'is_active' => (bool)$acc->is_active,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'group' => [
+                'id' => $group->id,
+                'name' => $group->name,
+                'type' => $group->type,
+                'description' => $group->description,
+                'total_balance' => number_format($accounts->sum('raw_balance'), 2),
+            ],
+            'accounts' => $accounts,
+        ]);
+    }
+
+    public function destroyChartOfAccount(\Illuminate\Http\Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('admin_finance.accounting.chart_of_accounts') && !$user->hasPermission('admin_finance.accounting')) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Unauthorized action.'], 403);
+            }
+            abort(403, 'Unauthorized action.');
+        }
+
+        $account = \App\Models\ChartOfAccount::findOrFail($id);
+
+        if ($account->journalEntryItems()->exists()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Cannot delete account because it has recorded journal entries.'], 422);
+            }
+            return redirect()->back()->with('error', 'Cannot delete account because it has recorded journal entries.');
+        }
+
+        $account->delete();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Chart of Account deleted successfully.']);
+        }
+
+        return redirect()->back()->with('success', 'Chart of Account deleted successfully.');
     }
 
     public function toggleAccountStatus(\Illuminate\Http\Request $request)
@@ -3764,6 +4309,134 @@ public function checkVoucher()
                 'message' => 'Account "' . $account->name . '" status updated to ' . ($account->is_active ? 'Active' : 'Inactive') . '.'
             ]);
         }
+    }
+
+    public function getAccountLedger($id)
+    {
+        $account = \App\Models\ChartOfAccount::findOrFail($id);
+
+        // 1. General Journal Entry Items
+        $items = \App\Models\JournalEntryItem::with(['journalEntry'])
+            ->where('chart_of_account_id', $id)
+            ->whereHas('journalEntry', function($q) {
+                $q->where('status', 'posted');
+            })
+            ->get()
+            ->map(function($item) {
+                return [
+                    'date' => $item->journalEntry ? date('M d, Y', strtotime($item->journalEntry->date)) : 'N/A',
+                    'ref_no' => $item->journalEntry ? ($item->journalEntry->reference ?: $item->journalEntry->entry_no) : '—',
+                    'memo' => $item->memo ?: ($item->journalEntry ? $item->journalEntry->description : 'Journal Entry'),
+                    'debit' => (float)$item->debit,
+                    'credit' => (float)$item->credit,
+                ];
+            });
+
+        // 2. Client Payment Postings (Only pending items to avoid double-counting posted GL items)
+        $paymentPostings = \App\Models\ClientPaymentPostingItem::with(['posting', 'customer'])
+            ->where('chart_of_account_id', $id)
+            ->whereHas('posting', function($q) {
+                $q->where('status', 'pending');
+            })
+            ->get()
+            ->map(function($item) {
+                return [
+                    'date' => $item->posting ? date('M d, Y', strtotime($item->posting->date)) : ($item->payment_date ? date('M d, Y', strtotime($item->payment_date)) : 'N/A'),
+                    'ref_no' => $item->receipt_no ?: ($item->invoice_no ?: ($item->reference_no ?: 'PP-' . str_pad($item->posting_id, 5, '0', STR_PAD_LEFT))),
+                    'memo' => '[Pending] ' . ($item->customer ? $item->customer->customer_name : 'Client Payment') . ' (' . ucfirst($item->payment_method ?? 'Payment') . ')',
+                    'debit' => (float)$item->amount,
+                    'credit' => 0.00,
+                ];
+            });
+
+        $operationalItems = collect();
+
+        // 3. Operational Sources matching specific Account Codes or Categories
+        if (in_array($account->code, ['1010', '1040']) || stripos($account->name, 'cash on hand') !== false) {
+            // Sales Invoices / POS Transactions
+            $salesInvoices = \App\Models\SalesOrder::with('customer')
+                ->where('status', '!=', 'cancelled')
+                ->where(function($q) {
+                    $q->where('payment_status', 'paid')
+                      ->orWhereNotNull('proof_of_payment')
+                      ->orWhere('type', 'calculator_pos');
+                })
+                ->latest()
+                ->take(50)
+                ->get()
+                ->map(function($so) {
+                    return [
+                        'date' => $so->created_at ? $so->created_at->format('M d, Y') : 'N/A',
+                        'ref_no' => $so->so_number,
+                        'memo' => 'Sales Invoice - ' . ($so->customer->customer_name ?? 'Walk-in / POS'),
+                        'debit' => (float)$so->total_amount,
+                        'credit' => 0.00,
+                    ];
+                });
+            $operationalItems = $operationalItems->concat($salesInvoices);
+        }
+
+        if ($account->code === '1015' || stripos($account->name, 'petty cash') !== false) {
+            // Petty Cash Vouchers
+            $pcvs = \App\Models\PettyCashVoucher::withSum('items', 'amount')->latest()->take(50)->get()->map(function($pcv) {
+                return [
+                    'date' => $pcv->date ? date('M d, Y', strtotime($pcv->date)) : 'N/A',
+                    'ref_no' => $pcv->pcv_number,
+                    'memo' => 'Petty Cash Voucher - Payee: ' . ($pcv->pay_to ?? 'N/A'),
+                    'debit' => (float)$pcv->items_sum_amount,
+                    'credit' => 0.00,
+                ];
+            });
+            $operationalItems = $operationalItems->concat($pcvs);
+        }
+
+        if (stripos($account->name, 'supplies') !== false) {
+            // Office Supplies Valuation
+            $supplies = \App\Models\OfficeSupply::latest()->take(50)->get()->map(function($sup) {
+                return [
+                    'date' => $sup->created_at ? $sup->created_at->format('M d, Y') : 'N/A',
+                    'ref_no' => 'SUPPLY-' . $sup->id,
+                    'memo' => 'Office Supply Item: ' . $sup->item_name . ' (' . $sup->items_stock . ' pcs)',
+                    'debit' => (float)($sup->item_price * $sup->items_stock),
+                    'credit' => 0.00,
+                ];
+            });
+            $operationalItems = $operationalItems->concat($supplies);
+        }
+
+        if (in_array($account->code, ['1600', '5510']) || stripos($account->name, 'fixed asset') !== false) {
+            // Fixed Assets
+            $assets = \App\Models\ProductionFixedAsset::latest()->take(50)->get()->map(function($ast) {
+                return [
+                    'date' => $ast->purchase_date ? $ast->purchase_date->format('M d, Y') : 'N/A',
+                    'ref_no' => $ast->asset_code,
+                    'memo' => 'Fixed Asset: ' . $ast->name . ' (' . ($ast->category ?? 'Asset') . ')',
+                    'debit' => (float)$ast->purchase_price,
+                    'credit' => 0.00,
+                ];
+            });
+            $operationalItems = $operationalItems->concat($assets);
+        }
+
+        $allTransactions = $items->concat($paymentPostings)->concat($operationalItems)->sortByDesc('date')->values();
+
+        $totalDebit = (float)$allTransactions->sum('debit');
+        $totalCredit = (float)$allTransactions->sum('credit');
+        $isAssetOrExpense = in_array($account->type, ['Asset', 'Expense']);
+        $computedBalance = $isAssetOrExpense ? ($totalDebit - $totalCredit) : ($totalCredit - $totalDebit);
+
+        return response()->json([
+            'success' => true,
+            'account' => [
+                'id' => $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'type' => $account->type,
+                'category' => $account->category,
+                'balance' => (float)$computedBalance,
+            ],
+            'transactions' => $allTransactions
+        ]);
     }
 
     public function salesManagement(Request $request)
@@ -3887,8 +4560,31 @@ public function checkVoucher()
             return !is_null($ord->ar_prepared_at);
         });
 
+        // 5. MIBF POS Data
+        $mibfQuery = \App\Models\SalesOrder::where('status', 'completed')
+            ->where(function($q) {
+                $q->where('ecom_platform', 'MIBF')
+                  ->orWhere('platform', 'MIBF');
+            });
+
+        $mibfDailySales = (clone $mibfQuery)->whereDate('created_at', today())->sum('total_amount') ?: 0.00;
+        $mibfCashSales = (clone $mibfQuery)->where('payment_method', 'cash')->sum('total_amount') ?: 0.00;
+        $mibfGcashSales = (clone $mibfQuery)->whereIn('payment_method', ['gcash', 'GCash'])->sum('total_amount') ?: 0.00;
+        $mibfMayaSales = (clone $mibfQuery)->whereIn('payment_method', ['maya', 'paymaya', 'PayMaya'])->sum('total_amount') ?: 0.00;
+        $mibfCardSales = (clone $mibfQuery)->whereIn('payment_method', ['card', 'credit_card'])->sum('total_amount') ?: 0.00;
+        $mibfCheckSales = (clone $mibfQuery)->where('payment_method', 'check')->sum('total_amount') ?: 0.00;
+        $mibfBankSales = (clone $mibfQuery)->whereIn('payment_method', ['bank', 'bank_transfer'])->sum('total_amount') ?: 0.00;
+
+        $mibfDailyOrders = (clone $mibfQuery)->whereDate('created_at', today())->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfCashOrders = (clone $mibfQuery)->where('payment_method', 'cash')->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfGcashOrders = (clone $mibfQuery)->whereIn('payment_method', ['gcash', 'GCash'])->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfMayaOrders = (clone $mibfQuery)->whereIn('payment_method', ['maya', 'paymaya', 'PayMaya'])->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfCardOrders = (clone $mibfQuery)->whereIn('payment_method', ['card', 'credit_card'])->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfCheckOrders = (clone $mibfQuery)->where('payment_method', 'check')->with(['customer', 'preparedBy'])->latest()->get();
+        $mibfBankOrders = (clone $mibfQuery)->whereIn('payment_method', ['bank', 'bank_transfer'])->with(['customer', 'preparedBy'])->latest()->get();
+
         return view('admin-finance.accounting.sales-management', [
-            'title' => 'Sales Management - ' . ucfirst($tab),
+            'title' => 'Sales Management - ' . ($tab === 'mibf' ? 'MIBF POS' : ucfirst($tab)),
             'role' => $user ? $user->position : 'Staff',
             'sidebar' => 'admin-finance',
             'tab' => $tab,
@@ -3932,6 +4628,24 @@ public function checkVoucher()
             'complimentaryTotalValuation' => $complimentaryTotalValuation,
             'pendingComplimentaryOrders' => $pendingComplimentaryOrders,
             'issuedComplimentaryOrders' => $issuedComplimentaryOrders,
+
+            // MIBF POS metrics
+            'mibfDailySales' => $mibfDailySales,
+            'mibfCashSales' => $mibfCashSales,
+            'mibfGcashSales' => $mibfGcashSales,
+            'mibfMayaSales' => $mibfMayaSales,
+            'mibfCardSales' => $mibfCardSales,
+            'mibfCheckSales' => $mibfCheckSales,
+            'mibfBankSales' => $mibfBankSales,
+
+            // MIBF POS lists
+            'mibfDailyOrders' => $mibfDailyOrders,
+            'mibfCashOrders' => $mibfCashOrders,
+            'mibfGcashOrders' => $mibfGcashOrders,
+            'mibfMayaOrders' => $mibfMayaOrders,
+            'mibfCardOrders' => $mibfCardOrders,
+            'mibfCheckOrders' => $mibfCheckOrders,
+            'mibfBankOrders' => $mibfBankOrders,
         ]);
     }
 
@@ -5270,9 +5984,9 @@ public function checkVoucher()
             'Balance Sheet',
             'Income Statement',
             'Cash Flow',
-            // 'Trial Balance',
+            'Trial Balance',
             'General Ledger',
-            // 'Subsidiary Ledgers',
+            'Subsidiary Ledgers',
             'Sales Reports',
             'Expense Reports',
             // 'Department Reports',
@@ -5322,26 +6036,122 @@ public function checkVoucher()
         $totalExpenseSum = 0.00;
 
         if ($selectedReport === 'Balance Sheet') {
+            $getDynamicAccountLabel = function($code, $fallbackName) {
+                $acc = \App\Models\ChartOfAccount::where('code', $code)
+                    ->orWhere('name', 'like', '%' . explode(' ', $fallbackName)[0] . '%')
+                    ->first();
+                if ($acc) {
+                    return $acc->code . ' - ' . $acc->name;
+                }
+                return $code . ' - ' . $fallbackName;
+            };
+
+            // Dynamically load Account Groups for Asset
+            $assetGroups = \App\Models\AccountGroup::where('type', 'Asset')->with(['accounts' => function($q) {
+                $q->where('is_active', true);
+            }])->get();
+
+            $currentAssetsList = [];
+            foreach ($assetGroups as $grp) {
+                if ($grp->accounts->count() > 0) {
+                    $grpTotal = 0;
+                    $subAccs = [];
+                    foreach ($grp->accounts as $acc) {
+                        $bal = $this->calculateAccountLiveBalance($acc, 'Asset');
+                        $grpTotal += $bal;
+                        $subAccs[] = [
+                            'code' => $acc->code,
+                            'name' => $acc->name,
+                            'amount' => $bal,
+                        ];
+                    }
+                    $currentAssetsList[] = [
+                        'is_group' => true,
+                        'group_name' => $grp->name,
+                        'amount' => $grpTotal,
+                        'accounts' => $subAccs,
+                    ];
+                }
+            }
+
+            if (empty($currentAssetsList)) {
+                $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1010', 'Cash & Bank Balances'), 'amount' => $totalCash];
+            }
+            $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1200', 'Accounts Receivable'), 'amount' => $liveAr];
+            $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1300', 'Production Master Inventory'), 'amount' => $liveBookInventory];
+            $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1040', 'Short-term Time Deposits'), 'amount' => \App\Models\Investment::where('type', 'Time Deposits')->sum('current_value')];
+
+            // Liabilities Groups & Standalone
+            $liabGroups = \App\Models\AccountGroup::where('type', 'Liability')->with(['accounts' => function($q) {
+                $q->where('is_active', true);
+            }])->get();
+
+            $liabilitiesList = [];
+            foreach ($liabGroups as $grp) {
+                if ($grp->accounts->count() > 0) {
+                    $grpTotal = 0;
+                    $subAccs = [];
+                    foreach ($grp->accounts as $acc) {
+                        $bal = $this->calculateAccountLiveBalance($acc, 'Liability');
+                        $grpTotal += $bal;
+                        $subAccs[] = [
+                            'code' => $acc->code,
+                            'name' => $acc->name,
+                            'amount' => $bal,
+                        ];
+                    }
+                    $liabilitiesList[] = [
+                        'is_group' => true,
+                        'group_name' => $grp->name,
+                        'amount' => $grpTotal,
+                        'accounts' => $subAccs,
+                    ];
+                }
+            }
+
+            $liabilitiesList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('2000', 'Accounts Payable (Suppliers)'), 'amount' => $liveAp];
+            $liabilitiesList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('2020', 'Accrued Operating Expenses'), 'amount' => $liveExpenses];
+            $liabilitiesList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('2100', 'Withholding Tax Payable'), 'amount' => $liveWht];
+
+            // Equity Groups & Standalone
+            $equityGroups = \App\Models\AccountGroup::where('type', 'Equity')->with(['accounts' => function($q) {
+                $q->where('is_active', true);
+            }])->get();
+
+            $equityList = [];
+            foreach ($equityGroups as $grp) {
+                if ($grp->accounts->count() > 0) {
+                    $grpTotal = 0;
+                    $subAccs = [];
+                    foreach ($grp->accounts as $acc) {
+                        $bal = $this->calculateAccountLiveBalance($acc, 'Equity');
+                        $grpTotal += $bal;
+                        $subAccs[] = [
+                            'code' => $acc->code,
+                            'name' => $acc->name,
+                            'amount' => $bal,
+                        ];
+                    }
+                    $equityList[] = [
+                        'is_group' => true,
+                        'group_name' => $grp->name,
+                        'amount' => $grpTotal,
+                        'accounts' => $subAccs,
+                    ];
+                }
+            }
+
             $liabilitiesTotal = $liveAp + $liveExpenses + $liveWht;
+            $equityList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('3000', 'Capital & Retained Earnings'), 'amount' => max(0, $totalAssets - $liabilitiesTotal)];
+
             $reportData = [
-                'current_assets' => [
-                    ['account' => '1010 - Cash & Bank Balances', 'amount' => $totalCash],
-                    ['account' => '1020 - Accounts Receivable', 'amount' => $liveAr],
-                    ['account' => '1030 - Production Master Inventory', 'amount' => $liveBookInventory],
-                    ['account' => '1040 - Short-term Time Deposits', 'amount' => \App\Models\Investment::where('type', 'Time Deposits')->sum('current_value')],
-                ],
+                'current_assets' => $currentAssetsList,
                 'non_current_assets' => [
-                    ['account' => '1510 - Production Fixed Machinery', 'amount' => $liveFixedAssets],
-                    ['account' => '1520 - Long-term Investments & Bonds', 'amount' => \App\Models\Investment::whereIn('type', ['Bonds', 'Stocks', 'Mutual Funds'])->sum('current_value')],
+                    ['is_group' => false, 'account' => $getDynamicAccountLabel('1600', 'Production Fixed Machinery'), 'amount' => $liveFixedAssets],
+                    ['is_group' => false, 'account' => $getDynamicAccountLabel('1700', 'Long-term Investments & Bonds'), 'amount' => \App\Models\Investment::whereIn('type', ['Bonds', 'Stocks', 'Mutual Funds'])->sum('current_value')],
                 ],
-                'liabilities' => [
-                    ['account' => '2010 - Accounts Payable (Suppliers)', 'amount' => $liveAp],
-                    ['account' => '2020 - Accrued Operating Expenses', 'amount' => $liveExpenses],
-                    ['account' => '2030 - Withholding Tax Payable', 'amount' => $liveWht],
-                ],
-                'equity' => [
-                    ['account' => '3010 - Capital & Retained Earnings', 'amount' => max(0, $totalAssets - $liabilitiesTotal)],
-                ],
+                'liabilities' => $liabilitiesList,
+                'equity' => $equityList,
             ];
         } elseif ($selectedReport === 'Income Statement') {
             $salesFilter = function($q) {
@@ -5362,51 +6172,76 @@ public function checkVoucher()
             $ecomRev = (float) (clone $query)->where('sales_orders.type', 'ecom_direct')->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
             $otherRev = (float) (clone $query)->whereNotIn('sales_orders.type', ['calculator_pos', 'area_consignment', 'area_sales_consignment', 'ecom_direct'])->sum(\DB::raw('COALESCE(sales_invoices.total_amount, sales_orders.total_amount)')) ?: 0.00;
 
+            // Dynamic Operating Expenses resolution via ChartOfAccount & Expenses table
+            $expenseAccounts = \App\Models\ChartOfAccount::where('type', 'Expense')
+                ->where('is_active', 1)
+                ->orderBy('code')
+                ->get();
+
             $realExpenses = \Illuminate\Support\Facades\Schema::hasTable('expenses')
                 ? \App\Models\Expense::whereBetween('expense_date', [$startDate, $endDate])->get()
                 : collect();
 
-            $salaries = 0;
-            $utilities = 0;
-            $depreciation = 0;
-            $marketing = 0;
-            $otherOpex = 0;
+            $operatingExpenses = [];
+            $mappedExpenseTotal = 0.00;
 
-            foreach ($realExpenses as $exp) {
-                $titleLower = strtolower($exp->title);
-                if (str_contains($titleLower, 'salary') || str_contains($titleLower, 'wage') || str_contains($titleLower, 'personnel') || str_contains($titleLower, 'payroll')) {
-                    $salaries += (float) $exp->amount;
-                } elseif (str_contains($titleLower, 'electric') || str_contains($titleLower, 'utility') || str_contains($titleLower, 'water') || str_contains($titleLower, 'internet') || str_contains($titleLower, 'power')) {
-                    $utilities += (float) $exp->amount;
-                } elseif (str_contains($titleLower, 'depreciation') || str_contains($titleLower, 'amortization')) {
-                    $depreciation += (float) $exp->amount;
-                } elseif (str_contains($titleLower, 'ad') || str_contains($titleLower, 'promo') || str_contains($titleLower, 'marketing') || str_contains($titleLower, 'campaign')) {
-                    $marketing += (float) $exp->amount;
-                } else {
-                    $otherOpex += (float) $exp->amount;
+            foreach ($expenseAccounts as $expAcc) {
+                $jeAmount = (float) \App\Models\JournalEntryItem::where('chart_of_account_id', $expAcc->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('debit') ?: 0.00;
+
+                $liveAmount = 0.00;
+                $nameLower = strtolower($expAcc->name);
+                foreach ($realExpenses as $exp) {
+                    $titleLower = strtolower($exp->title);
+                    if (str_contains($titleLower, $nameLower) || str_contains($nameLower, $titleLower)) {
+                        $liveAmount += (float) $exp->amount;
+                    }
+                }
+
+                $totalExpAmount = max($jeAmount, $liveAmount);
+                if ($totalExpAmount > 0) {
+                    $operatingExpenses[] = [
+                        'is_group' => false,
+                        'category' => $expAcc->code . ' - ' . $expAcc->name,
+                        'amount' => $totalExpAmount
+                    ];
+                    $mappedExpenseTotal += $totalExpAmount;
                 }
             }
 
-            $operatingExpenses = [
-                ['category' => 'Salaries & Personnel Expenses', 'amount' => $salaries],
-                ['category' => 'Electricity & Utility Bills', 'amount' => $utilities],
-                ['category' => 'Depreciation & Amortization', 'amount' => $depreciation],
-                ['category' => 'Advertising & Promotions', 'amount' => $marketing],
-            ];
-            if ($otherOpex > 0) {
-                $operatingExpenses[] = ['category' => 'Other Operating Expenses', 'amount' => $otherOpex];
+            $totalRealExpensesSum = (float) $realExpenses->sum('amount');
+            if ($totalRealExpensesSum > $mappedExpenseTotal) {
+                $unmappedAmount = $totalRealExpensesSum - $mappedExpenseTotal;
+                $operatingExpenses[] = [
+                    'is_group' => false,
+                    'category' => '5999 - Other General & Administrative Expenses',
+                    'amount' => $unmappedAmount
+                ];
             }
+
+            if (empty($operatingExpenses)) {
+                $operatingExpenses[] = ['is_group' => false, 'category' => '5100 - Operating Expenses', 'amount' => $totalRealExpensesSum];
+            }
+
+            $getRevLabel = function($code, $fallbackName) {
+                $acc = \App\Models\ChartOfAccount::where('code', $code)
+                    ->orWhere('name', 'like', '%' . explode(' ', $fallbackName)[0] . '%')
+                    ->first();
+                return $acc ? ($acc->code . ' - ' . $acc->name) : ($code . ' - ' . $fallbackName);
+            };
 
             $reportData = [
                 'revenue' => [
-                    ['category' => 'Bookstore Sales Revenue (POS)', 'amount' => $bookstoreRev],
-                    ['category' => 'Area Sales Revenue (Consignment)', 'amount' => $areaRev],
-                    ['category' => 'E-Commerce Website Sales', 'amount' => $ecomRev],
-                    ['category' => 'Wholesale & Institution Direct Sales', 'amount' => $otherRev],
+                    ['category' => $getRevLabel('4000', 'Bookstore Sales Revenue (POS)'), 'amount' => $bookstoreRev],
+                    ['category' => $getRevLabel('4010', 'Area Sales Revenue (Consignment)'), 'amount' => $areaRev],
+                    ['category' => $getRevLabel('4020', 'E-Commerce Website Sales'), 'amount' => $ecomRev],
+                    ['category' => $getRevLabel('4030', 'Wholesale & Institution Direct Sales'), 'amount' => $otherRev],
                 ],
                 'cogs' => [
-                    ['category' => 'Direct Production COGS (Paper, Ink, Labor)', 'amount' => 0.00],
-                    ['category' => 'Outside Printing & Freight', 'amount' => 0.00],
+                    ['category' => $getRevLabel('5000', 'Direct Cost of Sales & Production'), 'amount' => 0.00],
                 ],
                 'operating_expenses' => $operatingExpenses,
             ];
@@ -5437,16 +6272,28 @@ public function checkVoucher()
             $beginningCash = max(0, $totalCash - $netChange);
             $endingCash = $beginningCash + $netChange;
 
+            $getCashFlowLabel = function($code, $keyword, $fallbackName) {
+                $acc = \App\Models\ChartOfAccount::where('code', $code)
+                    ->orWhere('name', 'like', "%{$keyword}%")
+                    ->first();
+                return $acc ? ($acc->code . ' - ' . $acc->name) : $fallbackName;
+            };
+
+            $opReceiptLabel = $getCashFlowLabel('1200', 'Receivable', 'Cash Receipts from Customers (Sales & AR)');
+            $opExpenseLabel = $getCashFlowLabel('5100', 'Expense', 'Cash Paid for Operating Expenses');
+            $invAssetLabel = $getCashFlowLabel('1600', 'Fixed Asset', 'Purchase of Fixed Assets & Machinery');
+            $finCapLabel = $getCashFlowLabel('3000', 'Capital', 'Capital & Loan Financing Transactions');
+
             $reportData = [
                 'operating' => [
-                    ['category' => 'Cash Receipts from Customers', 'amount' => $cashReceipts],
-                    ['category' => 'Cash Paid for Operating Expenses', 'amount' => -$cashPaidExpenses],
+                    ['category' => $opReceiptLabel, 'amount' => $cashReceipts],
+                    ['category' => $opExpenseLabel, 'amount' => -$cashPaidExpenses],
                 ],
                 'investing' => [
-                    ['category' => 'Purchase of Fixed Assets & Equipment', 'amount' => -$fixedAssetPurchases],
+                    ['category' => $invAssetLabel, 'amount' => -$fixedAssetPurchases],
                 ],
                 'financing' => [
-                    ['category' => 'Repayment of Loans / Capital Transactions', 'amount' => 0.00],
+                    ['category' => $finCapLabel, 'amount' => 0.00],
                 ],
                 'summary' => [
                     'net_change' => $netChange,
@@ -5630,6 +6477,269 @@ public function checkVoucher()
                 ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
             );
             $reportData->withQueryString();
+        } elseif ($selectedReport === 'Trial Balance') {
+            $accountQuery = \App\Models\ChartOfAccount::where('is_active', 1);
+            if (\Illuminate\Support\Facades\Schema::hasColumn('chart_of_accounts', 'is_postable')) {
+                $accountQuery->where('is_postable', 1);
+            }
+            $accounts = $accountQuery
+                ->orderByRaw("
+                    CASE type
+                        WHEN 'Asset' THEN 1
+                        WHEN 'Liability' THEN 2
+                        WHEN 'Equity' THEN 3
+                        WHEN 'Income' THEN 4
+                        WHEN 'Expense' THEN 5
+                        ELSE 6
+                    END,
+                    display_order,
+                    code
+                ")
+                ->get();
+
+            $trialBalanceData = [];
+            $totalDebitsSum = 0.00;
+            $totalCreditsSum = 0.00;
+
+            foreach ($accounts as $acc) {
+                $journalDebits = (float) \App\Models\JournalEntryItem::where('chart_of_account_id', $acc->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('debit') ?: 0.00;
+
+                $journalCredits = (float) \App\Models\JournalEntryItem::where('chart_of_account_id', $acc->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('credit') ?: 0.00;
+
+                $liveAdd = 0.00;
+                if (in_array($acc->code, ['1000', '1010']) || str_contains(strtolower($acc->name), 'cash')) {
+                    $liveAdd = $totalCash;
+                } elseif ($acc->code === '1020' || str_contains(strtolower($acc->name), 'receivable')) {
+                    $liveAdd = $liveAr;
+                } elseif ($acc->code === '1030' || str_contains(strtolower($acc->name), 'inventory')) {
+                    $liveAdd = $liveBookInventory;
+                } elseif ($acc->code === '2010' || str_contains(strtolower($acc->name), 'accounts payable')) {
+                    $liveAdd = $liveAp;
+                } elseif ($acc->code === '2020' || str_contains(strtolower($acc->name), 'operating expenses')) {
+                    $liveAdd = $liveExpenses;
+                }
+
+                $rawDebit = $journalDebits;
+                $rawCredit = $journalCredits;
+
+                if ($liveAdd > 0 && $rawDebit == 0 && $rawCredit == 0) {
+                    if (in_array($acc->type, ['Asset', 'Expense'])) {
+                        $rawDebit = $liveAdd;
+                    } else {
+                        $rawCredit = $liveAdd;
+                    }
+                }
+
+                $netAmount = $rawDebit - $rawCredit;
+                $debitBalance = 0.00;
+                $creditBalance = 0.00;
+
+                if (in_array($acc->type, ['Asset', 'Expense'])) {
+                    if ($netAmount >= 0) {
+                        $debitBalance = $netAmount;
+                    } else {
+                        $creditBalance = abs($netAmount);
+                    }
+                } else {
+                    if ($netAmount <= 0) {
+                        $creditBalance = abs($netAmount);
+                    } else {
+                        $debitBalance = $netAmount;
+                    }
+                }
+
+                $trialBalanceData[] = [
+                    'code' => $acc->code,
+                    'name' => $acc->name,
+                    'type' => $acc->type,
+                    'category' => $acc->category,
+                    'debit' => $debitBalance,
+                    'credit' => $creditBalance,
+                ];
+                $totalDebitsSum += $debitBalance;
+                $totalCreditsSum += $creditBalance;
+            }
+
+            $trialBalanceCollection = collect($trialBalanceData);
+            $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+            $perPage = 15;
+            $currentPageItems = $trialBalanceCollection->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
+            $paginatedAccounts = new \Illuminate\Pagination\LengthAwarePaginator(
+                $currentPageItems,
+                $trialBalanceCollection->count(),
+                $perPage,
+                $currentPage,
+                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+            );
+            $paginatedAccounts->withQueryString();
+
+            $reportData = [
+                'accounts' => $paginatedAccounts,
+                'total_debits' => $totalDebitsSum,
+                'total_credits' => $totalCreditsSum,
+                'is_balanced' => abs($totalDebitsSum - $totalCreditsSum) < 0.01,
+            ];
+        } elseif ($selectedReport === 'General Ledger') {
+            // Fetch active, postable Asset, Liability, and Equity accounts
+            $glAccounts = \App\Models\ChartOfAccount::where('is_active', 1)
+                ->where('is_postable', 1)
+                ->whereIn('type', ['Asset', 'Liability', 'Equity'])
+                ->orderByRaw("
+                    CASE type
+                        WHEN 'Asset' THEN 1
+                        WHEN 'Liability' THEN 2
+                        WHEN 'Equity' THEN 3
+                        ELSE 4
+                    END,
+                    display_order,
+                    code
+                ")
+                ->get();
+
+            $glAccountId = $request->query('account_id');
+            if (!$glAccountId && $glAccounts->isNotEmpty()) {
+                $glAccountId = $glAccounts->first()->id;
+            }
+
+            $selectedGlAccount = $glAccountId ? \App\Models\ChartOfAccount::find($glAccountId) : null;
+
+            $totalDebits = 0.00;
+            $totalCredits = 0.00;
+
+            if ($selectedGlAccount) {
+                $totalDebits = (float) \App\Models\JournalEntryItem::where('chart_of_account_id', $selectedGlAccount->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })
+                    ->sum('debit') ?: 0.00;
+
+                $totalCredits = (float) \App\Models\JournalEntryItem::where('chart_of_account_id', $selectedGlAccount->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })
+                    ->sum('credit') ?: 0.00;
+
+                $paginatedQuery = \App\Models\JournalEntryItem::where('chart_of_account_id', $selectedGlAccount->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })
+                    ->join('journal_entries', 'journal_entry_items.journal_entry_id', '=', 'journal_entries.id')
+                    ->orderBy('journal_entries.date', 'desc')
+                    ->orderBy('journal_entries.id', 'desc')
+                    ->orderBy('journal_entry_items.id', 'desc')
+                    ->select('journal_entry_items.*')
+                    ->with(['journalEntry']);
+
+                $items = $paginatedQuery->paginate(15)->withQueryString();
+            } else {
+                $items = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
+            }
+
+            $reportData = [
+                'accounts' => $glAccounts,
+                'selected_account' => $selectedGlAccount,
+                'items' => $items,
+                'total_debits' => $totalDebits,
+                'total_credits' => $totalCredits,
+            ];
+        } elseif ($selectedReport === 'Subsidiary Ledgers') {
+            // Fetch active accounts under Income and Expense categories
+            $subsidiaryAccounts = \App\Models\ChartOfAccount::where('is_active', 1)
+                ->whereIn('type', ['Income', 'Expense'])
+                ->orderByRaw("
+                    CASE type
+                        WHEN 'Income' THEN 1
+                        WHEN 'Expense' THEN 2
+                        ELSE 3
+                    END,
+                    display_order,
+                    code
+                ")
+                ->get();
+
+            $subAccountId = $request->query('account_id');
+            if (!$subAccountId && $subsidiaryAccounts->isNotEmpty()) {
+                $subAccountId = $subsidiaryAccounts->first()->id;
+            }
+
+            $selectedSubAccount = $subAccountId ? \App\Models\ChartOfAccount::find($subAccountId) : null;
+
+            $totalIncomeDebits = 0;
+            $totalIncomeCredits = 0;
+            $totalExpenseDebits = 0;
+            $totalExpenseCredits = 0;
+
+            // Calculate Period Aggregates for all Income accounts
+            $incomeAccountIds = $subsidiaryAccounts->where('type', 'Income')->pluck('id')->toArray();
+            if (!empty($incomeAccountIds)) {
+                $totalIncomeDebits = (float) \App\Models\JournalEntryItem::whereIn('chart_of_account_id', $incomeAccountIds)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('debit') ?: 0.00;
+
+                $totalIncomeCredits = (float) \App\Models\JournalEntryItem::whereIn('chart_of_account_id', $incomeAccountIds)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('credit') ?: 0.00;
+            }
+
+            // Calculate Period Aggregates for all Expense accounts
+            $expenseAccountIds = $subsidiaryAccounts->where('type', 'Expense')->pluck('id')->toArray();
+            if (!empty($expenseAccountIds)) {
+                $totalExpenseDebits = (float) \App\Models\JournalEntryItem::whereIn('chart_of_account_id', $expenseAccountIds)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('debit') ?: 0.00;
+
+                $totalExpenseCredits = (float) \App\Models\JournalEntryItem::whereIn('chart_of_account_id', $expenseAccountIds)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('credit') ?: 0.00;
+            }
+
+            if ($selectedSubAccount) {
+                $paginatedQuery = \App\Models\JournalEntryItem::where('chart_of_account_id', $selectedSubAccount->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })
+                    ->join('journal_entries', 'journal_entry_items.journal_entry_id', '=', 'journal_entries.id')
+                    ->orderBy('journal_entries.date', 'desc')
+                    ->orderBy('journal_entries.id', 'desc')
+                    ->orderBy('journal_entry_items.id', 'desc')
+                    ->select('journal_entry_items.*')
+                    ->with(['journalEntry']);
+
+                $items = $paginatedQuery->paginate(15)->withQueryString();
+            } else {
+                $items = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
+            }
+
+            $reportData = [
+                'accounts' => $subsidiaryAccounts,
+                'selected_account' => $selectedSubAccount,
+                'items' => $items,
+                'total_income_debits' => $totalIncomeDebits,
+                'total_income_credits' => $totalIncomeCredits,
+                'total_expense_debits' => $totalExpenseDebits,
+                'total_expense_credits' => $totalExpenseCredits,
+            ];
         }
 
         return view('admin-finance.accounting.financial-reports', [

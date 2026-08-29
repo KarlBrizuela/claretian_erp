@@ -1,4 +1,4 @@
-<x-app-layout :title="$title" :role="$role" :sidebar="'production'">
+<x-app-layout :title="$title" :role="$role" :sidebar="$sidebar ?? 'production'">
     @push('styles')
     <style>
         .generated-letter-card {
@@ -297,11 +297,11 @@
 
                     {{-- Action Buttons --}}
                     <div class="print-actions d-flex justify-content-between align-items-center gap-2 mt-4 pt-3 border-top">
-                        <a href="{{ route('production.ford.auto-debit') }}" class="btn btn-secondary rounded shadow-sm px-4">
+                        <a href="javascript:history.back()" class="btn btn-secondary rounded shadow-sm px-4">
                             <i class="las la-arrow-left me-1"></i>Back to List
                         </a>
                         <div class="d-flex gap-2">
-                            @if($debit->status === 'pending_director' && (auth()->user()->position === 'Director' || auth()->user()->isSuperAdmin()))
+                            @if($debit->status === 'pending_director' && (str_contains(strtolower(auth()->user()->position ?? ''), 'director') || auth()->user()->isSuperAdmin()))
                                 <form action="{{ route('production.ford.auto-debit.approve-director', $debit->id) }}" method="POST" class="d-inline">
                                     @csrf
                                     <button type="submit" class="btn btn-success text-white rounded shadow-sm px-4">
@@ -314,7 +314,7 @@
                                         <i class="las la-times me-1"></i>Reject
                                     </button>
                                 </form>
-                            @elseif($debit->status === 'pending_finance' && (str_contains(auth()->user()->position, 'Manager') || str_contains(auth()->user()->position, 'Supervisor') || auth()->user()->isSuperAdmin()))
+                            @elseif($debit->status === 'pending_finance' && (str_contains(auth()->user()->position ?? '', 'Manager') || str_contains(auth()->user()->position ?? '', 'Supervisor') || (auth()->user()->position ?? '') === 'A&F Manager' || auth()->user()->isSuperAdmin()))
                                 <form action="{{ route('production.ford.auto-debit.approve-finance', $debit->id) }}" method="POST" class="d-inline">
                                     @csrf
                                     <button type="submit" class="btn btn-success text-white rounded shadow-sm px-4">

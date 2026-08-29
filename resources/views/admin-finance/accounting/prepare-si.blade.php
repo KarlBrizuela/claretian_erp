@@ -7,10 +7,10 @@
 
         // If activeInvoice has no items, fall back to SO items
         if ($activeInvoice && $activeInvoice->items->count() > 0) {
-            $itemsToRender = $activeInvoice->items;
+            $itemsToRender = $activeInvoice->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0);
             $totalSalesAmount = (float) $activeInvoice->total_amount;
         } else {
-            $itemsToRender = $order->items;
+            $itemsToRender = $order->items ? $order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) : collect();
             $totalSalesAmount = (float) $order->total_amount;
             $activeInvoice = null; // reset so item fields resolve from SO items
         }
@@ -105,6 +105,10 @@
                         </div>
                         <div class="transaction-details">
                             <h5 class="fw-bold mb-3">Transaction Details</h5>
+                            <div class="mb-2">
+                                <label class="form-label fw-bold text-danger"><i class="las la-file-invoice me-1"></i> SI Number:</label>
+                                <input type="text" class="form-control fw-bold" name="si_number" value="{{ $order->si_number ?: ($activeInvoice->si_number ?? \App\Http\Controllers\POSController::getNextSiNumber($order->type === 'ecom_direct' ? 'mibf' : ($order->type === 'calculator_pos' ? 'pos' : 'sales_invoice'))) }}" placeholder="e.g. 00123" style="border: 2px solid #dc3545; background-color: #fff8f8; color: #dc3545; font-size: 1rem;">
+                            </div>
                             <div class="mb-2">
                                 <label class="form-label fw-bold">Date:</label>
                                 <input type="date" class="form-control" name="date" value="{{ date('Y-m-d') }}">

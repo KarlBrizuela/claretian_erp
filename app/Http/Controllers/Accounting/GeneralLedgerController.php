@@ -20,17 +20,16 @@ class GeneralLedgerController extends Controller
         $sidebar = 'admin-finance';
         $role = 'Finance Manager';
 
-        // 1. Fetch active, postable accounts sorted by type hierarchy, display_order, and code
+        // 1. Fetch active, postable accounts (Asset, Liability, Equity only) sorted by type hierarchy, display_order, and code
         $accounts = ChartOfAccount::where('is_active', 1)
             ->where('is_postable', 1)
+            ->whereIn('type', ['Asset', 'Liability', 'Equity'])
             ->orderByRaw("
                 CASE type
                     WHEN 'Asset' THEN 1
                     WHEN 'Liability' THEN 2
                     WHEN 'Equity' THEN 3
-                    WHEN 'Income' THEN 4
-                    WHEN 'Expense' THEN 5
-                    ELSE 6
+                    ELSE 4
                 END,
                 display_order,
                 code

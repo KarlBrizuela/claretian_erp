@@ -267,10 +267,39 @@
                 font-weight: 800 !important;
                 font-size: 10px !important;
             }
+            .signature-section {
+                display: table !important;
+                table-layout: fixed !important;
+                width: 100% !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                page-break-before: auto !important;
+                margin-top: 1.5rem !important;
+                padding-top: 0.5rem !important;
+                border-top: none !important;
+                clear: both !important;
+            }
+            .signature-box {
+                display: table-cell !important;
+                width: 33.33% !important;
+                vertical-align: top !important;
+                padding: 0 10px !important;
+                text-align: center !important;
+            }
+            .signature-box label {
+                text-align: left !important;
+                display: block !important;
+            }
             .signature-line-box {
                 border-top: 1.5px solid #000000 !important;
                 font-weight: 800 !important;
                 font-size: 10px !important;
+            }
+            .cancellation-date-print {
+                color: #000000 !important;
+                -webkit-text-fill-color: #000000 !important;
+                font-weight: 900 !important;
+                opacity: 1 !important;
             }
             .badge,
             span.badge,
@@ -326,10 +355,15 @@
             ?: ($bCompany?->company_name 
             ?: ($acctCompany?->parent?->company_name 
             ?: ($acctCompany?->company_name 
-            ?: ($order->customer?->company_name && $order->customer->company_name !== 'Intracode' ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+            ?: ($order->customer?->company_name && !in_array(strtolower($order->customer->company_name), ['intracode', 'individual']) ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
 
         $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
-        $displayItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
+        $rawDrItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
+        $displayItems = collect($rawDrItems)->filter(function($item) {
+            $qty = (float)($item->quantity ?? 0);
+            $pickQty = (float)($item->customer_selected_qty ?? 0);
+            return $qty > 0 || $pickQty > 0;
+        });
 
         $grossSubtotal = 0;
         $totalItemDiscounts = 0;
@@ -395,8 +429,8 @@
             </tr>
             @if($order->cancellation_date)
             <tr>
-                <td class="label-col" style="color: #dc3545;">Cancel Date:</td>
-                <td class="val-col" colspan="3" style="color: #dc3545; font-weight: bold;">{{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</td>
+                <td class="label-col cancellation-date-print">Cancel Date:</td>
+                <td class="val-col cancellation-date-print" colspan="3">{{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</td>
             </tr>
             @endif
             @if($order->remarks || $order->notes || ($deliveryReceipt->remarks ?? null))

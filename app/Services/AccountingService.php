@@ -11,6 +11,25 @@ use Illuminate\Support\Facades\DB;
 class AccountingService
 {
     /**
+     * Dynamically resolve or fallback-create a ChartOfAccount model
+     */
+    public function getAccountBySymbol(string $code, string $nameKeyword, string $defaultName, string $type = 'Asset', string $category = 'Current Asset'): ChartOfAccount
+    {
+        $account = ChartOfAccount::where('code', $code)
+            ->orWhere('name', 'like', "%{$nameKeyword}%")
+            ->first();
+
+        if (!$account) {
+            $account = ChartOfAccount::firstOrCreate(
+                ['code' => $code],
+                ['name' => $defaultName, 'type' => $type, 'category' => $category]
+            );
+        }
+
+        return $account;
+    }
+
+    /**
      * Post a journal entry for a Sales Order (POS or SI)
      * 
      * Target Flow:
@@ -33,60 +52,12 @@ class AccountingService
 
             $totalAmount = $activeInvoice ? $activeInvoice->total_amount : $order->total_amount;
 
-            // 1. Determine Accounts (With automatic fallback and creation if COA is missing)
-            $arAccount = ChartOfAccount::where('code', '1200')
-                ->orWhere('name', 'like', '%Accounts Receivable%')
-                ->orWhere('name', 'like', '%Trade%Receivable%')
-                ->first();
-            if (!$arAccount) {
-                $arAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '1200'],
-                    ['name' => 'Trade/Accounts Receivable', 'type' => 'Asset', 'category' => 'Current Asset']
-                );
-            }
-
-            $cashAccount = ChartOfAccount::where('code', '1000')
-                ->orWhere('name', 'like', '%Cash%Bank%')
-                ->first();
-            if (!$cashAccount) {
-                $cashAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '1000'],
-                    ['name' => 'Cash in Bank', 'type' => 'Asset', 'category' => 'Current Asset']
-                );
-            }
-
-            $cashHandAccount = ChartOfAccount::where('name', 'like', '%Cash%Hand%')
-                ->orWhere('name', 'like', '%Cash on Hand%')
-                ->first();
-            if (!$cashHandAccount) {
-                $cashHandAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '1010'],
-                    ['name' => 'Cash on Hand', 'type' => 'Asset', 'category' => 'Current Asset']
-                );
-            }
-
-            $ewalletAccount = ChartOfAccount::where('name', 'like', '%E-Wallet%')
-                ->orWhere('name', 'like', '%GCash%')
-                ->orWhere('name', 'like', '%Maya%')
-                ->first();
-            if (!$ewalletAccount) {
-                $ewalletAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '1020'],
-                    ['name' => 'Cash Equivalents - E-Wallet', 'type' => 'Asset', 'category' => 'Current Asset']
-                );
-            }
-
-            $salesAccount = ChartOfAccount::where('code', '4000')
-                ->orWhere('name', 'like', '%Sales%Books%')
-                ->orWhere('name', 'like', '%Sales%')
-                ->orWhere('name', 'like', '%Revenue%')
-                ->first();
-            if (!$salesAccount) {
-                $salesAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '4000'],
-                    ['name' => 'Sales - Books', 'type' => 'Income', 'category' => 'Revenue']
-                );
-            }
+            // 1. Determine Accounts dynamically via getAccountBySymbol helper
+            $arAccount       = $this->getAccountBySymbol('1200', 'Receivable', 'Trade/Accounts Receivable', 'Asset', 'Current Asset');
+            $cashAccount     = $this->getAccountBySymbol('1000', 'Cash in Bank', 'Cash in Bank', 'Asset', 'Current Asset');
+            $cashHandAccount = $this->getAccountBySymbol('1010', 'Cash on Hand', 'Cash on Hand', 'Asset', 'Current Asset');
+            $ewalletAccount  = $this->getAccountBySymbol('1020', 'E-Wallet', 'Cash Equivalents - E-Wallet', 'Asset', 'Current Asset');
+            $salesAccount    = $this->getAccountBySymbol('4000', 'Sales', 'Sales - Books', 'Income', 'Revenue');
 
             $inventoryAccount = ChartOfAccount::where('code', '1300')
                 ->orWhere('name', 'like', '%Inventory%')
@@ -833,58 +804,12 @@ class AccountingService
             $order = $return->salesOrder;
             if (!$order) return null;
 
-            // 1. Determine Accounts
-            $salesReturnAccount = ChartOfAccount::where('code', '4050')
-                ->orWhere('name', 'like', '%Sales Return%')
-                ->first();
-            if (!$salesReturnAccount) {
-                $salesReturnAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '4050'],
-                    ['name' => 'Sales Returns and Allowances', 'type' => 'Income', 'category' => 'Revenue']
-                );
-            }
-
-            $arAccount = ChartOfAccount::where('code', '1200')
-                ->orWhere('name', 'like', '%Accounts Receivable%')
-                ->orWhere('name', 'like', '%Trade%Receivable%')
-                ->first();
-            if (!$arAccount) {
-                $arAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '1200'],
-                    ['name' => 'Trade/Accounts Receivable', 'type' => 'Asset', 'category' => 'Current Asset']
-                );
-            }
-
-            $cashAccount = ChartOfAccount::where('code', '1000')
-                ->orWhere('name', 'like', '%Cash%Bank%')
-                ->first();
-            if (!$cashAccount) {
-                $cashAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '1000'],
-                    ['name' => 'Cash in Bank', 'type' => 'Asset', 'category' => 'Current Asset']
-                );
-            }
-
-            $cashHandAccount = ChartOfAccount::where('name', 'like', '%Cash%Hand%')
-                ->orWhere('name', 'like', '%Cash on Hand%')
-                ->first();
-            if (!$cashHandAccount) {
-                $cashHandAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '1010'],
-                    ['name' => 'Cash on Hand', 'type' => 'Asset', 'category' => 'Current Asset']
-                );
-            }
-
-            $ewalletAccount = ChartOfAccount::where('name', 'like', '%E-Wallet%')
-                ->orWhere('name', 'like', '%GCash%')
-                ->orWhere('name', 'like', '%Maya%')
-                ->first();
-            if (!$ewalletAccount) {
-                $ewalletAccount = ChartOfAccount::firstOrCreate(
-                    ['code' => '1020'],
-                    ['name' => 'Cash Equivalents - E-Wallet', 'type' => 'Asset', 'category' => 'Current Asset']
-                );
-            }
+            // 1. Determine Accounts dynamically via getAccountBySymbol helper
+            $salesReturnAccount = $this->getAccountBySymbol('4050', 'Sales Return', 'Sales Returns and Allowances', 'Income', 'Revenue');
+            $arAccount          = $this->getAccountBySymbol('1200', 'Receivable', 'Trade/Accounts Receivable', 'Asset', 'Current Asset');
+            $cashAccount        = $this->getAccountBySymbol('1000', 'Cash in Bank', 'Cash in Bank', 'Asset', 'Current Asset');
+            $cashHandAccount    = $this->getAccountBySymbol('1010', 'Cash on Hand', 'Cash on Hand', 'Asset', 'Current Asset');
+            $ewalletAccount     = $this->getAccountBySymbol('1020', 'E-Wallet', 'Cash Equivalents - E-Wallet', 'Asset', 'Current Asset');
 
             $paymentMethod = strtolower($order->payment_method ?? '');
             if (in_array($paymentMethod, ['gcash', 'maya', 'paymaya', 'e-wallet', 'ewallet'])) {

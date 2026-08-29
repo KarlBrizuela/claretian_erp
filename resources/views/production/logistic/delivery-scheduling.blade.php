@@ -590,7 +590,7 @@
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
-                                                                    @forelse($order->items as $index => $item)
+                                                                    @forelse($order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) as $index => $item)
                                                                     @php
                                                                         $itemName = $item->bookIndex?->display_name ?? ($item->book?->name ?? ($item->bundle?->name ?? ($item->product_name ?? 'N/A')));
                                                                         $barcode = $item->bookIndex?->barcode ?? ($item->book?->barcode ?? ($item->bundle?->barcode ?? '—'));
@@ -861,7 +861,7 @@
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
-                                                                    @forelse($order->items as $index => $item)
+                                                                    @forelse($order->items->filter(fn($i) => (float)($i->quantity ?? 0) > 0) as $index => $item)
                                                                     @php
                                                                         $itemName = $item->bookIndex?->display_name ?? ($item->book?->name ?? ($item->bundle?->name ?? ($item->product_name ?? 'N/A')));
                                                                         $barcode = $item->bookIndex?->barcode ?? ($item->book?->barcode ?? ($item->bundle?->barcode ?? '—'));
