@@ -306,12 +306,12 @@
                                 Financial Statements
                             </div>
                             @php
-                                $finStatements = ['Balance Sheet', 'Income Statement', 'Cash Flow', 'Trial Balance', 'General Ledger'];
+                                $finStatements = ['Balance Sheet', 'Income Statement', 'Cash Flow', 'Trial Balance', 'General Ledger', 'Subsidiary Ledgers'];
                             @endphp
                             @foreach($finStatements as $rpt)
                                 @if(in_array($rpt, $reportsList))
                                 <a href="{{ route('admin-finance.financial-reports.index', ['report' => $rpt, 'start_date' => $startDate, 'end_date' => $endDate]) }}" class="rpt-sidebar-item {{ $selectedReport == $rpt ? 'active' : '' }}">
-                                    <i class="las @if($rpt === 'Balance Sheet') la-balance-scale @elseif($rpt === 'Income Statement') la-file-invoice-dollar @elseif($rpt === 'Cash Flow') la-exchange-alt @elseif($rpt === 'Trial Balance') la-calculator @else la-book @endif me-2"></i> {{ $rpt }}
+                                    <i class="las @if($rpt === 'Balance Sheet') la-balance-scale @elseif($rpt === 'Income Statement') la-file-invoice-dollar @elseif($rpt === 'Cash Flow') la-exchange-alt @elseif($rpt === 'Trial Balance') la-calculator @elseif($rpt === 'Subsidiary Ledgers') la-book-open @else la-book @endif me-2"></i> {{ $rpt }}
                                 </a>
                                 @endif
                             @endforeach
@@ -1094,6 +1094,256 @@
                         @if(isset($reportData['accounts']) && $reportData['accounts'] instanceof \Illuminate\Pagination\LengthAwarePaginator)
                         <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
                             {{ $reportData['accounts']->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
+                        @endif
+
+                        @elseif($selectedReport === 'General Ledger')
+                        <!-- GENERAL LEDGER STATEMENT (ASSET, LIABILITY & EQUITY ACCOUNTS) -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(16, 185, 129, 0.08); color: #10b981; flex-shrink: 0;">
+                                            <i class="las la-arrow-down fs-22"></i>
+                                        </div>
+                                        <div>
+                                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.68rem; color: #475569 !important;">Total Debits (Period)</span>
+                                            <h4 class="fw-bold mt-1 mb-0 text-success" style="letter-spacing: -0.5px; font-size: 1.15rem;">₱{{ number_format($reportData['total_debits'], 2) }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(217, 37, 28, 0.08); color: #D9251C; flex-shrink: 0;">
+                                            <i class="las la-arrow-up fs-22"></i>
+                                        </div>
+                                        <div>
+                                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.68rem; color: #475569 !important;">Total Credits (Period)</span>
+                                            <h4 class="fw-bold mt-1 mb-0 text-danger" style="letter-spacing: -0.5px; font-size: 1.15rem;">₱{{ number_format($reportData['total_credits'], 2) }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                                        @php
+                                            $netGlActivity = $reportData['total_debits'] - $reportData['total_credits'];
+                                            $isGlNetDebit = $netGlActivity >= 0;
+                                        @endphp
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(59, 130, 246, 0.08); color: #3b82f6; flex-shrink: 0;">
+                                            <i class="las la-balance-scale fs-22"></i>
+                                        </div>
+                                        <div>
+                                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.68rem; color: #475569 !important;">Net Period Activity</span>
+                                            <h4 class="fw-bold mt-1 mb-0 {{ $isGlNetDebit ? 'text-primary' : 'text-warning' }}" style="letter-spacing: -0.5px; font-size: 1.15rem;">
+                                                ₱{{ number_format(abs($netGlActivity), 2) }} {{ $isGlNetDebit ? '(DR)' : '(CR)' }}
+                                            </h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- General Ledger Account Selector Filter Bar -->
+                        <div class="p-3 mb-4 rounded border" style="background-color: #f8fafc; border-color: #e2e8f0 !important;">
+                            <form action="{{ route('admin-finance.financial-reports.index') }}" method="GET" class="row g-3 align-items-end">
+                                <input type="hidden" name="report" value="General Ledger">
+                                <input type="hidden" name="start_date" value="{{ $startDate }}">
+                                <input type="hidden" name="end_date" value="{{ $endDate }}">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold text-uppercase small mb-1" style="font-size: 0.7rem; color: #475569; letter-spacing: 0.5px;">Select General Ledger Account (Asset, Liability & Equity)</label>
+                                    <select name="account_id" class="form-select form-control-custom" onchange="this.form.submit()" style="height: 38px !important; border-color: #cbd5e1 !important; color: #000000 !important; font-size: 0.85rem !important;">
+                                        @foreach($reportData['accounts']->groupBy('type') as $type => $group)
+                                            <optgroup label="{{ strtoupper($type) }} ACCOUNTS">
+                                                @foreach($group as $acc)
+                                                    <option value="{{ $acc->id }}" {{ (request('account_id') == $acc->id || ($reportData['selected_account'] && $reportData['selected_account']->id == $acc->id)) ? 'selected' : '' }}>
+                                                        {{ $acc->code }} - {{ $acc->name }} ({{ $acc->type }})
+                                                    </option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-4 d-flex gap-2">
+                                    <button type="submit" class="btn text-white fw-bold w-100 d-inline-flex align-items-center justify-content-center" style="background-color: #D9251C; border-color: #D9251C; height: 38px; border-radius: 6px; font-size: 0.85rem;">
+                                        <i class="las la-filter me-1"></i> Filter Ledger
+                                    </button>
+                                    <button type="button" onclick="window.print()" class="btn btn-outline-secondary bg-white btn-print d-inline-flex align-items-center justify-content-center flex-shrink-0" title="Print General Ledger" style="height: 38px; width: 44px; border-color: #cbd5e1 !important; border-radius: 6px; color: #0f172a !important; box-shadow: none;">
+                                        <i class="las la-print fs-20" style="color: #0f172a !important;"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- General Ledger Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle statement-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 130px;">Posting Date</th>
+                                        <th style="width: 150px;">Voucher Ref</th>
+                                        <th style="width: 180px;">Payee / Entity</th>
+                                        <th>Memo / Description</th>
+                                        <th class="text-end" style="width: 140px;">Debit (₱)</th>
+                                        <th class="text-end" style="width: 140px;">Credit (₱)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($reportData['items'] as $item)
+                                    <tr class="hover-row">
+                                        <td><span class="text-dark">{{ \Carbon\Carbon::parse($item->journalEntry->date ?? $item->created_at)->format('M d, Y') }}</span></td>
+                                        <td>
+                                            <span class="fw-bold" style="color: #D9251C;">
+                                                #{{ $item->journalEntry->entry_no ?? ('JV-' . $item->journal_entry_id) }}
+                                            </span>
+                                        </td>
+                                        <td><span class="text-dark fw-semibold">{{ $item->name ?: '—' }}</span></td>
+                                        <td><span class="text-muted small">{{ $item->memo ?: ($item->journalEntry->memo ?? 'General Ledger Entry') }}</span></td>
+                                        <td class="text-end fw-bold text-success">
+                                            {{ $item->debit > 0 ? '₱' . number_format($item->debit, 2) : '—' }}
+                                        </td>
+                                        <td class="text-end fw-bold text-danger">
+                                            {{ $item->credit > 0 ? '₱' . number_format($item->credit, 2) : '—' }}
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">No general ledger postings found for the selected account in this period.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if(isset($reportData['items']) && $reportData['items'] instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $reportData['items']->onEachSide(0)->links('pagination::bootstrap-4') }}
+                        </div>
+                        @endif
+
+                        @elseif($selectedReport === 'Subsidiary Ledgers')
+                        <!-- SUBSIDIARY LEDGER STATEMENT (INCOME & EXPENSE ACCOUNTS) -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(16, 185, 129, 0.08); color: #10b981; flex-shrink: 0;">
+                                            <i class="las la-hand-holding-usd fs-22"></i>
+                                        </div>
+                                        <div>
+                                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.68rem; color: #475569 !important;">Total Income Credits (Period)</span>
+                                            <h4 class="fw-bold mt-1 mb-0" style="letter-spacing: -0.5px; color: #0f172a !important; font-size: 1.15rem;">₱{{ number_format($reportData['total_income_credits'], 2) }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(245, 158, 11, 0.08); color: #f59e0b; flex-shrink: 0;">
+                                            <i class="las la-receipt fs-22"></i>
+                                        </div>
+                                        <div>
+                                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.68rem; color: #475569 !important;">Total Expense Debits (Period)</span>
+                                            <h4 class="fw-bold mt-1 mb-0" style="letter-spacing: -0.5px; color: #0f172a !important; font-size: 1.15rem;">₱{{ number_format($reportData['total_expense_debits'], 2) }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card shadow-sm h-100" style="border-radius: 10px; border: 1px solid #e2e8f0; background-color: #ffffff;">
+                                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background-color: rgba(217, 37, 28, 0.08); color: #D9251C; flex-shrink: 0;">
+                                            <i class="las la-book-open fs-22"></i>
+                                        </div>
+                                        <div>
+                                            <span class="small fw-bold d-block text-uppercase" style="letter-spacing: 0.5px; font-size: 0.68rem; color: #475569 !important;">Active Selected Ledger</span>
+                                            <h4 class="fw-bold mt-1 mb-0 text-truncate" style="letter-spacing: -0.5px; color: #0f172a !important; font-size: 1.05rem; max-width: 220px;" title="{{ $reportData['selected_account'] ? ($reportData['selected_account']->code . ' - ' . $reportData['selected_account']->name) : 'None' }}">
+                                                {{ $reportData['selected_account'] ? ($reportData['selected_account']->code . ' - ' . $reportData['selected_account']->name) : 'N/A' }}
+                                            </h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Account Selector Filter Bar -->
+                        <div class="p-3 mb-4 rounded border" style="background-color: #f8fafc; border-color: #e2e8f0 !important;">
+                            <form action="{{ route('admin-finance.financial-reports.index') }}" method="GET" class="row g-3 align-items-end">
+                                <input type="hidden" name="report" value="Subsidiary Ledgers">
+                                <input type="hidden" name="start_date" value="{{ $startDate }}">
+                                <input type="hidden" name="end_date" value="{{ $endDate }}">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold text-uppercase small mb-1" style="font-size: 0.7rem; color: #475569; letter-spacing: 0.5px;">Target Subsidiary Account (Income & Expense Categories)</label>
+                                    <select name="account_id" class="form-select form-control-custom" onchange="this.form.submit()" style="height: 38px !important; border-color: #cbd5e1 !important; color: #000000 !important; font-size: 0.85rem !important;">
+                                        @foreach($reportData['accounts']->groupBy('type') as $type => $group)
+                                            <optgroup label="{{ strtoupper($type) }} ACCOUNTS">
+                                                @foreach($group as $acc)
+                                                    <option value="{{ $acc->id }}" {{ (request('account_id') == $acc->id || ($reportData['selected_account'] && $reportData['selected_account']->id == $acc->id)) ? 'selected' : '' }}>
+                                                        {{ $acc->code }} - {{ $acc->name }} ({{ $acc->type }})
+                                                    </option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-4 d-flex gap-2">
+                                    <button type="submit" class="btn text-white fw-bold w-100 d-inline-flex align-items-center justify-content-center" style="background-color: #D9251C; border-color: #D9251C; height: 38px; border-radius: 6px; font-size: 0.85rem;">
+                                        <i class="las la-filter me-1"></i> Filter Ledger
+                                    </button>
+                                    <button type="button" onclick="window.print()" class="btn btn-outline-secondary bg-white btn-print d-inline-flex align-items-center justify-content-center flex-shrink-0" title="Print Subsidiary Ledger" style="height: 38px; width: 44px; border-color: #cbd5e1 !important; border-radius: 6px; color: #0f172a !important; box-shadow: none;">
+                                        <i class="las la-print fs-20" style="color: #0f172a !important;"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle statement-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 130px;">Posting Date</th>
+                                        <th style="width: 150px;">Voucher Ref</th>
+                                        <th style="width: 180px;">Payee / Entity</th>
+                                        <th>Memo / Description</th>
+                                        <th class="text-end" style="width: 140px;">Debit (₱)</th>
+                                        <th class="text-end" style="width: 140px;">Credit (₱)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($reportData['items'] as $item)
+                                    <tr class="hover-row">
+                                        <td><span class="text-dark">{{ \Carbon\Carbon::parse($item->journalEntry->date ?? $item->created_at)->format('M d, Y') }}</span></td>
+                                        <td>
+                                            <span class="fw-bold" style="color: #D9251C;">
+                                                #{{ $item->journalEntry->entry_no ?? ('JV-' . $item->journal_entry_id) }}
+                                            </span>
+                                        </td>
+                                        <td><span class="text-dark fw-semibold">{{ $item->name ?: '—' }}</span></td>
+                                        <td><span class="text-muted small">{{ $item->memo ?: ($item->journalEntry->memo ?? 'Subsidiary Ledger Entry') }}</span></td>
+                                        <td class="text-end fw-bold text-danger">
+                                            {{ $item->debit > 0 ? '₱' . number_format($item->debit, 2) : '—' }}
+                                        </td>
+                                        <td class="text-end fw-bold text-success">
+                                            {{ $item->credit > 0 ? '₱' . number_format($item->credit, 2) : '—' }}
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">No subsidiary ledger postings found for the selected account in this period.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if(isset($reportData['items']) && $reportData['items'] instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                        <div id="paginationContainer" class="mt-4 d-flex justify-content-end pe-4">
+                            {{ $reportData['items']->onEachSide(0)->links('pagination::bootstrap-4') }}
                         </div>
                         @endif
 

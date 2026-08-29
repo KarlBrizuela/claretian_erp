@@ -5986,7 +5986,7 @@ public function checkVoucher()
             'Cash Flow',
             'Trial Balance',
             'General Ledger',
-            // 'Subsidiary Ledgers',
+            'Subsidiary Ledgers',
             'Sales Reports',
             'Expense Reports',
             // 'Department Reports',
@@ -6587,6 +6587,158 @@ public function checkVoucher()
                 'total_debits' => $totalDebitsSum,
                 'total_credits' => $totalCreditsSum,
                 'is_balanced' => abs($totalDebitsSum - $totalCreditsSum) < 0.01,
+            ];
+        } elseif ($selectedReport === 'General Ledger') {
+            // Fetch active, postable Asset, Liability, and Equity accounts
+            $glAccounts = \App\Models\ChartOfAccount::where('is_active', 1)
+                ->where('is_postable', 1)
+                ->whereIn('type', ['Asset', 'Liability', 'Equity'])
+                ->orderByRaw("
+                    CASE type
+                        WHEN 'Asset' THEN 1
+                        WHEN 'Liability' THEN 2
+                        WHEN 'Equity' THEN 3
+                        ELSE 4
+                    END,
+                    display_order,
+                    code
+                ")
+                ->get();
+
+            $glAccountId = $request->query('account_id');
+            if (!$glAccountId && $glAccounts->isNotEmpty()) {
+                $glAccountId = $glAccounts->first()->id;
+            }
+
+            $selectedGlAccount = $glAccountId ? \App\Models\ChartOfAccount::find($glAccountId) : null;
+
+            $totalDebits = 0.00;
+            $totalCredits = 0.00;
+
+            if ($selectedGlAccount) {
+                $totalDebits = (float) \App\Models\JournalEntryItem::where('chart_of_account_id', $selectedGlAccount->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })
+                    ->sum('debit') ?: 0.00;
+
+                $totalCredits = (float) \App\Models\JournalEntryItem::where('chart_of_account_id', $selectedGlAccount->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })
+                    ->sum('credit') ?: 0.00;
+
+                $paginatedQuery = \App\Models\JournalEntryItem::where('chart_of_account_id', $selectedGlAccount->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })
+                    ->join('journal_entries', 'journal_entry_items.journal_entry_id', '=', 'journal_entries.id')
+                    ->orderBy('journal_entries.date', 'desc')
+                    ->orderBy('journal_entries.id', 'desc')
+                    ->orderBy('journal_entry_items.id', 'desc')
+                    ->select('journal_entry_items.*')
+                    ->with(['journalEntry']);
+
+                $items = $paginatedQuery->paginate(15)->withQueryString();
+            } else {
+                $items = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
+            }
+
+            $reportData = [
+                'accounts' => $glAccounts,
+                'selected_account' => $selectedGlAccount,
+                'items' => $items,
+                'total_debits' => $totalDebits,
+                'total_credits' => $totalCredits,
+            ];
+        } elseif ($selectedReport === 'Subsidiary Ledgers') {
+            // Fetch active accounts under Income and Expense categories
+            $subsidiaryAccounts = \App\Models\ChartOfAccount::where('is_active', 1)
+                ->whereIn('type', ['Income', 'Expense'])
+                ->orderByRaw("
+                    CASE type
+                        WHEN 'Income' THEN 1
+                        WHEN 'Expense' THEN 2
+                        ELSE 3
+                    END,
+                    display_order,
+                    code
+                ")
+                ->get();
+
+            $subAccountId = $request->query('account_id');
+            if (!$subAccountId && $subsidiaryAccounts->isNotEmpty()) {
+                $subAccountId = $subsidiaryAccounts->first()->id;
+            }
+
+            $selectedSubAccount = $subAccountId ? \App\Models\ChartOfAccount::find($subAccountId) : null;
+
+            $totalIncomeDebits = 0;
+            $totalIncomeCredits = 0;
+            $totalExpenseDebits = 0;
+            $totalExpenseCredits = 0;
+
+            // Calculate Period Aggregates for all Income accounts
+            $incomeAccountIds = $subsidiaryAccounts->where('type', 'Income')->pluck('id')->toArray();
+            if (!empty($incomeAccountIds)) {
+                $totalIncomeDebits = (float) \App\Models\JournalEntryItem::whereIn('chart_of_account_id', $incomeAccountIds)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('debit') ?: 0.00;
+
+                $totalIncomeCredits = (float) \App\Models\JournalEntryItem::whereIn('chart_of_account_id', $incomeAccountIds)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('credit') ?: 0.00;
+            }
+
+            // Calculate Period Aggregates for all Expense accounts
+            $expenseAccountIds = $subsidiaryAccounts->where('type', 'Expense')->pluck('id')->toArray();
+            if (!empty($expenseAccountIds)) {
+                $totalExpenseDebits = (float) \App\Models\JournalEntryItem::whereIn('chart_of_account_id', $expenseAccountIds)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('debit') ?: 0.00;
+
+                $totalExpenseCredits = (float) \App\Models\JournalEntryItem::whereIn('chart_of_account_id', $expenseAccountIds)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })->sum('credit') ?: 0.00;
+            }
+
+            if ($selectedSubAccount) {
+                $paginatedQuery = \App\Models\JournalEntryItem::where('chart_of_account_id', $selectedSubAccount->id)
+                    ->whereHas('journalEntry', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('date', [$startDate, $endDate])
+                          ->where('status', 'posted');
+                    })
+                    ->join('journal_entries', 'journal_entry_items.journal_entry_id', '=', 'journal_entries.id')
+                    ->orderBy('journal_entries.date', 'desc')
+                    ->orderBy('journal_entries.id', 'desc')
+                    ->orderBy('journal_entry_items.id', 'desc')
+                    ->select('journal_entry_items.*')
+                    ->with(['journalEntry']);
+
+                $items = $paginatedQuery->paginate(15)->withQueryString();
+            } else {
+                $items = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
+            }
+
+            $reportData = [
+                'accounts' => $subsidiaryAccounts,
+                'selected_account' => $selectedSubAccount,
+                'items' => $items,
+                'total_income_debits' => $totalIncomeDebits,
+                'total_income_credits' => $totalIncomeCredits,
+                'total_expense_debits' => $totalExpenseDebits,
+                'total_expense_credits' => $totalExpenseCredits,
             ];
         }
 
