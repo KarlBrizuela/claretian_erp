@@ -3602,9 +3602,11 @@ public function checkVoucher()
         return response()->download($path, basename($path));
     }
 
-    private function getAccountBalanceAndTrack($code, $type, &$trackedIds)
+    private function getAccountBalanceAndTrack($codeOrKeyword, $type, &$trackedIds)
     {
-        $account = \App\Models\ChartOfAccount::where('code', $code)->first();
+        $account = \App\Models\ChartOfAccount::where('code', $codeOrKeyword)
+            ->orWhere('name', 'like', "%{$codeOrKeyword}%")
+            ->first();
 
         if (!$account) {
             return 0.00;
@@ -3769,7 +3771,7 @@ public function checkVoucher()
 
         $balances = [
             // Assets
-            'cash_on_hand' => ($this->getAccountBalanceAndTrack('1010', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('1040', 'Asset', $trackedIds)) + (\App\Models\SalesInvoice::sum('total_amount') + \App\Models\Payment::sum('amount') + \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where(function($q) { $q->where('payment_status', 'paid')->orWhere(function($sub) { $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', ''); })->orWhere('type', 'calculator_pos'); })->sum('total_amount')),
+            'cash_on_hand' => ($this->getAccountBalanceAndTrack('Cash on Hand', 'Asset', $trackedIds) + $this->getAccountBalanceAndTrack('1040', 'Asset', $trackedIds)) + (\App\Models\SalesInvoice::sum('total_amount') + \App\Models\Payment::sum('amount') + \App\Models\SalesOrder::where('status', '!=', 'cancelled')->where(function($q) { $q->where('payment_status', 'paid')->orWhere(function($sub) { $sub->whereNotNull('proof_of_payment')->where('proof_of_payment', '!=', ''); })->orWhere('type', 'calculator_pos'); })->sum('total_amount')),
             'petty_cash' => $this->getAccountBalanceAndTrack('1015', 'Asset', $trackedIds) + \App\Models\PettyCashVoucher::withSum('items', 'amount')->get()->sum('items_sum_amount'),
             'bank_accounts' => 0.00,
             'bank_balances' => $bankBalances,
@@ -3902,8 +3904,8 @@ public function checkVoucher()
                 ];
             });
 
-        // Fetch General Journal items hitting the Cash on Hand accounts (1010 / 1040)
-        $cashOnHandAccountIds = \App\Models\ChartOfAccount::whereIn('code', ['1010', '1040'])->pluck('id');
+        // Fetch General Journal items hitting the Cash on Hand accounts
+        $cashOnHandAccountIds = \App\Models\ChartOfAccount::where('name', 'like', '%Cash on Hand%')->orWhereIn('code', ['1010', '1040'])->pluck('id');
         $journalItems = \App\Models\JournalEntryItem::with(['journalEntry'])
             ->whereIn('chart_of_account_id', $cashOnHandAccountIds)
             ->whereHas('journalEntry', function($q) {
@@ -4352,7 +4354,7 @@ public function checkVoucher()
         $operationalItems = collect();
 
         // 3. Operational Sources matching specific Account Codes or Categories
-        if (in_array($account->code, ['1010', '1040']) || stripos($account->name, 'cash on hand') !== false) {
+        if (stripos($account->name, 'cash on hand') !== false || in_array($account->code, ['1010', '1040'])) {
             // Sales Invoices / POS Transactions
             $salesInvoices = \App\Models\SalesOrder::with('customer')
                 ->where('status', '!=', 'cancelled')
@@ -6019,9 +6021,9 @@ public function checkVoucher()
 
         $bankBalances = \Illuminate\Support\Facades\Schema::hasTable('company_bank_accounts') ? (\App\Models\CompanyBankAccount::sum('current_balance') ?: 0.00) : 0.00;
         $journalCash = (\App\Models\JournalEntryItem::whereHas('account', function($q) {
-            $q->whereIn('code', ['1000', '1010']);
+            $q->where('name', 'like', '%Cash%')->orWhereIn('code', ['1000', '1010']);
         })->sum('debit') - \App\Models\JournalEntryItem::whereHas('account', function($q) {
-            $q->whereIn('code', ['1000', '1010']);
+            $q->where('name', 'like', '%Cash%')->orWhereIn('code', ['1000', '1010']);
         })->sum('credit')) ?: 0.00;
         $totalCash = max(0, $bankBalances + $journalCash);
 
@@ -6075,7 +6077,9 @@ public function checkVoucher()
             }
 
             if (empty($currentAssetsList)) {
-                $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1010', 'Cash & Bank Balances'), 'amount' => $totalCash];
+                $cashAcc = \App\Models\ChartOfAccount::where('name', 'like', '%Cash on Hand%')->first();
+                $cashCode = $cashAcc ? $cashAcc->code : '1010';
+                $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel($cashCode, 'Cash & Bank Balances'), 'amount' => $totalCash];
             }
             $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1200', 'Accounts Receivable'), 'amount' => $liveAr];
             $currentAssetsList[] = ['is_group' => false, 'account' => $getDynamicAccountLabel('1300', 'Production Master Inventory'), 'amount' => $liveBookInventory];
@@ -6515,13 +6519,13 @@ public function checkVoucher()
                     })->sum('credit') ?: 0.00;
 
                 $liveAdd = 0.00;
-                if (in_array($acc->code, ['1000', '1010']) || str_contains(strtolower($acc->name), 'cash')) {
+                if (str_contains(strtolower($acc->name), 'cash') || in_array($acc->code, ['1000', '1010'])) {
                     $liveAdd = $totalCash;
-                } elseif ($acc->code === '1020' || str_contains(strtolower($acc->name), 'receivable')) {
+                } elseif (str_contains(strtolower($acc->name), 'receivable') || $acc->code === '1200') {
                     $liveAdd = $liveAr;
-                } elseif ($acc->code === '1030' || str_contains(strtolower($acc->name), 'inventory')) {
+                } elseif (str_contains(strtolower($acc->name), 'inventory') || in_array($acc->code, ['1030', '1300'])) {
                     $liveAdd = $liveBookInventory;
-                } elseif ($acc->code === '2010' || str_contains(strtolower($acc->name), 'accounts payable')) {
+                } elseif (str_contains(strtolower($acc->name), 'payable') || in_array($acc->code, ['2000', '2010'])) {
                     $liveAdd = $liveAp;
                 } elseif ($acc->code === '2020' || str_contains(strtolower($acc->name), 'operating expenses')) {
                     $liveAdd = $liveExpenses;

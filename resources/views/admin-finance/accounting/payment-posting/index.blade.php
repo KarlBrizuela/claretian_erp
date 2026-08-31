@@ -473,12 +473,12 @@
 
                 Array.from(coaSelect.options).forEach(option => {
                     const code = option.getAttribute('data-code');
-                    const name = option.getAttribute('data-name');
-                    if (method === 'cash' && (code === '1010' || name.includes('cash on hand'))) {
+                    const name = (option.getAttribute('data-name') || '').toLowerCase();
+                    if (method === 'cash' && (name.includes('cash on hand') || code === '1010' || code === '1020')) {
                         option.selected = true;
-                    } else if (method === 'gcash' && (code === '1020' || name.includes('wallet') || name.includes('gcash'))) {
+                    } else if (method === 'gcash' && (name.includes('wallet') || name.includes('gcash') || name.includes('e-wallet') || code === '1020' || code === '1030')) {
                         option.selected = true;
-                    } else if ((method === 'deposit' || method === 'check') && (code === '1000' || name.includes('bank'))) {
+                    } else if ((method === 'deposit' || method === 'check') && (name.includes('bank') || code === '1000')) {
                         option.selected = true;
                     }
                 });
