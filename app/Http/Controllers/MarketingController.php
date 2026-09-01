@@ -2945,7 +2945,7 @@ class MarketingController extends Controller
                 $siteInv = $query ? $query->first() : null;
             }
 
-            $siteStock = $siteInv ? (int)$siteInv->quantity : (int)$target['stock'];
+            $siteStock = $siteInv ? (int)$siteInv->quantity : 0;
 
             if (!$target['exists'] || $siteStock < $item['quantity']) {
                 $bookName = $target['name'];

@@ -2461,8 +2461,9 @@ public function checkVoucher()
               }
           }
 
-          // Update new Sales Order total amount
+          // Update new Sales Order total amount and deduct stock
           $newOrder->update(['total_amount' => $newTotalAmount]);
+          \App\Services\StockDeductionService::deductForSalesOrder($newOrder);
 
           // 5. Find the previous Delivery Receipt and close it
           $previousDr = \App\Models\DeliveryReceipt::where('so_id', $order->id)->first();

@@ -1318,12 +1318,10 @@ class LogisticController extends Controller
     private function isAccountingUser($user)
     {
         if (!$user) return false;
-        $div = strtolower($user->division ?? '');
         $dept = strtolower($user->department ?? '');
         $pos = strtolower($user->position ?? '');
 
-        return str_contains($div, 'admin') || str_contains($div, 'finance') ||
-               str_contains($dept, 'accounting') || str_contains($dept, 'finance') || str_contains($dept, 'credit') ||
+        return str_contains($dept, 'accounting') || str_contains($dept, 'finance') || str_contains($dept, 'credit') ||
                str_contains($pos, 'accounting') || str_contains($pos, 'finance');
     }
 
@@ -1363,6 +1361,9 @@ class LogisticController extends Controller
 
         // Get sales orders pending DR prep/approval
         $ordersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy')
+            ->whereNotIn('type', ['ecom_direct', 'calculator_pos'])
+            ->where('so_number', 'not like', 'DI-ECOM-%')
+            ->where('so_number', 'not like', 'POS-%')
             ->where(function($q) {
                 $q->whereIn('status', ['pending_dr_prep', 'pending_dr_approval'])
                   ->orWhere(function($sq) {
@@ -1375,6 +1376,9 @@ class LogisticController extends Controller
 
         // Get sales orders where DR is completed
         $completedOrdersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy')
+            ->whereNotIn('type', ['ecom_direct', 'calculator_pos'])
+            ->where('so_number', 'not like', 'DI-ECOM-%')
+            ->where('so_number', 'not like', 'POS-%')
             ->where(function($q) {
                 $q->whereIn('status', ['ready_for_packing', 'ready_for_delivery', 'completed', 'ar_created', 'cr_created', 'reconsignment_pending', 'pending_si_prep', 'pending_si_approval'])
                   ->orWhere(function($sq) {
@@ -1392,16 +1396,12 @@ class LogisticController extends Controller
                 $query->where('so_number', 'not like', 'SO-NBS-%')
                 ->where(function ($q) {
                     $q->whereHas('drPreparedBy', function ($u) {
-                        $u->where('division', 'like', '%Admin%')
-                          ->orWhere('division', 'like', '%Finance%')
-                          ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                        $u->whereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
                           ->orWhere('position', 'like', '%Accounting%')
                           ->orWhere('position', 'like', '%Finance%');
                     })
                     ->orWhereHas('preparedBy', function ($u) {
-                        $u->where('division', 'like', '%Admin%')
-                          ->orWhere('division', 'like', '%Finance%')
-                          ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                        $u->whereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
                           ->orWhere('position', 'like', '%Accounting%')
                           ->orWhere('position', 'like', '%Finance%')
                           ->orWhereNotNull('sales_team');
@@ -1414,24 +1414,19 @@ class LogisticController extends Controller
             };
 
             $applyFilter($ordersQuery);
-            // Allow Accounting to see all completed/approved DRs (matching Logistics)
-            $completedOrdersQuery->where('so_number', 'not like', 'SO-NBS-%');
+            $applyFilter($completedOrdersQuery);
         } else {
             $applyFilter = function ($query) {
                 $query->where(function ($q) {
                     $q->where('so_number', 'like', 'SO-NBS-%')
                       ->orWhere(function ($sub) {
                           $sub->whereDoesntHave('drPreparedBy', function ($u) {
-                              $u->where('division', 'like', '%Admin%')
-                                ->orWhere('division', 'like', '%Finance%')
-                                ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                              $u->whereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
                                 ->orWhere('position', 'like', '%Accounting%')
                                 ->orWhere('position', 'like', '%Finance%');
                           })
                           ->whereDoesntHave('preparedBy', function ($u) {
-                              $u->where('division', 'like', '%Admin%')
-                                ->orWhere('division', 'like', '%Finance%')
-                                ->orWhereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
+                              $u->whereIn('department', ['Accounting', 'Admin & Finance', 'Credit and Collection'])
                                 ->orWhere('position', 'like', '%Accounting%')
                                 ->orWhere('position', 'like', '%Finance%')
                                 ->orWhereNotNull('sales_team');
@@ -1638,6 +1633,9 @@ class LogisticController extends Controller
 
         // Get sales orders for dropdown, filtered by context
         $salesOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.product')
+            ->whereNotIn('type', ['ecom_direct', 'calculator_pos'])
+            ->where('so_number', 'not like', 'DI-ECOM-%')
+            ->where('so_number', 'not like', 'POS-%')
             ->whereIn('status', ['gathered', 'pending_si_prep', 'pending_si_approval', 'ready_for_delivery']);
 
         if ($isAccountingContext) {
@@ -1857,8 +1855,9 @@ class LogisticController extends Controller
             !str_contains($userPos, 'Manager') && 
             !str_contains($userPos, 'Supervisor') && 
             !str_contains($userPos, 'Head') && 
-            !str_contains($userPos, 'Senior Logistics Staff')) {
-             return redirect()->back()->with('error', 'Only Super Admins, Accounting Staff, or Production/Logistics Managers, Supervisors, Heads, or Senior Logistics Staff can approve Delivery Receipts.');
+            !str_contains($userPos, 'Senior Logistics Staff') && 
+            !str_contains($userPos, 'Logistics Staff')) {
+             return redirect()->back()->with('error', 'Only Super Admins, Accounting Staff, or Production/Logistics Managers, Supervisors, Heads, Senior Logistics Staff, or Logistics Staff can approve Delivery Receipts.');
         }
 
         $order = \App\Models\SalesOrder::findOrFail($id);
@@ -1867,7 +1866,7 @@ class LogisticController extends Controller
         if ($isAccountingContext && !in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) && $order->transaction_type !== 'consignment') {
             $newStatus = 'pending_si_prep';
         } else {
-            $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) || $order->transaction_type === 'consignment' ? 'completed' : 'ready_for_packing';
+            $newStatus = 'ready_for_packing';
         }
 
         $updateData = [
@@ -2532,7 +2531,7 @@ class LogisticController extends Controller
                                   ->where('packing_data->status', '<>', 'gathered');
                       });
             });
-        $this->excludeTeamSalesOrders($packingOrdersQuery);
+        // Do not exclude ready_for_packing Sales Orders from Packing Queue
         $packingOrders = $packingOrdersQuery->orderBy('id', 'desc')->get();
 
         // Get complimentary orders ready for packing - EXCLUDING Team A, B, C
