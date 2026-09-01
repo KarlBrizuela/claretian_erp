@@ -179,7 +179,7 @@ class POSController extends Controller
             'payment_method'      => 'required|in:cash,gcash,paymaya,maya,card,bank,bank_transfer,check',
             'payment_reference'   => 'required_unless:payment_method,cash|nullable|string|max:20',
             'cash_received'       => ['nullable', 'required_if:payment_method,cash', 'numeric', 'min:0'],
-            'items'               => 'required|array|min:1',
+            'items'               => 'required|array|min:1|max:24',
             'items.*.product_id'  => 'nullable|exists:books,id',
             'items.*.bundle_id'   => 'nullable|exists:book_bundles,id',
             'items.*.book_index_id' => 'nullable|exists:book_indices,id',
@@ -195,6 +195,13 @@ class POSController extends Controller
             'discount_value'      => 'nullable|numeric|min:0',
             'discount_type'       => 'nullable|string|in:amount,percentage',
         ]);
+
+        if (count($validated['items']) > 24) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Maximum of 24 products allowed per order.'
+            ], 422);
+        }
 
         // Validate cash payment
         if ($validated['payment_method'] === 'cash') {
@@ -545,7 +552,7 @@ class POSController extends Controller
             'si_number' => 'nullable|string|max:50',
             'platform' => 'nullable|string',
             'payment_method' => 'required|in:cod,cash,gcash,lazada,shopee,paymaya,maya,card,bank,check,bank_transfer',
-            'items' => 'required|array|min:1',
+            'items' => 'required|array|min:1|max:24',
             'items.*.product_id' => 'nullable',
             'items.*.type' => 'nullable|string',
             'items.*.book_id' => 'nullable',
@@ -566,6 +573,13 @@ class POSController extends Controller
             'discount_value' => 'nullable|numeric|min:0',
             'discount_type' => 'nullable|string|in:amount,percentage',
         ]);
+
+        if (count($validated['items']) > 24) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Maximum of 24 products allowed per order.'
+            ], 422);
+        }
 
         $platformName = !empty($validated['platform']) ? $validated['platform'] : 'MIBF';
 

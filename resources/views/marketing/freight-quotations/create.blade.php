@@ -468,6 +468,10 @@
 
             if (addSOBtn && soItemsBody) {
                 addSOBtn.addEventListener('click', function() {
+                    if (soItemsBody.querySelectorAll('tr').length >= 24) {
+                        alert('Maximum of 24 products allowed per order.');
+                        return;
+                    }
                     const row = document.createElement('tr');
                     const uniqueId = Date.now() + Math.random().toString(36).substring(7);
                     const sym = getFQCurrencySymbol();

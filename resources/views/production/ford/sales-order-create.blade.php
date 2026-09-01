@@ -426,8 +426,12 @@
         }
 
         function addProductRow() {
-            rowIndex++;
             const tbody = document.getElementById('itemsBody');
+            if (tbody && tbody.children.length >= 24) {
+                alert('Maximum of 24 products allowed per order.');
+                return;
+            }
+            rowIndex++;
             const tr = document.createElement('tr');
             tr.setAttribute('id', `row-${rowIndex}`);
             const sym = getCurrencySymbol();

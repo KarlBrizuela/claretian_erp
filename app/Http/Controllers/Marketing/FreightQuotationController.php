@@ -108,7 +108,7 @@ class FreightQuotationController extends Controller
                 'cargo_package_type.*' => 'nullable|string',
                 'cargo_dimensions' => 'nullable|array',
                 'cargo_dimensions.*' => 'nullable|string',
-                'so_items' => 'nullable|array',
+                'so_items' => 'nullable|array|max:24',
                 'so_items.*.product_id' => 'nullable|string',
                 'so_items.*.quantity' => 'nullable|integer|min:1',
                 'so_items.*.price' => 'nullable|numeric|min:0',
@@ -120,6 +120,13 @@ class FreightQuotationController extends Controller
                 'origin_contact.required' => 'Origin contact is required',
                 'destination_contact.required' => 'Destination contact is required',
             ]);
+
+            if (!empty($request->so_items) && is_array($request->so_items)) {
+                $validItems = array_filter($request->so_items, fn($item) => !empty($item['product_id']) && !empty($item['quantity']));
+                if (count($validItems) > 24) {
+                    return redirect()->back()->with('error', 'Cannot proceed with Freight Quotation: Maximum of 24 products allowed per order.')->withInput();
+                }
+            }
 
             DB::beginTransaction();
 

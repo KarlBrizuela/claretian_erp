@@ -224,6 +224,7 @@
                                         <option value="Jnt" {{ old('courier') == 'Jnt' ? 'selected' : '' }}>Jnt</option>
                                         <option value="Flash" {{ old('courier') == 'Flash' ? 'selected' : '' }}>Flash</option>
                                         <option value="Ninja Van" {{ old('courier') == 'Ninja Van' ? 'selected' : '' }}>Ninja Van</option>
+                                        <option value="instant" {{ old('courier') == 'instant' ? 'selected' : '' }}>Instant Delivery</option>
                                     </select>
                                 </div>
                             </div>
@@ -588,6 +589,10 @@
                 // Add item row
                 let rowIndex = 0;
                 function addRow() {
+                    if (tbody.querySelectorAll('tr').length >= 24) {
+                        alert('Maximum of 24 products allowed per order.');
+                        return;
+                    }
                     const tr = document.createElement('tr');
                     const idx = rowIndex++;
 

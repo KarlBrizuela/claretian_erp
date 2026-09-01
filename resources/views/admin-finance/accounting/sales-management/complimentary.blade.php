@@ -113,8 +113,18 @@
                         <th class="pe-3 text-end">Action</th>
                     </tr>
                 </thead>
+                @php $grandTotalValuation = 0; @endphp
                 <tbody>
                     @forelse($complimentaryOrders as $order)
+                    @php
+                        $itemValuation = 0;
+                        foreach($order->items as $i) {
+                            $c = ($i->book && $i->book->cost > 0) ? $i->book->cost : ($i->unit_price > 0 ? $i->unit_price : 0);
+                            $itemValuation += ($c * $i->quantity);
+                        }
+                        if ($itemValuation <= 0) $itemValuation = $order->total_amount;
+                        $grandTotalValuation += $itemValuation;
+                    @endphp
                     <tr>
                         <td class="ps-3">
                             <span class="fw-bold text-dark font-monospace">#{{ $order->so_number }}</span>
@@ -135,14 +145,6 @@
                             </small>
                         </td>
                         <td>
-                            @php
-                                $itemValuation = 0;
-                                foreach($order->items as $i) {
-                                    $c = ($i->book && $i->book->cost > 0) ? $i->book->cost : ($i->unit_price > 0 ? $i->unit_price : 0);
-                                    $itemValuation += ($c * $i->quantity);
-                                }
-                                if ($itemValuation <= 0) $itemValuation = $order->total_amount;
-                            @endphp
                             <span class="fw-bold text-danger">₱{{ number_format($itemValuation, 2) }}</span>
                             <small class="d-block text-muted" style="font-size: 0.72rem;">COA 5100 Expense</small>
                         </td>
@@ -175,6 +177,15 @@
                     </tr>
                     @endforelse
                 </tbody>
+                @if($complimentaryOrders->count() > 0)
+                <tfoot>
+                    <tr class="fw-bold bg-light border-top" style="border-top: 2px solid #cbd5e1 !important; background-color: #f8fafc !important;">
+                        <td colspan="3" class="ps-3 py-3 text-end text-dark font-w700" style="font-size: 0.85rem; letter-spacing: 0.5px;">TOTAL VALUATION (EXPENSE):</td>
+                        <td class="py-3 text-danger font-w800" style="font-size: 0.95rem; font-weight: 800 !important;">₱{{ number_format($grandTotalValuation, 2) }}</td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+                @endif
             </table>
         </div>
     </div>

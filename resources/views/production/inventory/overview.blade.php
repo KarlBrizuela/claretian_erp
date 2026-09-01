@@ -4112,8 +4112,22 @@
                 });
             });
 
+            // Active tab persistence
+            const savedTabId = localStorage.getItem('overviewActiveTab');
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('area_consignment_page') || urlParams.has('direct_consignment_page')) {
+                const cTab = document.getElementById('registry-consignment-tab');
+                if (cTab) new bootstrap.Tab(cTab).show();
+            } else if (savedTabId) {
+                const savedTabBtn = document.getElementById(savedTabId);
+                if (savedTabBtn) new bootstrap.Tab(savedTabBtn).show();
+            }
+
             document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
                 tab.addEventListener('shown.bs.tab', function(e) {
+                    if (e.target && e.target.id) {
+                        localStorage.setItem('overviewActiveTab', e.target.id);
+                    }
                     const titleEl = document.getElementById('registryHeaderTitle');
                     if (titleEl) {
                         const titleMap = {
@@ -4447,7 +4461,7 @@
                             <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; min-width: 55px;"></td>
                             <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; min-width: 50px;"></td>
                             <td style="padding: 5px 6px; text-align: right; border: 1px solid #000; font-size: 11px; white-space: nowrap;">₱${b.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                            <td style="padding: 5px 6px; text-align: right; border: 1px solid #000; font-size: 11px; font-weight: bold; white-space: nowrap;">₱${b.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="padding: 5px 4px; text-align: center; border: 1px solid #000; min-width: 65px;"></td>
                         </tr>
                     `;
                 });
@@ -4484,7 +4498,7 @@
                             <td style="padding: 6px 4px; text-align: center; border: 1px solid #000; font-size: 12px; color: #1a5276;">${grandTotalQty.toLocaleString()}</td>
                             <td colspan="3" style="border: 1px solid #000; background: #f8f9fa;"></td>
                             <td style="border: 1px solid #000; background: #f8f9fa;"></td>
-                            <td style="padding: 6px 6px; text-align: right; border: 1px solid #000; font-size: 12px; color: #1a5276;">₱${grandTotalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="border: 1px solid #000; background: #f8f9fa;"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -4539,7 +4553,7 @@
 
                         <div style="margin-top: 15px; background: #f8f9fa; border: 2px solid #1a5276; padding: 8px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 12px; font-weight: bold; color: #000;">OVERALL CONSIGNED BOOKS (${(cData.orders_count || 1)} DRs COMBINED):</span>
-                            <span style="font-size: 14px; font-weight: bold; color: #1a5276;">${grandTotalQty.toLocaleString()} pcs (Total Value: ₱${grandTotalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+                            <span style="font-size: 14px; font-weight: bold; color: #1a5276;">${grandTotalQty.toLocaleString()} pcs</span>
                         </div>
 
                         <div style="margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; page-break-inside: avoid;">

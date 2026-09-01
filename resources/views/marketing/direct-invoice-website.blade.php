@@ -447,6 +447,10 @@
             // Add item row
             let rowIndex = 0;
             function addRow() {
+                if (tbody.querySelectorAll('tr').length >= 24) {
+                    alert('Maximum of 24 products allowed per order.');
+                    return;
+                }
                 const tr = document.createElement('tr');
                 const idx = rowIndex++;
 

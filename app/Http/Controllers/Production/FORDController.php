@@ -479,7 +479,12 @@ class FORDController extends Controller
             'currency' => 'nullable|string|in:PHP,USD,EUR',
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
             'proof_of_payment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'items' => 'required|array|min:1|max:24',
         ]);
+
+        if (count(array_filter($request->items ?? [], fn($i) => !empty($i['product_id']))) > 24) {
+            return redirect()->back()->with('error', 'Cannot proceed with Foreign Sales Order: Maximum of 24 products allowed per order.')->withInput();
+        }
 
         $customerObj = null;
         if ($request->filled('customer_id')) {

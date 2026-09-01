@@ -1384,10 +1384,10 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                 <div class="mb-2">
                                     <label class="fw-semibold small text-muted d-block mb-1">Packing Status:</label>
                                     <select name="status" id="ts_packingStatus_{{ $tt->id }}" class="form-select form-select-sm fw-bold">
-                                        <option value="not_started" {{ $tt->status !== 'completed' ? 'selected' : '' }}>Not Started</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="completed" {{ $tt->status === 'completed' ? 'selected' : '' }}>Completed</option>
-                                    </select>
+                                         <option value="not_started" {{ $tt->status === 'not_started' ? 'selected' : '' }}>Not Started</option>
+                                         <option value="in_progress" {{ in_array($tt->status, ['packing', 'in_progress']) ? 'selected' : '' }}>In Progress</option>
+                                         <option value="completed" {{ $tt->status === 'completed' ? 'selected' : '' }}>Completed</option>
+                                     </select>
                                 </div>
                                 <div class="mb-0">
                                     <label class="fw-semibold small text-muted d-block mb-1">Number of Boxes:</label>
@@ -1506,7 +1506,7 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                         @endif
                                     </td>
                                     @php
-                                        $displayQty = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
+                                        $displayQty = (float)(($tItem->picked_qty !== null && $tItem->picked_qty > 0) ? $tItem->picked_qty : $tItem->quantity);
                                         $effectiveQty = $tItem->packed_qty !== null ? (float)$tItem->packed_qty : ($displayQty > 0 ? $displayQty : 0);
                                         $itemSubtotal = $unitPrice * $effectiveQty;
                                         $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && $tItem->packed_qty >= $displayQty && $displayQty > 0));
@@ -2086,11 +2086,11 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
         const preloadOrderId = {{ $preloadOrderId ? $preloadOrderId : 'null' }};
         console.log('Packing Management - Preload Order ID:', preloadOrderId);
 
-        window.openPackingDetailsModal = function(orderId) {
+        window.openPackingDetailsModal = function(orderId, isCompleted = false) {
             console.log('Opening details for order ID:', orderId);
             if (!orderId) return;
             currentOrderId = orderId;
-            loadPackingOrder(orderId);
+            loadPackingOrder(orderId, isCompleted);
         };
 
         window.markOrderAsPackedAction = function(orderId, soNumber) {

@@ -180,7 +180,7 @@
                                     <td style="width: 20px; vertical-align: top; font-weight: bold; padding-bottom: 8px;">:</td>
                                     <td style="vertical-align: top; padding-bottom: 8px;">
                                         <strong>Fr. Louie Guades III, CMF</strong><br>
-                                        Executive Director
+                                        Production Manager
                                     </td>
                                 </tr>
                                 <tr>
@@ -229,7 +229,7 @@
                                 <div style="width: 45%;">
                                     <div style="font-weight: bold; margin-bottom: 30px;">Noted by:</div>
                                     <div>Fr. Louie R. Guades III, CMF</div>
-                                    <div>Executive Director</div>
+                                    <div>Production Manager</div>
                                 </div>
                                 <div style="width: 45%;">
                                     <div style="font-weight: bold; margin-bottom: 30px;">Received by:</div>

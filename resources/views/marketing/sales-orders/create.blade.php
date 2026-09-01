@@ -896,7 +896,13 @@
                 updateGrandTotal();
             }
 
-            addItemBtn.addEventListener('click', () => addRow());
+            addItemBtn.addEventListener('click', () => {
+                if (itemsBody.querySelectorAll('tr').length >= 24) {
+                    alert('Maximum of 24 products allowed per order.');
+                    return;
+                }
+                addRow();
+            });
             
             // Initialize rows
             if (existingItems.length > 0) {
