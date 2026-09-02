@@ -73,20 +73,33 @@ class JournalEntryController extends Controller
             $code = $bank->account_code ?: ('BANK-' . $bank->id);
             $name = 'Bank: ' . $bank->bank_name . ' (' . $bank->account_number . ' - ' . $bank->account_name . ')';
             
-            ChartOfAccount::updateOrCreate(
-                ['code' => $code],
-                [
+            $existingAccount = ChartOfAccount::withTrashed()->where('code', $code)->first();
+            if ($existingAccount) {
+                $existingAccount->update([
                     'name' => $name,
                     'type' => 'Asset',
                     'category' => 'Cash & Bank',
                     'is_active' => 1,
                     'is_postable' => 1,
-                ]
-            );
+                    'deleted_at' => null,
+                ]);
+            } else {
+                ChartOfAccount::create([
+                    'code' => $code,
+                    'name' => $name,
+                    'type' => 'Asset',
+                    'category' => 'Cash & Bank',
+                    'is_active' => 1,
+                    'is_postable' => 1,
+                ]);
+            }
         }
 
         // Ensure parent accounts with child sub-accounts are not postable directly
-        ChartOfAccount::whereHas('children')->update(['is_postable' => 0]);
+        $parentIds = ChartOfAccount::whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
+        if (!empty($parentIds)) {
+            ChartOfAccount::whereIn('id', $parentIds)->update(['is_postable' => 0]);
+        }
 
         // Fetch all active, postable accounts from Chart of Accounts sorted hierarchically
         $accounts = ChartOfAccount::select('chart_of_accounts.*')
