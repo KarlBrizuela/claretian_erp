@@ -360,7 +360,7 @@
                     <tbody>
                         @foreach($itemsToRender as $item)
                         @php 
-                            $itemName = $item->item_name ?? ($item->book?->name ?? ($item->product?->name ?? ($item->bundle?->name ?? ($item->product_name ?? null)))); 
+                            $itemName = $item->item_name ?? ($item->bookIndex?->display_name ?? ($item->bookIndex?->title ?? ($item->book?->name ?? ($item->product?->name ?? ($item->bundle?->name ?? ($item->bookBundle?->name ?? ($item->product_name ?? null))))))); 
                         @endphp
                         @if($itemName)
                         <tr>

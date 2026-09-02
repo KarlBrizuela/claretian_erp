@@ -200,7 +200,7 @@
                         <select class="form-control" id="salesOrder" onchange="loadSalesOrderDetails(this.value)">
                             <option value="">Select Sales Order</option>
                             @foreach($salesOrders as $order)
-                            <option value="{{ $order->id }}" data-so-number="{{ $order->so_number }}" data-customer-id="{{ $order->customer_id }}" data-customer-name="{{ $order->customer->customer_name ?? 'N/A' }}" data-address="{{ $order->shipping_address ?? $order->customer->customer_address ?? '' }}" data-items="{{ json_encode($order->items->map(function($item) { return ['quantity' => $item->quantity, 'description' => $item->product->product_name ?? 'N/A', 'unit_price' => $item->unit_price, 'amount' => $item->quantity * $item->unit_price]; })) }}">
+                            <option value="{{ $order->id }}" data-so-number="{{ $order->so_number }}" data-customer-id="{{ $order->customer_id }}" data-customer-name="{{ $order->customer->customer_name ?? 'N/A' }}" data-address="{{ $order->shipping_address ?? $order->customer->customer_address ?? '' }}" data-items="{{ json_encode($order->items->map(function($item) { $name = $item->bookIndex?->display_name ?? ($item->bookIndex?->title ?? ($item->book?->name ?? ($item->bundle?->name ?? ($item->product?->name ?? ($item->item_name ?? 'N/A'))))); $price = (float)($item->unit_price ?? ($item->price ?? 0)); return ['quantity' => (float)$item->quantity, 'description' => $name, 'unit_price' => $price, 'amount' => (float)$item->quantity * $price]; })) }}">
                                 #{{ $order->so_number }} - {{ $order->customer->customer_name ?? 'N/A' }}
                             </option>
                             @endforeach

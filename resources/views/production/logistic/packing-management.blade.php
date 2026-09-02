@@ -328,6 +328,14 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                                     style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
                                                                 <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
+                                                            <button type="button" class="btn btn-outline-danger shadow delete-ecom-order-btn"
+                                                                    onclick="deleteEcomOrderAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Delete Order"
+                                                                    style="border: 1px solid #dc3545; color: #dc3545; background: #fff; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-trash-alt" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
                                                         </div>
                                                 @empty
                                                 <tr>
@@ -418,6 +426,14 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                                     title="Mark as Packed"
                                                                     style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
                                                                 <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-danger shadow delete-ecom-order-btn"
+                                                                    onclick="deleteEcomOrderAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Delete Order"
+                                                                    style="border: 1px solid #dc3545; color: #dc3545; background: #fff; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-trash-alt" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
                                                         </div>
                                                     </td>
@@ -512,6 +528,14 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                                     style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
                                                                 <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
+                                                            <button type="button" class="btn btn-outline-danger shadow delete-ecom-order-btn"
+                                                                    onclick="deleteEcomOrderAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Delete Order"
+                                                                    style="border: 1px solid #dc3545; color: #dc3545; background: #fff; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-trash-alt" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -604,6 +628,14 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                                     title="Mark as Packed"
                                                                     style="background: #28a745; border: none; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
                                                                 <i class="fas fa-check" style="font-size: 0.9rem; pointer-events: none;"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-danger shadow delete-ecom-order-btn"
+                                                                    onclick="deleteEcomOrderAction({{ $order->id }}, '{{ $order->so_number }}')"
+                                                                    data-order-id="{{ $order->id }}"
+                                                                    data-so-number="{{ $order->so_number }}"
+                                                                    title="Delete Order"
+                                                                    style="border: 1px solid #dc3545; color: #dc3545; background: #fff; padding: 0.4rem 0.5rem; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas fa-trash-alt" style="font-size: 0.9rem; pointer-events: none;"></i>
                                                             </button>
                                                         </div>
                                                     </td>
@@ -1254,7 +1286,7 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                         @forelse($teamStockPackingTransfers ?? [] as $tt)
                                         @php
                                             $totalPcs = $tt->items->sum(function($item) {
-                                                return (float)($item->packed_qty !== null && $item->packed_qty > 0 ? $item->packed_qty : ($item->quantity > 0 ? $item->quantity : ($item->picked_qty > 0 ? $item->picked_qty : 0)));
+                                                return (float)($item->packed_qty !== null ? $item->packed_qty : ($item->picked_qty !== null ? $item->picked_qty : $item->quantity));
                                             });
                                             $totalTransferAmount = $tt->items->sum(function($item) {
                                                 $price = 0;
@@ -1265,7 +1297,7 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 } elseif ($item->bookBundle) {
                                                     $price = (float)($item->bookBundle->price ?: 0);
                                                 }
-                                                $qty = (float)($item->packed_qty !== null && $item->packed_qty > 0 ? $item->packed_qty : ($item->quantity > 0 ? $item->quantity : ($item->picked_qty > 0 ? $item->picked_qty : 0)));
+                                                $qty = (float)($item->packed_qty !== null ? $item->packed_qty : ($item->picked_qty !== null ? $item->picked_qty : $item->quantity));
                                                 return $price * $qty;
                                             });
                                         @endphp
@@ -1340,7 +1372,7 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
             } elseif ($item->bookBundle) {
                 $price = (float)($item->bookBundle->price ?: 0);
             }
-            $qty = (float)($item->packed_qty !== null && $item->packed_qty > 0 ? $item->packed_qty : ($item->quantity > 0 ? $item->quantity : ($item->picked_qty > 0 ? $item->picked_qty : 0)));
+            $qty = (float)($item->packed_qty !== null ? $item->packed_qty : ($item->picked_qty !== null ? $item->picked_qty : $item->quantity));
             return $price * $qty;
         });
     @endphp
@@ -1479,13 +1511,15 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                         $unitPrice = 0;
                                     }
 
-                                    $itemSubtotal = $unitPrice * $tItem->quantity;
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = json_encode($uniqueBarcodes);
-                                    $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && $tItem->packed_qty >= $tItem->quantity && $tItem->quantity > 0));
-                                    $itemPackedQty = !is_null($tItem->packed_qty) ? $tItem->packed_qty : $tItem->quantity;
                                     $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                     $tSym = (($tt->currency ?? ($order->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
+
+                                    $displayQty = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
+                                    $effectiveQty = $tItem->packed_qty !== null ? (float)$tItem->packed_qty : $displayQty;
+                                    $itemSubtotal = $unitPrice * $effectiveQty;
+                                    $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && $displayQty > 0 && $tItem->packed_qty >= $displayQty));
                                 @endphp
                                 <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPacked ? '#d4edda' : ($tItem->status === 'In Progress' ? '#fff3cd' : '#f8d7da') }};">
                                     <td>{{ $idx + 1 }}</td>
@@ -1505,12 +1539,6 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                             <small class="text-muted d-block"><i class="fas fa-barcode me-1"></i>{{ implode(', ', $uniqueBarcodes) }}</small>
                                         @endif
                                     </td>
-                                    @php
-                                        $displayQty = (float)(($tItem->picked_qty !== null && $tItem->picked_qty > 0) ? $tItem->picked_qty : $tItem->quantity);
-                                        $effectiveQty = $tItem->packed_qty !== null ? (float)$tItem->packed_qty : ($displayQty > 0 ? $displayQty : 0);
-                                        $itemSubtotal = $unitPrice * $effectiveQty;
-                                        $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && $tItem->packed_qty >= $displayQty && $displayQty > 0));
-                                    @endphp
                                     <td class="text-center fw-bold {{ $displayQty <= 0 ? 'text-danger' : 'text-primary' }}">
                                         <span id="ts_qty_to_pack_{{ $tt->id }}_{{ $idx }}">{{ number_format($displayQty, 2) }}</span>
                                     </td>
@@ -3672,6 +3700,39 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                 }, 300);
             }
         });
+
+        window.deleteEcomOrderAction = function(orderId, soNumber) {
+            if (!confirm(`Are you sure you want to delete order ${soNumber} from Packing?\n\nThis will remove the order from the packing queue and return any deducted stock.`)) {
+                return;
+            }
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+
+            fetch(`{{ url('/production/inventory/packing/delete-order') }}/${orderId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    _method: 'DELETE'
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✓ ' + data.message);
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to delete order.'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Connection error occurred while deleting order.');
+            });
+        };
     </script>
     @endpush
 

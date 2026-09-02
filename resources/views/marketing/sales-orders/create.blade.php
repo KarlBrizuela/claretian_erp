@@ -211,7 +211,7 @@
                     </div>
 
                     <!-- Items Table -->
-                    <button type="button" class="btn-add-row" id="addItemBtn">
+                    <button type="button" class="btn-add-row" id="addItemBtn" onclick="if(typeof addRow === 'function') addRow();">
                         <i class="las la-plus me-2"></i>Add Item
                     </button>
 
@@ -895,6 +895,8 @@
 
                 updateGrandTotal();
             }
+
+            window.addRow = addRow;
 
             addItemBtn.addEventListener('click', () => {
                 if (itemsBody.querySelectorAll('tr').length >= 24) {

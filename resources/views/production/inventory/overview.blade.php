@@ -1471,7 +1471,7 @@
                             <div class="card-header border-0">
                                 <div>
                                     <h4 class="fs-20 mb-0 text-black">Stock Transfer Workflow</h4>
-                                    <small class="text-muted">Approval → Accounting → Logistics Assignment → Completion</small>
+                                    <small class="text-muted">Approval  Accounting → Logistics Assignment → Completion</small>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -4114,8 +4114,10 @@
 
             // Active tab persistence
             const savedTabId = localStorage.getItem('overviewActiveTab');
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('area_consignment_page') || urlParams.has('direct_consignment_page')) {
+           // const urlParams = new URLSearchParams(window.location.search);
+           // if (urlParams.has('area_consignment_page') || urlParams.has('direct_consignment_page')) {
+          const registryUrlParams = new URLSearchParams(window.location.search);
+		  if (registryUrlParams.has('area_consignment_page') || registryUrlParams.has('direct_consignment_page')) {
                 const cTab = document.getElementById('registry-consignment-tab');
                 if (cTab) new bootstrap.Tab(cTab).show();
             } else if (savedTabId) {

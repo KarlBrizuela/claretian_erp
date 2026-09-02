@@ -142,6 +142,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/packing/save-remarks', [App\Http\Controllers\Production\LogisticController::class, 'savePackingRemarks'])->name('packing.save-remarks');
       Route::post('/packing/set-ready-for-pickup', [App\Http\Controllers\Production\LogisticController::class, 'setReadyForPickup'])->name('packing.set-ready-for-pickup');
       Route::post('/packing/mark-as-gathered', [App\Http\Controllers\Production\LogisticController::class, 'markPackedOrdersAsGathered'])->name('packing.mark-as-gathered');
+      Route::match(['post', 'delete'], '/packing/delete-order/{id}', [App\Http\Controllers\Production\LogisticController::class, 'deletePackingOrder'])->name('packing.delete-order');
 
       // Delivery & Fleet management
       Route::get('/delivery-scheduling', [App\Http\Controllers\Production\LogisticController::class, 'deliveryScheduling'])->name('delivery-scheduling');

@@ -1532,7 +1532,7 @@ class MarketingController extends Controller
 
         // Order header banner (row 1)
         $sheet->mergeCells('A1:G1');
-        $sheet->setCellValue('A1', 'AREA SALES CONSIGNMENT — ' . $order->so_number);
+        $sheet->setCellValue('A1', 'AREA SALES CONSIGNMENT  ' . $order->so_number);
         $sheet->getStyle('A1')->applyFromArray([
             'font'      => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFFFFFFF']],
             'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
@@ -2977,11 +2977,32 @@ class MarketingController extends Controller
         }
 
         // Generate unique invoice number
-        $lastInvoice = \App\Models\SalesOrder::where('type', 'ecom_direct')
-            ->orderBy('id', 'desc')
-            ->first();
-        $nextNum = $lastInvoice ? (intval(substr($lastInvoice->so_number, -4)) + 1) : 1;
-        $invoiceNumber = 'DI-ECOM-' . date('Y') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+       // $lastInvoice = \App\Models\SalesOrder::where('type', 'ecom_direct')
+        //    ->orderBy('id', 'desc')
+        //    ->first();
+      //  $nextNum = $lastInvoice ? (intval(substr($lastInvoice->so_number, -4)) + 1) : 1;
+      //  $invoiceNumber = 'DI-ECOM-' . date('Y') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+      
+      	$invoicePrefix = 'DI-ECOM-' . date('Y') . '-';
+
+		$lastInvoiceNumber = \App\Models\SalesOrder::where(
+        'so_number',
+        'like',
+        $invoicePrefix . '%'
+    		)
+    	->orderByRaw('CAST(RIGHT(so_number, 4) AS UNSIGNED) DESC')
+    	->value('so_number');
+
+		$nextNum = $lastInvoiceNumber
+    	? (intval(substr($lastInvoiceNumber, -4)) + 1)
+    	: 1;
+
+		$invoiceNumber = $invoicePrefix .
+    	str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+      
+      
+      
+      
 
         // Store attachments (optional)
         $pickListPath = $request->hasFile('pick_list') ? $request->file('pick_list')->store('direct_invoices/pick_lists', 'public') : null;

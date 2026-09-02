@@ -334,8 +334,14 @@ class LogisticController extends Controller
                     $soItem = $plItem->salesOrderItem;
                     if ($soItem) {
                         $origQty = (float)$soItem->quantity;
-                        // If picked_qty was recorded, use it; otherwise fallback to original item quantity
-                        $pickedQty = $plItem->picked_qty !== null ? (float)$plItem->picked_qty : $origQty;
+                        // Preserve original quantity in sent_qty if not already set
+                        if (empty($soItem->sent_qty) || (float)$soItem->sent_qty == 0) {
+                            $soItem->sent_qty = $origQty;
+                        }
+                        // If picked_qty was recorded and item is no longer pending, use it; otherwise fallback to requested or original item quantity
+                        $pickedQty = ($plItem->status !== 'pending' && $plItem->picked_qty !== null) 
+                            ? (float)$plItem->picked_qty 
+                            : ($plItem->requested_qty > 0 ? (float)$plItem->requested_qty : $origQty);
 
                         $unfulfilledQty = max(0, $origQty - $pickedQty);
                         if ($unfulfilledQty > 0) {
@@ -446,7 +452,7 @@ class LogisticController extends Controller
             foreach ($pl->pickListItems as $plItem) {
                 $soItem = $plItem->salesOrderItem;
                 if ($soItem) {
-                    $restoredQty = $plItem->picked_qty > 0 ? $plItem->picked_qty : $soItem->quantity;
+                    $restoredQty = $plItem->picked_qty !== null ? (float)$plItem->picked_qty : (float)$soItem->quantity;
                     if ($restoredQty > 0) {
                         if ($salesTeam) {
                             // Restore Sales Team Stock
@@ -1614,10 +1620,10 @@ class LogisticController extends Controller
             if ($deliveryReceipt) {
                 $order = $deliveryReceipt->salesOrder;
                 if ($order) {
-                    $order->load(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'preparedBy', 'drPreparedBy']);
+                    $order->load(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'items.pickListItems', 'preparedBy', 'drPreparedBy']);
                 }
             } else {
-                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'preparedBy', 'drPreparedBy'])->find($id);
+                $order = \App\Models\SalesOrder::with(['customer', 'items.book', 'items.bookIndex', 'items.bundle', 'items.product', 'items.pickListItems', 'preparedBy', 'drPreparedBy'])->find($id);
             }
 
             if ($order || $deliveryReceipt) {
@@ -2680,9 +2686,7 @@ class LogisticController extends Controller
             
             $order = \App\Models\SalesOrder::with([
                 'customer',
-                'items' => function($q) {
-                    $q->where('quantity', '>', 0);
-                },
+                'items',
                 'items.book',
                 'items.bookIndex.book',
                 'items.bundle'
@@ -2905,6 +2909,49 @@ class LogisticController extends Controller
         } catch (\Exception $e) {
             \Log::error('Error saving base64 image: ' . $e->getMessage());
             throw $e;
+        }
+    }
+
+    public function deletePackingOrder($id)
+    {
+        try {
+            $so = \App\Models\SalesOrder::findOrFail($id);
+
+            // 1. Restore stock if already gathered/deducted
+            self::restoreSalesOrderStock($so);
+
+            // 2. Delete associated pick lists & pick list items
+            $pickLists = \App\Models\PickList::where('sales_order_id', $so->id)->get();
+            foreach ($pickLists as $pl) {
+                \App\Models\PickListItem::where('pick_list_id', $pl->id)->delete();
+                $pl->delete();
+            }
+
+            $soNumber = $so->so_number;
+
+            // 3. Delete order items and sales order
+            $so->items()->delete();
+            $so->delete();
+
+            // Store activity log for audit trail
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'Order deleted from Packing Management',
+                'description' => 'Sales Order ' . $soNumber . ' deleted from packing management queue.',
+                'reference_type' => 'SalesOrder',
+                'reference_id' => $id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order ' . $soNumber . ' deleted successfully from Packing Management.'
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error deleting packing order: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete order: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -4186,7 +4233,7 @@ class LogisticController extends Controller
                             $tItem->packed_qty = $packedQty;
 
                             // Do not modify $tItem->quantity; quantity represents original requested quantity
-                            $targetQty = (float)($tItem->picked_qty !== null && $tItem->picked_qty > 0 ? $tItem->picked_qty : $tItem->quantity);
+                            $targetQty = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
                             if (isset($itemData['status']) && !empty($itemData['status'])) {
                                 $tItem->status = $itemData['status'];
                             } elseif ($packedQty >= $targetQty && $targetQty > 0) {

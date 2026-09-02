@@ -180,10 +180,10 @@
 
                         <!-- Items Table Actions -->
                         <div class="d-flex gap-2 mb-3 mt-4">
-                            <button type="button" class="btn-add-row mb-0" id="addItemBtn">
+                            <button type="button" class="btn-add-row mb-0" id="addItemBtn" onclick="addProductRow()">
                                 <i class="las la-plus"></i> Add Row
                             </button>
-                            <button type="button" class="btn btn-primary" id="addBookItemBtn" style="height: 38px; min-height: 38px; border: none; background: #007bff; color: #fff; font-weight: 600; border-radius: 4px; padding: 0 1rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                            <button type="button" class="btn btn-primary" id="addBookItemBtn" onclick="addProductRow()" style="height: 38px; min-height: 38px; border: none; background: #007bff; color: #fff; font-weight: 600; border-radius: 4px; padding: 0 1rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
                                 <i class="las la-book"></i> Add Book
                             </button>
                         </div>
@@ -467,6 +467,8 @@
             const selectEl = tr.querySelector('.item-product-select');
             initProductSelect2(selectEl, rowIndex);
         }
+
+        window.addProductRow = addProductRow;
 
         function removeProductRow(idx) {
             const tbody = document.getElementById('itemsBody');
