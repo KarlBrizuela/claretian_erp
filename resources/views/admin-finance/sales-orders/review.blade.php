@@ -360,11 +360,21 @@
                     <tbody>
                         @foreach($itemsToRender as $item)
                         @php 
-                            $itemName = $item->item_name ?? ($item->bookIndex?->display_name ?? ($item->bookIndex?->title ?? ($item->book?->name ?? ($item->product?->name ?? ($item->bundle?->name ?? ($item->bookBundle?->name ?? ($item->product_name ?? null))))))); 
+                            $itemName = $item->item_name ?? ($item->bookIndex?->display_name ?? ($item->bookIndex?->title ?? ($item->bookIndex?->custom_name ?? ($item->bookIndex?->book?->name ?? ($item->book?->name ?? ($item->product?->name ?? ($item->bundle?->name ?? ($item->bookBundle?->name ?? ($item->product_name ?? 'Unknown Item'))))))))); 
+                            $sQty = (float)($item->sent_qty ?? 0);
+                            $iQty = (float)($item->quantity ?? 0);
+                            $rQty = (float)($item->requested_qty ?? 0);
+                            $plReqQty = 0;
+                            if (isset($item->pickListItems) && count($item->pickListItems) > 0) {
+                                $plReqQty = (float)($item->pickListItems->first()->requested_qty ?? 0);
+                            }
+                            $itemQty = $sQty > 0 ? $sQty : ($iQty > 0 ? $iQty : ($rQty > 0 ? $rQty : ($plReqQty > 0 ? $plReqQty : 1)));
+                            $itemPrice = (float)($item->unit_price ?? ($item->price ?? 0));
+                            $itemSubtotal = ($item->amount ?? ($item->subtotal && (float)$item->subtotal > 0 ? (float)$item->subtotal : ($itemQty * $itemPrice)));
                         @endphp
                         @if($itemName)
                         <tr>
-                            <td class="text-center">{{ (float)$item->quantity }}</td>
+                            <td class="text-center">{{ (float)$itemQty }}</td>
                             <td class="text-center text-uppercase">{{ $item->product?->unit ?? $item->book?->unit ?? 'pcs' }}</td>
                             <td>
                                 <div class="fw-bold d-flex align-items-center gap-1 flex-wrap">
@@ -377,7 +387,7 @@
                                 </div>
                                 <small class="text-muted">{{ $item->product?->sku ?? $item->book?->sku ?? $item->bundle?->sku ?? '-' }}</small>
                             </td>
-                            <td class="text-end">{{ $sym }}{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
+                            <td class="text-end">{{ $sym }}{{ number_format($itemPrice, 2) }}</td>
                             <td class="text-center">
                                 @if(($item->discount_value ?? 0) > 0 || ($item->discount_amount ?? 0) > 0)
                                     @if(($item->discount_type ?? 'percentage') === 'percentage' && ($item->discount_value ?? 0) > 0)
@@ -391,7 +401,7 @@
                                     -
                                 @endif
                             </td>
-                            <td class="text-end fw-bold">{{ $sym }}{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>
+                            <td class="text-end fw-bold">{{ $sym }}{{ number_format($itemSubtotal, 2) }}</td>
                         </tr>
                         @endif
                         @endforeach
@@ -399,7 +409,16 @@
                     <tfoot>
                         @php
                             $itemsSubtotal = $itemsToRender->sum(function($item) {
-                                return $item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($item->quantity * $item->price));
+                                $sQty = (float)($item->sent_qty ?? 0);
+                                $iQty = (float)($item->quantity ?? 0);
+                                $rQty = (float)($item->requested_qty ?? 0);
+                                $plReqQty = 0;
+                                if (isset($item->pickListItems) && count($item->pickListItems) > 0) {
+                                    $plReqQty = (float)($item->pickListItems->first()->requested_qty ?? 0);
+                                }
+                                $q = $sQty > 0 ? $sQty : ($iQty > 0 ? $iQty : ($rQty > 0 ? $rQty : ($plReqQty > 0 ? $plReqQty : 1)));
+                                $p = (float)($item->price ?? ($item->unit_price ?? 0));
+                                return $item->amount ?? ($item->subtotal && (float)$item->subtotal > 0 ? (float)$item->subtotal : ($q * $p));
                             });
                             $discountAmount = (float) ($order->discount_amount ?? 0);
                             $discountPercentage = $order->discount_percentage ?? 0;

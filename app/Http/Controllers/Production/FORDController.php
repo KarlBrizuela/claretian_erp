@@ -459,6 +459,8 @@ class FORDController extends Controller
             'items.book', 
             'items.bookIndex.book', 
             'items.bundle', 
+            'items.product',
+            'items.pickListItems',
             'preparedBy'
         ])->findOrFail($id);
 
