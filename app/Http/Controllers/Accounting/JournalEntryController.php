@@ -95,18 +95,38 @@ class JournalEntryController extends Controller
             }
         }
 
-        // Ensure parent accounts with child sub-accounts are not postable directly
-        $parentIds = ChartOfAccount::whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
-        if (!empty($parentIds)) {
-            ChartOfAccount::whereIn('id', $parentIds)->update(['is_postable' => 0]);
+        // Safely check parent column schema
+        $hasParentId = \Illuminate\Support\Facades\Schema::hasColumn('chart_of_accounts', 'parent_id');
+        $hasParentCode = \Illuminate\Support\Facades\Schema::hasColumn('chart_of_accounts', 'parent_code');
+        $hasIsPostable = \Illuminate\Support\Facades\Schema::hasColumn('chart_of_accounts', 'is_postable');
+
+        if ($hasParentId) {
+            $parentIds = ChartOfAccount::whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
+            if (!empty($parentIds) && $hasIsPostable) {
+                ChartOfAccount::whereIn('id', $parentIds)->update(['is_postable' => 0]);
+            }
+        } elseif ($hasParentCode) {
+            $parentCodes = ChartOfAccount::whereNotNull('parent_code')->pluck('parent_code')->unique()->toArray();
+            if (!empty($parentCodes) && $hasIsPostable) {
+                ChartOfAccount::whereIn('code', $parentCodes)->update(['is_postable' => 0]);
+            }
         }
 
         // Fetch all active, postable accounts from Chart of Accounts sorted hierarchically
-        $accounts = ChartOfAccount::select('chart_of_accounts.*')
-            ->leftJoin('chart_of_accounts as p', 'chart_of_accounts.parent_id', '=', 'p.id')
-            ->where('chart_of_accounts.is_active', 1)
-            ->where('chart_of_accounts.is_postable', 1)
-            ->orderByRaw("
+        $query = ChartOfAccount::select('chart_of_accounts.*');
+        
+        if ($hasParentId) {
+            $query->leftJoin('chart_of_accounts as p', 'chart_of_accounts.parent_id', '=', 'p.id');
+        }
+
+        $query->where('chart_of_accounts.is_active', 1);
+        
+        if ($hasIsPostable) {
+            $query->where('chart_of_accounts.is_postable', 1);
+        }
+
+        if ($hasParentId) {
+            $query->orderByRaw("
                 CASE chart_of_accounts.type
                     WHEN 'Asset' THEN 1
                     WHEN 'Liability' THEN 2
@@ -119,8 +139,23 @@ class JournalEntryController extends Controller
                 COALESCE(p.code, chart_of_accounts.code),
                 chart_of_accounts.display_order,
                 chart_of_accounts.code
-            ")
-            ->get();
+            ");
+        } else {
+            $query->orderByRaw("
+                CASE chart_of_accounts.type
+                    WHEN 'Asset' THEN 1
+                    WHEN 'Liability' THEN 2
+                    WHEN 'Equity' THEN 3
+                    WHEN 'Income' THEN 4
+                    WHEN 'Expense' THEN 5
+                    ELSE 6
+                END,
+                chart_of_accounts.display_order,
+                chart_of_accounts.code
+            ");
+        }
+
+        $accounts = $query->get();
         
         // Generate next Entry No (JV-YEAR-SEQ)
         $year = now()->year;
