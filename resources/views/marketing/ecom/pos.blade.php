@@ -467,6 +467,9 @@
                 }
                 existing.qty++;
             } else {
+                if (cart.length >= 24) {
+                    return alert('Maximum of 24 products allowed per order.');
+                }
                 cart.push({ ...product, qty: 1, discount_value: 0, discount_type: 'percentage' });
             }
             renderCart();

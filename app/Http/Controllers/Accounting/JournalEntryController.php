@@ -85,8 +85,8 @@ class JournalEntryController extends Controller
             );
         }
 
-        // Ensure broad/general bank account parents are not postable directly
-        ChartOfAccount::whereIn('code', ['1000', '1020'])->update(['is_postable' => 0]);
+        // Ensure parent accounts with child sub-accounts are not postable directly
+        ChartOfAccount::whereHas('children')->update(['is_postable' => 0]);
 
         // Fetch all active, postable accounts from Chart of Accounts sorted hierarchically
         $accounts = ChartOfAccount::select('chart_of_accounts.*')

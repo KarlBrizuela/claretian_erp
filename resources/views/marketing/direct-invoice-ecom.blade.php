@@ -224,6 +224,7 @@
                                         <option value="Jnt" {{ old('courier') == 'Jnt' ? 'selected' : '' }}>Jnt</option>
                                         <option value="Flash" {{ old('courier') == 'Flash' ? 'selected' : '' }}>Flash</option>
                                         <option value="Ninja Van" {{ old('courier') == 'Ninja Van' ? 'selected' : '' }}>Ninja Van</option>
+                                        <option value="instant" {{ old('courier') == 'instant' ? 'selected' : '' }}>Instant Delivery</option>
                                     </select>
                                 </div>
                             </div>
@@ -518,15 +519,15 @@
                         const name = opt.dataset.name;
                         let stock = 0;
                         if (platform === 'lazada') {
-                            stock = opt.dataset.stockLazada || 0;
+                            stock = parseInt(opt.dataset.stockLazada || 0);
                         } else if (platform === 'shopee') {
-                            stock = opt.dataset.stockShopee || 0;
+                            stock = parseInt(opt.dataset.stockShopee || 0);
                         } else if (platform === 'tiktok') {
-                            stock = opt.dataset.stockTiktok || 0;
+                            stock = parseInt(opt.dataset.stockTiktok || 0);
                         } else if (platform === 'cob') {
-                            stock = opt.dataset.stockCob || 0;
+                            stock = parseInt(opt.dataset.stockCob || 0);
                         } else {
-                            stock = opt.dataset.stockMain || 0;
+                            stock = parseInt(opt.dataset.stockMain || opt.dataset.stock || 0);
                         }
                         opt.text = `${name} (Stock: ${stock})`;
                     }
@@ -588,6 +589,10 @@
                 // Add item row
                 let rowIndex = 0;
                 function addRow() {
+                    if (tbody.querySelectorAll('tr').length >= 24) {
+                        alert('Maximum of 24 products allowed per order.');
+                        return;
+                    }
                     const tr = document.createElement('tr');
                     const idx = rowIndex++;
 

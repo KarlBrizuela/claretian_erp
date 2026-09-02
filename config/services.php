@@ -30,4 +30,11 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'production_erp' => [
+        'url' => env('PRODUCTION_ERP_URL', 'https://erpccfi.claretianpublications.ph'),
+        'api_name' => env('PRODUCTION_ERP_API_NAME'),
+        'api_key' => env('PRODUCTION_ERP_API_KEY'),
+        'table' => env('PRODUCTION_ERP_TABLE', 'uuqs_ccfi_accounting_handoff'),
+    ],
+
 ];

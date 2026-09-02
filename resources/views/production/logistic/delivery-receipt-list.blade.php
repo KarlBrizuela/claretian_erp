@@ -310,15 +310,6 @@
                                                           </form>
                                                       @endif
                                                 @endif
-                                                 @if($canPrep)
-                                                     <form action="{{ route('production.logistic.complete-dr', $order->id) }}" method="POST" style="display:inline;">
-                                                         @csrf
-                                                         <button type="submit" class="btn btn-success shadow btn-xs sharp" title="Complete DR & Move to Packing">
-                                                             <i class="fas fa-check-circle"></i>
-                                                         </button>
-                                                     </form>
-                                                 @endif
-
                                                  @if($order->status === 'pending_dr_prep' && $canPrep)
                                                     <form action="{{ route('production.logistic.mark-as-dr-prepared', $order->id) }}" method="POST" style="display:inline;">
                                                         @csrf

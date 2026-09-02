@@ -359,11 +359,7 @@
 
         $isConsignment = in_array($order->type, ['area_consignment', 'area_sales_consignment']);
         $rawDrItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
-        $displayItems = collect($rawDrItems)->filter(function($item) {
-            $qty = (float)($item->quantity ?? 0);
-            $pickQty = (float)($item->customer_selected_qty ?? 0);
-            return $qty > 0 || $pickQty > 0;
-        });
+        $displayItems = collect($rawDrItems);
 
         $grossSubtotal = 0;
         $totalItemDiscounts = 0;
@@ -455,10 +451,33 @@
             <tbody>
                 @forelse($displayItems as $item)
                     @php
-                        $qty = (int)($item->quantity ?? 0);
-                        $pickQty = (!empty($item->customer_selected_qty) && (int)$item->customer_selected_qty > 0) ? (int)$item->customer_selected_qty : $qty;
+                        $sQty = (float)($item->sent_qty ?? 0);
+                        $rQty = (float)($item->requested_qty ?? 0);
+                        $iQty = (float)($item->quantity ?? 0);
+                        $plReqQty = 0;
+                        if (isset($item->pickListItems) && count($item->pickListItems) > 0) {
+                            $plReqQty = (float)($item->pickListItems->first()->requested_qty ?? 0);
+                        } elseif (isset($item->pick_list_items) && count($item->pick_list_items) > 0) {
+                            $plReqQty = (float)($item->pick_list_items->first()->requested_qty ?? 0);
+                        }
+
+                        if ($sQty > 0) {
+                            $qty = (int)$sQty;
+                        } elseif ($iQty > 0) {
+                            $qty = (int)$iQty;
+                        } elseif ($rQty > 0) {
+                            $qty = (int)$rQty;
+                        } elseif ($plReqQty > 0) {
+                            $qty = (int)$plReqQty;
+                        } else {
+                            $qty = (int)$iQty;
+                        }
+
+                        $pickQty = (!empty($item->customer_selected_qty) && (float)$item->customer_selected_qty > 0) 
+                            ? (int)$item->customer_selected_qty 
+                            : ($qty > 0 ? $qty : (int)($item->quantity ?? 0));
                         $displayQty = $isConsignment ? $pickQty : $qty;
-                        $unitPrice = (float)($item->unit_price ?? $item->price ?? 0);
+                        $unitPrice = (float)($item->unit_price ?? ($item->price ?? 0));
                         $itemSubtotal = $displayQty * $unitPrice;
                         $grossSubtotal += $itemSubtotal;
 
@@ -501,7 +520,7 @@
                     <tr>
                         <td style="text-align: center; font-weight: bold;">{{ $displayQty }}</td>
                         <td style="font-weight: 600;">
-                            {{ $item->item_name ?? ($item->book->name ?? ($item->product->name ?? ($item->product_name ?? 'Unknown Item'))) }}
+                            {{ $item->bookIndex?->display_name ?? ($item->bookIndex?->title ?? ($item->bookIndex?->custom_name ?? ($item->bookIndex?->book?->name ?? ($item->book?->name ?? ($item->bundle?->name ?? ($item->product?->name ?? ($item->item_name ?? ($item->product_name ?? 'Unknown Item')))))))) }}
                             @if($isNBS && !empty($articleNo))
                                 <div style="font-size: 11px; font-weight: bold; color: #000; margin-top: 2px;">
                                     Article #: {{ $articleNo }}

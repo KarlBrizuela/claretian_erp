@@ -106,12 +106,8 @@
                     <!-- Delivery Receipt Items Table -->
                     @php
                         $isConsignment = $order && in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']);
-                        $rawItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order ? $order->items : []);
-                        $displayItems = collect($rawItems)->filter(function($item) {
-                            $qty = (float)($item->quantity ?? 0);
-                            $pickQty = (float)($item->customer_selected_qty ?? 0);
-                            return $qty > 0 || $pickQty > 0;
-                        });
+                        $rawItems = ($deliveryReceipt && count($deliveryReceipt->items) > 0) ? $deliveryReceipt->items : ($order && count($order->items) > 0 ? $order->items : ($deliveryReceipt ? $deliveryReceipt->items : []));
+                        $displayItems = collect($rawItems);
                         
                         $grossSubtotal = 0;
                         $totalItemDiscounts = 0;
@@ -136,9 +132,32 @@
                                 <tbody>
                                     @forelse($displayItems as $item)
                                         @php
-                                            $qty = (int)($item->quantity ?? 0);
-                                            $pickQty = (!empty($item->customer_selected_qty) && (int)$item->customer_selected_qty > 0) ? (int)$item->customer_selected_qty : $qty;
-                                            $unitPrice = (float)($item->unit_price ?? $item->price ?? 0);
+                                            $sQty = (float)($item->sent_qty ?? 0);
+                                            $rQty = (float)($item->requested_qty ?? 0);
+                                            $iQty = (float)($item->quantity ?? 0);
+                                            $plReqQty = 0;
+                                            if (isset($item->pickListItems) && count($item->pickListItems) > 0) {
+                                                $plReqQty = (float)($item->pickListItems->first()->requested_qty ?? 0);
+                                            } elseif (isset($item->pick_list_items) && count($item->pick_list_items) > 0) {
+                                                $plReqQty = (float)($item->pick_list_items->first()->requested_qty ?? 0);
+                                            }
+
+                                            if ($sQty > 0) {
+                                                $qty = (int)$sQty;
+                                            } elseif ($iQty > 0) {
+                                                $qty = (int)$iQty;
+                                            } elseif ($rQty > 0) {
+                                                $qty = (int)$rQty;
+                                            } elseif ($plReqQty > 0) {
+                                                $qty = (int)$plReqQty;
+                                            } else {
+                                                $qty = (int)$iQty;
+                                            }
+
+                                            $pickQty = (!empty($item->customer_selected_qty) && (float)$item->customer_selected_qty > 0) 
+                                                ? (int)$item->customer_selected_qty 
+                                                : ($qty > 0 ? $qty : (int)($item->quantity ?? 0));
+                                            $unitPrice = (float)($item->unit_price ?? ($item->price ?? 0));
                                             $itemSubtotal = ($isConsignment ? $pickQty : $qty) * $unitPrice;
                                             $grossSubtotal += $itemSubtotal;
                                             
@@ -173,7 +192,7 @@
                                             @endif
                                             <td>
                                                 @php
-                                                    $dItemName = $item->bookIndex ? $item->bookIndex->display_name : ($item->book ? $item->book->name : ($item->bundle ? $item->bundle->name : ($item->product ? $item->product->name : ($item->item_name ?? ($item->product_name ?? 'Unknown Item')))));
+                                                    $dItemName = $item->bookIndex?->display_name ?? ($item->bookIndex?->title ?? ($item->bookIndex?->custom_name ?? ($item->bookIndex?->book?->name ?? ($item->book?->name ?? ($item->bundle?->name ?? ($item->product?->name ?? ($item->item_name ?? ($item->product_name ?? 'Unknown Item'))))))));
                                                     $dType = $item->item_type ?? ($item->bookIndex || !empty($item->book_index_id) ? 'Index' : (!empty($item->bundle_id) || !empty($item->bundle) ? 'Bundle' : 'Book'));
 
                                                     $soNum = strtolower($order->so_number ?? '');

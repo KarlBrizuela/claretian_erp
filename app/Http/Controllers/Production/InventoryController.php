@@ -412,6 +412,30 @@ class InventoryController extends Controller
             ];
         })->filter(fn($c) => count($c->books) > 0)->sortBy(fn($c) => $c->customer_name)->values();
 
+        if (!empty($search)) {
+            $searchLower = strtolower(trim($search));
+            $consignmentStaffCollection = $consignmentStaffCollection->filter(function($cData) use ($searchLower) {
+                if (str_contains(strtolower($cData->customer_name ?? ''), $searchLower)) return true;
+                if (!empty($cData->company_name) && str_contains(strtolower($cData->company_name), $searchLower)) return true;
+                if (!empty($cData->staff_name) && str_contains(strtolower($cData->staff_name), $searchLower)) return true;
+                
+                if (!empty($cData->dr_numbers)) {
+                    foreach ($cData->dr_numbers as $dr) {
+                        if (str_contains(strtolower($dr), $searchLower)) return true;
+                    }
+                }
+                
+                if (!empty($cData->books)) {
+                    foreach ($cData->books as $b) {
+                        if (str_contains(strtolower($b['name'] ?? ''), $searchLower)) return true;
+                        if (str_contains(strtolower($b['sku'] ?? ''), $searchLower)) return true;
+                    }
+                }
+                
+                return false;
+            })->values();
+        }
+
         // Paginate Area Consignment
         $currentPageArea = \Illuminate\Pagination\Paginator::resolveCurrentPage('area_consignment_page');
         $perPageArea = 5;
@@ -521,6 +545,29 @@ class InventoryController extends Controller
                 'total_items' => collect($bookMap)->sum('total_qty'),
             ];
         })->filter(fn($c) => count($c->books) > 0)->sortBy(fn($c) => $c->customer_name)->values();
+
+        if (!empty($search)) {
+            $searchLower = strtolower(trim($search));
+            $directConsignmentCollection = $directConsignmentCollection->filter(function($cData) use ($searchLower) {
+                if (str_contains(strtolower($cData->customer_name ?? ''), $searchLower)) return true;
+                if (!empty($cData->company_name) && str_contains(strtolower($cData->company_name), $searchLower)) return true;
+                
+                if (!empty($cData->dr_numbers)) {
+                    foreach ($cData->dr_numbers as $dr) {
+                        if (str_contains(strtolower($dr), $searchLower)) return true;
+                    }
+                }
+                
+                if (!empty($cData->books)) {
+                    foreach ($cData->books as $b) {
+                        if (str_contains(strtolower($b['name'] ?? ''), $searchLower)) return true;
+                        if (str_contains(strtolower($b['sku'] ?? ''), $searchLower)) return true;
+                    }
+                }
+                
+                return false;
+            })->values();
+        }
 
         // Paginate Direct Consignment
         $currentPageDirect = \Illuminate\Pagination\Paginator::resolveCurrentPage('direct_consignment_page');

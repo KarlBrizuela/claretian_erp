@@ -516,6 +516,10 @@
                 const portion = existing.portion || currentQtyMode;
                 existing.qty = portion === 'half' ? existing.baseQty / 2 : existing.baseQty;
             } else {
+                if (cart.length >= 24) {
+                    window.showAlert('Maximum of 24 products allowed per order.', 'error');
+                    return;
+                }
                 const baseQty = 1;
                 const portion = currentQtyMode;
                 const qty = portion === 'half' ? 0.5 : 1;

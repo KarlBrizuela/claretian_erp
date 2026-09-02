@@ -31,15 +31,15 @@ Route::middleware(['auth'])->group(function () {
   })->name('session-keep-alive');
 
   // Payment Requests Common Routes
-  Route::get('/payment-requests/{id}', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'show'])->name('payment-requests.show');
-  Route::post('/payment-requests/{id}/approve', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'approve'])->name('payment-requests.approve');
-  Route::post('/payment-requests/{id}/reject', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'reject'])->name('payment-requests.reject');
+  Route::get('/payment-requests/{id}', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'show'])->name('payment-requests.show')->where('id', '[0-9]+');
+  Route::post('/payment-requests/{id}/approve', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'approve'])->name('payment-requests.approve')->where('id', '[0-9]+');
+  Route::post('/payment-requests/{id}/reject', [App\Http\Controllers\Accounting\PaymentRequestController::class, 'reject'])->name('payment-requests.reject')->where('id', '[0-9]+');
 
   // Auto Debit Letters Common Routes (Accessible across divisions: Director, Admin & Finance Managers, Production)
-  Route::get('/production/ford/auto-debit/{id}', [App\Http\Controllers\Production\FORDController::class, 'autoDebitShow'])->name('production.ford.auto-debit.show');
-  Route::post('/production/ford/auto-debit/{id}/approve-director', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveDirector'])->name('production.ford.auto-debit.approve-director');
-  Route::post('/production/ford/auto-debit/{id}/approve-finance', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveFinance'])->name('production.ford.auto-debit.approve-finance');
-  Route::post('/production/ford/auto-debit/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'autoDebitReject'])->name('production.ford.auto-debit.reject');
+  Route::get('/production/ford/auto-debit/{id}', [App\Http\Controllers\Production\FORDController::class, 'autoDebitShow'])->name('production.ford.auto-debit.show')->where('id', '[0-9]+');
+  Route::post('/production/ford/auto-debit/{id}/approve-director', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveDirector'])->name('production.ford.auto-debit.approve-director')->where('id', '[0-9]+');
+  Route::post('/production/ford/auto-debit/{id}/approve-finance', [App\Http\Controllers\Production\FORDController::class, 'autoDebitApproveFinance'])->name('production.ford.auto-debit.approve-finance')->where('id', '[0-9]+');
+  Route::post('/production/ford/auto-debit/{id}/reject', [App\Http\Controllers\Production\FORDController::class, 'autoDebitReject'])->name('production.ford.auto-debit.reject')->where('id', '[0-9]+');
 
   // Universal Storage Fallback (Fix for servers without symlink support)
   Route::get('/storage/{path}', [FileController::class, 'serve'])->where('path', '.*');
@@ -87,6 +87,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/{id}', [App\Http\Controllers\Production\ProductionCostingController::class, 'show'])->name('show');
       Route::post('/calculate', [App\Http\Controllers\Production\ProductionCostingController::class, 'calculate'])->name('calculate');
       Route::post('/store', [App\Http\Controllers\Production\ProductionCostingController::class, 'store'])->name('store');
+      Route::post('/sync', [App\Http\Controllers\Production\ProductionCostingController::class, 'syncFromProductionErp'])->name('sync');
     });
 
     // Production Fixed Assets
@@ -142,6 +143,7 @@ Route::middleware(['auth'])->group(function () {
       Route::post('/packing/save-remarks', [App\Http\Controllers\Production\LogisticController::class, 'savePackingRemarks'])->name('packing.save-remarks');
       Route::post('/packing/set-ready-for-pickup', [App\Http\Controllers\Production\LogisticController::class, 'setReadyForPickup'])->name('packing.set-ready-for-pickup');
       Route::post('/packing/mark-as-gathered', [App\Http\Controllers\Production\LogisticController::class, 'markPackedOrdersAsGathered'])->name('packing.mark-as-gathered');
+      Route::match(['post', 'delete'], '/packing/delete-order/{id}', [App\Http\Controllers\Production\LogisticController::class, 'deletePackingOrder'])->name('packing.delete-order');
 
       // Delivery & Fleet management
       Route::get('/delivery-scheduling', [App\Http\Controllers\Production\LogisticController::class, 'deliveryScheduling'])->name('delivery-scheduling');
@@ -593,6 +595,10 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/delivery-receipt-list', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceiptList'])->name('admin-finance.accounting.delivery-receipt-list');
       Route::get('/delivery-receipt/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('admin-finance.accounting.delivery-receipt');
       Route::post('/move-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'fastMoveToSI'])->name('admin-finance.accounting.delivery-receipt.move-to-si');
+
+      // Production Costing in Accounting
+      Route::get('/production-costing', [App\Http\Controllers\AdminFinanceController::class, 'productionCosting'])->name('admin-finance.accounting.production-costing');
+      Route::get('/production-costing/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showProductionCosting'])->name('admin-finance.accounting.production-costing.show');
     });
 
     // Chart of Accounts

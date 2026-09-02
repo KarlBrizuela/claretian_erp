@@ -1532,7 +1532,7 @@ class MarketingController extends Controller
 
         // Order header banner (row 1)
         $sheet->mergeCells('A1:G1');
-        $sheet->setCellValue('A1', 'AREA SALES CONSIGNMENT — ' . $order->so_number);
+        $sheet->setCellValue('A1', 'AREA SALES CONSIGNMENT  ' . $order->so_number);
         $sheet->getStyle('A1')->applyFromArray([
             'font'      => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFFFFFFF']],
             'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
@@ -1945,7 +1945,7 @@ class MarketingController extends Controller
             'area_sales_staff_id' => $request->input('type') === 'area_sales_consignment' ? 'required|exists:users,id' : 'nullable|exists:users,id',
             'type' => 'required',
             'so_number' => 'required|unique:sales_orders,so_number',
-            'items' => $action === 'draft' ? 'nullable|array' : 'required|array|min:1', // Items optional for draft
+            'items' => $action === 'draft' ? 'nullable|array|max:24' : 'required|array|min:1|max:24', // Items optional for draft, max 24
             'remarks' => 'nullable',
             'terms' => 'nullable',
             'ref_number' => 'nullable',
@@ -1975,6 +1975,11 @@ class MarketingController extends Controller
             if ($staff && $staff->sales_team) {
                 $userTeam = $staff->sales_team;
             }
+        }
+
+        $validProductCount = count(array_filter($request->items ?? [], fn($i) => !empty($i['product_id'])));
+        if ($validProductCount > 24) {
+            $itemErrors[] = "Maximum of 24 products allowed per order.";
         }
 
         foreach ($request->items ?? [] as $item) {
@@ -2434,7 +2439,7 @@ class MarketingController extends Controller
             'customer_id' => $request->input('type') === 'area_sales_consignment' ? 'nullable|exists:customers,customer_id' : 'required|exists:customers,customer_id',
             'area_sales_staff_id' => $request->input('type') === 'area_sales_consignment' ? 'required|exists:users,id' : 'nullable|exists:users,id',
             'type' => 'required',
-            'items' => 'required|array|min:1',
+            'items' => 'required|array|min:1|max:24',
             'remarks' => 'nullable',
             'terms' => 'nullable',
             'ref_number' => 'nullable',
@@ -2449,6 +2454,11 @@ class MarketingController extends Controller
 
         // Validate stock & quantity for all items
         $itemErrors = [];
+        $validProductCount = count(array_filter($request->items ?? [], fn($i) => !empty($i['product_id'])));
+        if ($validProductCount > 24) {
+            $itemErrors[] = "Maximum of 24 products allowed per order.";
+        }
+
         foreach ($request->items ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $qty = (int) ($item['quantity'] ?? 0);
@@ -2614,7 +2624,7 @@ class MarketingController extends Controller
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
             'transaction_subtype' => 'required|in:foreign,local',
-            'items' => 'required|array|min:1',
+            'items' => 'required|array|min:1|max:24',
             'items.*.product_id' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
@@ -2625,6 +2635,10 @@ class MarketingController extends Controller
             'proof_of_payment' => 'required|file|max:10240',
             'order_list' => 'required|file|max:10240',
         ]);
+
+        if (count(array_filter($request->items ?? [], fn($i) => !empty($i['product_id']))) > 24) {
+            return redirect()->back()->with('error', 'Cannot proceed with Direct Invoice: Maximum of 24 products allowed per order.')->withInput();
+        }
 
         // STOCK VALIDATION: Check if all items have sufficient stock
         $insufficientItems = [];
@@ -2905,7 +2919,7 @@ class MarketingController extends Controller
             'customer_id' => 'nullable',
             'ecom_platform' => 'required|in:lazada,shopee,tiktok,cob',
             'platform_order_id' => 'nullable|string|max:255',
-            'items' => 'required|array|min:1',
+            'items' => 'required|array|min:1|max:24',
             'items.*.product_id' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
@@ -2922,6 +2936,10 @@ class MarketingController extends Controller
         $targetSite = $this->resolvePlatformSite($request->ecom_platform);
         if (!$targetSite) {
             $targetSite = \App\Models\Site::where('name', 'Main Warehouse')->first();
+        }
+
+        if (count(array_filter($request->items ?? [], fn($i) => !empty($i['product_id']))) > 24) {
+            return redirect()->back()->with('error', 'Cannot proceed with Direct Invoice: Maximum of 24 products allowed per order.')->withInput();
         }
 
         // STOCK VALIDATION: Check if items have sufficient stock at the chosen platform site
@@ -2945,7 +2963,7 @@ class MarketingController extends Controller
                 $siteInv = $query ? $query->first() : null;
             }
 
-            $siteStock = $siteInv ? (int)$siteInv->quantity : (int)$target['stock'];
+            $siteStock = $siteInv ? (int)$siteInv->quantity : 0;
 
             if (!$target['exists'] || $siteStock < $item['quantity']) {
                 $bookName = $target['name'];
@@ -2959,11 +2977,32 @@ class MarketingController extends Controller
         }
 
         // Generate unique invoice number
-        $lastInvoice = \App\Models\SalesOrder::where('type', 'ecom_direct')
-            ->orderBy('id', 'desc')
-            ->first();
-        $nextNum = $lastInvoice ? (intval(substr($lastInvoice->so_number, -4)) + 1) : 1;
-        $invoiceNumber = 'DI-ECOM-' . date('Y') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+       // $lastInvoice = \App\Models\SalesOrder::where('type', 'ecom_direct')
+        //    ->orderBy('id', 'desc')
+        //    ->first();
+      //  $nextNum = $lastInvoice ? (intval(substr($lastInvoice->so_number, -4)) + 1) : 1;
+      //  $invoiceNumber = 'DI-ECOM-' . date('Y') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+      
+      	$invoicePrefix = 'DI-ECOM-' . date('Y') . '-';
+
+		$lastInvoiceNumber = \App\Models\SalesOrder::where(
+        'so_number',
+        'like',
+        $invoicePrefix . '%'
+    		)
+    	->orderByRaw('CAST(RIGHT(so_number, 4) AS UNSIGNED) DESC')
+    	->value('so_number');
+
+		$nextNum = $lastInvoiceNumber
+    	? (intval(substr($lastInvoiceNumber, -4)) + 1)
+    	: 1;
+
+		$invoiceNumber = $invoicePrefix .
+    	str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+      
+      
+      
+      
 
         // Store attachments (optional)
         $pickListPath = $request->hasFile('pick_list') ? $request->file('pick_list')->store('direct_invoices/pick_lists', 'public') : null;

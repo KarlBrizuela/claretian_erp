@@ -41,6 +41,8 @@
                                     @php
                                         $pickListItemsJson = json_encode($pickList->pickListItems->map(function($item) {
                                             return [
+                                                'id'           => $item->id,
+                                                'so_item_id'   => $item->sales_order_item_id,
                                                 'product'      => $item->salesOrderItem->item_name ?? ($item->salesOrderItem->book->name ?? 'Unknown'),
                                                 'item_type'    => $item->salesOrderItem?->item_type ?? ($item->salesOrderItem?->bookIndex ? 'Index' : ($item->salesOrderItem?->bundle ? 'Bundle' : 'Book')),
                                                 'quantity'     => $item->requested_qty,
@@ -178,6 +180,8 @@
                                         // Build items data from PickListItems (which have picked_qty)
                                         $pickListItemsJson = json_encode($pickList->pickListItems->map(function($item) {
                                             return [
+                                                'id'           => $item->id,
+                                                'so_item_id'   => $item->sales_order_item_id,
                                                 'product'      => $item->salesOrderItem->item_name ?? ($item->salesOrderItem->book->name ?? 'Unknown'),
                                                 'item_type'    => $item->salesOrderItem?->item_type ?? ($item->salesOrderItem?->bookIndex ? 'Index' : ($item->salesOrderItem?->bundle ? 'Bundle' : 'Book')),
                                                 'quantity'     => $item->requested_qty,
@@ -800,6 +804,8 @@
                                 typeBadge = '<span class="badge bg-info text-dark ms-1">Index</span>';
                             }
                             const tr = document.createElement('tr');
+                            if (item.id) tr.dataset.itemId = item.id;
+                            if (item.so_item_id) tr.dataset.soItemId = item.so_item_id;
                             tr.innerHTML = `
                                 <td>${idx + 1}</td>
                                 <td class="fw-bold">${item.product} ${typeBadge}</td>
@@ -986,6 +992,8 @@
                 }
 
                 pickedItems.push({
+                    id: row.dataset.itemId || null,
+                    so_item_id: row.dataset.soItemId || null,
                     product: product,
                     picked_qty: pickedQty,
                     status: status,

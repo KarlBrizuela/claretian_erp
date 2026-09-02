@@ -39,6 +39,12 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         @endif
+        @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="las la-exclamation-circle me-2 fs-18"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        @endif
 
         <!-- Master Title Header -->
         <div class="row mb-4">
@@ -49,6 +55,12 @@
                         <p class="text-muted small mb-0">Automatic cost aggregation directly from Production module parameters. No manual accounting entry required.</p>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
+                        <form action="{{ route('production.costing.sync') }}" method="POST" class="d-inline" onsubmit="const btn = this.querySelector('button'); btn.disabled = true; btn.innerHTML = '<i class=\'las la-spinner la-spin fs-18\'></i> Syncing...';">
+                            @csrf
+                            <button type="submit" class="btn text-white btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="background-color: #0d6efd; border-color: #0d6efd; height: 40px;" title="Pull latest costing snapshots from http://erpccfi.claretianpublications.ph">
+                                <i class="las la-sync fs-18"></i> Sync from Production ERP
+                            </button>
+                        </form>
                         <button class="btn text-white btn-sm px-3 rounded shadow-sm d-flex align-items-center gap-2" style="background-color: #D9251C; border-color: #D9251C; height: 40px;" data-bs-toggle="modal" data-bs-target="#autoCalculateModal">
                             <i class="las la-magic fs-18"></i> Auto-Calculate Costing
                         </button>

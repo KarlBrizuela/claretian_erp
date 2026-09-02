@@ -316,8 +316,59 @@
                 emptyRow.style.display = 'none';
             }
 
+            // Calculate and update TOTAL row in tfoot
+            updateModalTableTotal(tableElement, matchedRows);
+
             // Paginate matched rows
             initFilteredTablePagination(tableElement, matchedRows, 6);
+        }
+
+        function updateModalTableTotal(tableElement, matchedRows) {
+            const ths = Array.from(tableElement.querySelectorAll('thead th'));
+            if (!ths.length) return;
+
+            let amountColIdx = -1;
+            ths.forEach((th, idx) => {
+                const text = th.innerText.toLowerCase().trim();
+                if (text.includes('amount') || text.includes('balance') || text.includes('total') || text.includes('valuation') || text.includes('price')) {
+                    amountColIdx = idx;
+                }
+            });
+
+            if (amountColIdx === -1) {
+                amountColIdx = ths.length - 1;
+            }
+
+            let totalSum = 0;
+            matchedRows.forEach(row => {
+                const cell = row.cells[amountColIdx] || row.querySelector('td:last-child');
+                if (cell) {
+                    const numText = cell.innerText.replace(/[^0-9.-]/g, '');
+                    const val = parseFloat(numText);
+                    if (!isNaN(val)) {
+                        totalSum += val;
+                    }
+                }
+            });
+
+            let tfoot = tableElement.querySelector('tfoot');
+            if (!tfoot) {
+                tfoot = document.createElement('tfoot');
+                tableElement.appendChild(tfoot);
+            }
+
+            const colCount = ths.length;
+            const formattedTotal = '₱' + totalSum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const beforeColspan = amountColIdx;
+            const afterColspan = colCount - 1 - amountColIdx;
+
+            tfoot.innerHTML = `
+                <tr class="fw-bold bg-light border-top" style="border-top: 2px solid #cbd5e1 !important; background-color: #f8fafc !important;">
+                    ${beforeColspan > 0 ? `<td colspan="${beforeColspan}" class="text-end py-3 text-dark font-w700" style="font-size: 0.85rem; letter-spacing: 0.5px;">TOTAL AMOUNT:</td>` : ''}
+                    <td class="text-end py-3 text-danger font-w800" style="font-size: 0.95rem; font-weight: 800 !important;">${formattedTotal}</td>
+                    ${afterColspan > 0 ? `<td colspan="${afterColspan}"></td>` : ''}
+                </tr>
+            `;
         }
 
         function initFilteredTablePagination(tableElement, rows, itemsPerPage = 6) {

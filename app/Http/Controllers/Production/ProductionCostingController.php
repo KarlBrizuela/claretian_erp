@@ -190,4 +190,17 @@ class ProductionCostingController extends Controller
         return redirect()->route('production.costing.show', $costing->id)
             ->with('success', 'Production Costing profile saved successfully!');
     }
+
+    public function syncFromProductionErp(\App\Services\ProductionErpIntegrationService $service)
+    {
+        $result = $service->syncCostings();
+
+        if ($result['success']) {
+            return redirect()->back()
+                ->with('success', $result['message']);
+        } else {
+            return redirect()->back()
+                ->with('error', $result['message']);
+        }
+    }
 }

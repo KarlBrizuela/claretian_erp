@@ -201,7 +201,7 @@
                                             </div>
                                             <div class="signature-box text-center">
                                                 <div class="blank-line w-100 border-bottom border-dark mb-2" style="height:20px;"></div>
-                                                <strong>Approved By (Director)</strong>
+                                                <strong>Approved By (Production Manager)</strong>
                                                 <div class="small text-muted">Awaiting Approval</div>
                                             </div>
                                         </div>

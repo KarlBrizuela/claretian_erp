@@ -57,6 +57,11 @@ class SalesOrderItem extends Model
         return $this->belongsTo(BookIndex::class, 'book_index_id');
     }
 
+    public function pickListItems()
+    {
+        return $this->hasMany(PickListItem::class, 'sales_order_item_id');
+    }
+
     /**
      * Alias for book() — used by views that reference $item->product.
      */

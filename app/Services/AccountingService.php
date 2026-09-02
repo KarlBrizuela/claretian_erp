@@ -15,14 +15,15 @@ class AccountingService
      */
     public function getAccountBySymbol(string $code, string $nameKeyword, string $defaultName, string $type = 'Asset', string $category = 'Current Asset'): ChartOfAccount
     {
-        $account = ChartOfAccount::where('code', $code)
-            ->orWhere('name', 'like', "%{$nameKeyword}%")
+        // Prioritize matching by name keyword so account code changes (e.g. 1010 -> 1020) work dynamically
+        $account = ChartOfAccount::where('name', 'like', "%{$nameKeyword}%")
+            ->orWhere('code', $code)
             ->first();
 
         if (!$account) {
             $account = ChartOfAccount::firstOrCreate(
-                ['code' => $code],
-                ['name' => $defaultName, 'type' => $type, 'category' => $category]
+                ['name' => $defaultName],
+                ['code' => $code, 'type' => $type, 'category' => $category]
             );
         }
 
@@ -653,13 +654,13 @@ class AccountingService
             $cashAccount = null;
             if ($paymentMethod === 'cod_cash') {
                 // Cash on Hand
-                $cashAccount = ChartOfAccount::where('code', '1010')->first();
+                $cashAccount = $this->getAccountBySymbol('1010', 'Cash on Hand', 'Cash on Hand', 'Asset', 'Current Asset');
             } elseif ($paymentMethod === 'bank_transfer' || $paymentMethod === 'check') {
                 // Cash in Bank
-                $cashAccount = ChartOfAccount::where('code', '1000')->first();
+                $cashAccount = $this->getAccountBySymbol('1000', 'Cash in Bank', 'Cash in Bank', 'Asset', 'Current Asset');
             } else {
                 // Default to Cash on Hand
-                $cashAccount = ChartOfAccount::where('code', '1010')->first();
+                $cashAccount = $this->getAccountBySymbol('1010', 'Cash on Hand', 'Cash on Hand', 'Asset', 'Current Asset');
             }
 
             // Fallback if accounts don't exist
