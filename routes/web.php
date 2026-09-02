@@ -87,6 +87,7 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/{id}', [App\Http\Controllers\Production\ProductionCostingController::class, 'show'])->name('show');
       Route::post('/calculate', [App\Http\Controllers\Production\ProductionCostingController::class, 'calculate'])->name('calculate');
       Route::post('/store', [App\Http\Controllers\Production\ProductionCostingController::class, 'store'])->name('store');
+      Route::post('/sync', [App\Http\Controllers\Production\ProductionCostingController::class, 'syncFromProductionErp'])->name('sync');
     });
 
     // Production Fixed Assets
@@ -594,6 +595,10 @@ Route::middleware(['auth'])->group(function () {
       Route::get('/delivery-receipt-list', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceiptList'])->name('admin-finance.accounting.delivery-receipt-list');
       Route::get('/delivery-receipt/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('admin-finance.accounting.delivery-receipt');
       Route::post('/move-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'fastMoveToSI'])->name('admin-finance.accounting.delivery-receipt.move-to-si');
+
+      // Production Costing in Accounting
+      Route::get('/production-costing', [App\Http\Controllers\AdminFinanceController::class, 'productionCosting'])->name('admin-finance.accounting.production-costing');
+      Route::get('/production-costing/{id}', [App\Http\Controllers\AdminFinanceController::class, 'showProductionCosting'])->name('admin-finance.accounting.production-costing.show');
     });
 
     // Chart of Accounts

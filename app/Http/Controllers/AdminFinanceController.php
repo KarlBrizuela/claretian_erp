@@ -5992,6 +5992,7 @@ public function checkVoucher()
             'Subsidiary Ledgers',
             'Sales Reports',
             'Expense Reports',
+            'Production Costing',
             // 'Department Reports',
             'Profit by Product',
             'Profit by Customer',
@@ -6745,6 +6746,27 @@ public function checkVoucher()
                 'total_expense_debits' => $totalExpenseDebits,
                 'total_expense_credits' => $totalExpenseCredits,
             ];
+        } elseif ($selectedReport === 'Production Costing') {
+            $search = $request->query('search');
+            $costingsQuery = \App\Models\ProductionCosting::with('book');
+
+            if ($search) {
+                $costingsQuery->where(function($q) use ($search) {
+                    $q->where('job_title', 'like', "%{$search}%")
+                      ->orWhere('job_number', 'like', "%{$search}%");
+                });
+            }
+
+            $allCostings = $costingsQuery->latest()->get();
+            $paginatedCostings = $costingsQuery->latest()->paginate(15)->withQueryString();
+
+            $reportData = [
+                'items' => $paginatedCostings,
+                'total_cogs_sum' => $allCostings->sum('total_cogs'),
+                'avg_unit_cogs' => $allCostings->count() > 0 ? $allCostings->avg('unit_cogs') : 0.00,
+                'total_qty_produced' => $allCostings->sum('quantity_produced'),
+                'active_jobs_count' => $allCostings->count(),
+            ];
         }
 
         return view('admin-finance.accounting.financial-reports', [
@@ -6810,6 +6832,55 @@ public function checkVoucher()
         ]);
 
         return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' has been rejected.');
+    }
+
+    /**
+     * Production Costing Accounting View (Accounting Reports Tab)
+     */
+    public function productionCosting(Request $request)
+    {
+        $search = $request->query('search');
+        $query = \App\Models\ProductionCosting::with('book');
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('job_title', 'like', "%{$search}%")
+                  ->orWhere('job_number', 'like', "%{$search}%");
+            });
+        }
+
+        $allCostings = $query->latest()->get();
+        $costings = $query->latest()->paginate(10)->withQueryString();
+        $books = \App\Models\Book::orderBy('name')->get();
+
+        return view('admin-finance.accounting.production-costing', [
+            'title' => 'Production Costing & COGS Accounting',
+            'role' => auth()->user() ? auth()->user()->position : 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'costings' => $costings,
+            'books' => $books,
+            'metrics' => [
+                'total_cogs' => $allCostings->sum('total_cogs'),
+                'avg_unit_cogs' => $allCostings->count() > 0 ? $allCostings->avg('unit_cogs') : 0.00,
+                'total_qty_produced' => $allCostings->sum('quantity_produced'),
+                'active_jobs_count' => $allCostings->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Show Production Costing Sheet (Accounting Reports View)
+     */
+    public function showProductionCosting($id)
+    {
+        $costing = \App\Models\ProductionCosting::with('book')->findOrFail($id);
+
+        return view('admin-finance.accounting.production-costing-show', [
+            'title' => 'Production Costing Sheet',
+            'role' => auth()->user() ? auth()->user()->position : 'Finance Manager',
+            'sidebar' => 'admin-finance',
+            'costing' => $costing,
+        ]);
     }
 }
 
