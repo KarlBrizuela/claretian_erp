@@ -126,10 +126,13 @@ class LogisticController extends Controller
         $this->excludeTeamPickLists($pickListsQuery);
         $pickLists = $pickListsQuery->latest()->get();
 
-        // Get e-commerce pick lists (type='ecom_direct') - EXCLUDING Team A, B, C
+        // Get e-commerce pick lists (type='ecom_direct' or with ecom_platform) - EXCLUDING Team A, B, C
         $ecomPickListsQuery = \App\Models\PickList::with('salesOrder', 'salesOrder.customer', 'preparedByUser', 'pickListItems')
             ->whereHas('salesOrder', function($query) {
-                $query->where('type', 'ecom_direct');
+                $query->where('type', 'ecom_direct')
+                      ->orWhere(function($sub) {
+                          $sub->whereNotNull('ecom_platform')->where('ecom_platform', '!=', '');
+                      });
             })
             ->where('status', '!=', 'completed');
         $this->excludeTeamPickLists($ecomPickListsQuery);
@@ -147,16 +150,17 @@ class LogisticController extends Controller
         // Organize e-com pick lists by platform
         $ecomByPlatform = [
             'lazada' => $ecomPickLists->filter(function($item) {
-                return $item->salesOrder->ecom_platform === 'lazada';
+                return strtolower($item->salesOrder->ecom_platform ?? '') === 'lazada';
             })->values(),
             'shopee' => $ecomPickLists->filter(function($item) {
-                return $item->salesOrder->ecom_platform === 'shopee';
+                return strtolower($item->salesOrder->ecom_platform ?? '') === 'shopee';
             })->values(),
             'tiktok' => $ecomPickLists->filter(function($item) {
-                return $item->salesOrder->ecom_platform === 'tiktok';
+                return strtolower($item->salesOrder->ecom_platform ?? '') === 'tiktok';
             })->values(),
             'cob' => $ecomPickLists->filter(function($item) {
-                return $item->salesOrder->ecom_platform === 'cob';
+                $p = strtolower($item->salesOrder->ecom_platform ?? '');
+                return !in_array($p, ['lazada', 'shopee', 'tiktok']);
             })->values(),
         ];
 
@@ -371,9 +375,18 @@ class LogisticController extends Controller
                             ]);
                         }
 
-                        // Update Sales Order Item quantity and subtotal to reflect actual picked quantity
+                        // Update Sales Order Item quantity and subtotal to reflect actual picked quantity and discount
                         $soItem->quantity = $pickedQty;
-                        $soItem->subtotal = round($pickedQty * ($soItem->price ?? 0), 2);
+                        $itemGross = $pickedQty * ($soItem->price ?? 0);
+                        $itemDiscVal = (float)($soItem->discount_value ?? 0);
+                        $itemDiscType = $soItem->discount_type ?? 'percentage';
+                        $itemDiscAmt = (float)($soItem->discount_amount ?? 0);
+                        if ($itemDiscAmt <= 0 && $itemDiscVal > 0) {
+                            $itemDiscAmt = $itemDiscType === 'percentage' ? $itemGross * ($itemDiscVal / 100) : $itemDiscVal;
+                        }
+                        $itemDiscAmt = min($itemGross, max(0, $itemDiscAmt));
+                        $soItem->discount_amount = $itemDiscAmt;
+                        $soItem->subtotal = max(0, round($itemGross - $itemDiscAmt, 2));
                         $soItem->save();
 
                         // Mark pick list item status
@@ -384,10 +397,15 @@ class LogisticController extends Controller
                 }
             }
 
-            // Recalculate Sales Order total amount based on updated item quantities
+            // Recalculate Sales Order total amount based on updated item quantities and order discounts
             $order->load('items');
-            $newTotalAmount = $order->items->sum('subtotal');
-            $order->update(['total_amount' => $newTotalAmount]);
+            $itemsSubtotal = $order->items->sum('subtotal');
+            $soDiscount = (float)($order->discount_amount ?? 0);
+            if (($order->discount_percentage ?? 0) > 0) {
+                $soDiscount = $itemsSubtotal * ((float)$order->discount_percentage / 100);
+            }
+            $newTotalAmount = max(0, $itemsSubtotal - $soDiscount);
+            $order->update(['total_amount' => $newTotalAmount, 'discount_amount' => $soDiscount]);
 
             // Sync Sales Invoice if exists
             $si = \App\Models\SalesInvoice::where('so_id', $order->id)->first();
@@ -1868,8 +1886,12 @@ class LogisticController extends Controller
 
         $order = \App\Models\SalesOrder::findOrFail($id);
         $isAccountingContext = request()->is('admin-finance*') || str_contains(url()->previous(), 'admin-finance') || str_contains(request()->header('referer', ''), 'admin-finance') || $this->isAccountingOrderOrDr($order);
+        $isCharge = $order->type === 'charge' || strtolower($order->transaction_type ?? '') === 'charge';
+        $hasSI = !empty($order->si_prepared_at) || !empty($order->si_number) || \App\Models\SalesInvoice::where('so_id', $order->id)->exists();
         
-        if ($isAccountingContext && !in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) && $order->transaction_type !== 'consignment') {
+        if ($isCharge || $hasSI) {
+            $newStatus = 'ready_for_packing';
+        } elseif ($isAccountingContext && !in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) && $order->transaction_type !== 'consignment') {
             $newStatus = 'pending_si_prep';
         } else {
             $newStatus = 'ready_for_packing';
@@ -2556,8 +2578,13 @@ class LogisticController extends Controller
 
         // Get e-commerce direct orders ready for packing - EXCLUDING Team A, B, C
         $ecomPackingOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.book')
-            ->where('status', 'ready_for_delivery')
-            ->where('type', 'ecom_direct')
+            ->whereIn('status', ['ready_for_delivery', 'packing', 'picked'])
+            ->where(function($q) {
+                $q->where('type', 'ecom_direct')
+                  ->orWhere(function($subQ) {
+                      $subQ->whereNotNull('ecom_platform')->where('ecom_platform', '!=', '');
+                  });
+            })
             ->where(function($query) {
                 $query->whereNull('packing_data')
                       ->orWhere(function($innerQ) {
@@ -2571,16 +2598,17 @@ class LogisticController extends Controller
         // Organize e-com packing orders by platform
         $ecomByPlatform = [
             'lazada' => $ecomPackingOrders->filter(function($item) {
-                return $item->ecom_platform === 'lazada';
+                return strtolower($item->ecom_platform ?? '') === 'lazada';
             })->values(),
             'shopee' => $ecomPackingOrders->filter(function($item) {
-                return $item->ecom_platform === 'shopee';
+                return strtolower($item->ecom_platform ?? '') === 'shopee';
             })->values(),
             'tiktok' => $ecomPackingOrders->filter(function($item) {
-                return $item->ecom_platform === 'tiktok';
+                return strtolower($item->ecom_platform ?? '') === 'tiktok';
             })->values(),
             'cob' => $ecomPackingOrders->filter(function($item) {
-                return $item->ecom_platform === 'cob';
+                $p = strtolower($item->ecom_platform ?? '');
+                return !in_array($p, ['lazada', 'shopee', 'tiktok']);
             })->values(),
         ];
 
@@ -3866,10 +3894,10 @@ class LogisticController extends Controller
             }
 
             foreach ($transfer->items as $tItem) {
-                // If picked_qty was submitted or saved, use it; otherwise fallback to item quantity
-                if ($tItem->picked_qty !== null) {
+                // If picked_qty was submitted or saved (> 0), use it; otherwise fallback to item quantity unless status is explicitly Unpicked
+                if ($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0) {
                     $qty = (float)$tItem->picked_qty;
-                } elseif ($tItem->quantity > 0) {
+                } elseif ($tItem->status !== 'Unpicked' && (float)$tItem->quantity > 0) {
                     $qty = (float)$tItem->quantity;
                 } else {
                     $qty = 0;
@@ -4037,12 +4065,14 @@ class LogisticController extends Controller
             ->exists();
 
         foreach ($transfer->items as $tItem) {
-            $previouslyPicked = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
+            $previouslyPicked = (float)($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0 ? $tItem->picked_qty : ($tItem->status !== 'Unpicked' ? $tItem->quantity : 0));
 
             // Determine actual packed quantity
-            if ($tItem->packed_qty !== null && (float)$tItem->packed_qty >= 0) {
+            if ($tItem->packed_qty !== null && (float)$tItem->packed_qty > 0) {
                 $qty = (float)$tItem->packed_qty;
-            } elseif ($tItem->quantity > 0) {
+            } elseif ($previouslyPicked > 0) {
+                $qty = $previouslyPicked;
+            } elseif ($tItem->status !== 'Not Packed' && (float)$tItem->quantity > 0) {
                 $qty = (float)$tItem->quantity;
             } else {
                 $qty = 0;
@@ -4233,7 +4263,7 @@ class LogisticController extends Controller
                             $tItem->packed_qty = $packedQty;
 
                             // Do not modify $tItem->quantity; quantity represents original requested quantity
-                            $targetQty = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
+                            $targetQty = (float)($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0 ? $tItem->picked_qty : ($tItem->status !== 'Unpicked' ? $tItem->quantity : 0));
                             if (isset($itemData['status']) && !empty($itemData['status'])) {
                                 $tItem->status = $itemData['status'];
                             } elseif ($packedQty >= $targetQty && $targetQty > 0) {

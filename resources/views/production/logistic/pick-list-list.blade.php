@@ -86,6 +86,13 @@ $isAdmin = auth()->check() && (
                                             <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                             <td>
                                                 {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @php
+                                                    $isEcom = ($pickList->salesOrder?->type === 'ecom_direct' || !empty($pickList->salesOrder?->ecom_platform) || str_contains(strtolower($pickList->salesOrder?->so_number ?? ''), 'ecom') || !empty($pickList->salesOrder?->platform_order_id));
+                                                    $ecomId = $pickList->salesOrder?->platform_order_id ?: ($pickList->salesOrder?->ref_number ?: ($pickList->salesOrder?->po_number ?? null));
+                                                @endphp
+                                                @if($isEcom || !empty($ecomId))
+                                                    <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                                @endif
                                                 @if($pickList->salesOrder?->cancellation_date)
                                                     <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
                                                 @endif
@@ -204,6 +211,13 @@ $isAdmin = auth()->check() && (
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>
                                                 {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @php
+                                                    $isEcom = ($pickList->salesOrder?->type === 'ecom_direct' || !empty($pickList->salesOrder?->ecom_platform) || str_contains(strtolower($pickList->salesOrder?->so_number ?? ''), 'ecom') || !empty($pickList->salesOrder?->platform_order_id));
+                                                    $ecomId = $pickList->salesOrder?->platform_order_id ?: ($pickList->salesOrder?->ref_number ?: ($pickList->salesOrder?->po_number ?? null));
+                                                @endphp
+                                                @if($isEcom || !empty($ecomId))
+                                                    <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                                @endif
                                                 @if($pickList->salesOrder?->cancellation_date)
                                                     <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
                                                 @endif
@@ -280,6 +294,13 @@ $isAdmin = auth()->check() && (
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>
                                                 {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @php
+                                                    $isEcom = ($pickList->salesOrder?->type === 'ecom_direct' || !empty($pickList->salesOrder?->ecom_platform) || str_contains(strtolower($pickList->salesOrder?->so_number ?? ''), 'ecom') || !empty($pickList->salesOrder?->platform_order_id));
+                                                    $ecomId = $pickList->salesOrder?->platform_order_id ?: ($pickList->salesOrder?->ref_number ?: ($pickList->salesOrder?->po_number ?? null));
+                                                @endphp
+                                                @if($isEcom || !empty($ecomId))
+                                                    <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                                @endif
                                                 @if($pickList->salesOrder?->cancellation_date)
                                                     <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
                                                 @endif
@@ -356,6 +377,13 @@ $isAdmin = auth()->check() && (
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>
                                                 {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @php
+                                                    $isEcom = ($pickList->salesOrder?->type === 'ecom_direct' || !empty($pickList->salesOrder?->ecom_platform) || str_contains(strtolower($pickList->salesOrder?->so_number ?? ''), 'ecom') || !empty($pickList->salesOrder?->platform_order_id));
+                                                    $ecomId = $pickList->salesOrder?->platform_order_id ?: ($pickList->salesOrder?->ref_number ?: ($pickList->salesOrder?->po_number ?? null));
+                                                @endphp
+                                                @if($isEcom || !empty($ecomId))
+                                                    <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                                @endif
                                                 @if($pickList->salesOrder?->cancellation_date)
                                                     <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
                                                 @endif
@@ -432,6 +460,13 @@ $isAdmin = auth()->check() && (
                                                     <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                                     <td>
                                                 {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @php
+                                                    $isEcom = ($pickList->salesOrder?->type === 'ecom_direct' || !empty($pickList->salesOrder?->ecom_platform) || str_contains(strtolower($pickList->salesOrder?->so_number ?? ''), 'ecom') || !empty($pickList->salesOrder?->platform_order_id));
+                                                    $ecomId = $pickList->salesOrder?->platform_order_id ?: ($pickList->salesOrder?->ref_number ?: ($pickList->salesOrder?->po_number ?? null));
+                                                @endphp
+                                                @if($isEcom || !empty($ecomId))
+                                                    <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                                @endif
                                                 @if($pickList->salesOrder?->cancellation_date)
                                                     <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
                                                 @endif
@@ -509,6 +544,13 @@ $isAdmin = auth()->check() && (
                                             <td><strong>{{ $pickList->pick_list_number }}</strong></td>
                                             <td>
                                                 {{ $pickList->salesOrder->so_number ?? 'N/A' }}
+                                                @php
+                                                    $isEcom = ($pickList->salesOrder?->type === 'ecom_direct' || !empty($pickList->salesOrder?->ecom_platform) || str_contains(strtolower($pickList->salesOrder?->so_number ?? ''), 'ecom') || !empty($pickList->salesOrder?->platform_order_id));
+                                                    $ecomId = $pickList->salesOrder?->platform_order_id ?: ($pickList->salesOrder?->ref_number ?: ($pickList->salesOrder?->po_number ?? null));
+                                                @endphp
+                                                @if($isEcom || !empty($ecomId))
+                                                    <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                                @endif
                                                 @if($pickList->salesOrder?->cancellation_date)
                                                     <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="las la-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($pickList->salesOrder->cancellation_date)->format('M d, Y') }}</span>
                                                 @endif
@@ -773,8 +815,8 @@ $isAdmin = auth()->check() && (
                                     $itemSubtotal = $unitPrice * $tItem->quantity;
                                     $uniqueBarcodes = array_values(array_unique(array_filter($barcodes)));
                                     $barcodesJson = json_encode($uniqueBarcodes);
-                                    $isItemPicked = ($tItem->status === 'Picked' || ($tItem->picked_qty !== null && $tItem->picked_qty >= $tItem->quantity && $tItem->quantity > 0));
-                                    $itemPickedQty = !is_null($tItem->picked_qty) ? $tItem->picked_qty : $tItem->quantity;
+                                    $isItemPicked = ($tItem->status === 'Picked' || ($tItem->picked_qty !== null && (float)$tItem->picked_qty >= (float)$tItem->quantity && (float)$tItem->quantity > 0));
+                                    $itemPickedQty = ($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0) ? (float)$tItem->picked_qty : ($tItem->status !== 'Unpicked' ? (float)$tItem->quantity : 0);
                                 @endphp
                                 <tr id="tsp_row_{{ $tt->id }}_{{ $idx }}" class="tsp-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPicked ? '#d4edda' : ($tItem->status === 'Picking' ? '#fff3cd' : '#f8d7da') }};">
                                     <td>{{ $idx + 1 }}</td>

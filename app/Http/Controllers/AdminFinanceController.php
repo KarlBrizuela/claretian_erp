@@ -1721,7 +1721,14 @@ public function checkVoucher()
                 }
             }
           } elseif ($order->status === 'pending_si_approval' || $actionType === 'sign') {
-            $newStatus = in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment']) ? 'completed' : 'ready_for_delivery';
+            $isCharge = $order->type === 'charge' || strtolower($order->transaction_type ?? '') === 'charge';
+            if (in_array($order->type, ['area_consignment', 'area_sales_consignment', 'direct_consignment'])) {
+              $newStatus = 'completed';
+            } elseif ($isCharge) {
+              $newStatus = 'pending_dr_prep';
+            } else {
+              $newStatus = 'ready_for_delivery';
+            }
             $order->update([
               'status' => $newStatus,
               'signed_by_af_manager' => auth()->id(),
@@ -1872,8 +1879,17 @@ public function checkVoucher()
     $isAreaSalesConsignment = $order->type === 'area_sales_consignment';
     $isConsignment = $order->type === 'area_consignment';
     $isDirectConsignment = $order->type === 'direct_consignment';
+    $isCharge = $order->type === 'charge' || strtolower($order->transaction_type ?? '') === 'charge';
 
-    $newStatus = $isEcomDirect ? 'picking' : (($isAreaSalesConsignment || $isConsignment || $isDirectConsignment) ? 'completed' : 'ready_for_delivery');
+    if ($isEcomDirect) {
+      $newStatus = 'picking';
+    } elseif ($isAreaSalesConsignment || $isConsignment || $isDirectConsignment) {
+      $newStatus = 'completed';
+    } elseif ($isCharge) {
+      $newStatus = 'pending_dr_prep';
+    } else {
+      $newStatus = 'ready_for_delivery';
+    }
 
     $order->update([
       'status' => $newStatus,

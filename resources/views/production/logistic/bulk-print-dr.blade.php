@@ -377,6 +377,25 @@
         }
         $receivedByName = $order->customer_representative ?: ($order->customer->customer_name ?? '');
         $dateFormatted = $order->dr_prepared_at ? \Carbon\Carbon::parse($order->dr_prepared_at)->format('M d, Y') : ($order->created_at ? $order->created_at->format('M d, Y') : date('M d, Y'));
+
+        $soNumStr = strtolower($order->so_number ?? '');
+        $cNameStr = strtolower($order->customer?->customer_name ?? '');
+        $cRepStr = strtolower($order->customer_representative ?? '');
+        $isNBS = str_contains($soNumStr, 'nbs') || 
+                 str_contains($cNameStr, 'national book store') || 
+                 str_contains($cNameStr, 'nbs') || 
+                 str_contains($cRepStr, 'national book store') || 
+                 str_contains($cRepStr, 'nbs');
+
+        $poNumber = null;
+        if ($isNBS) {
+            $poNumber = $order->ref_number ?? ($order->po_number ?? null);
+            if (empty($poNumber)) {
+                if (preg_match('/(?:DR-)?SO-NBS-([^-]+)/i', $order->so_number ?? '', $m)) {
+                    $poNumber = $m[1];
+                }
+            }
+        }
     @endphp
 
     <div class="dr-box">
@@ -403,6 +422,20 @@
                 <td class="label-col" style="padding-left: 15px;">Date:</td>
                 <td class="val-col">{{ $dateFormatted }}</td>
             </tr>
+            @if($isNBS && !empty($poNumber))
+            <tr>
+                <td class="label-col">Sales Order:</td>
+                <td class="val-col">{{ $order->so_number }}</td>
+                <td class="label-col" style="padding-left: 15px;">PO Number:</td>
+                <td class="val-col">{{ $poNumber }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Company:</td>
+                <td class="val-col">{{ $displayCompanyName }}</td>
+                <td class="label-col" style="padding-left: 15px;">Terms:</td>
+                <td class="val-col">{{ $order->terms ?: 'Standard' }}</td>
+            </tr>
+            @else
             <tr>
                 <td class="label-col">Sales Order:</td>
                 <td class="val-col">{{ $order->so_number }}</td>
@@ -413,6 +446,7 @@
                 <td class="label-col">Company:</td>
                 <td class="val-col" colspan="3">{{ $displayCompanyName }}</td>
             </tr>
+            @endif
             <tr>
                 <td class="label-col">Customer:</td>
                 <td class="val-col">{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown') }}</td>

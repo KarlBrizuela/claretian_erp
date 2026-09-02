@@ -57,7 +57,16 @@
                                     @endphp
                                     <tr>
                                         <td class="fw-bold">{{ $pickList->pick_list_number }}</td>
-                                        <td class="fw-bold">{{ $pickList->salesOrder?->so_number ?? 'N/A' }}</td>
+                                        <td class="fw-bold">
+                                            {{ $pickList->salesOrder?->so_number ?? 'N/A' }}
+                                            @php
+                                                $isEcom = ($pickList->salesOrder?->type === 'ecom_direct' || !empty($pickList->salesOrder?->ecom_platform) || str_contains(strtolower($pickList->salesOrder?->so_number ?? ''), 'ecom') || !empty($pickList->salesOrder?->platform_order_id));
+                                                $ecomId = $pickList->salesOrder?->platform_order_id ?: ($pickList->salesOrder?->ref_number ?: ($pickList->salesOrder?->po_number ?? null));
+                                            @endphp
+                                            @if($isEcom || !empty($ecomId))
+                                                <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                            @endif
+                                        </td>
                                         <td>{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}</td>
                                         <td><span class="badge bg-light text-dark">{{ $pickList->pickListItems->count() }} items</span></td>
                                         <td class="fw-bold">₱{{ number_format($pickList->pickListItems->sum(fn($i) => $i->salesOrderItem->subtotal ?? 0), 2) }}</td>
@@ -195,7 +204,16 @@
                                         })->values()->all());
                                     @endphp
                                     <tr>
-                                        <td class="fw-bold">{{ $pickList->salesOrder?->so_number ?? 'N/A' }}</td>
+                                        <td class="fw-bold">
+                                            {{ $pickList->salesOrder?->so_number ?? 'N/A' }}
+                                            @php
+                                                $isEcom = ($pickList->salesOrder?->type === 'ecom_direct' || !empty($pickList->salesOrder?->ecom_platform) || str_contains(strtolower($pickList->salesOrder?->so_number ?? ''), 'ecom') || !empty($pickList->salesOrder?->platform_order_id));
+                                                $ecomId = $pickList->salesOrder?->platform_order_id ?: ($pickList->salesOrder?->ref_number ?: ($pickList->salesOrder?->po_number ?? null));
+                                            @endphp
+                                            @if($isEcom || !empty($ecomId))
+                                                <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                            @endif
+                                        </td>
                                         <td>{{ $pickList->salesOrder?->customer?->customer_name ?? 'N/A' }}</td>
                                         <td>{{ $pickList->pick_list_number }}</td>
                                         <td>
@@ -1287,7 +1305,7 @@
                     const row = document.createElement('tr');
                     const itemStatus = item.status || 'pending';
                     const itemNotes = item.notes || '';
-                    const itemPickedQty = (item.picked_qty !== undefined && item.picked_qty !== null) ? item.picked_qty : 0;
+                    const itemPickedQty = (item.picked_qty !== undefined && item.picked_qty !== null && parseFloat(item.picked_qty) > 0) ? parseFloat(item.picked_qty) : (itemStatus !== 'unpicked' ? item.quantity : 0);
                     const itemType = item.item_type || '';
 
                     let typeBadge = '';

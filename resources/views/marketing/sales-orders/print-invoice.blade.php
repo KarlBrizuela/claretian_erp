@@ -580,7 +580,18 @@
         foreach ($itemsToPrint as $item) {
             $qty = (float) $item->quantity;
             $price = (float) ($item->unit_price ?? $item->price);
-            $itemsSubtotal += (float) ($item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($qty * $price)));
+            $gross = $qty * $price;
+            $discVal = (float)($item->discount_value ?? 0);
+            $discType = $item->discount_type ?? 'percentage';
+            $discAmt = (float)($item->discount_amount ?? 0);
+            if ($discAmt <= 0 && $discVal > 0) {
+                $discAmt = $discType === 'percentage' ? $gross * ($discVal / 100) : $discVal;
+            }
+            $discAmt = min($gross, max(0, $discAmt));
+            $netSub = ($item->subtotal !== null && (float)$item->subtotal > 0 && (float)$item->subtotal < $gross)
+                ? (float)$item->subtotal
+                : max(0, $gross - $discAmt);
+            $itemsSubtotal += $netSub;
         }
 
         $discount = (float) ($order->discount_amount ?? 0);
@@ -671,7 +682,17 @@
                             }
                             $qty = (float) $item->quantity;
                             $price = (float) ($item->unit_price ?? $item->price);
-                            $subtotal = (float) ($item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($qty * $price)));
+                            $gross = $qty * $price;
+                            $discVal = (float)($item->discount_value ?? 0);
+                            $discType = $item->discount_type ?? 'percentage';
+                            $discAmt = (float)($item->discount_amount ?? 0);
+                            if ($discAmt <= 0 && $discVal > 0) {
+                                $discAmt = $discType === 'percentage' ? $gross * ($discVal / 100) : $discVal;
+                            }
+                            $discAmt = min($gross, max(0, $discAmt));
+                            $subtotal = ($item->subtotal !== null && (float)$item->subtotal > 0 && (float)$item->subtotal < $gross)
+                                ? (float)$item->subtotal
+                                : max(0, $gross - $discAmt);
                         @endphp
                         <tr>
                             <td style="text-align: center; font-weight: bold;">{{ $qty }}</td>

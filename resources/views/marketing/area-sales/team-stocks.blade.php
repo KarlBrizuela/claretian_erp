@@ -830,7 +830,7 @@
             if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
                 const $el = jQuery(selectEl);
                 if ($el.data('select2')) {
-                    $el.select2('destroy');
+                    return;
                 }
                 $el.select2({
                     dropdownParent: jQuery('#newTransferModal'),
@@ -1000,21 +1000,27 @@
             });
         }
 
+        let cachedProductOptionsHtml = null;
+
+        function getProductOptionsHtml() {
+            if (!cachedProductOptionsHtml) {
+                const firstSelect = document.querySelector('#transferItemsContainer .product-select');
+                if (firstSelect) {
+                    cachedProductOptionsHtml = firstSelect.innerHTML.replace(/\s+selected/gi, '');
+                } else {
+                    cachedProductOptionsHtml = '<option value="" disabled selected>Select product...</option>';
+                }
+            }
+            return cachedProductOptionsHtml;
+        }
+
         function createAndPopulateTransferRow(productId, quantity, maxStock) {
             const container = document.getElementById('transferItemsContainer');
             
             const rowDiv = document.createElement('div');
             rowDiv.className = 'transfer-item-row row g-2 mb-2 align-items-end';
             
-            let optionsHtml = `<option value="" disabled ${!productId ? 'selected' : ''}>Select product...</option>`;
-            @foreach($mainProducts as $prod)
-            @php
-                $pId = is_object($prod) ? $prod->id : ($prod['id'] ?? '');
-                $pName = is_object($prod) ? $prod->name : ($prod['name'] ?? '');
-                $pStock = is_object($prod) ? ($prod->stock ?? $prod->main_stock ?? 0) : ($prod['stock'] ?? $prod['main_stock'] ?? 0);
-            @endphp
-            optionsHtml += `<option value="{{ $pId }}" data-stock="{{ $pStock }}" ${productId === '{{ $pId }}' ? 'selected' : ''}>{{ e($pName) }} (Main Stock: {{ number_format($pStock) }} pcs)</option>`;
-            @endforeach
+            const optionsHtml = getProductOptionsHtml();
 
             rowDiv.innerHTML = `
                 <div class="col-md-7">
@@ -1025,7 +1031,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small fw-bold mb-1">Quantity to Transfer</label>
-                    <input type="number" name="items[${transferRowIndex}][quantity]" class="form-control qty-input" min="0" max="${maxStock}" value="${quantity || 0}" placeholder="0" required>
+                    <input type="number" name="items[${transferRowIndex}][quantity]" class="form-control qty-input" min="0" ${maxStock !== null && maxStock !== undefined ? 'max="' + maxStock + '"' : ''} value="${quantity || 0}" placeholder="0" required>
                 </div>
                 <div class="col-md-2">
                     <button type="button" class="btn btn-outline-danger w-100 remove-row-btn" onclick="removeTransferRow(this)">
@@ -1035,10 +1041,17 @@
             `;
 
             container.appendChild(rowDiv);
+
+            const selectEl = rowDiv.querySelector('.product-select');
+            if (productId) {
+                selectEl.value = productId;
+            } else {
+                selectEl.selectedIndex = 0;
+            }
+
             transferRowIndex++;
             updateRemoveButtons();
 
-            const selectEl = rowDiv.querySelector('.product-select');
             initProductSelect2(selectEl);
         }
 
@@ -1420,9 +1433,6 @@
             if (window.jQuery) {
                 jQuery('#newTransferModal').on('shown.bs.modal', function () {
                     jQuery('.product-select').each(function() {
-                        if (jQuery(this).data('select2')) {
-                            jQuery(this).select2('destroy');
-                        }
                         initProductSelect2(this);
                     });
                 });

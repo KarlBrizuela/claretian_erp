@@ -165,6 +165,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     <td><input type="checkbox" class="order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -289,6 +296,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -388,6 +402,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -489,6 +510,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -590,6 +618,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ecom-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;" {{ !$isFullyPacked ? 'disabled' : '' }}></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -721,6 +756,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -806,6 +848,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -891,6 +940,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -976,6 +1032,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -1061,6 +1124,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                     <td><input type="checkbox" class="ready-order-checkbox" data-order-id="{{ $order->id }}" data-so-number="{{ $order->so_number }}" style="cursor: pointer;"></td>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -1146,6 +1216,13 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                 <tr>
                                                     <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php
+                                            $isEcom = ($order->type === 'ecom_direct' || !empty($order->ecom_platform) || str_contains(strtolower($order->so_number ?? ''), 'ecom') || !empty($order->platform_order_id));
+                                            $ecomId = $order->platform_order_id ?: ($order->ref_number ?: ($order->po_number ?? null));
+                                        @endphp
+                                        @if($isEcom || !empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>Platform ID: {{ $ecomId ?: 'N/A' }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -1218,6 +1295,10 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                         <tr>
                                             <td>
                                         <strong>{{ $order->so_number }}</strong>
+                                        @php $ecomId = $order->platform_order_id ?: ($order->ref_number ?? null); @endphp
+                                        @if(!empty($ecomId))
+                                            <br><span class="badge bg-info text-white mt-1" style="font-size: 0.75rem;"><i class="las la-shopping-bag me-1"></i>{{ $ecomId }}</span>
+                                        @endif
                                         @if($order->cancellation_date)
                                             <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
                                         @endif
@@ -1285,22 +1366,33 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     <tbody>
                                         @forelse($teamStockPackingTransfers ?? [] as $tt)
                                         @php
-                                            $totalPcs = $tt->items->sum(function($item) {
-                                                return (float)($item->packed_qty !== null ? $item->packed_qty : ($item->picked_qty !== null ? $item->picked_qty : $item->quantity));
-                                            });
-                                            $totalTransferAmount = $tt->items->sum(function($item) {
-                                                $price = 0;
-                                                if ($item->bookIndex) {
-                                                    $price = (float)($item->bookIndex->price ?: ($item->bookIndex->book?->price ?: 0));
-                                                } elseif ($item->book) {
-                                                    $price = (float)($item->book->price ?: 0);
-                                                } elseif ($item->bookBundle) {
-                                                    $price = (float)($item->bookBundle->price ?: 0);
-                                                }
-                                                $qty = (float)($item->packed_qty !== null ? $item->packed_qty : ($item->picked_qty !== null ? $item->picked_qty : $item->quantity));
-                                                return $price * $qty;
-                                            });
-                                        @endphp
+                                             $getItemQty = function($item) {
+                                                 if ($item->packed_qty !== null && (float)$item->packed_qty > 0) {
+                                                     return (float)$item->packed_qty;
+                                                 }
+                                                 if ($item->picked_qty !== null && (float)$item->picked_qty > 0) {
+                                                     return (float)$item->picked_qty;
+                                                 }
+                                                 if ($item->status === 'Unpicked' || $item->status === 'Not Packed') {
+                                                     return 0;
+                                                 }
+                                                 return (float)$item->quantity;
+                                             };
+                                             $totalPcs = $tt->items->sum(function($item) use ($getItemQty) {
+                                                 return $getItemQty($item);
+                                             });
+                                             $totalTransferAmount = $tt->items->sum(function($item) use ($getItemQty) {
+                                                 $price = 0;
+                                                 if ($item->bookIndex) {
+                                                     $price = (float)($item->bookIndex->price ?: ($item->bookIndex->book?->price ?: 0));
+                                                 } elseif ($item->book) {
+                                                     $price = (float)($item->book->price ?: 0);
+                                                 } elseif ($item->bookBundle) {
+                                                     $price = (float)($item->bookBundle->price ?: 0);
+                                                 }
+                                                 return $price * $getItemQty($item);
+                                             });
+                                         @endphp
                                         <tr>
                                             <td class="fw-bold">{{ $tt->transfer_number }}</td>
                                             <td><span class="badge bg-danger">{{ $tt->team_name }}</span></td>
@@ -1516,10 +1608,10 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                     $tSym = (($tt->currency ?? ($order->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
 
-                                    $displayQty = (float)($tItem->picked_qty !== null ? $tItem->picked_qty : $tItem->quantity);
-                                    $effectiveQty = $tItem->packed_qty !== null ? (float)$tItem->packed_qty : $displayQty;
-                                    $itemSubtotal = $unitPrice * $effectiveQty;
-                                    $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && $displayQty > 0 && $tItem->packed_qty >= $displayQty));
+                                    $displayQty = (float)($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0 ? $tItem->picked_qty : ($tItem->status !== 'Unpicked' ? $tItem->quantity : 0));
+                                    $effectiveQty = ($tItem->packed_qty !== null && (float)$tItem->packed_qty > 0) ? (float)$tItem->packed_qty : ($tItem->status === 'Packed' ? $displayQty : 0);
+                                    $itemSubtotal = $unitPrice * ($effectiveQty > 0 ? $effectiveQty : $displayQty);
+                                    $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && (float)$tItem->packed_qty > 0 && $displayQty > 0 && $tItem->packed_qty >= $displayQty));
                                 @endphp
                                 <tr id="ts_row_{{ $tt->id }}_{{ $idx }}" class="ts-item-row" data-transfer-id="{{ $tt->id }}" data-index="{{ $idx }}" data-barcodes="{{ $barcodesJson }}" data-title="{{ e($itemName) }}" style="background: {{ $isItemPacked ? '#d4edda' : ($tItem->status === 'In Progress' ? '#fff3cd' : '#f8d7da') }};">
                                     <td>{{ $idx + 1 }}</td>
