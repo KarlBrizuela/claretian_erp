@@ -827,17 +827,18 @@
         let transferRowIndex = 1;
 
         function initProductSelect2(selectEl) {
+            if (!selectEl) return;
             if (window.jQuery && typeof jQuery.fn.select2 === 'function') {
                 const $el = jQuery(selectEl);
                 if ($el.data('select2')) {
-                    return;
+                    try { $el.select2('destroy'); } catch (e) {}
                 }
                 $el.select2({
                     dropdownParent: jQuery('#newTransferModal'),
                     width: '100%',
                     placeholder: 'Select product...',
                     allowClear: true
-                }).on('change', function() {
+                }).off('change.maxQty').on('change.maxQty', function() {
                     updateMaxQty(this);
                 });
             }
@@ -1006,7 +1007,15 @@
             if (!cachedProductOptionsHtml) {
                 const firstSelect = document.querySelector('#transferItemsContainer .product-select');
                 if (firstSelect) {
-                    cachedProductOptionsHtml = firstSelect.innerHTML.replace(/\s+selected/gi, '');
+                    const tempSelect = firstSelect.cloneNode(true);
+                    tempSelect.querySelectorAll('option').forEach(opt => {
+                        opt.removeAttribute('data-select2-id');
+                        opt.removeAttribute('selected');
+                        opt.selected = false;
+                    });
+                    cachedProductOptionsHtml = tempSelect.innerHTML
+                        .replace(/data-select2-id="[^"]*"/gi, '')
+                        .replace(/\s+selected/gi, '');
                 } else {
                     cachedProductOptionsHtml = '<option value="" disabled selected>Select product...</option>';
                 }
