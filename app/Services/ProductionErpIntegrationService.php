@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\ProductionCosting;
 use App\Models\Book;
+use App\Models\Expense;
+use App\Models\Department;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -167,7 +169,7 @@ class ProductionErpIntegrationService
             }
         }
 
-        return ProductionCosting::updateOrCreate(
+        $costing = ProductionCosting::updateOrCreate(
             ['job_number' => $jobNum],
             [
                 'book_id' => $bookId,
@@ -192,5 +194,65 @@ class ProductionErpIntegrationService
                 'notes' => 'Synced automatically from WordPress Production ERP (erpccfi.claretianpublications.ph). Protocol: ' . ($project['protocol'] ?? $jobNum),
             ]
         );
+
+        // Automatically sync to Expense table for financial reports
+        $this->syncToExpenseTable($costing);
+
+        return $costing;
+    }
+
+    /**
+     * Automatically create or update an Expense record from a ProductionCosting instance.
+     */
+    public function syncToExpenseTable(ProductionCosting $costing): ?Expense
+    {
+        if ($costing->total_cogs <= 0) {
+            return null;
+        }
+
+        $department = Department::firstOrCreate(['dept_name' => 'Production & Printing']);
+        $title = 'Production Cost: ' . $costing->job_number . ' - ' . $costing->job_title;
+
+        $breakdownParts = [];
+        if ($costing->paper_cost > 0) $breakdownParts[] = 'Paper: ₱' . number_format($costing->paper_cost, 2);
+        if ($costing->ink_cost > 0) $breakdownParts[] = 'Ink: ₱' . number_format($costing->ink_cost, 2);
+        if ($costing->labor_cost > 0) $breakdownParts[] = 'Labor: ₱' . number_format($costing->labor_cost, 2);
+        if ($costing->electricity_cost > 0) $breakdownParts[] = 'Power: ₱' . number_format($costing->electricity_cost, 2);
+        if ($costing->machine_cost > 0) $breakdownParts[] = 'Machine/Overhead: ₱' . number_format($costing->machine_cost, 2);
+        if ($costing->binding_cost > 0) $breakdownParts[] = 'Binding: ₱' . number_format($costing->binding_cost, 2);
+        if ($costing->freight_cost > 0) $breakdownParts[] = 'Freight: ₱' . number_format($costing->freight_cost, 2);
+
+        $notes = !empty($breakdownParts)
+            ? 'Itemized Breakdown: ' . implode(', ', $breakdownParts) . ' (Print Run: ' . number_format($costing->quantity_produced) . ' copies)'
+            : 'Production Costing synchronized from WordPress Production ERP. (Print Run: ' . number_format($costing->quantity_produced) . ' copies)';
+
+        $expenseDate = $costing->created_at ? $costing->created_at->format('Y-m-d') : date('Y-m-d');
+
+        return Expense::updateOrCreate(
+            ['title' => $title],
+            [
+                'amount' => $costing->total_cogs,
+                'expense_date' => $expenseDate,
+                'department_id' => $department->dept_id,
+                'added_by' => auth()->id() ?? 1,
+                'notes' => $notes,
+            ]
+        );
+    }
+
+    /**
+     * Retroactively sync all existing ProductionCosting records that have total_cogs > 0.
+     */
+    public function syncAllExistingCostingsToExpenses(): int
+    {
+        $costings = ProductionCosting::where('total_cogs', '>', 0)->get();
+        $count = 0;
+
+        foreach ($costings as $costing) {
+            $this->syncToExpenseTable($costing);
+            $count++;
+        }
+
+        return $count;
     }
 }

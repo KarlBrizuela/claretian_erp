@@ -129,8 +129,8 @@ class ProductionCostingController extends Controller
 
         $costing = ProductionCosting::create([
             'job_number' => $jobNum,
-            'book_id' => $request->book_id,
-            'job_title' => $request->job_title,
+            'book_id' => $validated['book_id'] ?? null,
+            'job_title' => $validated['job_title'],
             'quantity_produced' => $qty,
             'pages_count' => $pages,
             'paper_cost' => $paperCost,
@@ -151,8 +151,10 @@ class ProductionCostingController extends Controller
             'notes' => 'Automated calculation engine run from Production parameters.',
         ]);
 
+        app(\App\Services\ProductionErpIntegrationService::class)->syncToExpenseTable($costing);
+
         return redirect()->route('production.costing.show', $costing->id)
-            ->with('success', 'Production Costing automatically calculated and recorded!');
+            ->with('success', 'Production Costing automatically calculated and recorded in Expenses!');
     }
 
     public function store(Request $request)
@@ -187,8 +189,10 @@ class ProductionCostingController extends Controller
         $costing->recalculateTotals();
         $costing->save();
 
+        app(\App\Services\ProductionErpIntegrationService::class)->syncToExpenseTable($costing);
+
         return redirect()->route('production.costing.show', $costing->id)
-            ->with('success', 'Production Costing profile saved successfully!');
+            ->with('success', 'Production Costing profile saved and recorded in Expenses!');
     }
 
     public function syncFromProductionErp(\App\Services\ProductionErpIntegrationService $service)
