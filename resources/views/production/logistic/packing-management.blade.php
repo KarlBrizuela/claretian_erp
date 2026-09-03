@@ -1382,7 +1382,7 @@ foreach ($allBookIndexes ?? [] as $bIndex) {
                                                  if ($item->packed_qty !== null && (float)$item->packed_qty > 0) {
                                                      return (float)$item->packed_qty;
                                                  }
-                                                 if ($item->picked_qty !== null && (float)$item->picked_qty > 0) {
+                                                 if ($item->picked_qty !== null) {
                                                      return (float)$item->picked_qty;
                                                  }
                                                  if ($item->status === 'Unpicked' || $item->status === 'Not Packed') {
@@ -1623,7 +1623,7 @@ foreach ($allBookIndexes ?? [] as $bIndex) {
                                     $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                     $tSym = (($tt->currency ?? ($order->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
 
-                                    $displayQty = (float)($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0 ? min((float)$tItem->picked_qty, (float)$tItem->quantity) : (float)$tItem->quantity);
+                                    $displayQty = (float)($tItem->picked_qty !== null ? min((float)$tItem->picked_qty, (float)$tItem->quantity) : (float)$tItem->quantity);
                                     $effectiveQty = ($tItem->packed_qty !== null && (float)$tItem->packed_qty > 0) ? min((float)$tItem->packed_qty, $displayQty) : ($tItem->status === 'Packed' ? $displayQty : 0);
                                     $itemSubtotal = $unitPrice * ($effectiveQty > 0 ? $effectiveQty : $displayQty);
                                     $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && (float)$tItem->packed_qty > 0 && $displayQty > 0 && $tItem->packed_qty >= $displayQty));
