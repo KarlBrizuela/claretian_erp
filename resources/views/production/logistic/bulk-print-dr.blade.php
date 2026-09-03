@@ -344,10 +344,27 @@
             preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
             $bName = trim($m[1] ?? '');
         }
-        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)
-            ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
-            ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
-            ->first() : null;
+        $bCompany = null;
+        if ($bName) {
+            $bCompany = \App\Models\Company::where('company_name', $bName)
+                ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
+                ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
+                ->first();
+
+            if (!$bCompany && preg_match('/(\d{3,})/', $bName, $codeM)) {
+                $bCode = $codeM[1];
+                $bCompany = \App\Models\Company::where('company_name', 'like', "%{$bCode}%")
+                    ->orWhere('account_number', 'like', "%{$bCode}%")
+                    ->first();
+            }
+
+            if (!$bCompany) {
+                $cleanBName = trim(str_replace(['AB-', 'AB -', 'AB'], '', $bName));
+                if (!empty($cleanBName)) {
+                    $bCompany = \App\Models\Company::where('company_name', 'like', "%{$cleanBName}%")->first();
+                }
+            }
+        }
         $accountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? null);
         $acctCompany = $accountNo ? \App\Models\Company::where('account_number', $accountNo)->first() : null;
 
@@ -375,7 +392,7 @@
         if (!$approvedByName || $approvedByName === 'Pending Approval') {
             $approvedByName = $order->signedBy->name ?? ($order->acctApprovedBy->name ?? ($order->mktApprovedBy->name ?? 'Pending Approval'));
         }
-        $receivedByName = $order->customer_representative ?: ($order->customer->customer_name ?? '');
+        $receivedByName = $bCompany?->company_name ?: ($order->customer_representative ?: ($order->customer->customer_name ?? ''));
         $dateFormatted = $order->dr_prepared_at ? \Carbon\Carbon::parse($order->dr_prepared_at)->format('M d, Y') : ($order->created_at ? $order->created_at->format('M d, Y') : date('M d, Y'));
 
         $soNumStr = strtolower($order->so_number ?? '');
@@ -642,6 +659,14 @@
         </div>
     </div>
     @endforeach
-
+    @if(request()->has('autoprint'))
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                window.print();
+            }, 300);
+        });
+    </script>
+    @endif
 </body>
 </html>

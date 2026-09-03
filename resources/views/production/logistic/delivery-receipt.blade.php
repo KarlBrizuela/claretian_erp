@@ -82,10 +82,29 @@
                             preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
                             $bName = trim($m[1] ?? '');
                         }
-                        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)
-                            ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
-                            ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
-                            ->first() : null;
+
+                        $bCompany = null;
+                        if ($bName) {
+                            $bCompany = \App\Models\Company::where('company_name', $bName)
+                                ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
+                                ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
+                                ->first();
+
+                            if (!$bCompany && preg_match('/(\d{3,})/', $bName, $codeM)) {
+                                $bCode = $codeM[1];
+                                $bCompany = \App\Models\Company::where('company_name', 'like', "%{$bCode}%")
+                                    ->orWhere('account_number', 'like', "%{$bCode}%")
+                                    ->first();
+                            }
+
+                            if (!$bCompany) {
+                                $cleanBName = trim(str_replace(['AB-', 'AB -', 'AB'], '', $bName));
+                                if (!empty($cleanBName)) {
+                                    $bCompany = \App\Models\Company::where('company_name', 'like', "%{$cleanBName}%")->first();
+                                }
+                            }
+                        }
+
                         $accountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? null);
                         $acctCompany = $accountNo ? \App\Models\Company::where('account_number', $accountNo)->first() : null;
 
@@ -94,6 +113,9 @@
                             ?: ($acctCompany?->parent?->company_name 
                             ?: ($acctCompany?->company_name 
                             ?: ($order->customer?->company_name && !in_array(strtolower($order->customer->company_name), ['intracode', 'individual']) ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+
+                        $displayCustomerName = $bCompany?->company_name 
+                            ?: ($order->customer_representative ?: ($order->customer?->customer_name ?? 'Unknown'));
                     @endphp
                     <!-- Delivered To Section -->
                     <div class="form-group">
@@ -102,7 +124,7 @@
                     </div>
                     <div class="form-group">
                         <label class="fw-bold">Customer Name:</label>
-                        <input type="text" class="form-control" value="{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown') }}" readonly>
+                        <input type="text" class="form-control" value="{{ $displayCustomerName }}" readonly>
                     </div>
                     <div class="form-group">
                         <label class="fw-bold">Contact:</label>

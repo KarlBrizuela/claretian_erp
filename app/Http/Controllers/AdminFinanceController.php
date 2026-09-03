@@ -1450,11 +1450,12 @@ public function checkVoucher()
 
   public function storeAR(Request $request, $id)
   {
-    $order = \App\Models\SalesOrder::findOrFail($id);
+    $order = \App\Models\SalesOrder::with(['preparedBy', 'areaSalesStaff'])->findOrFail($id);
+    $isTeamOrder = !empty($order->preparedBy?->sales_team) || !empty($order->areaSalesStaff?->sales_team);
 
     $now = now();
     $order->update([
-      'status' => 'ready_for_packing',
+      'status' => $isTeamOrder ? 'completed' : 'ready_for_packing',
       'ar_prepared_by' => auth()->id(),
       'ar_prepared_at' => $now,
       'packing_data' => null,
@@ -1464,7 +1465,11 @@ public function checkVoucher()
     // Post expense journal entry (Complimentary & Donation Expense)
     $this->accounting->postComplimentaryEntry($order);
 
-    return redirect()->route('admin-finance.accounting.complimentary-receipt')->with('success', 'Acknowledgement Receipt (Complimentary) for Order #' . $order->so_number . ' has been issued and sent to Packing.');
+    $msg = $isTeamOrder 
+        ? 'Acknowledgement Receipt (Complimentary) for Order #' . $order->so_number . ' has been issued. Order marked as Completed.'
+        : 'Acknowledgement Receipt (Complimentary) for Order #' . $order->so_number . ' has been issued and sent to Packing.';
+
+    return redirect()->route('admin-finance.accounting.complimentary-receipt')->with('success', $msg);
   }
 
   public function prepareSalesInvoice($id)
@@ -1881,7 +1886,11 @@ public function checkVoucher()
     $isDirectConsignment = $order->type === 'direct_consignment';
     $isCharge = $order->type === 'charge' || strtolower($order->transaction_type ?? '') === 'charge';
 
-    if ($isEcomDirect) {
+    $isTeamOrder = !empty($order->preparedBy?->sales_team) || !empty($order->areaSalesStaff?->sales_team);
+
+    if ($isTeamOrder) {
+      $newStatus = 'completed';
+    } elseif ($isEcomDirect) {
       $newStatus = 'picking';
     } elseif ($isAreaSalesConsignment || $isConsignment || $isDirectConsignment) {
       $newStatus = 'completed';

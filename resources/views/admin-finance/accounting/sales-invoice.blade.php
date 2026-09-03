@@ -576,10 +576,15 @@
                                                                      @endif
                                                                  @endif
                                                                  
-                                                                 @if($order->status === 'ready_for_delivery')
+                                                                 @if($order->status === 'ready_for_delivery' || $order->status === 'completed' || $order->status === 'pending_dr_prep' || in_array($order->type, ['charge', 'area_consignment', 'area_sales_consignment', 'direct_consignment']))
                                                                      <li>
                                                                          <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $order->id) }}" target="_blank">
                                                                              <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                         </a>
+                                                                     </li>
+                                                                     <li>
+                                                                         <a class="dropdown-item py-2 text-primary" href="{{ route('admin-finance.accounting.delivery-receipt.bulk-print', ['ids' => $order->id, 'autoprint' => 1]) }}" target="_blank">
+                                                                             <i class="las la-truck me-2" style="font-size: 1rem;"></i> Print DR
                                                                          </a>
                                                                      </li>
                                                                  @endif
@@ -724,6 +729,11 @@
                                                                      <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
                                                                  </a>
                                                              </li>
+                                                             <li>
+                                                                 <a class="dropdown-item py-2 text-primary" href="{{ route('admin-finance.accounting.delivery-receipt.bulk-print', ['ids' => $order->id, 'autoprint' => 1]) }}" target="_blank">
+                                                                     <i class="las la-truck me-2" style="font-size: 1rem;"></i> Print DR
+                                                                 </a>
+                                                             </li>
                                                          </ul>
                                                      </div>
                                                  </td>
@@ -826,6 +836,11 @@
                                                              <li>
                                                                  <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $si->so_id) }}" target="_blank">
                                                                      <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                 </a>
+                                                             </li>
+                                                             <li>
+                                                                 <a class="dropdown-item py-2 text-primary" href="{{ route('admin-finance.accounting.delivery-receipt.bulk-print', ['ids' => $si->so_id, 'autoprint' => 1]) }}" target="_blank">
+                                                                     <i class="las la-truck me-2" style="font-size: 1rem;"></i> Print DR
                                                                  </a>
                                                              </li>
                                                          </ul>
@@ -931,7 +946,7 @@
                                                 </td>
                                                 <td>{{ $si->customer_name ?? ($si->customer->customer_name ?? 'N/A') }}</td>
                                                 <td class="fw-bold">{{ $siSym }}{{ number_format($totalAmt, 2) }}</td>
-                                                <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</span></td>
+                                                <td><span class="badge badge-{{ $pmBadgeColor }}">{{ $pmLabel }}</td>
                                                 <td>{{ $si->created_at->format('M d, Y') }}</td>
                                                 <td class="text-end">
                                                      <div class="dropdown">
@@ -948,6 +963,11 @@
                                                                  <li>
                                                                      <a class="dropdown-item py-2 text-info" href="{{ route('admin-finance.accounting.sales-invoice.print', $so->id) }}" target="_blank">
                                                                          <i class="las la-print me-2" style="font-size: 1rem;"></i> Print SI
+                                                                     </a>
+                                                                 </li>
+                                                                 <li>
+                                                                     <a class="dropdown-item py-2 text-primary" href="{{ route('admin-finance.accounting.delivery-receipt.bulk-print', ['ids' => $so->id, 'autoprint' => 1]) }}" target="_blank">
+                                                                         <i class="las la-truck me-2" style="font-size: 1rem;"></i> Print DR
                                                                      </a>
                                                                  </li>
                                                              @else

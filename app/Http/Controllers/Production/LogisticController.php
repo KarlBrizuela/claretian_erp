@@ -306,13 +306,8 @@ class LogisticController extends Controller
                 $newStatus = 'ready_for_delivery';
                 $targetQueue = 'Packing Management';
             } elseif ($order->type === 'complimentary') {
-                $newStatus = 'ready_for_packing';
-                $targetQueue = 'Packing Management';
-                try {
-                    app(\App\Services\AccountingService::class)->postComplimentaryEntry($order);
-                } catch (\Exception $e) {
-                    \Log::error('Error auto-posting complimentary entry: ' . $e->getMessage());
-                }
+                $newStatus = 'pending_ar_prep';
+                $targetQueue = 'Acknowledgement Receipt (Complimentary) Preparation';
             } else {
                 $newStatus = $isConsignment ? 'pending_dr_prep' : 'pending_si_prep';
                 $targetQueue = $isConsignment ? 'Delivery Receipt (DR) Preparation' : 'Sales Invoice (SI) Preparation';
@@ -342,10 +337,10 @@ class LogisticController extends Controller
                         if (empty($soItem->sent_qty) || (float)$soItem->sent_qty == 0) {
                             $soItem->sent_qty = $origQty;
                         }
-                        // If picked_qty was recorded and item is no longer pending, use it; otherwise fallback to requested or original item quantity
-                        $pickedQty = ($plItem->status !== 'pending' && $plItem->picked_qty !== null) 
+                        // If picked_qty was recorded (> 0) and item is no longer pending, use it; otherwise fallback to requested or original item quantity
+                        $pickedQty = ($plItem->status !== 'pending' && $plItem->picked_qty !== null && (float)$plItem->picked_qty > 0) 
                             ? (float)$plItem->picked_qty 
-                            : ($plItem->requested_qty > 0 ? (float)$plItem->requested_qty : $origQty);
+                            : ((float)$plItem->requested_qty > 0 ? (float)$plItem->requested_qty : $origQty);
 
                         $unfulfilledQty = max(0, $origQty - $pickedQty);
                         if ($unfulfilledQty > 0) {
@@ -574,7 +569,7 @@ class LogisticController extends Controller
 
     public function deliveryScheduling()
     {
-        $allOrders = \App\Models\SalesOrder::with(['customer', 'preparedBy', 'freightQuotation', 'invoice', 'deliveryReceipt', 'items.book', 'items.bookIndex', 'items.bundle'])
+        $allOrdersQuery = \App\Models\SalesOrder::with(['customer', 'preparedBy', 'freightQuotation', 'invoice', 'deliveryReceipt', 'items.book', 'items.bookIndex', 'items.bundle'])
             ->where(function($q) {
                 $q->where('status', 'ready_for_delivery')
                   ->orWhere(function($sub) {
@@ -582,9 +577,9 @@ class LogisticController extends Controller
                   });
             })
             ->where('status', '!=', 'ready_for_packing')
-            ->whereNotIn('type', ['calculator_pos', 'ecom_direct'])
-            ->orderByRaw('COALESCE(delivery_date, created_at) DESC')
-            ->get();
+            ->whereNotIn('type', ['calculator_pos', 'ecom_direct']);
+        $this->excludeTeamSalesOrders($allOrdersQuery);
+        $allOrders = $allOrdersQuery->orderByRaw('COALESCE(delivery_date, created_at) DESC')->get();
 
         $allOrders = $allOrders->reject(function($order) {
             if (in_array($order->status, ['ready_for_delivery', 'ready_for_pickup'])) {
@@ -1384,7 +1379,7 @@ class LogisticController extends Controller
         $isAccountingContext = request()->is('admin-finance*');
 
         // Get sales orders pending DR prep/approval
-        $ordersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy')
+        $ordersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy', 'items')
             ->whereNotIn('type', ['ecom_direct', 'calculator_pos'])
             ->where('so_number', 'not like', 'DI-ECOM-%')
             ->where('so_number', 'not like', 'POS-%')
@@ -1399,7 +1394,7 @@ class LogisticController extends Controller
             });
 
         // Get sales orders where DR is completed
-        $completedOrdersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy')
+        $completedOrdersQuery = \App\Models\SalesOrder::with('customer', 'preparedBy', 'drPreparedBy', 'items')
             ->whereNotIn('type', ['ecom_direct', 'calculator_pos'])
             ->where('so_number', 'not like', 'DI-ECOM-%')
             ->where('so_number', 'not like', 'POS-%')
@@ -1646,10 +1641,10 @@ class LogisticController extends Controller
 
             if ($order || $deliveryReceipt) {
                 $isAcctDR = $this->isAccountingOrderOrDr($order, $deliveryReceipt);
-                if ($isAccountingContext && !$isAcctDR) {
+                if (!request()->has('print') && !request()->has('autoprint') && $isAccountingContext && !$isAcctDR) {
                     return redirect()->route('admin-finance.accounting.delivery-receipt-list')->with('error', 'The requested Delivery Receipt belongs to Logistics.');
                 }
-                if (!$isAccountingContext && $isAcctDR) {
+                if (!request()->has('print') && !request()->has('autoprint') && !$isAccountingContext && $isAcctDR) {
                     return redirect()->route('production.logistic.delivery-receipt-list')->with('error', 'The requested Delivery Receipt belongs to Accounting.');
                 }
             }
@@ -2564,7 +2559,7 @@ class LogisticController extends Controller
 
         // Get complimentary orders ready for packing - EXCLUDING Team A, B, C
         $complimentaryPackingOrdersQuery = \App\Models\SalesOrder::with('customer', 'items.book')
-            ->whereIn('status', ['ready_for_delivery', 'ready_for_packing', 'pending_ar_prep'])
+            ->whereIn('status', ['ready_for_delivery', 'ready_for_packing'])
             ->where('type', 'complimentary')
             ->where(function($query) {
                 $query->whereNull('packing_data')
@@ -2690,6 +2685,9 @@ class LogisticController extends Controller
             ->latest()
             ->get();
 
+        $allUsers = \App\Models\User::orderBy('first_name')->get();
+        $allBookIndexes = \App\Models\BookIndex::with('book')->get();
+
         return view('production.logistic.packing-management', [
             'packingOrders' => $packingOrders,
             'complimentaryPackingOrders' => $complimentaryPackingOrders,
@@ -2701,6 +2699,8 @@ class LogisticController extends Controller
             'preloadOrder' => $preloadOrder,
             'preloadOrderId' => $preloadOrderId,
             'teamStockPackingTransfers' => $teamStockPackingTransfers,
+            'allUsers' => $allUsers,
+            'allBookIndexes' => $allBookIndexes,
             'title' => 'Packing Management',
             'role' => 'Warehouse Staff',
             'sidebar' => 'production'
@@ -2719,6 +2719,28 @@ class LogisticController extends Controller
                 'items.bookIndex.book',
                 'items.bundle'
             ])->findOrFail($id);
+
+            // Fail-safe: ensure order items with 0 quantity are auto-corrected to valid ordered quantity
+            foreach ($order->items as $item) {
+                if ((float)$item->quantity <= 0) {
+                    $fixQty = (float)$item->customer_selected_qty > 0 
+                        ? (float)$item->customer_selected_qty 
+                        : ((float)$item->selected_qty > 0 
+                            ? (float)$item->selected_qty 
+                            : 1);
+                    $fixSub = $fixQty * (float)($item->price ?: 0);
+                    $item->setRawAttributes(array_merge($item->getAttributes(), [
+                        'quantity' => $fixQty,
+                        'subtotal' => $fixSub,
+                    ]));
+                    try {
+                        \App\Models\SalesOrderItem::where('id', $item->id)->update([
+                            'quantity' => $fixQty,
+                            'subtotal' => $fixSub,
+                        ]);
+                    } catch (\Exception $e) {}
+                }
+            }
 
             $bName = $order->customer_representative;
             if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
@@ -4430,6 +4452,112 @@ class LogisticController extends Controller
         } catch (\Exception $e) {
             \DB::rollBack();
             return redirect()->back()->with('error', 'Error deleting team stock transfer: ' . $e->getMessage());
+        }
+    }
+
+    public function updateTeamStockTransfer(Request $request, $id)
+    {
+        if (!auth()->check() || !auth()->user()->isSuperAdmin()) {
+            abort(403, 'Unauthorized. Only Super Admin can edit team stock transfers.');
+        }
+
+        $transfer = \App\Models\TeamStockTransfer::with('items')->findOrFail($id);
+
+        \DB::beginTransaction();
+        try {
+            if ($request->filled('transfer_number')) {
+                $transfer->transfer_number = trim($request->transfer_number);
+            }
+            if ($request->filled('team_name')) {
+                $transfer->team_name = trim($request->team_name);
+            }
+            if ($request->filled('transferred_by')) {
+                $transfer->transferred_by = $request->transferred_by;
+            }
+            if ($request->has('notes')) {
+                $transfer->notes = $request->notes;
+            }
+
+            $oldStatus = $transfer->status;
+            if ($request->filled('status')) {
+                $newStatus = $request->status;
+                $transfer->status = $newStatus;
+
+                if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+                    $this->creditTeamStockTransfer($transfer);
+                }
+            }
+
+            // Update existing items
+            if ($request->has('items') && is_array($request->items)) {
+                foreach ($request->items as $itemId => $itemData) {
+                    $tItem = \App\Models\TeamStockTransferItem::where('team_stock_transfer_id', $transfer->id)
+                        ->where('id', $itemId)
+                        ->first();
+
+                    if ($tItem) {
+                        if (isset($itemData['_delete']) && ($itemData['_delete'] == '1' || $itemData['_delete'] === 'true')) {
+                            $tItem->delete();
+                            continue;
+                        }
+
+                        if (isset($itemData['quantity'])) {
+                            $tItem->quantity = floatval($itemData['quantity']);
+                        }
+
+                        if (array_key_exists('picked_qty', $itemData)) {
+                            $picked = ($itemData['picked_qty'] !== '' && $itemData['picked_qty'] !== null) ? floatval($itemData['picked_qty']) : null;
+                            if ($picked !== null && $picked > $tItem->quantity) {
+                                $picked = $tItem->quantity;
+                            }
+                            $tItem->picked_qty = $picked;
+                        }
+
+                        if (array_key_exists('packed_qty', $itemData)) {
+                            $packed = ($itemData['packed_qty'] !== '' && $itemData['packed_qty'] !== null) ? floatval($itemData['packed_qty']) : null;
+                            if ($packed !== null && $packed > $tItem->quantity) {
+                                $packed = $tItem->quantity;
+                            }
+                            $tItem->packed_qty = $packed;
+                        }
+
+                        if (isset($itemData['status']) && !empty($itemData['status'])) {
+                            $tItem->status = $itemData['status'];
+                        }
+
+                        if (isset($itemData['notes'])) {
+                            $tItem->notes = $itemData['notes'];
+                        }
+
+                        $tItem->save();
+                    }
+                }
+            }
+
+            // Add new item if requested
+            if ($request->filled('new_item_book_index_id') && $request->filled('new_item_qty') && floatval($request->new_item_qty) > 0) {
+                $bIndex = \App\Models\BookIndex::find($request->new_item_book_index_id);
+                if ($bIndex) {
+                    $addedQty = floatval($request->new_item_qty);
+                    \App\Models\TeamStockTransferItem::create([
+                        'team_stock_transfer_id' => $transfer->id,
+                        'book_id' => $bIndex->book_id,
+                        'book_index_id' => $bIndex->id,
+                        'quantity' => $addedQty,
+                        'picked_qty' => $addedQty,
+                        'packed_qty' => $addedQty,
+                        'status' => 'Packed',
+                    ]);
+                }
+            }
+
+            $transfer->save();
+            \DB::commit();
+
+            return redirect()->back()->with('success', 'Team Stock Transfer #' . $transfer->transfer_number . ' updated successfully by Super Admin.');
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to update Team Stock Transfer: ' . $e->getMessage());
         }
     }
 

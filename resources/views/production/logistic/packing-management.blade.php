@@ -18,6 +18,11 @@ $txnTypeLabels = [
     'Prepaid'               => 'Prepaid',
 ];
 $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
+
+$cachedBookIndexOptions = '';
+foreach ($allBookIndexes ?? [] as $bIndex) {
+    $cachedBookIndexOptions .= '<option value="' . $bIndex->id . '">' . e($bIndex->display_name) . '</option>';
+}
 @endphp
     @push('styles')
     <link href="{{ asset('vendor/datatables/css/jquery.dataTables.min.css') }}" rel="stylesheet">
@@ -187,8 +192,15 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                      @php
                                          $pkgCurr = $order->currency ?? 'PHP';
                                          $pkgSym = ($pkgCurr === 'USD' ? '$' : '₱');
+                                         $pkgTotalAmt = ($order->total_amount !== null && (float)$order->total_amount > 0)
+                                             ? (float)$order->total_amount
+                                             : $order->items->sum(function($i) {
+                                                 $q = (float)($i->quantity && (float)$i->quantity > 0 ? $i->quantity : ($i->customer_selected_qty ?: ($i->selected_qty ?: 0)));
+                                                 $p = (float)($i->price ?: 0);
+                                                 return (float)($i->subtotal && (float)$i->subtotal > 0 ? $i->subtotal : $q * $p);
+                                             });
                                      @endphp
-                                     <td class="fw-bold">{{ $pkgSym }}{{ number_format($order->items->sum('subtotal'), 2) }}</td>
+                                     <td class="fw-bold">{{ $pkgSym }}{{ number_format($pkgTotalAmt, 2) }}</td>
                                      <td><span class="status-badge {{ $statusClass }}">{{ $statusText }}</span></td>
                                      <td>
                                          <div class="d-flex gap-2">
@@ -1425,16 +1437,19 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                                                 <i class="fas fa-check me-1"></i>Mark Packed
                                                             </button>
                                                         </form>
-                                                    @endif
-                                                    @if(auth()->check() && auth()->user()->isSuperAdmin())
-                                                        <form action="{{ route('production.logistic.team-stock-transfer.delete', $tt->id) }}" method="POST" class="d-inline m-0" onsubmit="return confirm('Are you sure you want to delete Team Stock Transfer {{ $tt->transfer_number }}?');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn btn-xs btn-danger fw-bold" style="background-color: #dc3545; border: none;" title="Delete Transfer">
-                                                                <i class="fas fa-trash me-1"></i>Delete
-                                                            </button>
-                                                        </form>
-                                                    @endif
+                                                        @if(auth()->check() && auth()->user()->isSuperAdmin())
+                                                         <button type="button" class="btn btn-xs btn-warning text-white fw-bold" style="background-color: #f59e0b; border: none;" data-bs-toggle="modal" data-bs-target="#editTeamStockModal{{ $tt->id }}" title="Edit Transfer">
+                                                             <i class="fas fa-edit me-1"></i>Edit
+                                                         </button>
+                                                         <form action="{{ route('production.logistic.team-stock-transfer.delete', $tt->id) }}" method="POST" class="d-inline m-0" onsubmit="return confirm('Are you sure you want to delete Team Stock Transfer {{ $tt->transfer_number }}?');">
+                                                             @csrf
+                                                             @method('DELETE')
+                                                             <button type="submit" class="btn btn-xs btn-danger fw-bold" style="background-color: #dc3545; border: none;" title="Delete Transfer">
+                                                                 <i class="fas fa-trash me-1"></i>Delete
+                                                             </button>
+                                                         </form>
+                                                     @endif
+                                                @endif
                                                 </div>
                                             </td>
                                         </tr>
@@ -1608,8 +1623,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                                     $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
                                     $tSym = (($tt->currency ?? ($order->currency ?? 'PHP')) === 'USD' ? '$' : '₱');
 
-                                    $displayQty = (float)($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0 ? $tItem->picked_qty : ($tItem->status !== 'Unpicked' ? $tItem->quantity : 0));
-                                    $effectiveQty = ($tItem->packed_qty !== null && (float)$tItem->packed_qty > 0) ? (float)$tItem->packed_qty : ($tItem->status === 'Packed' ? $displayQty : 0);
+                                    $displayQty = (float)($tItem->picked_qty !== null && (float)$tItem->picked_qty > 0 ? min((float)$tItem->picked_qty, (float)$tItem->quantity) : (float)$tItem->quantity);
+                                    $effectiveQty = ($tItem->packed_qty !== null && (float)$tItem->packed_qty > 0) ? min((float)$tItem->packed_qty, $displayQty) : ($tItem->status === 'Packed' ? $displayQty : 0);
                                     $itemSubtotal = $unitPrice * ($effectiveQty > 0 ? $effectiveQty : $displayQty);
                                     $isItemPacked = ($tItem->status === 'Packed' || ($tItem->packed_qty !== null && (float)$tItem->packed_qty > 0 && $displayQty > 0 && $tItem->packed_qty >= $displayQty));
                                 @endphp
@@ -1717,6 +1732,192 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
             </div>
         </div>
     </div>
+
+    @if(auth()->check() && auth()->user()->isSuperAdmin())
+    <div class="modal fade team-stock-modal" id="editTeamStockModal{{ $tt->id }}" tabindex="-1" aria-hidden="true" data-transfer-id="{{ $tt->id }}">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header px-4 py-3 bg-light border-bottom d-flex align-items-center justify-content-between">
+                    <h4 class="modal-title fw-bold text-dark mb-0">Edit Team Stock Transfer - {{ $tt->transfer_number }}</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" style="max-height: 80vh; overflow-y: auto;">
+                    <form action="{{ route('production.logistic.team-stock-transfer.update', $tt->id) }}" method="POST">
+                        @csrf
+
+                        <!-- Top Information Grid (2 Columns) -->
+                        <div class="row g-4 mb-4">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border">
+                                    <h6 class="fw-bold text-dark mb-3">Order Information (Super Admin Edit)</h6>
+                                    <div class="mb-2">
+                                        <label class="fw-semibold small text-muted d-block mb-1">Transfer Number:</label>
+                                        <input type="text" name="transfer_number" class="form-control form-control-sm fw-bold bg-white" value="{{ $tt->transfer_number }}" required>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="fw-semibold small text-muted d-block mb-1">Date Created:</label>
+                                        <input type="text" class="form-control form-control-sm bg-white" value="{{ $tt->created_at->format('M d, Y h:i A') }}" readonly>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="fw-semibold small text-muted d-block mb-1">Target Sales Team:</label>
+                                        <input type="text" name="team_name" list="teamOptionsList_{{ $tt->id }}" class="form-control form-control-sm bg-white fw-bold text-danger" value="{{ $tt->team_name }}" required>
+                                        <datalist id="teamOptionsList_{{ $tt->id }}">
+                                            <option value="Team A">
+                                            <option value="Team B">
+                                            <option value="Team C">
+                                            <option value="Book Sales">
+                                            <option value="MIBF">
+                                        </datalist>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="fw-semibold small text-muted d-block mb-1">Transferred / Requested By:</label>
+                                        <select name="transferred_by" class="form-select form-select-sm bg-white fw-semibold">
+                                            @foreach($allUsers ?? [] as $u)
+                                                <option value="{{ $u->id }}" {{ $tt->transferred_by == $u->id ? 'selected' : '' }}>
+                                                    {{ $u->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="fw-semibold small text-muted d-block mb-1">Remarks / Special Instructions:</label>
+                                        <textarea name="notes" class="form-control form-control-sm bg-white fw-semibold mb-1" rows="2" placeholder="Enter remarks or special instructions...">{{ $tt->notes }}</textarea>
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="fw-semibold small text-muted d-block mb-1">Packing Status:</label>
+                                        <select name="status" class="form-select form-select-sm fw-bold bg-white">
+                                            <option value="not_started" {{ $tt->status === 'not_started' ? 'selected' : '' }}>Not Started</option>
+                                            <option value="in_progress" {{ in_array($tt->status, ['packing', 'in_progress']) ? 'selected' : '' }}>In Progress</option>
+                                            <option value="completed" {{ $tt->status === 'completed' ? 'selected' : '' }}>Completed</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-3">Add Item to Transfer (Optional)</h6>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold text-dark mb-1">Select Product / Item:</label>
+                                            <select name="new_item_book_index_id" class="form-select form-select-sm bg-white">
+                                                <option value="">-- Choose item to add --</option>
+                                                {!! $cachedBookIndexOptions !!}
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold text-dark mb-1">Quantity to Add:</label>
+                                            <input type="number" step="any" min="1" name="new_item_qty" class="form-control form-control-sm bg-white" placeholder="e.g. 5">
+                                        </div>
+                                    </div>
+                                    <div class="p-2 bg-white rounded border small text-muted">
+                                        <i class="fas fa-info-circle me-1 text-primary"></i> As Super Admin, you can edit header details, requested & packed quantities, or delete/add items.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Items to Pack Section -->
+                        <h6 class="fw-bold text-dark mb-2">Items to Pack (Super Admin Edit)</h6>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-bordered align-middle mb-0" style="font-size: 13px;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40px;">#</th>
+                                        <th>PRODUCT</th>
+                                        <th style="width: 110px;" class="text-center">QTY TO PACK</th>
+                                        <th style="width: 110px;" class="text-center">PICKED QTY</th>
+                                        <th style="width: 110px;" class="text-center">PACKED QTY</th>
+                                        <th style="width: 130px;" class="text-center">STATUS</th>
+                                        <th>NOTES</th>
+                                        <th style="width: 70px;" class="text-center">REMOVE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($tt->items as $idx => $tItem)
+                                    @php
+                                        $itemName = $tItem->bookIndex ? $tItem->bookIndex->display_name : ($tItem->book ? $tItem->book->name : ($tItem->bookBundle ? $tItem->bookBundle->name : 'N/A'));
+                                        $tItemType = $tItem->item_type ?? ($tItem->bookIndex ? 'Index' : ($tItem->bookBundle ? 'Bundle' : 'Book'));
+                                    @endphp
+                                    <tr>
+                                        <td>{{ $idx + 1 }}</td>
+                                        <td class="fw-bold text-dark">
+                                            <div>
+                                                {{ $itemName }}
+                                                @if($tItemType === 'Bundle')
+                                                    <span class="badge ms-1" style="background:#6f42c1; color:#fff;">Bundle</span>
+                                                @elseif($tItemType === 'Index')
+                                                    <span class="badge bg-info text-dark ms-1">Index</span>
+                                                @else
+                                                    <span class="badge bg-primary ms-1">Book</span>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="number" step="any" min="0" name="items[{{ $tItem->id }}][quantity]" value="{{ $tItem->quantity }}" style="width: 70px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;" required>
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="number" step="any" min="0" name="items[{{ $tItem->id }}][picked_qty]" value="{{ $tItem->picked_qty }}" style="width: 70px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px;" placeholder="0">
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="number" step="any" min="0" name="items[{{ $tItem->id }}][packed_qty]" value="{{ $tItem->packed_qty }}" style="width: 70px; padding: 2px 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-weight: 600; color: #28a745;" placeholder="0">
+                                        </td>
+                                        <td class="text-center">
+                                            <select name="items[{{ $tItem->id }}][status]" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-weight: 600;">
+                                                <option value="Not Packed" {{ ($tItem->status ?? 'Not Packed') === 'Not Packed' ? 'selected' : '' }}>Not Packed</option>
+                                                <option value="In Progress" {{ ($tItem->status ?? '') === 'In Progress' ? 'selected' : '' }}>In Progress</option>
+                                                <option value="Packed" {{ ($tItem->status ?? '') === 'Packed' ? 'selected' : '' }}>Packed</option>
+                                                <option value="Unpicked" {{ ($tItem->status ?? '') === 'Unpicked' ? 'selected' : '' }}>Unpicked</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text" name="items[{{ $tItem->id }}][notes]" value="{{ $tItem->notes ?? '' }}" placeholder="Add notes..." style="width: 100%; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.82rem;">
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="checkbox" name="items[{{ $tItem->id }}][_delete]" value="1" title="Check to remove item" style="cursor: pointer; width: 18px; height: 18px;">
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Bottom Summary & Actions (2 Columns) -->
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border">
+                                    <h6 class="fw-bold text-dark mb-3">Packing Summary</h6>
+                                    <div class="mb-2">
+                                        <label class="fw-semibold small text-muted d-block mb-1">Total Items:</label>
+                                        <input type="text" class="form-control form-control-sm bg-white" value="{{ $tt->items->count() }}" readonly>
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="fw-semibold small text-muted d-block mb-1">Items Packed:</label>
+                                        <input type="text" class="form-control form-control-sm bg-white fw-bold text-success" value="{{ $tt->items->filter(fn($i) => $i->status === 'Packed' || $i->packed_qty >= $i->quantity)->count() }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                                    <h6 class="fw-bold text-dark mb-3">Actions</h6>
+                                    <div class="d-flex flex-column gap-2">
+                                        <button type="submit" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark" style="background-color: #ffc107; border: none;">
+                                            <i class="fas fa-save me-1"></i>Save Changes (Super Admin)
+                                        </button>
+                                        <button type="button" class="btn btn-secondary w-100 fw-bold py-2" data-bs-dismiss="modal">
+                                            <i class="fas fa-times me-1"></i>Close Details
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
     @endforeach
     <!-- Floating Sticky Bulk Action Bar for Ready for Pickup -->
     <div id="readyBulkFloatingBar" class="ready-bulk-floating-bar hidden">
@@ -2356,7 +2557,8 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                         order: [],
                         pageLength: 25,
                         responsive: true,
-                        autoWidth: false
+                        autoWidth: false,
+                        deferRender: true
                     });
                 } catch(e) {
                     console.warn('DataTable init warning for:', this.id, e);
@@ -2877,17 +3079,29 @@ $isAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                         }
 
                         const currSym = (order && order.currency === 'USD') ? '$' : '₱';
+                        let itemQty = parseFloat((item.quantity && parseFloat(item.quantity) > 0) 
+                            ? item.quantity 
+                            : ((item.customer_selected_qty && parseFloat(item.customer_selected_qty) > 0) 
+                                ? item.customer_selected_qty 
+                                : ((item.selected_qty && parseFloat(item.selected_qty) > 0) 
+                                    ? item.selected_qty 
+                                    : (item.qty || 0))));
+                        if (isNaN(itemQty) || itemQty <= 0) {
+                            itemQty = 1;
+                        }
                         const unitPrice = parseFloat(item.price || 0).toFixed(2);
-                        const subtotalPrice = parseFloat(item.subtotal || (item.quantity * (item.price || 0)) || 0).toFixed(2);
+                        const subtotalPrice = (item.subtotal && parseFloat(item.subtotal) > 0) 
+                            ? parseFloat(item.subtotal).toFixed(2) 
+                            : (itemQty * parseFloat(item.price || 0)).toFixed(2);
 
                         html += `
                             <tr id="packing_item_row_${index}">
                                 <td>${index + 1}</td>
                                 <td class="fw-bold">${prodName} ${typeBadgeHtml}</td>
-                                <td><input type="number" value="${item.quantity}" readonly style="width: 100%; border: none; background: transparent; font-weight: 600;"></td>
+                                <td><input type="number" value="${itemQty}" readonly style="width: 100%; border: none; background: transparent; font-weight: 600;"></td>
                                 <td>${currSym}${unitPrice}</td>
                                 <td>${currSym}${subtotalPrice}</td>
-                                <td><input type="number" id="packed_qty_${index}" min="0" max="${item.quantity}" value="${itemData.packed_qty || 0}" onchange="updatePackingCount()"></td>
+                                <td><input type="number" id="packed_qty_${index}" min="0" max="${itemQty}" value="${itemData.packed_qty || 0}" onchange="updatePackingCount()"></td>
                                 <td>
                                     <select id="packed_status_${index}" onchange="handlePackingStatusChange()">
                                         <option value="Not Packed" ${itemData.status === 'Not Packed' ? 'selected' : ''}>Not Packed</option>
