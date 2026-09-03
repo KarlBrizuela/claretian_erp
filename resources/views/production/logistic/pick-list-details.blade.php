@@ -56,6 +56,16 @@
                                 <label>Sales Order Number:</label>
                                 <input type="text" value="{{ $so?->so_number ?? 'N/A' }}" readonly>
                             </div>
+                            @php
+                                $isEcom = ($so?->type === 'ecom_direct' || !empty($so?->ecom_platform) || str_contains(strtolower($so?->so_number ?? ''), 'ecom') || !empty($so?->platform_order_id));
+                                $ecomId = $so?->platform_order_id ?: ($so?->ref_number ?: ($so?->po_number ?? null));
+                            @endphp
+                            @if($isEcom || !empty($ecomId))
+                            <div class="form-group">
+                                <label>Platform Order ID (E-Com):</label>
+                                <input type="text" value="{{ $ecomId ?: 'N/A' }}" readonly>
+                            </div>
+                            @endif
                             <div class="form-group">
                                 <label>Order Date:</label>
                                 <input type="text" value="{{ optional(optional($so)->created_at)->format('M d, Y') ?? 'N/A' }}" readonly>

@@ -208,6 +208,7 @@ Route::middleware(['auth'])->group(function () {
       // Team Stock Transfer Fulfillment Routes
       Route::post('/team-stock-transfer/{id}/save-pick-items', [App\Http\Controllers\Production\LogisticController::class, 'saveTeamStockPickItems'])->name('team-stock-transfer.save-pick-items');
       Route::post('/team-stock-transfer/{id}/save-pack-items', [App\Http\Controllers\Production\LogisticController::class, 'saveTeamStockPackItems'])->name('team-stock-transfer.save-pack-items');
+      Route::post('/team-stock-transfer/{id}/update', [App\Http\Controllers\Production\LogisticController::class, 'updateTeamStockTransfer'])->name('team-stock-transfer.update');
       Route::match(['get', 'post'], '/team-stock-transfer/{id}/complete-pick', [App\Http\Controllers\Production\LogisticController::class, 'completeTeamStockPickList'])->name('team-stock-transfer.complete-pick');
       Route::match(['get', 'post'], '/team-stock-transfer/{id}/complete-pack', [App\Http\Controllers\Production\LogisticController::class, 'completeTeamStockPacking'])->name('team-stock-transfer.complete-pack');
       Route::match(['get', 'post', 'delete'], '/team-stock-transfer/{id}/delete', [App\Http\Controllers\Production\LogisticController::class, 'deleteTeamStockTransfer'])->name('team-stock-transfer.delete');
@@ -593,6 +594,7 @@ Route::middleware(['auth'])->group(function () {
 
       // Delivery Receipts in Accounting
       Route::get('/delivery-receipt-list', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceiptList'])->name('admin-finance.accounting.delivery-receipt-list');
+      Route::match(['get', 'post'], '/delivery-receipt-bulk-print', [App\Http\Controllers\Production\LogisticController::class, 'bulkPrintDR'])->name('admin-finance.accounting.delivery-receipt.bulk-print');
       Route::get('/delivery-receipt/{id?}', [App\Http\Controllers\Production\LogisticController::class, 'deliveryReceipt'])->name('admin-finance.accounting.delivery-receipt');
       Route::post('/move-to-si/{id}', [App\Http\Controllers\Production\LogisticController::class, 'fastMoveToSI'])->name('admin-finance.accounting.delivery-receipt.move-to-si');
 

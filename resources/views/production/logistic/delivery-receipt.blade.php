@@ -19,6 +19,33 @@
                     <div class="text-center extra-small text-muted italic mb-2">"This document is not valid for claim of input taxes."</div>
                 </div>
 
+                @php
+                    $soNumStr = strtolower($order?->so_number ?? '');
+                    $drNumStr = strtolower($deliveryReceipt?->dr_number ?? '');
+                    $cNameStr = strtolower($order?->customer?->customer_name ?? '');
+                    $cRepStr = strtolower($order?->customer_representative ?? '');
+                    $isNBS = str_contains($soNumStr, 'nbs') || 
+                             str_contains($drNumStr, 'nbs') || 
+                             str_contains($cNameStr, 'national book store') || 
+                             str_contains($cNameStr, 'nbs') || 
+                             str_contains($cRepStr, 'national book store') || 
+                             str_contains($cRepStr, 'nbs');
+
+                    $poNumber = null;
+                    if ($isNBS) {
+                        $poNumber = $order?->ref_number ?? ($order?->po_number ?? null);
+                        if (empty($poNumber) && $order) {
+                            if (preg_match('/(?:DR-)?SO-NBS-([^-]+)/i', $order->so_number ?? '', $m)) {
+                                $poNumber = $m[1];
+                            }
+                        }
+                        if (empty($poNumber) && isset($deliveryReceipt) && $deliveryReceipt?->dr_number) {
+                            if (preg_match('/(?:DR-)?SO-NBS-([^-]+)/i', $deliveryReceipt->dr_number, $m)) {
+                                $poNumber = $m[1];
+                            }
+                        }
+                    }
+                @endphp
                 <!-- Receipt Details -->
                 <div class="form-info-row">
                     <div class="form-info-item">
@@ -33,6 +60,12 @@
                         <label>Sales Order:</label>
                         <input type="text" class="form-control" placeholder="Sales Order" value="{{ $order ? $order->so_number : '' }}" readonly>
                     </div>
+                    @if($isNBS && !empty($poNumber))
+                    <div class="form-info-item">
+                        <label>PO Number:</label>
+                        <input type="text" class="form-control" placeholder="PO Number" value="{{ $poNumber }}" readonly>
+                    </div>
+                    @endif
                     @if($order?->cancellation_date)
                     <div class="form-info-item cancellation-date-item">
                         <label class="cancellation-date-label">Cancel Date:</label>
@@ -41,6 +74,7 @@
                     @endif
                 </div>
 
+
                 @if($order)
                     @php
                         $bName = $order->customer_representative;
@@ -48,10 +82,29 @@
                             preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
                             $bName = trim($m[1] ?? '');
                         }
-                        $bCompany = $bName ? \App\Models\Company::where('company_name', $bName)
-                            ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
-                            ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
-                            ->first() : null;
+
+                        $bCompany = null;
+                        if ($bName) {
+                            $bCompany = \App\Models\Company::where('company_name', $bName)
+                                ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
+                                ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
+                                ->first();
+
+                            if (!$bCompany && preg_match('/(\d{3,})/', $bName, $codeM)) {
+                                $bCode = $codeM[1];
+                                $bCompany = \App\Models\Company::where('company_name', 'like', "%{$bCode}%")
+                                    ->orWhere('account_number', 'like', "%{$bCode}%")
+                                    ->first();
+                            }
+
+                            if (!$bCompany) {
+                                $cleanBName = trim(str_replace(['AB-', 'AB -', 'AB'], '', $bName));
+                                if (!empty($cleanBName)) {
+                                    $bCompany = \App\Models\Company::where('company_name', 'like', "%{$cleanBName}%")->first();
+                                }
+                            }
+                        }
+
                         $accountNo = $bCompany?->account_number ?: ($order->customer?->account_number ?? null);
                         $acctCompany = $accountNo ? \App\Models\Company::where('account_number', $accountNo)->first() : null;
 
@@ -60,6 +113,9 @@
                             ?: ($acctCompany?->parent?->company_name 
                             ?: ($acctCompany?->company_name 
                             ?: ($order->customer?->company_name && !in_array(strtolower($order->customer->company_name), ['intracode', 'individual']) ? $order->customer->company_name : ($order->customer?->customer_name ?? 'N/A')))));
+
+                        $displayCustomerName = $bCompany?->company_name 
+                            ?: ($order->customer_representative ?: ($order->customer?->customer_name ?? 'Unknown'));
                     @endphp
                     <!-- Delivered To Section -->
                     <div class="form-group">
@@ -68,7 +124,7 @@
                     </div>
                     <div class="form-group">
                         <label class="fw-bold">Customer Name:</label>
-                        <input type="text" class="form-control" value="{{ $order->customer_representative ?: ($order->customer->customer_name ?? 'Unknown') }}" readonly>
+                        <input type="text" class="form-control" value="{{ $displayCustomerName }}" readonly>
                     </div>
                     <div class="form-group">
                         <label class="fw-bold">Contact:</label>

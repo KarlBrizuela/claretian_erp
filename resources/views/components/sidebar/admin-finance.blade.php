@@ -72,7 +72,7 @@
 
 	<!-- Accounting Dropdown -->
 	@if($hasAccounting)
-	<div class="modern-nav-group {{ (request()->is('admin-finance/accounting*', 'admin-finance/cashier*', 'accounting/journal*') && !request()->is('admin-finance/accounting/expenses*', 'admin-finance/accounting/inventory-valuation*', 'admin-finance/accounting/journal*', 'accounting/journal*')) ? 'active' : '' }}">
+	<div class="modern-nav-group {{ (request()->is('admin-finance/accounting*', 'admin-finance/cashier*', 'accounting/journal*') && !request()->is('admin-finance/accounting/expenses*', 'admin-finance/accounting/inventory-valuation*', 'admin-finance/accounting/journal*', 'accounting/journal*', 'admin-finance/accounting/production-costing*')) ? 'active' : '' }}">
 		<a href="javascript:void(0)" class="modern-nav-item modern-nav-toggle" data-group="accounting">
 			<div class="modern-nav-icon">
 				<i class="las la-calculator"></i>

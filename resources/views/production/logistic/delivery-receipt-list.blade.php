@@ -129,15 +129,60 @@
                             <div class="col-md-4 col-sm-6">
                                 <select id="customerFilter" class="form-control">
                                     <option value="all">All Customers</option>
-                                    @php
-                                        $uniqueCustomers = $orders->map(function($order) {
-                                            return $order->customer;
-                                        })->filter()->unique('customer_id')->sortBy(function($c) {
-                                            return $c->customer_name ?? $c->company_name ?? '';
-                                        });
-                                    @endphp
-                                    @foreach($uniqueCustomers as $c)
-                                        <option value="{{ $c->customer_id }}">{{ $c->customer_name ?? $c->company_name ?? 'Unknown' }}</option>
+                                     @php
+                                         $getResolvedCustomer = function($order) {
+                                             $cName = $order->customer?->customer_name;
+                                             $cComp = $order->customer?->company_name;
+                                             $cRep = $order->customer_representative;
+                                             $bName = $cRep;
+                                             if (!$bName && $order->remarks && str_contains($order->remarks, 'Branch:')) {
+                                                 preg_match('/Branch:\s*([^|\n\r]+)/', $order->remarks, $m);
+                                                 $bName = trim($m[1] ?? '');
+                                             }
+
+                                             $bCompany = null;
+                                             if ($bName) {
+                                                 $bCompany = \App\Models\Company::where('company_name', $bName)
+                                                     ->orWhere('company_name', str_replace('AB-', 'AB - ', $bName))
+                                                     ->orWhere('company_name', str_replace('AB - ', 'AB-', $bName))
+                                                     ->first();
+
+                                                 if (!$bCompany && preg_match('/(\d{3,})/', $bName, $codeM)) {
+                                                     $bCode = $codeM[1];
+                                                     $bCompany = \App\Models\Company::where('company_name', 'like', "%{$bCode}%")
+                                                         ->orWhere('account_number', 'like', "%{$bCode}%")
+                                                         ->first();
+                                                 }
+
+                                                 if (!$bCompany) {
+                                                     $cleanBName = trim(str_replace(['AB-', 'AB -', 'AB'], '', $bName));
+                                                     if (!empty($cleanBName)) {
+                                                         $bCompany = \App\Models\Company::where('company_name', 'like', "%{$cleanBName}%")->first();
+                                                     }
+                                                 }
+                                             }
+
+                                             if ($bCompany) {
+                                                 return $bCompany->company_name;
+                                             }
+
+                                             if (strtolower($cComp ?? '') === 'national book store' || strtolower($cName ?? '') === 'national book store' || str_contains(strtolower($order->so_number ?? ''), 'nbs')) {
+                                                 return !empty($cRep) ? $cRep : (!empty($cComp) && strtolower($cComp) !== 'abacus' ? $cComp : (!empty($cName) && strtolower($cName) !== 'abacus' ? $cName : 'National Book Store'));
+                                             }
+
+                                             return !empty($cName) ? $cName : (!empty($cComp) ? $cComp : (!empty($cRep) ? $cRep : 'Unknown'));
+                                         };
+
+                                         $uniqueCustomers = $orders->merge($completedOrders ?? [])->map(function($order) use ($getResolvedCustomer) {
+                                             $disp = $getResolvedCustomer($order);
+                                             return [
+                                                 'id' => $order->customer_id ?? $order->id,
+                                                 'name' => $disp
+                                             ];
+                                         })->unique('name')->sortBy('name');
+                                     @endphp
+                                    @foreach($uniqueCustomers as $cItem)
+                                        <option value="{{ $cItem['id'] }}">{{ $cItem['name'] }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -158,7 +203,7 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>SO Number</th>
-                                        <th>Customer</th>
+                                        <th style="min-width: 180px;">Customer</th>
                                         <th>Total Amount</th>
                                         <th>Payment Terms</th>
                                         <th>Remaining Date</th>
@@ -170,48 +215,32 @@
                                 <tbody>
                                     @foreach($orders as $order)
                                     @php
-                                        // Handle terms stored as '90 days', '30 days', etc.
+                                        $rawTerms = $order->terms ?: ($order->customer?->payment_terms ?: ($order->customer?->terms ?? null));
+                                        if (empty($rawTerms) && (str_contains(strtolower($order->so_number ?? ''), 'nbs') || str_contains(strtolower($order->customer?->customer_name ?? ''), 'national book store') || str_contains(strtolower($order->customer?->customer_name ?? ''), 'nbs'))) {
+                                            $rawTerms = '90 days';
+                                        }
+
                                         $termsMap = [
                                             'cash' => 0, 
                                             'cod' => 0, 
-                                            '7_days' => 7, 
-                                            '7 days' => 7,
-                                            '7days' => 7,
-                                            '15_days' => 15, 
-                                            '15 days' => 15,
-                                            '15days' => 15,
-                                            '30_days' => 30, 
-                                            '30 days' => 30,
-                                            '30days' => 30,
-                                            '60_days' => 60, 
-                                            '60 days' => 60,
-                                            '60days' => 60,
-                                            '90_days' => 90, 
-                                            '90 days' => 90,
-                                            '90days' => 90,
-                                            '90' => 90,
-                                            '30' => 30,
-                                            '7' => 7,
-                                            '15' => 15,
-                                            '60' => 60
+                                            '7_days' => 7, '7 days' => 7, '7days' => 7, '7' => 7,
+                                            '15_days' => 15, '15 days' => 15, '15days' => 15, '15' => 15,
+                                            '30_days' => 30, '30 days' => 30, '30days' => 30, '30' => 30,
+                                            '60_days' => 60, '60 days' => 60, '60days' => 60, '60' => 60,
+                                            '90_days' => 90, '90 days' => 90, '90days' => 90, '90' => 90,
                                         ];
                                         
-                                        $termValue = strtolower(trim($order->terms ?? ''));
+                                        $termValue = strtolower(trim($rawTerms ?? ''));
                                         $daysFromTerms = $termsMap[$termValue] ?? 0;
+                                        if ($daysFromTerms === 0 && preg_match('/(\d+)/', $termValue, $matches)) {
+                                            $daysFromTerms = (int)$matches[1];
+                                        }
                                         
-                                        // Only show calculation if payment terms are set (not cash/cod)
                                         if ($daysFromTerms > 0) {
-                                            // Get the reference date
                                             $baseDateTime = $order->dr_prepared_at ?? $order->created_at;
                                             $baseDate = \Carbon\Carbon::parse($baseDateTime);
-                                            
-                                            // Add days to get due date
                                             $dueDate = $baseDate->copy()->addDays($daysFromTerms);
-                                            
-                                            // Get today at start of day
                                             $today = \Carbon\Carbon::today();
-                                            
-                                            // Calculate remaining days
                                             $interval = $today->diff($dueDate);
                                             $daysRemaining = (int)$interval->format('%r%a');
                                         } else {
@@ -219,29 +248,71 @@
                                             $dueDate = null;
                                         }
 
-                                        $termsDisplay = match($order->terms) {
+                                        $termsDisplay = match($termValue) {
                                             'cash' => 'Cash',
                                             'cod' => 'COD',
-                                            '7_days' => '7 Days',
-                                            '15_days' => '15 Days',
-                                            '30_days' => '30 Days',
-                                            '60_days' => '60 Days',
-                                            '90_days' => '90 Days',
-                                            default => $order->terms
+                                            '7_days', '7 days' => '7 Days',
+                                            '15_days', '15 days' => '15 Days',
+                                            '30_days', '30 days' => '30 Days',
+                                            '60_days', '60 days' => '60 Days',
+                                            '90_days', '90 days' => '90 Days',
+                                            '' => 'N/A',
+                                            default => ucwords(str_replace('_', ' ', $rawTerms))
                                         };
+
+                                        $effectiveTotal = (float)($order->total_amount ?? 0);
+                                        if ($effectiveTotal <= 0) {
+                                            $itemsToUse = ($order->items && count($order->items) > 0) ? $order->items : \App\Models\SalesOrderItem::where('sales_order_id', $order->id)->get();
+                                            if (count($itemsToUse) > 0) {
+                                                $grossSubtotal = 0;
+                                                $totalItemDiscounts = 0;
+                                                foreach ($itemsToUse as $item) {
+                                                    $qty = (float)(!empty($item->customer_selected_qty) ? $item->customer_selected_qty : ($item->quantity ?? 0));
+                                                    $unitPrice = (float)($item->price ?? ($item->unit_price ?? 0));
+                                                    $itemSubtotal = $qty * $unitPrice;
+                                                    $grossSubtotal += $itemSubtotal;
+
+                                                    $itemDiscountAmt = 0;
+                                                    if (($item->discount_amount ?? 0) > 0) {
+                                                        $itemDiscountAmt = (float)$item->discount_amount;
+                                                    } elseif (($item->discount_value ?? 0) > 0) {
+                                                        if (($item->discount_type ?? 'percentage') === 'percentage') {
+                                                            $itemDiscountAmt = $itemSubtotal * ((float)$item->discount_value / 100);
+                                                        } else {
+                                                            $itemDiscountAmt = (float)$item->discount_value;
+                                                        }
+                                                    }
+                                                    $totalItemDiscounts += $itemDiscountAmt;
+                                                }
+                                                $orderDiscountAmt = (float)($order->discount_amount ?? 0);
+                                                if ($orderDiscountAmt == 0 && ($order->discount_percentage ?? 0) > 0) {
+                                                    $orderDiscountAmt = max(0, $grossSubtotal - $totalItemDiscounts) * ((float)$order->discount_percentage / 100);
+                                                }
+                                                $allDiscountsCombined = $totalItemDiscounts + $orderDiscountAmt;
+                                                $freightChargesAmt = (float)($order->freight_charges ?? 0);
+                                                $effectiveTotal = max(0, $grossSubtotal - $allDiscountsCombined + $freightChargesAmt);
+                                            }
+                                        }
                                     @endphp
-                                    <tr data-so-number="{{ $order->so_number }}" data-customer="{{ $order->customer->customer_name ?? '' }}" data-customer-id="{{ $order->customer_id ?? '' }}" data-status="{{ $order->status }}" data-days-remaining="{{ $daysRemaining !== null ? $daysRemaining : '' }}">
-                                        <td>
-                                            <strong>{{ $order->so_number }}</strong>
-                                            @if($order->cancellation_date)
-                                                <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
-                                            @endif
-                                        </td>
-                                        <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
+                                     @php
+                                          $displayCustomer = $getResolvedCustomer($order);
+                                     @endphp
+                                     <tr data-so-number="{{ $order->so_number }}" data-customer="{{ strtolower($displayCustomer) }}" data-customer-id="{{ $order->customer_id ?? '' }}" data-status="{{ $order->status }}" data-days-remaining="{{ $daysRemaining !== null ? $daysRemaining : '' }}">
+                                         <td>
+                                             <strong>{{ $order->so_number }}</strong>
+                                             @if($order->cancellation_date)
+                                                 <br><span class="badge bg-danger text-white mt-1" style="font-size: 0.72rem;"><i class="fas fa-calendar-times me-1"></i>Cancel: {{ \Carbon\Carbon::parse($order->cancellation_date)->format('M d, Y') }}</span>
+                                             @endif
+                                         </td>
+                                         <td>
+                                             <div style="min-width: 180px; max-width: 280px; word-break: break-word; white-space: normal;">
+                                                 <span class="fw-bold text-dark">{{ $displayCustomer }}</span>
+                                             </div>
+                                         </td>
                                         @php
                                             $drListSym = (($order->currency ?? 'PHP') === 'USD' ? '$' : '₱');
                                         @endphp
-                                        <td>{{ $drListSym }}{{ number_format($order->total_amount, 2) }}</td>
+                                        <td>{{ $drListSym }}{{ number_format($effectiveTotal, 2) }}</td>
                                         <td>
                                             <span class="badge bg-info">{{ $termsDisplay }}</span>
                                         </td>
@@ -417,7 +488,7 @@
                                         </th>
                                         <th>SO Number</th>
                                         <th>DR Date</th>
-                                        <th>Customer</th>
+                                        <th style="min-width: 180px;">Customer</th>
                                         <th>Total Amount</th>
                                         <th>Payment Terms</th>
                                         <th>Remaining Date</th>
@@ -429,34 +500,24 @@
                                 <tbody>
                                     @foreach($completedOrders ?? [] as $order)
                                     @php
+                                        $rawTerms = $order->terms ?: ($order->customer?->payment_terms ?: ($order->customer?->terms ?? null));
+                                        if (empty($rawTerms) && (str_contains(strtolower($order->so_number ?? ''), 'nbs') || str_contains(strtolower($order->customer?->customer_name ?? ''), 'national book store') || str_contains(strtolower($order->customer?->customer_name ?? ''), 'nbs'))) {
+                                            $rawTerms = '90 days';
+                                        }
+
                                         $termsMap = [
                                             'cash' => 0, 
                                             'cod' => 0, 
-                                            '7_days' => 7, 
-                                            '7 days' => 7,
-                                            '7days' => 7,
-                                            '15_days' => 15,
-                                            '15 days' => 15,
-                                            '15days' => 15,
-                                            '30_days' => 30, 
-                                            '30 days' => 30,
-                                            '30days' => 30,
-                                            '60_days' => 60, 
-                                            '60 days' => 60,
-                                            '60days' => 60,
-                                            '90_days' => 90, 
-                                            '90 days' => 90,
-                                            '90days' => 90,
-                                            '90' => 90,
-                                            '30' => 30,
-                                            '7' => 7,
-                                            '15' => 15,
-                                            '60' => 60
+                                            '7_days' => 7, '7 days' => 7, '7days' => 7, '7' => 7,
+                                            '15_days' => 15, '15 days' => 15, '15days' => 15, '15' => 15,
+                                            '30_days' => 30, '30 days' => 30, '30days' => 30, '30' => 30,
+                                            '60_days' => 60, '60 days' => 60, '60days' => 60, '60' => 60,
+                                            '90_days' => 90, '90 days' => 90, '90days' => 90, '90' => 90,
                                         ];
                                         
-                                        $termValue = strtolower(trim($order->terms ?? ''));
+                                        $termValue = strtolower(trim($rawTerms ?? ''));
                                         $daysFromTerms = $termsMap[$termValue] ?? 0;
-                                        if ($daysFromTerms === 0 && preg_match('/(\d+)\s*day/i', $termValue, $matches)) {
+                                        if ($daysFromTerms === 0 && preg_match('/(\d+)/', $termValue, $matches)) {
                                             $daysFromTerms = (int)$matches[1];
                                         }
                                         
@@ -472,23 +533,61 @@
                                             $dueDate = null;
                                         }
 
-                                        $termsDisplay = match($order->terms) {
+                                        $termsDisplay = match($termValue) {
                                             'cash' => 'Cash',
                                             'cod' => 'COD',
-                                            '7_days' => '7 Days',
-                                            '15_days' => '15 Days',
-                                            '30_days' => '30 Days',
-                                            '60_days' => '60 Days',
-                                            '90_days' => '90 Days',
-                                            default => $order->terms ?? 'Standard'
+                                            '7_days', '7 days' => '7 Days',
+                                            '15_days', '15 days' => '15 Days',
+                                            '30_days', '30 days' => '30 Days',
+                                            '60_days', '60 days' => '60 Days',
+                                            '90_days', '90 days' => '90 Days',
+                                            '' => 'N/A',
+                                            default => ucwords(str_replace('_', ' ', $rawTerms))
                                         };
+
                                         $drDateObj = $order->dr_prepared_at ? \Carbon\Carbon::parse($order->dr_prepared_at) : ($order->updated_at ? \Carbon\Carbon::parse($order->updated_at) : null);
                                         $drDateFormatted = $drDateObj ? $drDateObj->format('M d, Y') : '-';
                                         $drDateIso = $drDateObj ? $drDateObj->format('Y-m-d') : '';
                                         $prepByName = $order->drPreparedBy->name ?? ($order->preparedBy->name ?? 'System');
+
+                                        $effectiveTotal = (float)($order->total_amount ?? 0);
+                                        if ($effectiveTotal <= 0) {
+                                            $itemsToUse = ($order->items && count($order->items) > 0) ? $order->items : \App\Models\SalesOrderItem::where('sales_order_id', $order->id)->get();
+                                            if (count($itemsToUse) > 0) {
+                                                $grossSubtotal = 0;
+                                                $totalItemDiscounts = 0;
+                                                foreach ($itemsToUse as $item) {
+                                                    $qty = (float)(!empty($item->customer_selected_qty) ? $item->customer_selected_qty : ($item->quantity ?? 0));
+                                                    $unitPrice = (float)($item->price ?? ($item->unit_price ?? 0));
+                                                    $itemSubtotal = $qty * $unitPrice;
+                                                    $grossSubtotal += $itemSubtotal;
+
+                                                    $itemDiscountAmt = 0;
+                                                    if (($item->discount_amount ?? 0) > 0) {
+                                                        $itemDiscountAmt = (float)$item->discount_amount;
+                                                    } elseif (($item->discount_value ?? 0) > 0) {
+                                                        if (($item->discount_type ?? 'percentage') === 'percentage') {
+                                                            $itemDiscountAmt = $itemSubtotal * ((float)$item->discount_value / 100);
+                                                        } else {
+                                                            $itemDiscountAmt = (float)$item->discount_value;
+                                                        }
+                                                    }
+                                                    $totalItemDiscounts += $itemDiscountAmt;
+                                                }
+                                                $orderDiscountAmt = (float)($order->discount_amount ?? 0);
+                                                if ($orderDiscountAmt == 0 && ($order->discount_percentage ?? 0) > 0) {
+                                                    $orderDiscountAmt = max(0, $grossSubtotal - $totalItemDiscounts) * ((float)$order->discount_percentage / 100);
+                                                }
+                                                $allDiscountsCombined = $totalItemDiscounts + $orderDiscountAmt;
+                                                $freightChargesAmt = (float)($order->freight_charges ?? 0);
+                                                $effectiveTotal = max(0, $grossSubtotal - $allDiscountsCombined + $freightChargesAmt);
+                                            }
+                                        }
+
+                                        $displayCustomer = $getResolvedCustomer($order);
                                     @endphp
                                     <tr data-so-number="{{ $order->so_number }}" 
-                                        data-customer="{{ $order->customer->customer_name ?? '' }}" 
+                                        data-customer="{{ strtolower($displayCustomer) }}" 
                                         data-status="{{ $order->status }}" 
                                         data-prepared-by="{{ strtolower($prepByName) }}" 
                                         data-dr-date="{{ $drDateIso }}">
@@ -502,11 +601,15 @@
                                             @endif
                                         </td>
                                         <td data-order="{{ $drDateObj ? $drDateObj->timestamp : ($order->id ?? 0) }}"><span class="badge bg-light text-dark border text-nowrap"><i class="las la-calendar me-1"></i>{{ $drDateFormatted }}</span></td>
-                                        <td>{{ $order->customer->customer_name ?? 'Unknown' }}</td>
+                                        <td>
+                                            <div style="min-width: 180px; max-width: 280px; word-break: break-word; white-space: normal;">
+                                                <span class="fw-bold text-dark">{{ $displayCustomer }}</span>
+                                            </div>
+                                        </td>
                                         @php
                                             $drListSym = (($order->currency ?? 'PHP') === 'USD' ? '$' : '₱');
                                         @endphp
-                                        <td>{{ $drListSym }}{{ number_format($order->total_amount, 2) }}</td>
+                                        <td>{{ $drListSym }}{{ number_format($effectiveTotal, 2) }}</td>
                                         <td><span class="badge bg-info">{{ $termsDisplay }}</span></td>
                                         <td>
                                             @if($daysRemaining !== null)

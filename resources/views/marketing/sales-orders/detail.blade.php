@@ -278,6 +278,21 @@
                             }
                         @endphp
                         @if($displayTitle)
+                        @php
+                            $itemQty = (float)($item->quantity ?? 0);
+                            $itemPrice = (float)($item->unit_price ?? $item->price ?? 0);
+                            $itemGross = $itemQty * $itemPrice;
+                            $itemDiscVal = (float)($item->discount_value ?? 0);
+                            $itemDiscType = $item->discount_type ?? 'percentage';
+                            $itemDiscAmt = (float)($item->discount_amount ?? 0);
+                            if ($itemDiscAmt <= 0 && $itemDiscVal > 0) {
+                                $itemDiscAmt = $itemDiscType === 'percentage' ? $itemGross * ($itemDiscVal / 100) : $itemDiscVal;
+                            }
+                            $itemDiscAmt = min($itemGross, max(0, $itemDiscAmt));
+                            $itemNetSubtotal = ($item->subtotal !== null && (float)$item->subtotal > 0 && (float)$item->subtotal < $itemGross)
+                                ? (float)$item->subtotal
+                                : max(0, $itemGross - $itemDiscAmt);
+                        @endphp
                         <tr>
                             <td class="text-center">{{ (float)$item->quantity }}</td>
                             <td class="text-center text-uppercase">{{ $item->unit ?? $item->book?->unit ?? 'pcs' }}</td>
@@ -317,7 +332,7 @@
                                     -
                                 @endif
                             </td>
-                            <td class="text-end fw-bold">₱{{ number_format($item->amount ?? $item->subtotal, 2) }}</td>
+                            <td class="text-end fw-bold">₱{{ number_format($itemNetSubtotal, 2) }}</td>
                         </tr>
                         @endif
                         @endforeach
@@ -329,7 +344,19 @@
                         @php
                             $serviceFee = $order->freight_option === 'freight_collect' ? 50 : 0;
                             $itemsSubtotal = $itemsToRender->sum(function($item) {
-                                return $item->amount ?? ($item->subtotal !== null ? $item->subtotal : ($item->quantity * $item->price));
+                                $itemQty = (float)($item->quantity ?? 0);
+                                $itemPrice = (float)($item->unit_price ?? $item->price ?? 0);
+                                $itemGross = $itemQty * $itemPrice;
+                                $itemDiscVal = (float)($item->discount_value ?? 0);
+                                $itemDiscType = $item->discount_type ?? 'percentage';
+                                $itemDiscAmt = (float)($item->discount_amount ?? 0);
+                                if ($itemDiscAmt <= 0 && $itemDiscVal > 0) {
+                                    $itemDiscAmt = $itemDiscType === 'percentage' ? $itemGross * ($itemDiscVal / 100) : $itemDiscVal;
+                                }
+                                $itemDiscAmt = min($itemGross, max(0, $itemDiscAmt));
+                                return ($item->subtotal !== null && (float)$item->subtotal > 0 && (float)$item->subtotal < $itemGross)
+                                    ? (float)$item->subtotal
+                                    : max(0, $itemGross - $itemDiscAmt);
                             });
                             $discountAmount = (float) ($order->discount_amount ?? 0);
                             $freightCharges = $order->freight_charges ?? 0;
